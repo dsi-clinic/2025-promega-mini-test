@@ -1,4 +1,3 @@
-# Add this import at the top of train.py
 from env_config_handler import process_env_vars_in_config
 
 import argparse
@@ -40,6 +39,15 @@ MODELS.register_module(module=FocalLoss)
 MODELS.register_module(module=EncoderDecoder)
 MODELS.register_module(module=MixVisionTransformer)
 MODELS.register_module(module=SegformerHead)
+# MODELS.register_module(module=PackSegInputs)
+
+# Add this import at the top of train.py
+from mmseg.evaluation import IoUMetric
+from mmengine.registry import METRICS
+
+# Register IoUMetric with the metrics registry
+if 'IoUMetric' not in METRICS:
+    METRICS.register_module(module=IoUMetric)
 
 
 def parse_args():
@@ -131,13 +139,14 @@ def main():
     else:
         # build customized runner from the registry
         # if 'runner_type' is set in the cfg
-        runner = RUNNERS.build(cfg)        
+        runner = RUNNERS.build(cfg)
+    # After loading and processing config
     # start training
     from mmengine.registry import DATASETS as MMENGINE_DATASETS
     from mmseg.registry import DATASETS as MMSEG_DATASETS
 
-    print("MMEngine DATASETS:", list(MMENGINE_DATASETS.module_dict.keys()))
-    print("MMSeg DATASETS:", list(MMSEG_DATASETS.module_dict.keys()))    
+    sample = runner.train_dataloader.dataset[0]
+    print(sample)
     runner.train()
 
 

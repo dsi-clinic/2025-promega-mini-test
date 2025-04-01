@@ -7,6 +7,8 @@ CURRENT_ENV=$CONDA_DEFAULT_ENV
 if [ "$CURRENT_ENV" != "mmseg_env" ]; then
     echo "Error: Current conda environment is '$CURRENT_ENV', not 'mmseg_env'"
     echo "Please activate the correct environment with: conda activate mmseg_env"
+    echo "To create the env type: conda env create -f mmseg_environment.yml"
+    echo "to activate the env type: source activate mmseg_env"
     exit 1
 fi
 
@@ -17,6 +19,7 @@ HOST=$(hostname)
 if [[ "$HOST" == fe* ]]; then
     echo "Error: Do not run on login box"
     echo "Current host: $HOST"
+    echo "To request a session type: srun -p general --gres=gpu:1 -t 120:00 --mem 64G --pty /bin/bash"
     exit 1
 fi
 

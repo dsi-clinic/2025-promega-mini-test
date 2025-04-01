@@ -13,6 +13,9 @@ from PIL import Image
 import torch
 from mmengine.dataset import BaseDataset
 from mmseg.registry import DATASETS
+from mmseg.structures import SegDataSample
+import torch
+
 
 # Get the absolute path to the script's directory
 script_dir = Path(__file__).resolve().parent
@@ -106,7 +109,7 @@ class Dy30Dataset(BaseDataset):
                 # You'll need to adapt this part to match how your masks are named/located
                 img_dir = os.path.dirname(img_path)
                 base_name = os.path.basename(img_path).split('.')[0]
-                mask_path = os.path.join(img_dir, f"{base_name}_mask.npy")
+                mask_path = os.path.join(MASKS_FOLDER, f"{base_name}_cellpose_mask.png")
                 
                 # Alternative mask path if your masks are in a central location
                 # mask_path = os.path.join('/path/to/masks', f"{img_id}_mask.npy")
@@ -136,45 +139,40 @@ class Dy30Dataset(BaseDataset):
         return data_list
         
     def parse_data_info(self, data_info):
-        """Parse data_info annotation.
-        
-        Args:
-            data_info (dict): Data info containing annotation.
-            
-        Returns:
-            dict: Parsed annotation.
-        """
         img_path = data_info['img_path']
         seg_map_path = data_info['seg_map_path']
-        
-        # Load image data
+
+        # --- SAME image loading logic ---
         if img_path.endswith('.npy'):
             img = np.load(img_path)
-            if len(img.shape) == 2:  # Handle grayscale
+            if len(img.shape) == 2:
                 img = np.expand_dims(img, axis=2)
-            elif len(img.shape) == 3 and img.shape[2] > 3:  # Handle too many channels
+            elif len(img.shape) == 3 and img.shape[2] > 3:
                 img = img[:, :, :3]
         else:
             img = np.array(Image.open(img_path).convert('RGB'))
-            
-        # Load segmentation mask
+
+        # --- SAME mask loading logic ---
         if seg_map_path.endswith('.npy'):
             gt_sem_seg = np.load(seg_map_path)
-            if gt_sem_seg.max() > 1:  # Convert to binary if needed
+            if gt_sem_seg.max() > 1:
                 gt_sem_seg = (gt_sem_seg > 0).astype(np.uint8)
         else:
             gt_sem_seg = np.array(Image.open(seg_map_path).convert('L'))
-            
-        result = dict(
-            img=img,
+
+        # --- Pack into MMSeg expected structure ---
+        data_sample = SegDataSample()
+        data_sample.set_metainfo(dict(
             img_path=img_path,
             seg_map_path=seg_map_path,
             img_id=data_info['img_id'],
-            gt_sem_seg=gt_sem_seg,
-            # Keep the original metadata
             dayID=data_info.get('dayID'),
             BA=data_info.get('BA'),
             wellID=data_info.get('wellID')
-        )
-        
-        return result
+        ))
+        data_sample.gt_sem_seg = torch.tensor(gt_sem_seg[None, ...], dtype=torch.long)  # (1, H, W)
+
+        return {
+            'inputs': torch.tensor(img.transpose(2, 0, 1), dtype=torch.float32),  # (C, H, W)
+            'data_samples': data_sample
+        }

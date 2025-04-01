@@ -22,7 +22,7 @@ model = dict(
     pretrained=None,
     backbone=dict(
         type='MixVisionTransformer',
-        in_channels=1,
+        in_channels=3,
         embed_dims=32,
         num_stages=4,
         num_layers=[2, 2, 2, 2],
@@ -62,22 +62,22 @@ img_norm_cfg = dict(
     to_rgb=False)
 
 train_pipeline = [
-    dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations'),
+    # dict(type='LoadImageFromFile'),
+    # dict(type='LoadAnnotations', reduce_zero_label=True),
     # dict(type='Resize', scale=(256, 192), keep_ratio=True),
     # dict(type='RandomFlip', prob=0.5),
     # dict(type='Normalize', **img_norm_cfg),
     # dict(type='Pad', size_divisor=32, pad_val=0),
-    # dict(type='PackSegInputs')  # Replace DefaultFormatBundle and Collect
+    # dict(type='mmseg.PackSegInputs')  # Replace DefaultFormatBundle and Collect
 ]
 
 val_pipeline = [
-    dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations'),
+    # dict(type='LoadImageFromFile'),
+    # dict(type='LoadAnnotations', reduce_zero_label=True),
     # dict(type='Resize', scale=(256, 192), keep_ratio=True),
     # dict(type='Normalize', **img_norm_cfg),
     # dict(type='Pad', size_divisor=32, pad_val=0),
-    # dict(type='PackSegInputs')  # Replace DefaultFormatBundle and Collect
+    # dict(type='mmseg.PackSegInputs')  # Replace DefaultFormatBundle and Collect
 ]
 
 
@@ -90,7 +90,8 @@ train_dataloader = dict(
         type='Dy30Dataset',
         json_mapping_path='${JSON_MAPPING_PATH}',  # From .env
         day_filter="Dy30",  # Filter to only Dy30 images
-        pipeline=train_pipeline))
+        pipeline=train_pipeline,
+        lazy_init=False))
 
 val_dataloader = dict(
     batch_size=1,
@@ -99,7 +100,8 @@ val_dataloader = dict(
         type='Dy30Dataset',
         json_mapping_path='${JSON_MAPPING_PATH}',  # From .env
         day_filter="Dy30",  # Filter to only Dy30 images
-        pipeline=val_pipeline))
+        pipeline=val_pipeline,
+        lazy_init=False))
 
 test_dataloader = val_dataloader
 
