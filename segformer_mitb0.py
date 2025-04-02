@@ -1,7 +1,7 @@
 custom_imports = dict(
     imports=[
-        'mmseg.models.losses',  # Keep your existing imports
-        'mmseg.datasets.transforms'  # Add this line to import transforms
+        'mmseg.models.losses',
+        'mmseg.datasets.transforms'
     ],
     # allow_failed_imports=False
 )
@@ -49,9 +49,6 @@ model = dict(
             dict(type='FocalLoss', loss_weight=1.0, use_sigmoid=True, loss_name='loss_focal')
         ],
     ),
-
-
-
     train_cfg=dict(),
     test_cfg=dict(mode='whole'))
 
@@ -62,27 +59,26 @@ img_norm_cfg = dict(
     to_rgb=False)
 
 train_pipeline = [
-    # dict(type='LoadImageFromFile'),
-    # dict(type='LoadAnnotations', reduce_zero_label=True),
-    # dict(type='Resize', scale=(256, 192), keep_ratio=True),
-    # dict(type='RandomFlip', prob=0.5),
-    # dict(type='Normalize', **img_norm_cfg),
-    # dict(type='Pad', size_divisor=32, pad_val=0),
-    # dict(type='mmseg.PackSegInputs')  # Replace DefaultFormatBundle and Collect
+    dict(type='LoadImageFromFile'),
+    dict(type='LoadAnnotations', with_bbox=False, with_label=False, with_seg=True),
+    dict(type='Resize', scale=(256, 192), keep_ratio=True),
+    dict(type='RandomFlip', prob=0.5),
+    dict(type='Normalize', **img_norm_cfg),
+    dict(type='Pad', size_divisor=32, pad_val=0),
+    dict(type='PackSegInputs')  # This is crucial for creating the 'inputs' key
 ]
 
+# Fixed val_pipeline with necessary transformations
 val_pipeline = [
-    # dict(type='LoadImageFromFile'),
-    # dict(type='LoadAnnotations', reduce_zero_label=True),
-    # dict(type='Resize', scale=(256, 192), keep_ratio=True),
-    # dict(type='Normalize', **img_norm_cfg),
-    # dict(type='Pad', size_divisor=32, pad_val=0),
-    # dict(type='mmseg.PackSegInputs')  # Replace DefaultFormatBundle and Collect
+    dict(type='LoadImageFromFile'),
+    dict(type='LoadAnnotations', with_bbox=False, with_label=False, with_seg=True),
+    dict(type='Resize', scale=(256, 192), keep_ratio=True),
+    dict(type='Normalize', **img_norm_cfg),
+    dict(type='Pad', size_divisor=32, pad_val=0),
+    dict(type='PackSegInputs')  # This is crucial for creating the 'inputs' key
 ]
-
 
 # Updated dataloaders with data_root
-# Updated dataloaders for custom dataset
 train_dataloader = dict(
     batch_size=2,
     num_workers=2,
@@ -134,7 +130,5 @@ default_hooks = dict(
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='SegVisualizationHook'))
 
-
 val_evaluator = dict(type='IoUMetric', iou_metrics=['mIoU'])
 test_evaluator = val_evaluator
-

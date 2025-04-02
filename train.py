@@ -4,6 +4,8 @@ import argparse
 import logging
 import os
 import os.path as osp
+import numpy as np
+from PIL import Image
 
 from mmengine.config import Config, DictAction
 from mmengine.logging import print_log
@@ -90,6 +92,14 @@ def parse_args():
     return args
 
 
+from mmseg.datasets import PackSegInputs
+from mmengine.registry import TRANSFORMS
+
+# Register PackSegInputs if not already registered
+if 'PackSegInputs' not in TRANSFORMS:
+    TRANSFORMS.register_module(module=PackSegInputs)
+
+    
 # Then in the main() function, add this after loading the config:
 def main():
     args = parse_args()
@@ -145,8 +155,15 @@ def main():
     from mmengine.registry import DATASETS as MMENGINE_DATASETS
     from mmseg.registry import DATASETS as MMSEG_DATASETS
 
+    # Debug sample
     sample = runner.train_dataloader.dataset[0]
-    print(sample)
+    print("Sample keys:", sample.keys())
+    print("Input shape:", sample['inputs'].shape if 'inputs' in sample else "No inputs")
+    print("Mask path:", sample['data_samples'].metainfo['seg_map_path'])
+
+    mask = np.array(Image.open(sample['data_samples'].metainfo['seg_map_path']))
+    print("Mask unique values:", np.unique(mask))  # Should be [0, 1]
+    print("Mask shape:", mask.shape)  # Should be (H,W)
     runner.train()
 
 

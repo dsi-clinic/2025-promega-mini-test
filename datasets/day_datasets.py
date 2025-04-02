@@ -138,41 +138,14 @@ class Dy30Dataset(BaseDataset):
             
         return data_list
         
-    def parse_data_info(self, data_info):
-        img_path = data_info['img_path']
-        seg_map_path = data_info['seg_map_path']
-
-        # --- SAME image loading logic ---
-        if img_path.endswith('.npy'):
-            img = np.load(img_path)
-            if len(img.shape) == 2:
-                img = np.expand_dims(img, axis=2)
-            elif len(img.shape) == 3 and img.shape[2] > 3:
-                img = img[:, :, :3]
-        else:
-            img = np.array(Image.open(img_path).convert('RGB'))
-
-        # --- SAME mask loading logic ---
-        if seg_map_path.endswith('.npy'):
-            gt_sem_seg = np.load(seg_map_path)
-            if gt_sem_seg.max() > 1:
-                gt_sem_seg = (gt_sem_seg > 0).astype(np.uint8)
-        else:
-            gt_sem_seg = np.array(Image.open(seg_map_path).convert('L'))
-
-        # --- Pack into MMSeg expected structure ---
-        data_sample = SegDataSample()
-        data_sample.set_metainfo(dict(
-            img_path=img_path,
-            seg_map_path=seg_map_path,
-            img_id=data_info['img_id'],
-            dayID=data_info.get('dayID'),
-            BA=data_info.get('BA'),
-            wellID=data_info.get('wellID')
-        ))
-        data_sample.gt_sem_seg = torch.tensor(gt_sem_seg[None, ...], dtype=torch.long)  # (1, H, W)
-
-        return {
-            'inputs': torch.tensor(img.transpose(2, 0, 1), dtype=torch.float32),  # (C, H, W)
-            'data_samples': data_sample
-        }
+    # def parse_data_info(self, data_info):
+    #     return {
+    #         'img_path': data_info['img_path'],
+    #         'gt_seg_map': data_info['seg_map_path'], 
+    #         'seg_fields': ['gt_seg_map'], 
+    #         # Keep your metadata:
+    #         'img_id': data_info['img_id'],
+    #         'dayID': data_info.get('dayID'),
+    #         'BA': data_info.get('BA'), 
+    #         'wellID': data_info.get('wellID')
+    #     }
