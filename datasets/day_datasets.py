@@ -38,6 +38,10 @@ PREPROCESSED_FOLDER = Path(os.environ["PREPROCESSED_FOLDER"])
 
 @DATASETS.register_module()
 class Dy30Dataset(BaseDataset):
+    METAINFO = {
+        'classes': ['background', 'cell'],
+        'palette': [[0, 0, 0], [255, 255, 255]]
+    }
     """Custom dataset for segmentation using JSON mapping file.
     
     This dataset doesn't rely on a specific directory structure but instead
@@ -76,7 +80,7 @@ class Dy30Dataset(BaseDataset):
             test_mode=test_mode,
             lazy_init=lazy_init,
             **kwargs)
-            
+        
     def load_data_list(self):
         """Load annotations from the JSON mapping file.
         
@@ -102,18 +106,18 @@ class Dy30Dataset(BaseDataset):
         data_list = []
         for img_id, img_info in filtered_mapping.items():
             # Get the original image path from the mapping
-            img_path = img_info.get('Best Z Filename')
+            img_path = img_info.get('img_path')
             
             if img_path and os.path.exists(img_path):
-                # Construct mask path based on your actual mask naming convention
-                # You'll need to adapt this part to match how your masks are named/located
-                img_dir = os.path.dirname(img_path)
-                base_name = os.path.basename(img_path).split('.')[0]
-                mask_path = os.path.join(MASKS_FOLDER, f"{base_name}_cellpose_mask.png")
-                
-                # Alternative mask path if your masks are in a central location
-                # mask_path = os.path.join('/path/to/masks', f"{img_id}_mask.npy")
-                
+                # Check if 'Mask Path' exists in the mapping, use it if available
+                if 'seg_map_path' in img_info:
+                    mask_path = img_info['seg_map_path']
+                else:
+                    # Construct mask path based on your actual mask naming convention
+                    img_dir = os.path.dirname(img_path)
+                    base_name = os.path.basename(img_path).split('.')[0]
+                    mask_path = os.path.join(MASKS_FOLDER, f"{base_name}_cellpose_mask.png")
+                    
                 # Only add if both image and mask exist
                 if os.path.exists(mask_path):
                     data_info = {
@@ -137,15 +141,8 @@ class Dy30Dataset(BaseDataset):
             print(f"WARNING: No valid image-mask pairs found! Check paths and filters.")
             
         return data_list
+
         
-    # def parse_data_info(self, data_info):
-    #     return {
-    #         'img_path': data_info['img_path'],
-    #         'gt_seg_map': data_info['seg_map_path'], 
-    #         'seg_fields': ['gt_seg_map'], 
-    #         # Keep your metadata:
-    #         'img_id': data_info['img_id'],
-    #         'dayID': data_info.get('dayID'),
-    #         'BA': data_info.get('BA'), 
-    #         'wellID': data_info.get('wellID')
-    #     }
+    def parse_data_info(self, data_info):
+        result = super().parse_data_info(data_info)
+        return result

@@ -4,13 +4,13 @@ set -e
 CURRENT_ENV=$CONDA_DEFAULT_ENV
 
 # Check if the environment is named mmseg_env
-if [ "$CURRENT_ENV" != "mmseg_env" ]; then
-    echo "Error: Current conda environment is '$CURRENT_ENV', not 'mmseg_env'"
-    echo "Please activate the correct environment with: conda activate mmseg_env"
-    echo "To create the env type: conda env create -f mmseg_environment.yml"
-    echo "to activate the env type: source activate mmseg_env"
-    exit 1
-fi
+# if [ "$CURRENT_ENV" != "mmseg_env" ]; then
+#     echo "Error: Current conda environment is '$CURRENT_ENV', not 'mmseg_env'"
+#     echo "Please activate the correct environment with: conda activate mmseg_env"
+#     echo "To create the env type: conda env create -f mmseg_environment.yml"
+#     echo "to activate the env type: source activate mmseg_env"
+#     exit 1
+# fi
 
 # Get the hostname
 HOST=$(hostname)

@@ -41,7 +41,7 @@ model = dict(
         in_index=[0, 1, 2, 3],
         channels=256,
         dropout_ratio=0.1,
-        num_classes=1,
+        num_classes=2,
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=[
@@ -57,6 +57,9 @@ img_norm_cfg = dict(
     mean=[127.5],
     std=[127.5],
     to_rgb=False)
+
+# Import your custom transform at the top of your config
+custom_imports = dict(imports=['custom_transforms'])
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -130,5 +133,5 @@ default_hooks = dict(
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='SegVisualizationHook'))
 
-val_evaluator = dict(type='IoUMetric', iou_metrics=['mIoU'])
+val_evaluator = dict(type='IoUMetric', iou_metrics=['mIoU'], ignore_index=255)
 test_evaluator = val_evaluator
