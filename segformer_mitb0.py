@@ -1,6 +1,7 @@
 custom_imports = dict(
     imports=[
         'mmseg.models.losses',
+        'custom_losses',
         'mmseg.datasets.transforms'
     ],
     # allow_failed_imports=False
@@ -41,12 +42,12 @@ model = dict(
         in_index=[0, 1, 2, 3],
         channels=256,
         dropout_ratio=0.1,
-        num_classes=2,
+        num_classes=1,
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=[
             dict(type='DiceLoss', loss_weight=10.0, use_sigmoid=True, loss_name='loss_dice'),
-            #dict(type='CrossEntropyLoss', loss_weight=1.0, use_sigmoid=False, loss_name='loss_ce')
+            dict(type='BCELoss', loss_weight=0.1, use_sigmoid=True, loss_name='loss_bce'),
         ],
     ),
     train_cfg=dict(),

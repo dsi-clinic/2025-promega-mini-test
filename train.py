@@ -17,6 +17,7 @@ from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 from mmseg.models.backbones.mit import MixVisionTransformer
 from mmseg.models.decode_heads.segformer_head import SegformerHead
 from mmseg.models.losses import DiceLoss, FocalLoss
+from custom_losses import BCELoss
 from mmseg.engine.hooks import SegVisualizationHook
 from mmengine.registry import HOOKS
 from mmseg.registry import DATASETS
@@ -41,6 +42,8 @@ MODELS.register_module(module=FocalLoss)
 MODELS.register_module(module=EncoderDecoder)
 MODELS.register_module(module=MixVisionTransformer)
 MODELS.register_module(module=SegformerHead)
+#MODELS.register_module(module=BCELoss)
+
 # MODELS.register_module(module=PackSegInputs)
 
 # Add this import at the top of train.py

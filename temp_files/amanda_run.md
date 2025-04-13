@@ -27,30 +27,76 @@ No samples were successfully processed. Cannot create collage.
 **Solution:** 
 Added test_pipeline = val_pipeline into the end of the config.py 
 
+**All runs**
 - Environment: `mmcv_env`  
 - Model: SegFormer (MiT-B0 backbone)  
-- Loss Function: DiceLoss  
 - Dataset: Binary segmentation (background vs. cell)  
-- Total runtime: ~3 minutes 45 seconds  
-- Avg. time per iteration: ~0.32 seconds  
-- Training Iterations: 1000  
 - Epochs: 1 (iteration-based loop)  
 - Batch size: 2  
 
-## Performance Snapshot (Validation)
+**Run 1 — DiceLoss Only**
+20250412_190516
+Loss Function: DiceLoss (weight = 10.0)
+Runtime: ~3 min 45 sec
+Avg. Iteration Time: ~0.32 sec
+Iterations: 1000
+Batch Size: 2
 
-| Iteration | mIoU (%) | aAcc (%) | Background IoU | Cell IoU |
-|-----------|----------|----------|----------------|----------|
-| 100       | 64.61    | 78.60    | 66.81          | 62.41    |
-| 200       | 67.84    | 81.53    | 73.45          | 62.22    |
-| 300       | 68.31    | 81.66    | 73.01          | 63.61    |
-| 400       | 39.31    | 64.92    | 62.36          | 16.26    |
-| 500       | 64.96    | 78.78    | 66.05          | 63.86    |
-| 600       | 44.31    | 62.38    | 36.79          | 51.84    |
-| 700       | 29.06    | 58.13    | 58.13          | 0.00     |
-| 800       | 74.10    | 85.51    | 77.99          | 70.21    |
-| 900       | 74.99    | 86.32    | 79.84          | 70.15    |
-| 1000      | 75.16    | 86.40    | 79.87          | 70.45    |
+Metric	Values:
+mIoU	75.16%
+aAcc	86.40%
+Cell IoU	70.45%
+Background IoU	79.87%
+
+**Run 2 — DiceLoss (10.0) + BCELoss (1.0)**
+20250413_113210
+Runtime: ~3 min 45 sec
+Avg. Iteration Time: ~0.32 sec
+Iterations: 1000
+Batch Size: 2
+
+Metric	Values:
+mIoU	11.41%
+aAcc	22.69%
+Cell IoU	22.47%
+Background IoU	0.36%
+
+**Run 3 — DiceLoss (5.0) + BCELoss (5.0)**
+20250413_115230
+Runtime: ~3 min 45 sec
+Avg. Iteration Time: ~0.32 sec
+Iterations: 1000
+Batch Size: 2
+
+Final Validation:
+mIoU plateaued at ~20.94%
+Background IoU remained 0%
+
+**Run 4 — DiceLoss (10.0) + BCELoss (0.5)**
+20250413_120232
+Runtime: ~3 min 45 sec
+Avg. Iteration Time: ~0.32 sec
+Iterations: 1000
+Batch Size: 2
+
+Metric	Values:
+mIoU	20.94%
+aAcc	41.87%
+Cell IoU	41.87%
+Background IoU	0.00%
+
+**Run 5 — DiceLoss (10.0) + BCELoss (0.1)**
+20250413_123718
+Runtime: ~3 min 45 sec
+Avg. Iteration Time: ~0.32 sec
+Iterations: 1000
+Batch Size: 2
+
+Metric	Values:
+mIoU	9.01%
+aAcc	17.45%
+Cell IoU	16.09%
+Background IoU	1.93%
 
 **Full env list:**
 Package                Version
@@ -128,3 +174,5 @@ wcwidth                0.2.13
 wheel                  0.45.1
 yapf                   0.43.0
 zipp                   3.21.0
+
+
