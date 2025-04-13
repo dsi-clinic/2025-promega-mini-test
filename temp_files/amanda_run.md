@@ -6,19 +6,18 @@ cv2.error: OpenCV(4.11.0) :-1: error: (-5:Bad argument) in function 'imdecode'
 **Resolution:** Downgraded OpenCV to version 4.5.5.64.
 
 **Error Message:**
+RuntimeError: sigmoid_focal_loss_forward_impl: implementation for device cuda:0 not found.
+**Cause:** mmcv-full is needed it seems to run FocalLoss (I can only get mmcv).
+**Resolution:**
+- Commented out the FocalLoss from the configuration.
+
+**Error Message:**
 RuntimeError: The detected CUDA version (12.4) mismatches the version that was used to compile PyTorch (11.3)
 **Cause:** Attempted to install mmcv-full, which requires a specific CUDA version that matches the one used to compile PyTorch.
 **Resolution:**
 - Unable to install mmcv-full due to CUDA version mismatch.
 - Opted to install the standard mmcv package instead.
 - Removed dependencies on mmcv-full by adjusting the loss functions used.
-
-**Error Message:**
-KeyError: 'CrossEntropyLoss is not in the mmengine::model registry. Please check whether the value of `CrossEntropyLoss` is correct or it was registered as expected.'
-**Cause:** The CrossEntropyLoss was not registered in the mmengine model registry, leading to a KeyError when attempting to use it.
-**Resolution:**
-- Commented out the CrossEntropyLoss from the configuration.
-- Ensured that only registered loss functions (DiceLoss and FocalLoss) are used.
 
 **Error Message:**
   Processing sample 10/10 (ID: Ba1 96_1 Dy30 G10)...
