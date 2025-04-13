@@ -46,7 +46,7 @@ model = dict(
         align_corners=False,
         loss_decode=[
             dict(type='DiceLoss', loss_weight=10.0, use_sigmoid=True, loss_name='loss_dice'),
-            dict(type='FocalLoss', loss_weight=1.0, use_sigmoid=True, loss_name='loss_focal')
+            #dict(type='CrossEntropyLoss', loss_weight=1.0, use_sigmoid=False, loss_name='loss_ce')
         ],
     ),
     train_cfg=dict(),
@@ -131,7 +131,15 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=500, by_epoch=False),
     sampler_seed=dict(type='DistSamplerSeedHook'),
-    visualization=dict(type='SegVisualizationHook'))
+    visualization=dict(
+        type='SegVisualizationHook',
+        draw=True,                         # <-- enables mask drawing
+        interval=1,                        # <-- draw at every validation interval
+        show=False,                        # <-- do not open GUI
+        wait_time=0
+    )
+)
+
 
 val_evaluator = dict(type='IoUMetric', iou_metrics=['mIoU'], ignore_index=255)
 test_evaluator = val_evaluator
