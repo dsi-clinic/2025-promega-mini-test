@@ -28,7 +28,7 @@ except ImportError as e:
 # ===========================================
 
 # 1. Path to the configuration file from your work directory
-config_file_path = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250409_010027/vis_data/config.py'
+config_file_path = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250413_233923/vis_data/config.py'
 
 # 2. Path to the checkpoint (.pth) file you want to use
 checkpoint_file_path = '/net/projects2/promega/data-analysis/plots/segformer_masks/iter_1000.pth'

@@ -21,34 +21,30 @@ model = dict(
     data_preprocessor=data_preprocessor,
     pretrained=None,
     backbone=dict(
-        type='MixVisionTransformer',
-        in_channels=3,
-        embed_dims=32,
+        type='ResNet',
+        depth=50,  # You can use 18, 34, 50, 101, or 152
         num_stages=4,
-        num_layers=[2, 2, 2, 2],
-        num_heads=[1, 2, 5, 8],
-        patch_sizes=[7, 3, 3, 3],
-        sr_ratios=[8, 4, 2, 1],
         out_indices=(0, 1, 2, 3),
-        mlp_ratio=4,
-        qkv_bias=True,
-        drop_rate=0.0,
-        attn_drop_rate=0.0,
-        drop_path_rate=0.1),
-    decode_head=dict(
-        type='SegformerHead',
-        in_channels=[32, 64, 160, 256],
-        in_index=[0, 1, 2, 3],
-        channels=256,
-        dropout_ratio=0.1,
-        num_classes=2,
-        norm_cfg=norm_cfg,
-        align_corners=False,
-        loss_decode=[
-            dict(type='DiceLoss', loss_weight=10.0, use_sigmoid=True, loss_name='loss_dice'),
-            dict(type='FocalLoss', loss_weight=1.0, use_sigmoid=True, loss_name='loss_focal')
-        ],
-    ),
+        frozen_stages=-1,  # Don't freeze any stages for fine-tuning
+        norm_cfg=dict(type='BN', requires_grad=True),
+        norm_eval=False,
+        style='pytorch',
+        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet18')),
+decode_head=dict(
+    type='UPerHead',  # More effective for biomedical segmentation    
+    in_channels=[256, 512, 1024, 2048],  # These must match ResNet-50 output channels
+    in_index=[0, 1, 2, 3],
+    pool_scales=(1, 2, 3, 6),
+    channels=128,
+    dropout_ratio=0.1,
+    num_classes=2,
+    norm_cfg=norm_cfg,
+    align_corners=False,
+    loss_decode=[
+        dict(type='DiceLoss', loss_weight=2.0, use_sigmoid=True, loss_name='loss_dice'),
+        dict(type='FocalLoss', loss_weight=1.0, gamma=2.0, use_sigmoid=True, loss_name='loss_focal')
+    ]
+),
     train_cfg=dict(),
     test_cfg=dict(mode='whole'))
 
@@ -66,6 +62,10 @@ train_pipeline = [
     dict(type='LoadAnnotations', with_bbox=False, with_label=False, with_seg=True),
     dict(type='Resize', scale=(256, 192), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
+    # Add these augmentations:
+    # dict(type='RandomRotate', prob=0.5, degree=20),
+    # dict(type='PhotoMetricDistortion'),
+    # dict(type='RandomCrop', crop_size=(192, 192)),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32, pad_val=0),
     dict(type='PackSegInputs')  # This is crucial for creating the 'inputs' key
@@ -83,22 +83,22 @@ val_pipeline = [
 
 # Updated dataloaders with data_root
 train_dataloader = dict(
-    batch_size=2,
+    batch_size=10,
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path='${JSON_MAPPING_PATH}',  # From .env
-        day_filter="Dy30",  # Filter to only Dy30 images
+        json_mapping_path='${JSON_MAPPING_PATH}',
+        day_filter="Dy30",
         pipeline=train_pipeline,
         lazy_init=False))
 
 val_dataloader = dict(
-    batch_size=1,
+    batch_size=1, # maybe change to 2 or higher?
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path='${JSON_MAPPING_PATH}',  # From .env
-        day_filter="Dy30",  # Filter to only Dy30 images
+        json_mapping_path='${JSON_MAPPING_PATH}',
+        day_filter="Dy30",
         pipeline=val_pipeline,
         lazy_init=False))
 
@@ -111,10 +111,16 @@ optim_wrapper = dict(
 
 param_scheduler = [
     dict(
+        type='LinearLR',
+        start_factor=0.001,
+        by_epoch=False,
+        begin=0,
+        end=100),
+    dict(
         type='PolyLR',
         power=0.9,
         eta_min=0.0,
-        begin=0,
+        begin=100,
         end=1000,
         by_epoch=False)
 ]

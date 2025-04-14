@@ -16,7 +16,7 @@ from mmengine.registry import MODELS
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 from mmseg.models.backbones.mit import MixVisionTransformer
 from mmseg.models.decode_heads.segformer_head import SegformerHead
-from mmseg.models.losses import DiceLoss, FocalLoss
+from mmseg.models.losses import DiceLoss, FocalLoss, CrossEntropyLoss
 from mmseg.engine.hooks import SegVisualizationHook
 from mmengine.registry import HOOKS
 from mmseg.registry import DATASETS
@@ -38,9 +38,38 @@ if 'Dy30Dataset' not in MMENGINE_DATASETS:
 HOOKS.register_module(module=SegVisualizationHook)
 MODELS.register_module(module=DiceLoss)
 MODELS.register_module(module=FocalLoss)
+MODELS.register_module(module=CrossEntropyLoss)
 MODELS.register_module(module=EncoderDecoder)
 MODELS.register_module(module=MixVisionTransformer)
 MODELS.register_module(module=SegformerHead)
+# resnet
+from mmseg.models.backbones.resnet import ResNet
+MODELS.register_module(module=ResNet)
+from mmseg.models.decode_heads.uper_head import UPerHead
+MODELS.register_module(module=UPerHead)
+from mmseg.datasets.transforms import ( 
+    LoadAnnotations, 
+    Resize, 
+    RandomFlip, 
+    RandomRotate,
+    RandomCrop, 
+    PhotoMetricDistortion
+)
+# These transforms may be in different modules
+from mmcv.transforms import Normalize, Pad
+from mmseg.datasets import PackSegInputs
+
+# Register them properly
+from mmengine.registry import TRANSFORMS
+for transform in [
+    LoadAnnotations, Resize, RandomFlip, 
+    RandomRotate, RandomCrop, PhotoMetricDistortion, 
+    Normalize, Pad, PackSegInputs
+]:
+    if transform.__name__ not in TRANSFORMS:
+        TRANSFORMS.register_module(module=transform)
+        MODELS.register_module(module=transform)
+
 # MODELS.register_module(module=PackSegInputs)
 
 # Add this import at the top of train.py
