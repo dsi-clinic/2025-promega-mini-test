@@ -36,13 +36,14 @@ decode_head=dict(
     in_index=[0, 1, 2, 3],
     pool_scales=(1, 2, 3, 6),
     channels=128,
-    dropout_ratio=0.1,
+    dropout_ratio=0.15,
     num_classes=2,
     norm_cfg=norm_cfg,
     align_corners=False,
     loss_decode=[
-        dict(type='DiceLoss', loss_weight=2.0, use_sigmoid=True, loss_name='loss_dice'),
-        dict(type='FocalLoss', loss_weight=1.0, gamma=2.0, use_sigmoid=True, loss_name='loss_focal')
+        dict(type='DiceLoss', loss_weight=1.0, use_sigmoid=True, loss_name='loss_dice'),
+        dict(type='FocalLoss', loss_weight=2.0, gamma=2.0, use_sigmoid=True, loss_name='loss_focal'),
+        dict(type='CrossEntropyLoss', loss_weight=1.0, use_sigmoid=True, loss_name='loss_ce')
     ]
 ),
     train_cfg=dict(),
@@ -83,7 +84,7 @@ val_pipeline = [
 
 # Updated dataloaders with data_root
 train_dataloader = dict(
-    batch_size=10,
+    batch_size=16,
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
@@ -93,7 +94,7 @@ train_dataloader = dict(
         lazy_init=False))
 
 val_dataloader = dict(
-    batch_size=1, # maybe change to 2 or higher?
+    batch_size=8,
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
