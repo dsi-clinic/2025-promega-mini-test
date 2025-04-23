@@ -28,7 +28,7 @@ except ImportError as e:
 # ===========================================
 
 # 1. Path to the configuration file from your work directory
-config_file_path = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250413_233923/vis_data/config.py'
+config_file_path = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250422_215204/vis_data/config.py'
 
 # 2. Path to the checkpoint (.pth) file you want to use
 checkpoint_file_path = '/net/projects2/promega/data-analysis/plots/segformer_masks/iter_1000.pth'
@@ -41,7 +41,7 @@ processed_json_mapping_path = '/net/projects2/promega/data-analysis/output/proce
 num_samples = 10
 
 # 5. Path where you want to save the output collage image
-output_collage_save_path = './inference_collage_pairs.png' # Changed filename slightly
+output_collage_save_path = './20250422_215204_inference_collage_pairs.png' # Changed filename slightly
 
 # ===========================================
 # === END USER SETTINGS ===

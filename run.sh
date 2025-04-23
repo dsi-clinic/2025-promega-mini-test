@@ -39,7 +39,26 @@ source .env
 set +a  # stop automatically exporting
 
 # Run the training with the dataset path from environment variable
+# python train.py segformer_mitb0.py \
+#     --work-dir ${PLOTS_FOLDER}/segformer_masks \
+#     --cfg-options "train_dataloader.dataset.json_mapping_path=$JSON_MAPPING_PATH" \
+#                  "val_dataloader.dataset.json_mapping_path=$JSON_MAPPING_PATH"
+
+
+
+# run split for training, validation and testing
+TRAIN_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/split/image_mapping_day30_manual_processed_256x192_train.json
+VAL_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/split/image_mapping_day30_manual_processed_256x192_val.json
+TEST_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/split/image_mapping_day30_manual_processed_256x192_test.json
+
+
+echo "Using train split: $TRAIN_JSON"
+echo "Using   val split: $VAL_JSON"
+echo "Using  test split: $TEST_JSON"
+
 python train.py segformer_mitb0.py \
-    --work-dir ${PLOTS_FOLDER}/segformer_masks \
-    --cfg-options "train_dataloader.dataset.json_mapping_path=$JSON_MAPPING_PATH" \
-                 "val_dataloader.dataset.json_mapping_path=$JSON_MAPPING_PATH"
+  --work-dir "${PLOTS_FOLDER}/segformer_masks" \
+  --cfg-options \
+    "train_dataloader.dataset.json_mapping_path=$TRAIN_JSON" \
+    "val_dataloader.dataset.json_mapping_path=$VAL_JSON" \
+    "test_dataloader.dataset.json_mapping_path=$TEST_JSON"
