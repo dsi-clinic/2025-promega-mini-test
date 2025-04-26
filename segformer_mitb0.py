@@ -82,28 +82,59 @@ val_pipeline = [
     dict(type='PackSegInputs')  # This is crucial for creating the 'inputs' key
 ]
 
-# Updated dataloaders with data_root
+# mmseg config snippet
+
 train_dataloader = dict(
     batch_size=16,
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path='${JSON_MAPPING_PATH}',
+        json_mapping_path=(
+          '/net/projects2/promega/data-analysis/output/'
+          'processed_dataset_256x192/split/'
+          'image_mapping_day30_manual_processed_256x192_train.json'
+        ),
         day_filter="Dy30",
         pipeline=train_pipeline,
-        lazy_init=False))
+        lazy_init=False
+    ),
+    sampler=dict(type='DefaultSampler', shuffle=True)
+)
 
 val_dataloader = dict(
     batch_size=8,
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path='${JSON_MAPPING_PATH}',
+        json_mapping_path=(
+          '/net/projects2/promega/data-analysis/output/'
+          'processed_dataset_256x192/split/'
+          'image_mapping_day30_manual_processed_256x192_val.json'
+        ),
         day_filter="Dy30",
         pipeline=val_pipeline,
-        lazy_init=False))
+        lazy_init=False
+    ),
+    sampler=dict(type='DefaultSampler', shuffle=False)
+)
 
-test_dataloader = val_dataloader
+test_dataloader = dict(
+    batch_size=8,
+    num_workers=2,
+    dataset=dict(
+        type='Dy30Dataset',
+        json_mapping_path=(
+          '/net/projects2/promega/data-analysis/output/'
+          'processed_dataset_256x192/split/'
+          'image_mapping_day30_manual_processed_256x192_test.json'
+        ),
+        day_filter="Dy30",
+        pipeline=val_pipeline,
+        lazy_init=False
+    ),
+    sampler=dict(type='DefaultSampler', shuffle=False)
+)
+
 
 # Optimizer and scheduler settings
 optim_wrapper = dict(
