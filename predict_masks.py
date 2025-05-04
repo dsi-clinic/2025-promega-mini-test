@@ -23,7 +23,7 @@ except ImportError as e:
 
 # ======== USER CONFIG ========
 # Model paths
-CONFIG_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250413_233923/vis_data/config.py'
+CONFIG_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250422_215204/vis_data/config.py'
 CHECKPOINT_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/iter_1000.pth'
 
 # Base directory structure
@@ -44,7 +44,9 @@ def get_mapping_paths(batch_number, day_number=30):
         ]
     else:
         # Normal case for other batches
-        return [Path(PREPROCESSED_JSON_DIR) / f"Ba{batch_number}_Dy{day_number}" / f"image_mapping_Ba{batch_number}_Dy{day_number}_processed.json"]
+        return [Path(PREPROCESSED_JSON_DIR) /
+                f"BA{batch_number}_Dy{day_number}" /
+                f"image_mapping_BA{batch_number}_Dy{day_number}_processed.json"]
 
 def run_inference(batch_number, day_number=30):
     """Run inference on specified batch."""
