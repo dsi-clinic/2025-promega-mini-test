@@ -56,7 +56,7 @@ class Dy30Dataset(BaseDataset):
     
     def __init__(self,
                  json_mapping_path,
-                 day_filter='Dy30',
+                 day_filter=None,
                  pipeline=None,
                  test_mode=False,
                  lazy_init=False,
@@ -93,53 +93,37 @@ class Dy30Dataset(BaseDataset):
             
         print(f"Loaded {len(image_mapping)} entries from image mapping JSON")
         
-        # Filter entries by day if specified
+        # only filter if day_filter is set
         if self.day_filter:
-            filtered_mapping = {
-                k: v for k, v in image_mapping.items() 
+            image_mapping = {
+                k: v for k, v in image_mapping.items()
                 if v.get('dayID') == self.day_filter
             }
-            print(f"Filtered to {len(filtered_mapping)} entries with dayID={self.day_filter}")
-        else:
-            filtered_mapping = image_mapping
+            print(f"Filtered to {len(image_mapping)} entries with dayID={self.day_filter}")
             
         data_list = []
-        for img_id, img_info in filtered_mapping.items():
-            # Get the original image path from the mapping
-            img_path = img_info.get('img_path')
-            
-            if img_path and os.path.exists(img_path):
-                # Check if 'Mask Path' exists in the mapping, use it if available
-                if 'seg_map_path' in img_info:
-                    mask_path = img_info['seg_map_path']
-                else:
-                    # Construct mask path based on your actual mask naming convention
-                    img_dir = os.path.dirname(img_path)
-                    base_name = os.path.basename(img_path).split('.')[0]
-                    mask_path = os.path.join(MASKS_FOLDER, f"{base_name}_cellpose_mask.png")
-                    
-                # Only add if both image and mask exist
-                if os.path.exists(mask_path):
-                    data_info = {
-                        'img_path': img_path,
-                        'seg_map_path': mask_path,
-                        'img_id': img_id,
-                        'seg_fields': ['gt_sem_seg'],
-                        # Add any other metadata from img_info that you need
-                        'dayID': img_info.get('dayID'),
-                        'BA': img_info.get('BA'),
-                        'wellID': img_info.get('wellID')
-                    }
-                    data_list.append(data_info)
-                else:
-                    print(f"Warning: Mask not found for {img_id} at {mask_path}")
-            else:
-                print(f"Warning: Image not found for {img_id} at {img_path}")
-                
+        data_list = []
+        for img_id, info in image_mapping.items():
+            img_p  = Path(info.get('img_path', ''))
+            # prefer the lowercase key if available
+            msk_p  = Path(info.get('mask_path', '') or info.get('Mask Path', ''))
+            if not img_p.exists() or not msk_p.exists():
+                continue
+
+            data_list.append({
+                'img_path':     str(img_p),
+                'seg_map_path': str(msk_p),
+                'img_id':       img_id,
+                'seg_fields':   ['gt_sem_seg'],
+                'dayID':        info.get('dayID'),
+                'BA':           info.get('BA'),
+                'wellID':       info.get('wellID'),
+            })
+
         print(f"Found {len(data_list)} valid image-mask pairs")
-        if len(data_list) == 0:
-            print(f"WARNING: No valid image-mask pairs found! Check paths and filters.")
-            
+        if not data_list:
+            print("WARNING: No valid pairs found! Check your mapping paths or filters.")
+
         return data_list
 
         

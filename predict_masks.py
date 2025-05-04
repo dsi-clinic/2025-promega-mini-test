@@ -23,7 +23,7 @@ except ImportError as e:
 
 # ======== USER CONFIG ========
 # Model paths
-CONFIG_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250422_215204/vis_data/config.py'
+CONFIG_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250504_102948/vis_data/config.py'
 CHECKPOINT_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/iter_1000.pth'
 
 # Base directory structure
@@ -35,48 +35,53 @@ NUM_SAMPLES_FOR_COLLAGE = 10
 # ============================
 
 def get_mapping_paths(batch_number, day_number=30):
-    """Get paths to preprocessed JSON mappings, handling BA2 special case."""
+    """Get zero-padded mapping JSON paths."""
+    day_str = f"{day_number:02d}"
     if batch_number == 2:
-        # BA2 has two parts - return both paths
         return [
-            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_1_Dy{day_number}" / f"image_mapping_BA2_96_1_Dy{day_number}_processed.json",
-            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_2_Dy{day_number}" / f"image_mapping_BA2_96_2_Dy{day_number}_processed.json"
+            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_1_Dy{day_str}" /
+                f"image_mapping_BA2_96_1_Dy{day_str}_processed.json",
+            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_2_Dy{day_str}" /
+                f"image_mapping_BA2_96_2_Dy{day_str}_processed.json"
         ]
     else:
-        # Normal case for other batches
-        return [Path(PREPROCESSED_JSON_DIR) /
-                f"BA{batch_number}_Dy{day_number}" /
-                f"image_mapping_BA{batch_number}_Dy{day_number}_processed.json"]
+        return [
+            Path(PREPROCESSED_JSON_DIR) / f"BA{batch_number}_Dy{day_str}" /
+                f"image_mapping_BA{batch_number}_Dy{day_str}_processed.json"
+        ]
+
 
 def run_inference(batch_number, day_number=30):
-    """Run inference on specified batch."""
+    """Run inference on specified batch/day."""
+    day_str = f"{day_number:02d}"
     mapping_paths = get_mapping_paths(batch_number, day_number)
-    
-    total_processed = 0
-    total_failed = 0
-    
+
+    total_processed = total_failed = 0
+
     for json_mapping_path in mapping_paths:
         if not json_mapping_path.exists():
             print(f"Warning: Preprocessed JSON not found at {json_mapping_path}")
             continue
 
-        # Determine batch part for output directory
+        # Determine output directory, also zero-padded
         if batch_number == 2:
             part = "96_1" if "96_1" in str(json_mapping_path) else "96_2"
-            output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}_{part}" / f"day{day_number}"
+            output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}_{part}" / f"day{day_str}"
         else:
-            output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}" / f"day{day_number}"
-            
+            output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}" / f"day{day_str}"
         masks_dir = output_dir / "predicted_masks"
         masks_dir.mkdir(parents=True, exist_ok=True)
-        collage_path = output_dir / f"inference_collage_batch{batch_number}_{f'part{part}' if batch_number == 2 else ''}_day{day_number}.png"
 
-        # Load mapping
+        collage_path = output_dir / f"inference_collage_batch{batch_number}_" \
+                                    f"{('part'+part) if batch_number==2 else ''}_" \
+                                    f"day{day_str}.png"
+
+        # Load mapping JSON
         with open(json_mapping_path, 'r') as f:
             batch_mapping = json.load(f)
         print(f"\nLoaded {len(batch_mapping)} entries from {json_mapping_path.name}")
 
-        # Initialize model (only once)
+        # Init model once
         if 'model' not in locals():
             device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
             model = init_model(str(CONFIG_FILE_PATH), str(CHECKPOINT_FILE_PATH), device=device)
@@ -84,73 +89,82 @@ def run_inference(batch_number, day_number=30):
                 model = revert_sync_batchnorm(model)
             print(f"Model loaded on {device}")
 
-        # Select random samples for collage
-        sample_ids = random.sample(list(batch_mapping.keys()), 
-                                 min(NUM_SAMPLES_FOR_COLLAGE, len(batch_mapping)))
-        
-        # Process all images
-        collage_pairs = []
+        sample_ids = random.sample(list(batch_mapping), 
+                                   min(NUM_SAMPLES_FOR_COLLAGE, len(batch_mapping)))
+
         processed = failed = 0
+        collage_pairs = []
         img_h = img_w = None
 
-        print(f"Processing {len(batch_mapping)} images...")
         for img_id, img_info in batch_mapping.items():
             img_path = Path(img_info['img_path'])
             if not img_path.exists():
-                print(f"  Skipped: Image not found {img_path}")
                 failed += 1
                 continue
 
             try:
-                # Inference
                 result = inference_model(model, str(img_path))
                 pred_mask = (result.pred_sem_seg.data.squeeze().cpu().numpy() * 255).astype(np.uint8)
-                
-                # Save mask
+
                 mask_path = masks_dir / f"{img_path.stem}_predmask.png"
                 cv2.imwrite(str(mask_path), pred_mask)
                 processed += 1
 
-                # Prepare collage if selected
+                # record mask path
+                batch_mapping[img_id]['mask_path'] = str(mask_path)
+
+                # build collage sample
                 if img_id in sample_ids:
                     img = cv2.imread(str(img_path))
                     if img is None:
                         continue
-                        
-                    # Store/resize dimensions
                     if img_h is None:
                         img_h, img_w = img.shape[:2]
-                    img = cv2.resize(img, (img_w, img_h), interpolation=cv2.INTER_LINEAR)
-                    mask_vis = cv2.resize(pred_mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
-                    mask_vis = cv2.cvtColor(mask_vis, cv2.COLOR_GRAY2BGR)
-                    
-                    collage_pairs.append(np.hstack((img, mask_vis)))
+                    img_resized = cv2.resize(img, (img_w, img_h), interpolation=cv2.INTER_LINEAR)
+                    mask_vis   = cv2.resize(pred_mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+                    mask_vis   = cv2.cvtColor(mask_vis, cv2.COLOR_GRAY2BGR)
+                    collage_pairs.append(np.hstack((img_resized, mask_vis)))
 
             except Exception as e:
-                print(f"  Error processing {img_id}: {str(e)}")
                 failed += 1
 
-        # Save collage if we have samples
         if collage_pairs:
             cv2.imwrite(str(collage_path), np.vstack(collage_pairs))
-            print(f"\nCollage saved to {collage_path}")
+            print(f"Collage saved to {collage_path}")
 
         print(f"Finished part. Processed: {processed}, Failed: {failed}")
         total_processed += processed
-        total_failed += failed
+        total_failed   += failed
+
+        # write back augmented JSON
+        with open(json_mapping_path, 'w') as f:
+            json.dump(batch_mapping, f, indent=2)
+        print(f"Updated mapping with mask paths: {json_mapping_path}")
 
     print(f"\nTotal processed: {total_processed}, Total failed: {total_failed}")
     return total_processed
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch', type=int, required=True, help='Batch number to process (2, 3, etc.)')
-    parser.add_argument('--day', type=int, default=30, help='Day number (default: 30)')
+    parser.add_argument(
+        '--batches',
+        type=lambda s: [int(x) for x in s.split(',')],
+        required=True,
+        help='Comma-separated batch numbers, e.g. 1,2,3'
+    )
+    parser.add_argument(
+        '--days',
+        type=lambda s: [int(x) for x in s.split(',')],
+        required=True,
+        help='Comma-separated day numbers, e.g. 3,6,8'
+    )
     args = parser.parse_args()
 
-    print(f"\n{'='*40}")
-    print(f"Processing Batch {args.batch}, Day {args.day}")
-    print(f"{'='*40}")
+    for batch in args.batches:
+        for day in args.days:
+            print(f"\n{'='*40}")
+            print(f"Processing Batch {batch}, Day {day}")
+            print(f"{'='*40}")
+            run_inference(batch, day)
 
-    run_inference(args.batch, args.day)
-    print("\nDone.")
+    print("\nAll done.")

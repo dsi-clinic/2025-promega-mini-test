@@ -91,10 +91,10 @@ train_dataloader = dict(
         type='Dy30Dataset',
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
-          'processed_dataset_256x192/split/'
-          'image_mapping_day30_manual_processed_256x192_train.json'
+          'processed_dataset_256x192/manual_mappings/'
+          'processed_256x192/split/split/mapping_days038_train.json'
         ),
-        day_filter="Dy30",
+        day_filter=None,
         pipeline=train_pipeline,
         lazy_init=False
     ),
@@ -108,10 +108,10 @@ val_dataloader = dict(
         type='Dy30Dataset',
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
-          'processed_dataset_256x192/split/'
-          'image_mapping_day30_manual_processed_256x192_val.json'
+          'processed_dataset_256x192/manual_mappings/'
+          'processed_256x192/split/split/mapping_days038_val.json'
         ),
-        day_filter="Dy30",
+        day_filter=None,
         pipeline=val_pipeline,
         lazy_init=False
     ),
@@ -125,10 +125,10 @@ test_dataloader = dict(
         type='Dy30Dataset',
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
-          'processed_dataset_256x192/split/'
-          'image_mapping_day30_manual_processed_256x192_test.json'
+          'processed_dataset_256x192/manual_mappings/'
+          'processed_256x192/split/split/mapping_days038_test.json'
         ),
-        day_filter="Dy30",
+        day_filter=None,
         pipeline=val_pipeline,
         lazy_init=False
     ),

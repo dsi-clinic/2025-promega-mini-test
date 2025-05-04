@@ -47,9 +47,9 @@ set +a  # stop automatically exporting
 
 
 # run split for training, validation and testing
-TRAIN_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/split/image_mapping_day30_manual_processed_256x192_train.json
-VAL_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/split/image_mapping_day30_manual_processed_256x192_val.json
-TEST_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/split/image_mapping_day30_manual_processed_256x192_test.json
+TRAIN_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/manual_mappings/processed_256x192/split/split/mapping_days038_train.json
+VAL_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/manual_mappings/processed_256x192/split/split/mapping_days038_val.json
+TEST_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/manual_mappings/processed_256x192/split/split/mapping_days038_test.json
 
 
 echo "Using train split: $TRAIN_JSON"
