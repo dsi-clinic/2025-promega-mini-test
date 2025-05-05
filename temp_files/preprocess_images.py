@@ -11,11 +11,11 @@ TARGET_SIZE        = (256, 192)                # network input (w, h)
 INTERPOLATION      = cv2.INTER_LINEAR
 
 # >>>>>  physical‑scale parameters  <<<<<
-TARGET_UM_PER_PX   = 2.25                      # common scale you chose
+TARGET_UM_PER_PX   = 2.46                      # common scale
 SIZE_TO_SCALE = {                              # (raw w, h) : µm / px   ← update!
-    (1128, 832):  2.25,                        # EVOS 4× crop
-    (1920, 1440): 2.25,                        # EVOS 4× full
-    (2048, 1536): 2.67                         # Cytation 2.5× (placeholder)
+    (1128, 832):  2.46,                        # cytation
+    (1920, 1440): 2.25,                        # keyence
+    (2048, 1536): 2.24                         # EVOS
 }
 # ------------------------------------------------
 
