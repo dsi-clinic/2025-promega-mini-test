@@ -23,7 +23,7 @@ except ImportError as e:
 
 # ======== USER CONFIG ========
 # Model paths
-CONFIG_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250504_102948/vis_data/config.py'
+CONFIG_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250505_154220/vis_data/config.py'
 CHECKPOINT_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/iter_1000.pth'
 
 # Base directory structure
