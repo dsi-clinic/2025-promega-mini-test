@@ -6,56 +6,34 @@ import argparse
 import numpy as np
 import shutil
 
-# ---------------- configuration ----------------
-TARGET_SIZE        = (256, 192)                # network input (w, h)
-INTERPOLATION      = cv2.INTER_LINEAR
-
-# >>>>>  physical‑scale parameters  <<<<<
-TARGET_UM_PER_PX   = 2.46                      # common scale
-SIZE_TO_SCALE = {                              # (raw w, h) : µm / px   ← update!
-    (1128, 832):  2.46,                        # cytation
-    (1920, 1440): 2.25,                        # keyence
-    (2048, 1536): 2.24                         # EVOS
-}
-# ------------------------------------------------
+# --------------- configuration -----------------
+TARGET_SIZE     = (256, 192)          # (w, h) for your network
+INTERPOLATION   = cv2.INTER_LINEAR
+TARGET_UM_PER_PX = 1.687               # desired µm-per-network-pixel
 
 ORIGINAL_MAPPING = Path("/net/projects2/promega/data-analysis/output/image_mapping.json")
 OUTPUT_DIR       = Path("/net/projects2/promega/data-analysis/output/processed_dataset_256x192")
 
-# -------------- helper functions ----------------
+# --------------- helpers -----------------------
 def norm(s: str) -> str:
     return s.lower().replace(' ', '') if isinstance(s, str) else ''
 
 def ba_match(json_ba: str, batch_id: str) -> bool:
     return norm(json_ba).startswith(norm(batch_id))
 
-def resample_to_physical(img: np.ndarray):
-    """Rescale so that 1 px ≈ TARGET_UM_PER_PX. Returns img_rs, original_um_per_px."""
-    h, w = img.shape[:2]
-    um_px = SIZE_TO_SCALE.get((w, h))
-    if um_px is None:
-        print(f"Unknown raw size {w}×{h}; leaving scale unchanged")
-        return img, None
-    factor = um_px / TARGET_UM_PER_PX          # >1 → down‑sample
-    if abs(factor - 1.0) < 0.05:
-        return img, um_px                      # already near target
-    new_w, new_h = int(w / factor), int(h / factor)
-    img_rs = cv2.resize(img, (new_w, new_h), INTERPOLATION)
-    return img_rs, um_px
-
-# -------------- main functions ------------------
+# --------------- main functions ----------------
 def process_batch(batch_num: int, day_num: int = 30):
     with ORIGINAL_MAPPING.open() as f:
         mapping = json.load(f)
 
-    if batch_num == 2:        # BA2 splits
+    if batch_num == 2:
         create_mapping(mapping, "BA2 96_1", day_num)
         create_mapping(mapping, "BA2 96_2", day_num)
     else:
         create_mapping(mapping, f"BA{batch_num}", day_num)
 
 def create_mapping(mapping: dict, batch_id: str, day_num: int):
-    day_id = f"Dy{day_num:02d}"
+    day_id     = f"Dy{day_num:02d}"
     safe_batch = batch_id.replace(' ', '_')
     output_dir = OUTPUT_DIR / f"{safe_batch}_{day_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -65,15 +43,19 @@ def create_mapping(mapping: dict, batch_id: str, day_num: int):
         print(f"Mapping exists: {output_json}")
         return
 
+    # collect (id, filename, orig_um_px)
     matches = [
-        (mid, info['Best Z Filename'])
-        for mid, info in mapping.items()
-        if norm(info.get('dayID')) == norm(day_id) and ba_match(info.get('BA', ''), batch_id)
+        (img_id, info['Best Z Filename'], info.get('um_per_px'))
+        for img_id, info in mapping.items()
+        if norm(info.get('dayID')) == norm(day_id)
+        and ba_match(info.get('BA', ''), batch_id)
     ]
     print(f"BA/day filter found {len(matches)} candidates.")
+    for img_id, path, _ in matches[:3]:
+        print("   ", img_id, "→", path)
 
     new_mapping = {}
-    for img_id, path in matches:
+    for img_id, path, orig_um_px in matches:
         img_path = Path(path)
         if not img_path.exists():
             print(f"Skipped (missing): {img_path}")
@@ -84,26 +66,41 @@ def create_mapping(mapping: dict, batch_id: str, day_num: int):
             print(f"Skipped (unreadable): {img_path}")
             continue
 
-        # ---- physical rescale ----
-        img_scaled, orig_um_px = resample_to_physical(img_raw)
+        # ---- physical rescale to TARGET_UM_PER_PX ----
+        if orig_um_px is None:
+            print(f"no um_per_px for {img_id}, skipping physical rescale")
+            img_scaled = img_raw
+            final_um_px = None
+        else:
+            factor = orig_um_px / TARGET_UM_PER_PX
+            if abs(factor - 1.0) < 0.01:
+                img_scaled = img_raw
+            else:
+                new_w = int(img_raw.shape[1]  / factor)
+                new_h = int(img_raw.shape[0]  / factor)
+                img_scaled = cv2.resize(img_raw, (new_w, new_h), interpolation=INTERPOLATION)
 
-        # compute final_um_per_px directly from the ORIGINAL raw width
-        raw_w = img_raw.shape[1]
-        resize_factor = raw_w / TARGET_SIZE[0]
-        final_um_px   = (orig_um_px or TARGET_UM_PER_PX) * resize_factor
+            # after down/up-sampling, everything is at TARGET_UM_PER_PX
+            # now compute final_um_px after the final 256×192 resize:
+            scale1 = img_scaled.shape[1] / img_raw.shape[1]
+            scale2 = TARGET_SIZE[0]     / img_scaled.shape[1]
+            final_um_px = orig_um_px / (scale1 * scale2)
 
-        # ---- final resize & save ----
+        # ---- network input resize ----
         img_final = cv2.resize(img_scaled, TARGET_SIZE, INTERPOLATION)
-        out_path  = output_dir / f"{img_id.replace(' ', '_')}.png"
+
+        # ---- save ----
+        out_path = output_dir / f"{img_id.replace(' ', '_')}.png"
         cv2.imwrite(str(out_path), img_final)
 
-        # ---- record mapping ----
+        # ---- record in new mapping ----
         new_mapping[img_id] = {
-            "img_path": str(out_path),
-            "orig_um_per_px": orig_um_px,
+            "img_path"       : str(out_path),
+            "orig_um_per_px" : orig_um_px,
             "final_um_per_px": final_um_px
         }
 
+    # write JSON
     with output_json.open('w') as f:
         json.dump(new_mapping, f, indent=2)
 
@@ -111,40 +108,32 @@ def create_mapping(mapping: dict, batch_id: str, day_num: int):
     print(f"Images saved to: {output_dir}")
     print(f"Mapping saved to: {output_json}")
 
+# --------------- CLI ---------------------------
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--batches',
-        type=lambda s: [int(x) for x in s.split(',')],
-        required=True,
-        help='Comma-separated batch numbers, e.g. 1,2,3'
-    )
-    parser.add_argument(
-        '--days',
-        type=lambda s: [int(x) for x in s.split(',')],
-        required=True,
-        help='Comma-separated day numbers, e.g. 3,6,8'
-    )
-    parser.add_argument(
-        '--overwrite',
-        action='store_true',
-        help='Delete existing processed folders before rebuilding'
-    )
+    parser.add_argument('--batches',
+                        type=lambda s: [int(x) for x in s.split(',')],
+                        required=True,
+                        help='Comma-separated batch numbers, e.g. 1,2,3')
+    parser.add_argument('--days',
+                        type=lambda s: [int(x) for x in s.split(',')],
+                        required=True,
+                        help='Comma-separated day numbers, e.g. 3,6,8')
+    parser.add_argument('--overwrite',
+                        action='store_true',
+                        help='Remove existing processed folders first')
     args = parser.parse_args()
 
     for batch in args.batches:
         for day in args.days:
             print(f"\nProcessing Batch {batch}, Day {day}")
             if args.overwrite:
-                if batch == 2:
-                    for sub in ("96_1", "96_2"):
-                        folder = OUTPUT_DIR / f"BA2_{sub}_Dy{day}"
-                        if folder.exists():
-                            shutil.rmtree(folder)
-                            print(f"  Removed old folder {folder}")
-                else:
-                    folder = OUTPUT_DIR / f"BA{batch}_Dy{day}"
+                sub_ids = ["96_1","96_2"] if batch==2 else [None]
+                for sub in sub_ids:
+                    fname = f"BA{batch}_{sub}_Dy{day:02d}" if sub else f"BA{batch}_Dy{day:02d}"
+                    folder = OUTPUT_DIR / fname
                     if folder.exists():
+                        import shutil
                         shutil.rmtree(folder)
                         print(f"  Removed old folder {folder}")
             process_batch(batch, day)
