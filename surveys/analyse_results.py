@@ -177,3 +177,24 @@ else:
     print("No employee dissent data to display.")
 
 print(f"\nAnalysis saved to 'organoid_analysis_results.json'")
+
+
+# chi square test of independence
+from scipy.stats import chi2_contingency
+
+observed = df_class_qual_counts.values
+
+chi2, p, dof, expected = chi2_contingency(observed)
+
+print("\n=== Chi-Square Test of Independence ===")
+print(f"Chi-Square Statistic: {chi2:.4f}")
+print(f"P-value: {p:.4f}")
+print(f"Degrees of Freedom: {dof}")
+print("\nExpected Frequencies:")
+print(pd.DataFrame(expected, index=df_class_qual_counts.index, columns=df_class_qual_counts.columns))
+
+alpha = 0.05
+if p < alpha:
+    print("\nReject the null hypothesis: There is a statistically significant association between Classification and Quality.")
+else:
+    print("\nFail to reject the null hypothesis: There is no statistically significant association between Classification and Quality.")
