@@ -13,9 +13,8 @@ except json.JSONDecodeError:
     print("Error: Could not decode JSON from 'organoid_classification_results_aggregated.json'.")
     exit()
 
-# Initialize lists to store data for confusion matrices
-classification_vs_quality_data = []
-quality_vs_classification_data = []
+# Initialize dictionaries to store counts for confusion matrices
+classification_vs_quality_counts = defaultdict(lambda: defaultdict(int))
 
 # Process each organoid
 for organoid, evaluations in data.items():
@@ -25,21 +24,22 @@ for organoid, evaluations in data.items():
     classifications = [eval_item['evaluation'] for eval_item in evaluations]
     qualities = [eval_item['quality'] for eval_item in evaluations]
 
-    # Create pairs for classification vs quality
+    # Count occurrences of each (Classification, Quality) pair
     for classification in set(classifications):
         for quality in set(qualities):
             count = sum(1 for eval_item in evaluations if eval_item['evaluation'] == classification and eval_item['quality'] == quality)
             if count > 0:
-                classification_vs_quality_data.append({'Classification': classification, 'Quality': quality, 'Count': count})
+                classification_vs_quality_counts[classification][quality] += count
 
-# Create Confusion Matrix: Classification vs Quality
-if classification_vs_quality_data:
-    df_class_qual = pd.DataFrame(classification_vs_quality_data)
-    confusion_matrix_class_qual = pd.pivot_table(df_class_qual, values='Count', index='Classification', columns='Quality', fill_value=0).round(2)
-    print("\n=== Confusion Matrix: Classification vs Quality ===")
-    print(confusion_matrix_class_qual)
+# Create Confusion Matrix: Classification vs Quality (Counts)
+print("\n=== Confusion Matrix (Counts): Classification vs Quality ===")
+if classification_vs_quality_counts:
+    df_class_qual_counts = pd.DataFrame.from_dict(classification_vs_quality_counts, orient='index')
+    all_qualities = sorted(list(set([q for counts in classification_vs_quality_counts.values() for q in counts.keys()])))
+    df_class_qual_counts = df_class_qual_counts.reindex(columns=all_qualities, fill_value=0)
+    print(df_class_qual_counts)
 else:
-    print("\nNo data to generate Confusion Matrix: Classification vs Quality")
+    print("No data to generate Confusion Matrix (Counts): Classification vs Quality")
 
 # --- Rest of your original code for analysis and statistics ---
 analysis_results = {}
@@ -80,7 +80,7 @@ for organoid, evaluations in data.items():
         class_counts[eval_item['evaluation']]['count'] += 1
         class_counts[eval_item['evaluation']]['employees'].append(employee_last_name)
         quality_counts[eval_item['quality']]['count'] += 1
-        quality_counts[eval_item['quality']]['employees'].append(employee_last_name)
+        quality_counts[eval_item['quality']]['employees'].append(employee_last_name) # Reverted to original
 
     agreement_ratio = 0.0
     current_agreement_level = 'other'
@@ -161,7 +161,7 @@ for qual, count_val in sorted(stats['quality_distribution'].items()):
 print("\n=== Employee Dissent Statistics ===")
 if stats['employee_dissent_stats']:
     sorted_employee_stats = sorted(stats['employee_dissent_stats'].items())
-    for emp, emp_data in sorted_employee_stats:
+    for emp, emp_data in sorted(stats['employee_dissent_stats'].items()): # Added sorting for consistency
         total_evals = emp_data['total_evaluations']
         lone_count = emp_data['lone_dissenter_count']
         two_dissent_count = emp_data['one_of_two_dissenters_count']
