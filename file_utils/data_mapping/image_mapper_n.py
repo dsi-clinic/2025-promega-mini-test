@@ -85,60 +85,74 @@ class ImageMapper:
         ]]
 
     def make_mapping_json(self, out_json: Path):
-        """Walk through clean metadata, detect stitched vs Z-stack, pick focus, and dump mapping."""
-        cleaned = self.clean_metadata()
-        mapping = {}
-        stitch_re = re.compile(r"\(\d+\s*of\s*\d+\)", re.IGNORECASE)
+        """Produce JSON entries with the exact fields your model expects,
+        plus um_per_px and all_files for downstream use."""
+        cleaned     = self.clean_metadata()
+        mapping     = {}
+        stitch_re   = re.compile(r"\(\d+\s*of\s*\d+\)", re.IGNORECASE)
+        stitched_kw = "stitched"
 
         for _, row in cleaned.iterrows():
-            pid = row.photoID
+            pid = row.photoID  # e.g. "Ba2 96_2 Dy30 H6"
 
-            # ── resolve img_folder for this row ──
-            # row.batchPlate looks like "Ba2 96_1" or "Ba1"
-            tokens = row.batchPlate.split()
-            ba = tokens[0].upper()  # e.g. "BA2", "BA1", etc.
-
-            sub = self.BA_FOLDER_MAP[ba]
+            # 1) Resolve image folder
+            tokens = row.batchPlate.split()       # ["Ba2","96_2"]
+            ba     = tokens[0].upper()            # "BA2"
+            sub    = self.BA_FOLDER_MAP[ba]
             if isinstance(sub, list):
-                # BA2 has two subfolders; pick the one ending in "96_1" or "96_2"
                 subfolder = next(s for s in sub if s.endswith(tokens[1]))
             else:
                 subfolder = sub
-
             img_folder = self.base_dir / subfolder / row.dayID
 
-            # ── gather and filter TIFF files ──
-            pattern    = re.compile(rf"\b{re.escape(pid)}\b", re.IGNORECASE)
-            candidates = sorted(img_folder.rglob("*.tif"))
-            filtered   = [f for f in candidates if pattern.search(f.name)]
+            # 2) Gather all TIFFs
+            all_tifs = sorted(img_folder.rglob("*.tif"))
+
+            # 2a) BA3 Pt1 fallback
+            if ba == "BA3" and "96_1" in pid:
+                for suffix in (" Z0.tif", ".tif"):
+                    # BA3-specific fallback (Pt1 rename)
+                    new_name = pid.replace("96_1", "Pt1") + suffix
+                    candidate = img_folder / new_name
+                    if candidate.is_file():
+                        stitched_file = candidate
+                        break
+                    
+            # 3) Filter files matching pid exactly
+            pattern  = re.compile(rf"\b{re.escape(pid)}\b", re.IGNORECASE)
+            filtered = [f for f in all_tifs if pattern.search(f.name)]
             if not filtered:
                 logging.warning(f"No files for {pid} in {img_folder}")
                 continue
 
-            # ── detect stitched vs Z-stack ──
-            stitched_file = next((f for f in filtered if stitch_re.search(f.name)), None)
+            # 4) Detect “stitched” by regex or keyword
+            stitched_file = next(
+                (f for f in filtered
+                    if stitch_re.search(f.name)
+                       or stitched_kw in f.name.lower()),
+                None
+            )
             if stitched_file:
                 chosen, focus_idx, stitched_flag = stitched_file, -1, "Yes"
             else:
-                focus_idx    = self.find_best_focus(filtered)
-                chosen       = filtered[focus_idx]
+                focus_idx     = self.find_best_focus(filtered)
+                chosen        = filtered[focus_idx]
                 stitched_flag = "No"
 
-            # ── record the mapping entry ──
+            # 5) Build the exact mapping dict your model expects
             mapping[pid] = {
-                "img_folder":      str(img_folder),
-                "all_files":       [str(f) for f in filtered],
-                "Stitched":        stitched_flag,
+                "dayID":           row.dayID,              # e.g. "Dy30"
+                "BA":              row.batchPlate,         # e.g. "Ba2 96_2"
+                "wellID":          row.wellID,             # e.g. "H6"
                 "Best Z":          focus_idx,
                 "Best Z Filename": str(chosen),
-                "num_focus":       int(row.numFocus),
-                "firstZ":          row.firstZ,
-                "lastZ":           row.lastZ,
-                "dz":              float(row.dz),
+                "Stitched":        stitched_flag,
+                # extra fields:
                 "um_per_px":       float(row.um_per_px),
+                "all_files":       [str(f) for f in filtered],
             }
 
-        # write out the JSON
+        # 6) Write JSON
         out_json.write_text(json.dumps(mapping, indent=2))
 
     
