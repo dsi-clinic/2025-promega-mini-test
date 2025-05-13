@@ -1,208 +1,327 @@
-"""Image Mapper Module
-
-Handles mapping and processing of microscopy image files across different batches.
-"""
-
 from __future__ import annotations
-
 import logging
-import re
-from pathlib import Path
-
-import cv2
-import numpy as np
 import pandas as pd
-from pandas import DataFrame
-from tifffile import imread
-
+import re
+import json
+from pathlib import Path
+from tifffile import TiffFile  # if you ever need it
+import cv2
+from skimage.io import imread
 
 class ImageMapper:
-    """Handles mapping and processing of image files across batches."""
+    BA_FOLDER_MAP = {
+        "BA1": "BA1",
+        "BA2": ["BA2/96_1", "BA2/96_2"],
+        "BA3": "BA3",
+        "BA4": "BA4"
+    }
 
-    def __init__(self: ImageMapper, img_subfolder: str | Path) -> None:
-        """Initialize the ImageMapper with the given image subfolder."""
-        self.img_subfolder = Path(img_subfolder)
-        self.BA_FOLDER_MAP = {0: "BA1/", 1: "BA2/96_1/", 2: "BA2/96_2/", 3: "BA3/"}
-        self.mapping_cache: dict[str, list[Path]] = {}
+    def __init__(self, base_dir: Path, meta_csv: Path):
+        self.base_dir = Path(base_dir)
+        self.meta = pd.read_excel(meta_csv, sheet_name="Images")
+        self._precompute_um_per_px()
 
-    def list_tif_files(
-        self: ImageMapper, ba: str, dayID: str, max_files: int = 5
-    ) -> tuple[Path, list[Path]]:
-        """Lists all .tif files in the appropriate BA subfolder for a given day.
+    def _precompute_um_per_px(self):
+        cols = list(self.meta.columns)
+        px_candidates = [c for c in cols if "Image Width" in c and "Pixel" in c]
+        um_candidates = [c for c in cols if "Image Width" in c and "µm" in c]
 
-        BA2 uses two tokens for the folder path; BA1 and BA3 use only the first token.
-        """
-        tokens = ba.split()
-        if len(tokens) > 1:
-            if tokens[0].upper() == "BA2":
-                img_subfolder = tokens[0].upper() + "/" + tokens[1]
-            else:
-                img_subfolder = tokens[0].upper()
-        else:
-            img_subfolder = ba.upper()
+        if not px_candidates or not um_candidates:
+            raise ValueError(f"Could not find width columns in {cols}")
 
-        img_folder = (
-            Path("/net/projects2/promega/data-analysis") / img_subfolder / dayID
+        px_col = px_candidates[0]
+        um_col = um_candidates[0]
+        logging.info(f"Using pixel-col={px_col!r}, micron-col={um_col!r}")
+
+        # Coerce to numeric
+        self.meta[px_col] = (
+            self.meta[px_col].astype(str)
+                .str.replace(",", "")
+                .str.strip()
+                .pipe(pd.to_numeric, errors="coerce")
         )
-        # Use rglob to include files in subdirectories if needed
-        filenames = list(img_folder.rglob("*.tif"))
-        filenames.sort()
-        return img_folder, filenames
-
-    def clean_metadata(
-        self: ImageMapper,
-        range_row: tuple[int, int],
-        meta_file: DataFrame,
-        diffday_j: int,
-    ) -> DataFrame:
-        """Clean and organize metadata for the specified day.
-
-        Handles repeated day columns by selecting the appropriate suffix.
-        """
-        cleaned_metadata: DataFrame = pd.DataFrame(
-            columns=[
-                "photoID",
-                "plateType",
-                "numofFocus",
-                "Objective",
-                "imHeight",
-                "imWidth",
-                "dayID",
-                "wellID",
-                "batchPlate",
-            ]
+        self.meta[um_col] = (
+            self.meta[um_col].astype(str)
+                .str.replace(",", "")
+                .str.strip()
+                .pipe(pd.to_numeric, errors="coerce")
         )
 
-        for row_i in range(range_row[0], range_row[1]):
-            if diffday_j == 0:
-                photoID = meta_file.iloc[row_i]["Photo ID"]
-                numofFocus = meta_file.iloc[row_i]["Number of Focus"]
-                plateType = meta_file.iloc[row_i]["Plate Type"]
-                Objective = meta_file.iloc[row_i]["Objective / Microscope"]
+        self.meta["um_per_px"] = self.meta[um_col] / self.meta[px_col]
+
+    def clean_metadata(self) -> pd.DataFrame:
+        df = self.meta.rename(columns={
+            "Photo ID (Batch Plate Day Well)":        "photoID",
+            "Organoid ID (Same as in Organoid Info)": "orgID",
+            "Picture Day":                            "dayID",
+            "Objective":                              "objective",
+            "Number of Focus":                        "numFocus",
+            "First Focus":                            "firstZ",
+            "Last Focus":                             "lastZ",
+            "Focus Step (µm)":                        "dz"
+        })
+
+        def split_pid(pid: str) -> pd.Series:
+            parts = pid.split()
+            
+            # 1. Extract the batch and plate parts
+            batch_parts = []
+            i = 0
+            while i < len(parts):
+                part = parts[i]
+                # Match Ba1, Ba2, Ba3, Ba4, etc.
+                if re.match(r"^Ba\d+$", part, re.IGNORECASE):
+                    batch_parts.append(part)
+                    # Check if the next part is 96_1 or 96_2 (for Ba2 or Ba3)
+                    if i+1 < len(parts) and re.match(r"^(?:96_[12]|Pt1)$", parts[i+1]):
+                        batch_parts.append(parts[i+1])
+                        i += 1  # Skip the next part as we've included it
+                    break  # We've found the batch part
+                i += 1
+            
+            batchPlate = " ".join(batch_parts)
+            
+            # 2. Find day part (always starts with Dy)
+            day_index = next((i for i, part in enumerate(parts) if part.upper().startswith("DY")), -1)
+            dayID = parts[day_index] if day_index >= 0 else ""
+            
+            # 3. Extract well ID (everything after day)
+            well_parts = parts[day_index+1:] if day_index >= 0 else []
+            raw_well = " ".join(well_parts)
+            
+            # 4. Clean the well ID - keep the core ID part but strip trailing special chars
+            # First, identify the well pattern: usually letter followed by number (B6, H12, etc.)
+            well_match = re.match(r"^([A-Za-z]\d+).*$", raw_well)
+            if well_match:
+                # We found a standard well pattern - use it as is
+                wellID = well_match.group(1)
             else:
-                photoID = meta_file.iloc[row_i]["Photo ID." + str(diffday_j)]
-                numofFocus = meta_file.iloc[row_i]["Number of Focus." + str(diffday_j)]
-                plateType = meta_file.iloc[row_i]["Plate Type." + str(diffday_j)]
-                Objective = meta_file.iloc[row_i][
-                    "Objective / Microscope." + str(diffday_j)
-                ]
+                # If no standard pattern found, just remove trailing special chars
+                wellID = re.sub(r"[#%()]+$", "", raw_well).strip()
+            
+            # Special case for capturing "(1" as part of the ID if it exists
+            if "(" in raw_well and not raw_well.endswith(")"):
+                paren_match = re.search(r"([A-Za-z]\d+\([^)]*)", raw_well)
+                if paren_match:
+                    wellID = paren_match.group(1)
+            
+            logging.debug(f"Split {pid!r} into: batch={batchPlate!r}, day={dayID!r}, well={wellID!r}")
+            return pd.Series([batchPlate, dayID, wellID])
 
-            splitted = photoID.split()
-            dayID = splitted[-2]
-            wellID = splitted[-1]
+        df[["batchPlate", "dayID", "wellID"]] = df["photoID"].apply(split_pid)
 
-            # Extract batchPlate from photoID (all tokens except the last two)
-            batchPlate = " ".join(splitted[:-2])
-            cleaned_metadata = pd.concat(
-                [
-                    cleaned_metadata,
-                    pd.DataFrame(
-                        [
-                            {
-                                "photoID": photoID,
-                                "plateType": plateType,
-                                "numofFocus": numofFocus,
-                                "Objective": Objective,
-                                "dayID": dayID,
-                                "wellID": wellID,
-                                "batchPlate": batchPlate,
-                            }
-                        ]
-                    ),
-                ],
-                ignore_index=True,
-            )
-        return cleaned_metadata
+        return df[[
+            "photoID", "orgID", "batchPlate", "dayID", "wellID",
+            "Microscope", "objective", "Image Width (Pixel)",
+            "Image Width (µm)", "um_per_px", "numFocus", "firstZ", "lastZ", "dz"
+        ]]
 
     def resolve_filename(
-        self: ImageMapper, file_photoID: str, img_folder: str | Path
-    ) -> tuple[Path | None, str, list[Path]]:
-        """Finds the correct file based on naming rules.
-
-        Uses a regex with a word-boundary to avoid partial matches (e.g., A1 vs A10).
-        Returns a tuple: (resolved file, stitched status, list of filtered files).
-        """
+        self, file_photoID: str, img_folder: str|Path, batch_plate: str = None
+    ) -> tuple[Path|None, str, list[Path]]:
+        """1) prefix‐match  2) sort by Z  3) stitched‐tile  4) BA3 Pt1  5) Z0/.tif  6) fallback."""
         img_folder = Path(img_folder)
         logging.info(f"Resolving filename for {file_photoID} in {img_folder}")
 
-        # Build regex pattern; ensures an exact match followed by a word boundary
-        pattern = re.compile(re.escape(file_photoID) + r"(\b|$)", re.IGNORECASE)
-        filtered_files = [f for f in img_folder.rglob("*.tif") if pattern.match(f.name)]
+        # If we have information about 96_1 or 96_2 in batch_plate, include it in the search pattern
+        search_id = file_photoID
+        
+        # Handle special case for BA3 Pt1 conversion
+        if "ba3" in search_id.lower() and "96_1" in batch_plate.lower() and "96_1" not in search_id:
+            # Try both versions - with Pt1 and with 96_1
+            search_ids = [
+                search_id,
+                re.sub(r"BA3\b", "BA3 96_1", search_id, flags=re.IGNORECASE), 
+                re.sub(r"BA3\b", "BA3 Pt1", search_id, flags=re.IGNORECASE)
+            ]
+            logging.info(f"Using multiple search patterns for BA3: {search_ids}")
+        elif batch_plate and "96_" in batch_plate and "96_" not in search_id:
+            # For other batches, add the plate info (96_1 or 96_2) if missing
+            plate_suffix = re.search(r"96_[12]", batch_plate)
+            if plate_suffix:
+                ba_match = re.search(r"BA\d+", search_id.upper())
+                if ba_match:
+                    ba_part = ba_match.group(0)
+                    adjusted_id = re.sub(
+                        rf"{ba_part}\b", 
+                        f"{ba_part} {plate_suffix.group(0)}", 
+                        search_id, 
+                        flags=re.IGNORECASE
+                    )
+                    search_ids = [search_id, adjusted_id]
+                    logging.info(f"Using multiple search patterns: {search_ids}")
+                else:
+                    search_ids = [search_id]
+            else:
+                search_ids = [search_id]
+        else:
+            search_ids = [search_id]
 
-        # Function to extract Z-index from filename
-        def extract_z(file: Path) -> int:
-            m = re.search(r" Z(\d+)\.tif$", file.name, re.IGNORECASE)
-            if m:
-                return int(m.group(1))
-            return -1
-
-        # Sort the filtered files based on the extracted Z-index
-        filtered_files.sort(key=extract_z)
-
-        stitched_file = None
-
-        # Check if the file is part of a stitched set (identified by a pattern like "(1 of 2)")
-        for file in filtered_files:
-            if re.search(r"\(\d+ *of *\d+\)", file.name):
-                stitched_file = file
+        # Try all search IDs until we find matches
+        candidates = []
+        for sid in search_ids:
+            # Strip any trailing special characters for search pattern
+            clean_sid = re.sub(r"[%#()]+$", "", sid).strip()
+            
+            # Try two matching approaches: word boundary and more flexible
+            patterns = [
+                rf"\b{re.escape(clean_sid)}(?=[\s(]|$)",  # Word boundary
+                rf"{re.escape(clean_sid)}(?:\s|\.|$)"      # More flexible
+            ]
+            
+            for pattern in patterns:
+                search_re = re.compile(pattern, re.IGNORECASE)
+                these_candidates = [f for f in img_folder.rglob("*.tif") if search_re.search(f.name)]
+                
+                if these_candidates:
+                    candidates = these_candidates
+                    logging.info(f"Found {len(candidates)} matches with pattern: {pattern}")
+                    break
+            
+            if candidates:
                 break
 
-        if stitched_file:
-            return stitched_file, "Yes", filtered_files
+        # If still no candidates, try more permissive search
+        if not candidates:
+            # Extract well ID from the search pattern
+            well_match = re.search(r"[A-Za-z]\d+(?:\([^)]*)?", search_id)
+            if well_match:
+                well_id = well_match.group(0)
+                logging.info(f"Trying fallback search with well ID: {well_id}")
+                
+                # Look for files with the well ID in the filename
+                candidates = [f for f in img_folder.rglob("*.tif") 
+                             if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE)]
 
-        # Handle BA3-specific naming inconsistencies by replacing '96_1' with 'Pt1'
-        if "ba3" in file_photoID.lower():
-            pt1_with_z = img_folder / f"{file_photoID.replace('96_1', 'Pt1')} Z0.tif"
-            pt1_without_z = img_folder / f"{file_photoID.replace('96_1', 'Pt1')}.tif"
+        # 2) sort by Z-index
+        def extract_z(f: Path) -> int:
+            m = re.search(r" Z(\d+)\.tif$", f.name, re.IGNORECASE)
+            return int(m.group(1)) if m else -1
+        candidates.sort(key=extract_z)
 
-            if pt1_with_z.is_file():
-                return pt1_with_z, "No", filtered_files
-            elif pt1_without_z.is_file():
-                return pt1_without_z, "No", filtered_files
-            else:
-                file_photoID = file_photoID.replace("Pt1", "96_1")
+        # 3) stitched‐tile check
+        for f in candidates:
+            if re.search(r"\(\d+\s*of\s*\d+\)", f.name):
+                return f, "Yes", candidates
 
-        # Standard checks: look for files with or without an explicit Z index in the filename
-        file_with_z = img_folder / f"{file_photoID} Z0.tif"
-        file_without_z = img_folder / f"{file_photoID}.tif"
+        # 4) BA3 Pt1 / 96_1 special case handling
+        if "ba3" in search_id.lower():
+            # Try both Pt1 and 96_1 versions
+            for version, replacement in [("96_1", "Pt1"), ("Pt1", "96_1")]:
+                if version in search_id.lower():
+                    for suffix in (" Z0.tif", ".tif"):
+                        alt_file = img_folder / (search_id.replace(version, replacement) + suffix)
+                        if alt_file.is_file():
+                            return alt_file, "No", candidates
 
-        if file_with_z.is_file():
-            return file_with_z, "No", filtered_files
-        elif file_without_z.is_file():
-            return file_without_z, "No", filtered_files
-        elif filtered_files:
-            return filtered_files[0], "No", filtered_files
+        # 5) explicit Z0 or bare .tif
+        for sid in search_ids:
+            z0 = img_folder / f"{sid} Z0.tif"
+            bare = img_folder / f"{sid}.tif"
+            if z0.is_file():    return z0,   "No", candidates
+            if bare.is_file():  return bare, "No", candidates
 
-        logging.warning(f"No files found for {file_photoID} in {img_folder}")
+        # 6) fallback to first candidate
+        if candidates:
+            return candidates[0], "No", candidates
+
+        logging.warning(f"No files found for {search_id} in {img_folder}")
         return None, "No", []
 
-    # Finds best focused image
-    def find_best_focus(self: ImageMapper, files: list[Path]) -> int:
-        """Finds the best-focused Z-stack slice using Laplacian variance.
+    def make_mapping_json(self, out_json: Path):
+        """Loop through metadata, call resolve_filename once, then pick focus or keep stitched."""
+        logging.info("Generating key mapping JSON…")
 
-        Returns the index of the file with the highest focus quality.
-        """
-        # If only one Z stack exists, store as -1
-        if not files:
-            return -1
+        cleaned = self.clean_metadata()
+        grouped = cleaned.groupby(["dayID", "batchPlate", "wellID"])
+        mapping = {}
 
-        best_z = 0
-        max_variance = float("-inf")
-        channel_axis = 2
+        for (day_id, batch_plate, well_id), group_df in grouped:
+            logging.info(f"Processing {batch_plate} {day_id} {well_id}")
 
-        for i, file in enumerate(files):
-            try:
-                img = imread(str(file))
-                # If the image has more than 2 dimensions, average over the channel axis
-                if img.ndim > channel_axis:
-                    img = img.mean(axis=channel_axis).astype(np.uint8)
-                variance = cv2.Laplacian(img, cv2.CV_64F).var()
+            # Standardize the BA part to uppercase (BA2 instead of Ba2)
+            parts = batch_plate.split()
+            ba_part = parts[0].upper()
+            
+            # Handle BA specific logic for full ID construction
+            if ba_part == "BA2" and len(parts) > 1 and "96_" in parts[1]:
+                ba_str = f"{ba_part} {parts[1]}"
+                # Include the plate info in the ID
+                full_id = f"{ba_str} {day_id} {well_id}"
+            elif ba_part == "BA3" and len(parts) > 1:
+                # For BA3, handle both cases: 96_1 and Pt1
+                if "96_1" in parts[1]:
+                    ba_str = f"{ba_part} {parts[1]}"
+                elif "Pt1" in parts[1]:
+                    ba_str = f"{ba_part} {parts[1]}"
+                else:
+                    ba_str = ba_part
+                full_id = f"{ba_str} {day_id} {well_id}"
+            else:
+                ba_str = ba_part
+                full_id = f"{ba_str} {day_id} {well_id}"
+            
+            logging.debug(f"Constructed full ID: {full_id}")
 
-                if variance > max_variance:
-                    max_variance = variance
-                    best_z = i
-            except Exception as e:
-                logging.error(f"Error processing {file}: {str(e)}")
+            # resolve folder based on batch type
+            sub = self.BA_FOLDER_MAP[ba_part]
+            if isinstance(sub, list):
+                # Handle BA2 special case with 96_1 and 96_2 subfolders
+                if len(parts) > 1 and any(plate in parts[1] for plate in ["96_1", "96_2"]):
+                    plate_suffix = parts[1]
+                    sub = next((s for s in sub if plate_suffix in s), sub[0])
+                    logging.debug(f"Selected subfolder {sub} for {plate_suffix}")
+                else:
+                    # Default to first subfolder if not specified
+                    sub = sub[0]
+                    logging.debug(f"Using default subfolder {sub}")
+            
+            img_folder = self.base_dir / sub / day_id
+            if not img_folder.exists():
+                logging.warning(f"Image folder does not exist: {img_folder}")
                 continue
 
-        return best_z
+            # Pass batch_plate to help with special case resolution
+            chosen, stitched_flag, all_files = self.resolve_filename(full_id, img_folder, batch_plate)
+            if chosen is None:
+                continue  # already logged
+
+            # compute Best Z (or -1 if stitched)
+            if stitched_flag == "Yes":
+                focus_idx = -1
+                final = chosen
+            else:
+                idx = self.find_best_focus(all_files)
+                focus_idx = idx if 0 <= idx < len(all_files) else -1
+                final = all_files[focus_idx] if focus_idx >= 0 else chosen
+
+            # write out
+            mapping[full_id] = {
+                "dayID": day_id,
+                "BA": ba_str,
+                "wellID": well_id,
+                "Best Z": focus_idx,
+                "Best Z Filename": str(final),
+                "Stitched": stitched_flag,
+                "um_per_px": float(group_df["um_per_px"].iloc[0]),
+                "all_files": [str(f) for f in all_files],
+            }
+
+        out_json.write_text(json.dumps(mapping, indent=2))
+        logging.info(f"Wrote mapping JSON to {out_json}")
+
+    def find_best_focus(self, files: list[Path]) -> int:
+        if not files:
+            return -1
+            
+        best_i = 0
+        best_var = -1
+        for i, f in enumerate(files):
+            img = imread(str(f))
+            if img.ndim == 3:
+                img = img.mean(axis=2).astype("uint8")
+            var = cv2.Laplacian(img, cv2.CV_64F).var()
+            if var > best_var:
+                best_var = var
+                best_i = i
+        return best_i

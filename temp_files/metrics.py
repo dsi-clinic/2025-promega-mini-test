@@ -1,92 +1,133 @@
-# ----------------------------------------
-# quick_mask_metrics.py
-# ----------------------------------------
-import json, csv, sys
-from pathlib import Path
-import numpy as np
+import json
+import math
 import cv2
-from skimage.measure import label, regionprops_table
+import numpy as np
 import pandas as pd
 
-def measure_mask(mask_path, px_um):
-    """Return a dict of props (largest object) in micron units."""
-    mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
-    if mask is None:
-        raise IOError(f"Cannot read {mask_path}")
-    binmask = mask > 127            # threshold 0/255 → bool
-    lab = label(binmask)
-    if lab.max() == 0:               # no object
+from pathlib import Path
+from skimage import measure, morphology
+from scipy.stats import entropy as shannon_entropy
+from skimage.measure import find_contours
+from pyefd import elliptic_fourier_descriptors, reconstruct_contour
+from concurrent.futures import ProcessPoolExecutor
+
+
+def classic_shape_metrics(mask_bin: np.ndarray, μm_per_px: float):
+    regions = measure.regionprops(mask_bin.astype(int))
+    if not regions:
         return None
-    props = regionprops_table(
-        lab,
-        properties=("area", "perimeter", "major_axis_length",
-                    "minor_axis_length", "eccentricity")
-    )
-    # keep the largest region (index of max area)
-    idx = int(np.argmax(props["area"]))
-    μm_px = px_um                     # microns per network pixel
-    out = {
-        "area_μm2"      : props["area"][idx]            * (μm_px**2),
-        "perimeter_μm"  : props["perimeter"][idx]       * μm_px,
-        "major_ax_μm"   : props["major_axis_length"][idx]* μm_px,
-        "minor_ax_μm"   : props["minor_axis_length"][idx]* μm_px,
-        "eccentricity"  : float(props["eccentricity"][idx]),
+    props = max(regions, key=lambda r: r.area)
+
+    area_px = props.area
+    peri_px = props.perimeter
+    major = props.major_axis_length
+    minor = props.minor_axis_length
+
+    hull = morphology.convex_hull_image(mask_bin)
+    peri_ch = measure.perimeter(hull)
+    area_ch = hull.sum()
+
+    return {
+        "area_um2": area_px * μm_per_px**2,
+        "perimeter_um": peri_px * μm_per_px,
+        "major_um": major * μm_per_px,
+        "minor_um": minor * μm_per_px,
+        "circularity": 4 * math.pi * area_px / (peri_px**2),
+        "solidity": area_px / area_ch,
+        "convexity": peri_ch / peri_px,
+        "aspect_ratio": major / minor,
     }
-    return out
-
-def process_mapping(json_path):
-    rows = []
-    with open(json_path) as f:
-        mapping = json.load(f)
-    for img_id, info in mapping.items():
-        mask_path = Path(info["mask_path"])
-        if not mask_path.exists():
-            print("  ⚠️  missing mask:", mask_path.name)
-            continue
-        px_um = info["final_um_per_px"]       # microns per *network* pixel
-        metrics = measure_mask(mask_path, px_um)
-        if metrics:
-            metrics.update({"img_id": img_id,
-                            "batch_day": mask_path.parts[-4]})  # e.g. batch2_96_1/day03
-            rows.append(metrics)
-    return rows
 
 
-# ------------- CLI: glob every mapping under a root -------------
-"""
-Usage:
-python quick_mask_metrics.py /net/projects2/promega/data-analysis/output/processed_dataset_256x192
-"""
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python quick_mask_metrics.py <root_processed_dataset_dir>")
-        sys.exit(1)
+def efa_timbre_metrics(mask_bin: np.ndarray, μm_per_px: float, n_harmonics: int = 10):
+    contours = find_contours(mask_bin.astype(int), level=0.5)
+    if not contours:
+        return None
+    contour = max(contours, key=len)
+    xy = np.fliplr(contour)
 
-    root = Path(sys.argv[1])
-    if not root.is_dir():
-        print("Given path is not a directory")
-        sys.exit(1)
+    coeffs = elliptic_fourier_descriptors(xy, order=n_harmonics, normalize=True)
 
-    json_paths = sorted(root.rglob("image_mapping_*_processed.json"))
-    if not json_paths:
-        print("No mapping JSONs found under", root)
-        sys.exit(0)
+    orig_area = mask_bin.sum() * (μm_per_px**2)
+    xor_curve = np.zeros(n_harmonics + 1, float)
+    xor_curve[0] = orig_area
 
-    all_rows = []
+    for k in range(1, n_harmonics + 1):
+        rec_xy = reconstruct_contour(coeffs[:k], locus=(0, 0), num_points=xy.shape[0])
+        pts = np.round(rec_xy).astype(np.int32)
+
+        ui = np.zeros(mask_bin.shape, np.uint8)
+        cv2.fillPoly(ui, [pts], 1)
+        filled = ui.astype(bool)
+
+        xor_curve[k] = np.logical_xor(mask_bin, filled).sum() * (μm_per_px**2)
+
+    marginal = xor_curve[:-1] - xor_curve[1:]
+    cumulative = xor_curve[2:].sum()
+
+    amps = np.sqrt((coeffs**2).sum(axis=1))
+    p = amps / (amps.sum() + 1e-12)
+    E = shannon_entropy(p)
+
+    return {
+        "xor_curve": xor_curve.tolist(),
+        "marginal_diff": marginal.tolist(),
+        "cumulative_diff": float(cumulative),
+        "entropy": float(E),
+    }
+
+
+def process_entry(entry):
+    jp_path, img_id, info = entry
+    try:
+        mp_x = info["final_um_per_px_x"]
+        mp_y = info["final_um_per_px_y"]
+        μm_per_px = (mp_x + mp_y) / 2
+
+        mask = cv2.imread(info["mask_path"], cv2.IMREAD_GRAYSCALE) > 127
+        if not mask.sum():
+            return None
+
+        classic = classic_shape_metrics(mask, μm_per_px)
+        if classic is None:
+            return None
+
+        efa = efa_timbre_metrics(mask, μm_per_px)
+
+        return {
+            "img_id": img_id,
+            "batch_day": jp_path.parts[-2],
+            **classic,
+            **efa,
+        }
+    except Exception as e:
+        print(f"❌ Error in {img_id}: {e}")
+        return None
+
+
+def main():
+    root = Path("/net/projects2/promega/data-analysis/output/processed_dataset_256x192")
+    out_csv = root / "morphology_timbre_metrics.csv"
+
+    json_paths = list(root.rglob("image_mapping_*_processed.json"))
+    print(f"Found {len(json_paths)} JSON files.")
+
+    all_tasks = []
     for jp in json_paths:
-        print("»", jp.relative_to(root))
-        all_rows += process_mapping(jp)
+        mapping = json.loads(jp.read_text())
+        print(f"Preparing {jp.name} with {len(mapping)} entries...")
+        all_tasks.extend([(jp, img_id, info) for img_id, info in mapping.items()])
 
-    df = pd.DataFrame(all_rows)
-    if df.empty:
-        print("No masks found!")
-        sys.exit(0)
+    with ProcessPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(process_entry, all_tasks))
 
-    # quick summary
-    print("\n── summary (largest object per image) ──")
-    print(df.describe().loc[["mean","std","min","max"]][
-            ["area_μm2","major_ax_μm","eccentricity"]])
+    valid = [r for r in results if r is not None]
+    print(f"✔ Done: {len(valid)} valid entries.")
 
-    out_csv = root / "mask_metrics.csv"
+    df = pd.DataFrame(valid)
     df.to_csv(out_csv, index=False)
-    print(f"\nsaved full table →  {out_csv}")
+    print(f"📁 Saved → {out_csv}")
+
+
+if __name__ == "__main__":
+    main()

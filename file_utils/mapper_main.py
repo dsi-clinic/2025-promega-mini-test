@@ -2,7 +2,7 @@
 
 import logging
 
-from data_mapping.mapping_system_n import MappingSystem
+from data_mapping.mapping_system import MappingSystem
 
 
 def main() -> dict:
@@ -12,8 +12,8 @@ def main() -> dict:
     """
     try:
         # Initialize and run mapping system
-        mapping_system_n = MappingSystem()
-        mapping = mapping_system_n.generate_key_mapping()
+        mapping_system = MappingSystem()
+        mapping = mapping_system.generate_key_mapping()
         logging.info("Mapping generation completed successfully")
         return mapping
     except Exception as e:
