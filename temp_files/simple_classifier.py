@@ -118,10 +118,9 @@ for item in all_new_data.values():
     labels.append(item['label'])
 
 unique_labels = sorted(list(set(labels)))
-label_to_index = {label: i for i, label in enumerate(unique_labels)}
+label_to_index = {"Not Acceptable": 0, "Acceptable": 1}  # Explicitly map to 0 and 1
 indexed_labels = np.array([label_to_index[label] for label in labels])
-num_classes = len(unique_labels)
-categorical_labels = to_categorical(indexed_labels, num_classes=num_classes)
+num_classes = 1  # Binary classification uses 1 output unit with sigmoid
 
 # --- 4. Load and preprocess images and masks for the top model ---
 def load_and_preprocess_top_model(img_path, mask_path, target_size=(224, 224)):
@@ -147,7 +146,7 @@ processed_image_data = []
 processed_mask_data = []
 corresponding_labels = []
 
-for img_path, mask_path, label in zip(image_paths, mask_paths, categorical_labels):
+for img_path, mask_path, label in zip(image_paths, mask_paths, indexed_labels):
     img, mask = load_and_preprocess_top_model(img_path, mask_path)
     if img is not None and mask is not None:
         processed_image_data.append(img)
@@ -156,7 +155,7 @@ for img_path, mask_path, label in zip(image_paths, mask_paths, categorical_label
 
 processed_image_data = np.array(processed_image_data)
 processed_mask_data = np.array(processed_mask_data)
-corresponding_labels = np.array(corresponding_labels)
+corresponding_labels = np.array(corresponding_labels).reshape(-1, 1)
 
 # Ensure we have data after preprocessing
 if not processed_image_data.shape[0] == len(corresponding_labels):
@@ -215,13 +214,13 @@ merged = keras.layers.concatenate([pooled_output, mask_features])
 # Add a classification head
 dense_layer = Dense(128, activation='relu')(merged)
 dropout_layer = Dropout(0.5)(dense_layer)
-output_layer = Dense(num_classes, activation='softmax')(dropout_layer)
+output_layer = Dense(1, activation='sigmoid')(dropout_layer)
 
 # Create the final model with two inputs and one output
 model = keras.Model(inputs=[input_image, input_mask], outputs=output_layer)
 
 # Compile the model
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=[f1_score])
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[f1_score])
 
 # Print the model summary
 model.summary()
