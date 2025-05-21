@@ -33,7 +33,7 @@ else:
 # --- Constants ---
 PREPROCESSED_JSON_DIR = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
 TARGET_SIZE = (224, 224) # Define target size as a constant
-TARGET_DAY = 30
+TARGET_DAY = 0o6
 
 # --- Helper function to get mapping paths ---
 def get_mapping_paths(batch_number, day_number=30):
