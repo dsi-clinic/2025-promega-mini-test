@@ -1,6 +1,7 @@
 import json
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score as sk_f1_score
 from tensorflow import keras
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, GlobalAveragePooling2D
@@ -32,7 +33,7 @@ else:
 # --- Constants ---
 PREPROCESSED_JSON_DIR = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
 TARGET_SIZE = (224, 224) # Define target size as a constant
-TARGET_DAY = 15
+TARGET_DAY = 30
 
 # --- Helper function to get mapping paths ---
 def get_mapping_paths(batch_number, day_number=30):
@@ -277,21 +278,65 @@ print(f"Determined IMG_SHAPE: {IMG_SHAPE}")
 print(f"Determined MASK_SHAPE: {MASK_SHAPE}")
 
 # --- 6. Define F1 Score Metric for Keras ---
-def f1_score(y_true, y_pred):
-    def recall_m(y_true, y_pred):
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-        recall = true_positives / (possible_positives + K.epsilon())
-        return recall
+def weighted_f1_score_keras(y_true, y_pred):
+    # Round predictions to binary (0 or 1)
+    y_pred_binary = K.round(y_pred)
 
-    def precision_m(y_true, y_pred):
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-        precision = true_positives / (predicted_positives + K.epsilon())
-        return precision
+    # Flatten the tensors
+    y_true_flat = K.flatten(y_true)
+    y_pred_flat = K.flatten(y_pred_binary)
 
-    precision, recall = precision_m(y_true, y_pred), recall_m(y_true, y_pred)
-    return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
+    # Define the Python function to be wrapped
+    def _weighted_f1_py_func(y_true_tensor, y_pred_tensor):
+        # Convert EagerTensors to NumPy arrays
+        y_true_np = y_true_tensor.numpy()
+        y_pred_np = y_pred_tensor.numpy()
+
+        # Handle potential empty batches, or cases where one class has no true instances
+        # It's better to check for presence of unique labels here
+        if not (np.any(y_true_np == 0) or np.any(y_true_np == 1)):
+             return 0.0 # Return a default if no relevant labels are present in the batch
+
+        # Ensure y_true_np and y_pred_np are 1D arrays for sklearn
+        y_true_np = y_true_np.astype(int) # Now .astype(int) works on NumPy array
+        y_pred_np = y_pred_np.astype(int) # Now .astype(int) works on NumPy array
+
+        # Calculate weighted F1 score using sklearn
+        return sk_f1_score(y_true_np, y_pred_np, average='weighted')
+
+    # Wrap the Python function with tf.py_function
+    weighted_f1 = tf.py_function(
+        _weighted_f1_py_func,
+        inp=[y_true_flat, y_pred_flat],
+        Tout=tf.float32 # Output is a single float
+    )
+    weighted_f1.set_shape([]) # Set shape to scalar (no dimensions)
+    return weighted_f1
+
+def macro_f1_score_keras(y_true, y_pred):
+    y_pred_binary = K.round(y_pred)
+    y_true_flat = K.flatten(y_true)
+    y_pred_flat = K.flatten(y_pred_binary)
+
+    def _macro_f1_py_func(y_true_tensor, y_pred_tensor):
+        y_true_np = y_true_tensor.numpy()
+        y_pred_np = y_pred_tensor.numpy()
+
+        if not (np.any(y_true_np == 0) or np.any(y_true_np == 1)):
+            return 0.0
+
+        y_true_np = y_true_np.astype(int)
+        y_pred_np = y_pred_np.astype(int)
+
+        return sk_f1_score(y_true_np, y_pred_np, average='macro')
+
+    macro_f1 = tf.py_function(
+        _macro_f1_py_func,
+        inp=[y_true_flat, y_pred_flat],
+        Tout=tf.float32
+    )
+    macro_f1.set_shape([])
+    return macro_f1
 
 # --- 7. Define a CNN model with a pre-trained base ---
 # Load a pre-trained model (e.g., ResNet50V2) without the top (classification) layer
@@ -326,7 +371,7 @@ output_layer = Dense(1, activation='sigmoid')(dropout_layer)
 model = keras.Model(inputs=[input_image, input_mask], outputs=output_layer)
 
 # Compile the model
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[f1_score])
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[weighted_f1_score_keras])
 
 print("\n--- Initial Model Summary (Base Frozen) ---")
 model.summary()
@@ -334,7 +379,7 @@ print("------------------------------------------")
 
 # --- 8. Define Early Stopping Callback ---
 early_stopping = EarlyStopping(
-    monitor='val_f1_score',
+    monitor='val_weighted_f1_score_keras',
     patience=20, # Increased patience a bit
     verbose=1,
     mode='max',
@@ -366,7 +411,7 @@ for layer in base_model.layers[-10:]: # Unfreeze last 10 layers, for example
 model.compile(
     optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
     loss='binary_crossentropy',
-    metrics=[f1_score]
+    metrics=[weighted_f1_score_keras]
 )
 
 print("\n--- Model Summary (Base Unfrozen, Fine-tuning LR) ---")
@@ -376,7 +421,7 @@ print("----------------------------------------------------")
 epochs_phase2 = 150 # More epochs for fine-tuning, total epochs will be epochs_phase1 + epochs_phase2
 # Reset early stopping for the second phase to allow more training
 early_stopping_fine_tune = EarlyStopping(
-    monitor='val_f1_score',
+    monitor='val_weighted_f1_score_keras',
     patience=30, # Increased patience for fine-tuning
     verbose=1,
     mode='max',
@@ -392,9 +437,14 @@ history_fine_tune = model.fit(
 )
 print("----------------------------------------------------------")
 
+metrics_to_combine = ['loss', 'val_loss', 'weighted_f1_score_keras', 'val_weighted_f1_score_keras']
+
 # Combine histories for plotting
-for key in history_fine_tune.history:
-    history.history[key] = history.history[key] + history_fine_tune.history[key]
+for key in metrics_to_combine:
+    if key in history.history and key in history_fine_tune.history:
+        history.history[key].extend(history_fine_tune.history[key])
+    elif key in history_fine_tune.history: # In case a metric was only added in phase 2 (unlikely here, but good practice)
+        history.history[key] = history_fine_tune.history[key]
 
 # --- 11. Evaluate the model ---
 # To evaluate with the dataset, we need to convert it to a format model.evaluate expects.
@@ -411,8 +461,8 @@ print("\nFinal model classifier saved as 'organoid_classifier_final_model_with_a
 plt.figure(figsize=(12, 4))
 
 plt.subplot(1, 2, 1)
-plt.plot(history.history['f1_score'], label='Train F1 Score')
-plt.plot(history.history['val_f1_score'], label='Validation F1 Score')
+plt.plot(history.history['weighted_f1_score_keras'], label='Train Weighted F1 Score')
+plt.plot(history.history['val_weighted_f1_score_keras'], label='Validation Weighted F1 Score')
 plt.xlabel('Epoch')
 plt.ylabel('F1 Score')
 plt.legend()
@@ -448,14 +498,3 @@ y_pred = (y_pred_proba_all > 0.5).astype(int) # Convert probabilities to binary 
 cm = confusion_matrix(y_true_all, y_pred)
 print("Confusion Matrix:")
 print(cm)
-
-plt.figure(figsize=(6, 5))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-            xticklabels=["Not Acceptable", "Acceptable"],
-            yticklabels=["Not Acceptable", "Acceptable"])
-plt.xlabel('Predicted Label')
-plt.ylabel('True Label')
-plt.title('Confusion Matrix')
-plt.savefig('confusion_matrix_final_model_with_augmentation.png')
-print("Confusion matrix plot saved as 'confusion_matrix_final_model_with_augmentation.png'")
-print("-----------------------------------")
