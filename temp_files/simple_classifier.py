@@ -3,12 +3,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, GlobalAveragePooling2D
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.utils import to_categorical
-from PIL import Image
-import os
 import tensorflow as tf
 from tensorflow.keras.applications import ResNet50V2
 from tensorflow.keras.callbacks import EarlyStopping
@@ -36,6 +31,7 @@ else:
 
 # --- Constants ---
 PREPROCESSED_JSON_DIR = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
+TARGET_SIZE = (224, 224) # Define target size as a constant
 
 # --- Helper function to get mapping paths ---
 def get_mapping_paths(batch_number, day_number=30):
@@ -135,52 +131,10 @@ for class_idx, count in sorted(class_counts.items()):
     print(f"Class {class_idx} ('{label_name}'): {count} samples")
 print("------------------------------------------")
 
-
-# --- 4. Load and preprocess images and masks for the top model ---
-def load_and_preprocess_top_model(img_path, mask_path, target_size=(224, 224)):
-    try:
-        print(f"Processing image: {img_path}")
-        img = image.load_img(img_path, target_size=target_size)
-        img_array = image.img_to_array(img) / 255.0  # Normalize to [0, 1]
-        print(f"Image array shape after loading and resizing: {img_array.shape}")
-
-        print(f"Processing mask: {mask_path}")
-        mask = Image.open(mask_path).resize(target_size, Image.NEAREST)
-        mask_array = np.array(mask) / 255.0
-
-        # Expand mask dimensions to (height, width, 1)
-        mask_array_expanded = np.expand_dims(mask_array, axis=-1)
-
-        return img_array, mask_array_expanded
-    except Exception as e:
-        print(f"Error loading or preprocessing image/mask: {e}")
-        return None, None
-
-processed_image_data = []
-processed_mask_data = []
-corresponding_labels = []
-
-print("\nLoading and preprocessing images and masks...")
-for img_path, mask_path, label in zip(image_paths, mask_paths, indexed_labels):
-    img, mask = load_and_preprocess_top_model(img_path, mask_path)
-    if img is not None and mask is not None:
-        processed_image_data.append(img)
-        processed_mask_data.append(mask)
-        corresponding_labels.append(label)
-
-processed_image_data = np.array(processed_image_data)
-processed_mask_data = np.array(processed_mask_data)
-corresponding_labels = np.array(corresponding_labels).reshape(-1, 1)
-print("Finished loading and preprocessing.")
-
-# Ensure we have data after preprocessing
-if not processed_image_data.shape[0] == len(corresponding_labels):
-    print("Error: Number of processed images does not match the number of labels. Check loading and preprocessing.")
-    exit()
-
-# --- 5. Split data into training and validation sets ---
-X_img_train, X_img_val, X_mask_train, X_mask_val, y_train, y_val = train_test_split(
-    processed_image_data, processed_mask_data, corresponding_labels, test_size=0.2, stratify=corresponding_labels, random_state=42
+# --- 4. Split data into training and validation sets ---
+# We split paths and labels first, then load images on demand in the TF Dataset.
+X_img_path_train, X_img_path_val, X_mask_path_train, X_mask_path_val, y_train, y_val = train_test_split(
+    image_paths, mask_paths, indexed_labels, test_size=0.2, stratify=indexed_labels
 )
 
 # --- Calculate and Apply Class Weights ---
@@ -194,6 +148,123 @@ class_weights_array = class_weight.compute_class_weight(
 class_weights = {i: weight for i, weight in enumerate(class_weights_array)}
 print(f"Class Weights: {class_weights}")
 print("-------------------------------")
+
+# --- 5. Data Loading and Augmentation with tf.data.Dataset ---
+
+def load_and_preprocess_tf(img_path_tensor, mask_path_tensor, label_tensor, target_size=TARGET_SIZE):
+    # Decode string tensors to actual strings
+    img_path = img_path_tensor.numpy().decode('utf-8')
+    mask_path = mask_path_tensor.numpy().decode('utf-8')
+
+    # Load image
+    img = tf.io.read_file(img_path)
+    img = tf.image.decode_jpeg(img, channels=3)
+    img = tf.image.resize(img, target_size)
+    img = tf.cast(img, tf.float32) / 255.0
+
+    # Load mask
+    mask = tf.io.read_file(mask_path)
+    # Assuming masks are grayscale PNGs
+    mask = tf.image.decode_png(mask, channels=1) # Decode as 1 channel
+    mask = tf.image.resize(mask, target_size, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR) # Use NEAREST for masks
+    mask = tf.cast(mask, tf.float32) / 255.0
+
+    # The label needs to be explicitly reshaped to (1,) to give it a defined rank.
+    label = tf.cast(label_tensor, tf.float32)
+    label = tf.reshape(label, (1,)) # Ensure label has a defined shape, e.g., (1,) for a scalar
+
+    return img, mask, label # Return flat tuple for py_function Tout
+
+def augment_data(img, mask, label):
+    # Data augmentation operations
+    # Ensure a consistent seed for transformations that apply to both image and mask
+    seed = tf.random.uniform(shape=[], maxval=1000000, dtype=tf.int32)
+
+    # Apply random horizontal flip
+    # Ensure the seed is passed consistently if using stateful ops, or rely on tf.random ops.
+    # For simplicity, using conditional flip.
+    if tf.random.uniform(()) > 0.5:
+        img = tf.image.flip_left_right(img)
+        mask = tf.image.flip_left_right(mask)
+
+    # Apply random rotation
+    #if tf.random.uniform(()) > 0.75: # Example: 25% chance of 90-degree rotation
+    #    k = tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int332) # 0, 90, 180, 270 degrees
+    #    img = tf.image.rot90(img, k=k)
+    #    mask = tf.image.rot90(mask, k=k)
+
+
+    # Random brightness (only on image)
+    img = tf.image.random_brightness(img, max_delta=0.2)
+    # Random contrast (only on image)
+    img = tf.image.random_contrast(img, lower=0.8, upper=1.2)
+    # Random hue (only on image if 3 channels)
+    img = tf.image.random_hue(img, max_delta=0.1)
+    # Random saturation (only on image)
+    img = tf.image.random_saturation(img, lower=0.8, upper=1.2)
+
+    return (img, mask), label # Return in (inputs, label) format for model.fit
+
+def create_dataset(img_paths, mask_paths, labels, batch_size, augment=False, shuffle=True):
+    # Convert lists to TensorFlow tensors
+    img_path_tensor = tf.constant(img_paths)
+    mask_path_tensor = tf.constant(mask_paths)
+    label_tensor = tf.constant(labels, dtype=tf.int32) # Labels as int for now, cast later
+
+    dataset = tf.data.Dataset.from_tensor_slices((img_path_tensor, mask_path_tensor, label_tensor))
+
+    # Use tf.py_function for loading and preprocessing to handle PIL/Numpy operations
+    # The Tout argument matches the flat return of load_and_preprocess_tf
+    dataset = dataset.map(
+        lambda ip, mp, l: tf.py_function(
+            load_and_preprocess_tf,
+            inp=[ip, mp, l],
+            Tout=(tf.float32, tf.float32, tf.float32) # Corrected Tout: (img_dtype, mask_dtype, label_dtype)
+        ),
+        num_parallel_calls=tf.data.AUTOTUNE
+    )
+
+    # IMPORANT: Set shapes after py_function, as it often loses static shape info.
+    # img: (TARGET_SIZE[0], TARGET_SIZE[1], 3)
+    # mask: (TARGET_SIZE[0], TARGET_SIZE[1], 1)
+    # label: (1,) (scalar label reshaped to 1-element vector)
+    dataset = dataset.map(
+        lambda img, mask, label: (
+            tf.ensure_shape(img, (TARGET_SIZE[0], TARGET_SIZE[1], 3)),
+            tf.ensure_shape(mask, (TARGET_SIZE[0], TARGET_SIZE[1], 1)),
+            tf.ensure_shape(label, (1,)) # Set shape for the label
+        ),
+        num_parallel_calls=tf.data.AUTOTUNE
+    )
+
+
+    if shuffle:
+        dataset = dataset.shuffle(buffer_size=len(img_paths)) # Shuffle the dataset
+
+    if augment:
+        # Augment data, then structure it for the model.
+        # The map function receives img, mask, label from the previous step.
+        dataset = dataset.map(augment_data, num_parallel_calls=tf.data.AUTOTUNE)
+    else:
+        # If not augmenting, still need to structure the output for the model.
+        dataset = dataset.map(lambda img, mask, label: ((img, mask), label), num_parallel_calls=tf.data.AUTOTUNE)
+
+
+    dataset = dataset.batch(batch_size)
+    dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
+    return dataset
+
+batch_size = 8
+train_dataset = create_dataset(X_img_path_train, X_mask_path_train, y_train, batch_size, augment=True, shuffle=True)
+val_dataset = create_dataset(X_img_path_val, X_mask_path_val, y_val, batch_size, augment=False, shuffle=False)
+
+# Get shapes from the first batch to define model input shapes
+# The shapes should now be well-defined due to tf.ensure_shape
+for (img_batch, mask_batch), _ in train_dataset.take(1):
+    IMG_SHAPE = img_batch.shape[1:]
+    MASK_SHAPE = mask_batch.shape[1:]
+print(f"Determined IMG_SHAPE: {IMG_SHAPE}")
+print(f"Determined MASK_SHAPE: {MASK_SHAPE}")
 
 # --- 6. Define F1 Score Metric for Keras ---
 def f1_score(y_true, y_pred):
@@ -213,9 +284,6 @@ def f1_score(y_true, y_pred):
     return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
 
 # --- 7. Define a CNN model with a pre-trained base ---
-IMG_SHAPE = X_img_train.shape[1:]
-MASK_SHAPE = X_mask_train.shape[1:]
-
 # Load a pre-trained model (e.g., ResNet50V2) without the top (classification) layer
 base_model = ResNet50V2(include_top=False, weights='imagenet', input_shape=IMG_SHAPE)
 base_model.trainable = False # Freeze the base model's weights initially
@@ -263,28 +331,30 @@ early_stopping = EarlyStopping(
     restore_best_weights=True
 )
 
-# --- 9. Train the model (Phase 1: Frozen Base) ---
+# --- 9. Train the model (Phase 1: Frozen Base with Data Augmentation) ---
 epochs_phase1 = 50 # Train for fewer epochs initially with frozen base
-batch_size = 8
 
-print(f"\n--- Training Phase 1: Frozen Base Model ({epochs_phase1} epochs) ---")
+print(f"\n--- Training Phase 1: Frozen Base Model with Augmentation ({epochs_phase1} epochs) ---")
 history = model.fit(
-    [X_img_train, X_mask_train], y_train,
+    train_dataset, # Use the TF Dataset here
     epochs=epochs_phase1,
-    batch_size=batch_size,
-    validation_data=([X_img_val, X_mask_val], y_val),
+    validation_data=val_dataset, # Use the TF Dataset here
     callbacks=[early_stopping],
     class_weight=class_weights # Apply class weights here
 )
 print("----------------------------------------------------------")
 
-# --- 10. Unfreeze and Fine-tune (Phase 2) ---
-print("\n--- Training Phase 2: Unfreezing and Fine-tuning Base Model ---")
+# --- 10. Unfreeze and Fine-tune (Phase 2 with Data Augmentation) ---
+print("\n--- Training Phase 2: Unfreezing and Fine-tuning Base Model with Augmentation ---")
+# Unfreeze a portion of the base model
 base_model.trainable = True
-# Let's unfreeze the last 10 layers. You might need to experiment with this number.
+for layer in base_model.layers[-10:]: # Unfreeze last 10 layers, for example
+    layer.trainable = True
 
+# It's crucial to re-compile the model after unfreezing layers for the changes to take effect.
+# Use a very small learning rate for fine-tuning.
 model.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=1e-5), # Very small learning rate
+    optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
     loss='binary_crossentropy',
     metrics=[f1_score]
 )
@@ -304,10 +374,9 @@ early_stopping_fine_tune = EarlyStopping(
 )
 
 history_fine_tune = model.fit(
-    [X_img_train, X_mask_train], y_train,
+    train_dataset, # Use the TF Dataset here
     epochs=epochs_phase2,
-    batch_size=batch_size,
-    validation_data=([X_img_val, X_mask_val], y_val),
+    validation_data=val_dataset, # Use the TF Dataset here
     callbacks=[early_stopping_fine_tune],
     class_weight=class_weights # Apply class weights here as well
 )
@@ -318,13 +387,15 @@ for key in history_fine_tune.history:
     history.history[key] = history.history[key] + history_fine_tune.history[key]
 
 # --- 11. Evaluate the model ---
-loss, f1 = model.evaluate([X_img_val, X_mask_val], y_val, verbose=0)
+# To evaluate with the dataset, we need to convert it to a format model.evaluate expects.
+# We'll use the validation dataset directly.
+loss, f1 = model.evaluate(val_dataset, verbose=0)
 print(f"\nValidation Loss (Final Model): {loss:.4f}")
 print(f"Validation F1 Score (Final Model): {f1:.4f}")
 
 # Save the trained model ---
-model.save('organoid_classifier_final_model.h5')
-print("\nFinal model classifier saved as 'organoid_classifier_final_model.h5'")
+model.save('organoid_classifier_final_model_with_augmentation.h5')
+print("\nFinal model classifier saved as 'organoid_classifier_final_model_with_augmentation.h5'")
 
 # --- 12. Visualize training history ---
 plt.figure(figsize=(12, 4))
@@ -336,7 +407,7 @@ plt.xlabel('Epoch')
 plt.ylabel('F1 Score')
 plt.legend()
 plt.title('Training and Validation F1 Score')
-plt.savefig('training_f1_score_final_model.png')
+plt.savefig('training_f1_score_final_model_with_augmentation.png')
 
 plt.subplot(1, 2, 2)
 plt.plot(history.history['loss'], label='Train Loss')
@@ -345,16 +416,26 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend()
 plt.title('Training and Validation Loss')
-plt.savefig('training_loss_final_model.png')
+plt.savefig('training_loss_final_model_with_augmentation.png')
 
-print("\nTraining history plots saved as 'training_f1_score_final_model.png' and 'training_loss_final_model.png'")
+print("\nTraining history plots saved as 'training_f1_score_final_model_with_augmentation.png' and 'training_loss_final_model_with_augmentation.png'")
 
 # --- 13. Print Confusion Matrix ---
 print("\n--- Generating Confusion Matrix ---")
-y_pred_proba = model.predict([X_img_val, X_mask_val])
-y_pred = (y_pred_proba > 0.5).astype(int) # Convert probabilities to binary predictions
+# To get predictions for the confusion matrix, iterate through the validation dataset
+y_true_all = []
+y_pred_proba_all = []
 
-cm = confusion_matrix(y_val, y_pred)
+for (images_batch, masks_batch), labels_batch in val_dataset:
+    y_true_all.extend(labels_batch.numpy().flatten())
+    y_pred_proba_all.extend(model.predict([images_batch, masks_batch]).flatten())
+
+y_true_all = np.array(y_true_all)
+y_pred_proba_all = np.array(y_pred_proba_all)
+
+y_pred = (y_pred_proba_all > 0.5).astype(int) # Convert probabilities to binary predictions
+
+cm = confusion_matrix(y_true_all, y_pred)
 print("Confusion Matrix:")
 print(cm)
 
@@ -365,6 +446,6 @@ sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 plt.title('Confusion Matrix')
-plt.savefig('confusion_matrix_final_model.png')
-print("Confusion matrix plot saved as 'confusion_matrix_final_model.png'")
+plt.savefig('confusion_matrix_final_model_with_augmentation.png')
+print("Confusion matrix plot saved as 'confusion_matrix_final_model_with_augmentation.png'")
 print("-----------------------------------")
