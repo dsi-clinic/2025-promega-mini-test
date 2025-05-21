@@ -32,6 +32,7 @@ else:
 # --- Constants ---
 PREPROCESSED_JSON_DIR = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
 TARGET_SIZE = (224, 224) # Define target size as a constant
+TARGET_DAY = 15
 
 # --- Helper function to get mapping paths ---
 def get_mapping_paths(batch_number, day_number=30):
@@ -73,6 +74,15 @@ except json.JSONDecodeError:
     print("Error: Could not decode JSON from 'labeled_organoid_mapping_for_classification.json'.")
     exit()
 
+modified_old_labeled_data = {}
+for key, data in old_labeled_data.items():
+    # Use regex to find and replace the day number (e.g., DyXX) in the key
+    new_key = re.sub(r'[Dd]y(\d+)', f'Dy{TARGET_DAY:02d}', key)
+    modified_old_labeled_data[new_key] = data
+
+old_labeled_data = modified_old_labeled_data # Overwrite with the modified data
+
+
 # Create a dictionary to map normalized image keys to labels
 key_to_label = {normalize_key(key): data['label'] for key, data in old_labeled_data.items()}
 
@@ -80,7 +90,7 @@ key_to_label = {normalize_key(key): data['label'] for key, data in old_labeled_d
 all_new_data = {}
 
 for batch_num in [1, 2, 3]:
-    mapping_paths = get_mapping_paths(batch_num)
+    mapping_paths = get_mapping_paths(batch_num, TARGET_DAY)
     for path in mapping_paths:
         try:
             with open(path) as f:
@@ -352,7 +362,7 @@ for layer in base_model.layers[-10:]: # Unfreeze last 10 layers, for example
     layer.trainable = True
 
 # It's crucial to re-compile the model after unfreezing layers for the changes to take effect.
-# Use a very small learning rate for fine-tuning.
+# Use a small learning rate for fine-tuning.
 model.compile(
     optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
     loss='binary_crossentropy',
