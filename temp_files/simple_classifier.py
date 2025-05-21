@@ -12,6 +12,8 @@ import os
 import tensorflow as tf
 from tensorflow.keras.applications import ResNet50V2
 from tensorflow.keras.callbacks import EarlyStopping
+from pathlib import Path
+import re
 
 # --- Check for GPU availability ---
 gpus = tf.config.list_physical_devices('GPU')
@@ -27,10 +29,42 @@ if gpus:
 else:
     print("TensorFlow is using the CPU.")
 
-# --- 1. Load the labeled data ---
+# --- Constants ---
+PREPROCESSED_JSON_DIR = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
+
+# --- Helper function to get mapping paths ---
+def get_mapping_paths(batch_number, day_number=30):
+    """Get zero-padded mapping JSON paths."""
+    day_str = f"{day_number:02d}"
+    if batch_number == 2:
+        return [
+            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_1_Dy{day_str}" / f"image_mapping_BA2_96_1_Dy{day_str}_processed.json",
+            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_2_Dy{day_str}" / f"image_mapping_BA2_96_2_Dy{day_str}_processed.json"
+        ]
+    else:
+        return [
+            Path(PREPROCESSED_JSON_DIR) / f"BA{batch_number}_Dy{day_str}" / f"image_mapping_BA{batch_number}_Dy{day_str}_processed.json"
+        ]
+
+# --- Helper function to normalize keys for matching ---
+def normalize_key(key):
+    """Convert old-style keys to match new-style keys."""
+    # Remove spaces and make uppercase
+    key = key.replace(" ", "").upper()
+    # Handle batch numbers (Ba1 -> BA1, Ba2 -> BA2)
+    key = re.sub(r'BA(\d)', r'BA\1', key)
+    # Remove 96_1 or 96_2 from the key
+    key = re.sub(r'96_1|96_2', '', key)
+    # Standardize Dy to Dy
+    key = re.sub(r'DY', 'Dy', key)
+    # Remove any trailing parentheses and content
+    key = re.sub(r'\(.*\)', '', key)
+    return key
+
+# --- 1. Load the old labeled data for labels ---
 try:
     with open('labeled_organoid_mapping_for_classification.json') as f:
-        labeled_data = json.load(f)
+        old_labeled_data = json.load(f)
 except FileNotFoundError:
     print("Error: 'labeled_organoid_mapping_for_classification.json' not found.")
     exit()
@@ -38,12 +72,47 @@ except json.JSONDecodeError:
     print("Error: Could not decode JSON from 'labeled_organoid_mapping_for_classification.json'.")
     exit()
 
-# --- 2. Prepare data for training ---
+# Create a dictionary to map normalized image keys to labels
+key_to_label = {normalize_key(key): data['label'] for key, data in old_labeled_data.items()}
+
+# --- 2. Load the new mapping data and combine with old labels ---
+all_new_data = {}
+
+for batch_num in [1, 2, 3]:
+    mapping_paths = get_mapping_paths(batch_num)
+    for path in mapping_paths:
+        try:
+            with open(path) as f:
+                new_data = json.load(f)
+                # Process each entry in the new mapping
+                for key, value in new_data.items():
+                    # Normalize the new key for matching
+                    normalized_new_key = normalize_key(key)
+                    # Only keep entries that exist in the old labeled data
+                    if normalized_new_key in key_to_label:
+                        all_new_data[key] = {
+                            'img_path': value['img_path'],
+                            'seg_map_path': value['mask_path'],
+                            'label': key_to_label[normalized_new_key]
+                        }
+        except FileNotFoundError:
+            print(f"Warning: Mapping file not found: {path}")
+            continue
+        except json.JSONDecodeError:
+            print(f"Warning: Could not decode JSON from: {path}")
+            continue
+
+# Check if we have any data
+if not all_new_data:
+    print("Error: No matching data found between old and new mappings.")
+    exit()
+
+# --- 3. Prepare data for training ---
 image_paths = []
 mask_paths = []
 labels = []
 
-for item in labeled_data.values():
+for item in all_new_data.values():
     image_paths.append(item['img_path'])
     mask_paths.append(item['seg_map_path'])
     labels.append(item['label'])
@@ -54,8 +123,8 @@ indexed_labels = np.array([label_to_index[label] for label in labels])
 num_classes = len(unique_labels)
 categorical_labels = to_categorical(indexed_labels, num_classes=num_classes)
 
-# --- 3. Load and preprocess images and masks for the top model ---
-def load_and_preprocess_top_model(img_path, mask_path, target_size=(224, 224)): # Standard input size for many top models
+# --- 4. Load and preprocess images and masks for the top model ---
+def load_and_preprocess_top_model(img_path, mask_path, target_size=(224, 224)):
     try:
         print(f"Processing image: {img_path}")
         img = image.load_img(img_path, target_size=target_size)
@@ -63,13 +132,12 @@ def load_and_preprocess_top_model(img_path, mask_path, target_size=(224, 224)): 
         print(f"Image array shape after loading and resizing: {img_array.shape}")
 
         print(f"Processing mask: {mask_path}")
-        mask = Image.open(mask_path).resize(target_size, Image.NEAREST) # Resize mask to the target size
-        mask_array = np.array(mask) / 255.0 # Normalize mask
+        mask = Image.open(mask_path).resize(target_size, Image.NEAREST)
+        mask_array = np.array(mask) / 255.0
 
         # Expand mask dimensions to (height, width, 1)
         mask_array_expanded = np.expand_dims(mask_array, axis=-1)
 
-        # Combine image and mask as separate inputs (more flexible)
         return img_array, mask_array_expanded
     except Exception as e:
         print(f"Error loading or preprocessing image/mask: {e}")
@@ -95,12 +163,12 @@ if not processed_image_data.shape[0] == len(corresponding_labels):
     print("Error: Number of processed images does not match the number of labels. Check loading and preprocessing.")
     exit()
 
-# --- 4. Split data into training and validation sets ---
+# --- 5. Split data into training and validation sets ---
 X_img_train, X_img_val, X_mask_train, X_mask_val, y_train, y_val = train_test_split(
     processed_image_data, processed_mask_data, corresponding_labels, test_size=0.2, stratify=corresponding_labels
 )
 
-# --- 5. Define F1 Score Metric for Keras ---
+# --- 6. Define F1 Score Metric for Keras ---
 def f1_score(y_true, y_pred):
     def recall_m(y_true, y_pred):
         true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
@@ -117,7 +185,7 @@ def f1_score(y_true, y_pred):
     precision, recall = precision_m(y_true, y_pred), recall_m(y_true, y_pred)
     return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
 
-# --- 6. Define a CNN model with a pre-trained base ---
+# --- 7. Define a CNN model with a pre-trained base ---
 IMG_SHAPE = X_img_train.shape[1:]
 MASK_SHAPE = X_mask_train.shape[1:]
 
@@ -158,28 +226,28 @@ model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=[f1_sco
 # Print the model summary
 model.summary()
 
-# --- 7. Define Early Stopping Callback ---
+# --- 8. Define Early Stopping Callback ---
 early_stopping = EarlyStopping(
     monitor='val_f1_score',
-    patience=20, # Number of epochs with no improvement after which training will be stopped
-    verbose=1, # 0: silent, 1: show updates, 2: show more updates
-    mode='max', # 'max' for accuracy and F1-score, 'min' for loss
-    restore_best_weights=True # Restore model weights from the epoch with the best value of the monitored quantity.
+    patience=20,
+    verbose=1,
+    mode='max',
+    restore_best_weights=True
 )
 
-# --- 8. Train the model with Early Stopping ---
-epochs = 200 # Increased max epochs to allow early stopping to take effect
-batch_size = 8 # Smaller batch size might help with small dataset
+# --- 9. Train the model with Early Stopping ---
+epochs = 200
+batch_size = 8
 
 history = model.fit(
     [X_img_train, X_mask_train], y_train,
     epochs=epochs,
     batch_size=batch_size,
     validation_data=([X_img_val, X_mask_val], y_val),
-    callbacks=[early_stopping] # Pass the early stopping callback here
+    callbacks=[early_stopping]
 )
 
-# --- 9. Evaluate the model ---
+# --- 10. Evaluate the model ---
 loss, f1 = model.evaluate([X_img_val, X_mask_val], y_val, verbose=0)
 print(f"\nValidation Loss: {loss:.4f}")
 print(f"Validation F1 Score: {f1:.4f}")
@@ -188,7 +256,7 @@ print(f"Validation F1 Score: {f1:.4f}")
 model.save('organoid_classifier_top_model_f1_early_stopping.h5')
 print("\nTop model classifier saved as 'organoid_classifier_top_model_f1_early_stopping.h5'")
 
-# Visualize training history (if you have matplotlib) ---
+# Visualize training history ---
 import matplotlib.pyplot as plt
 
 plt.figure(figsize=(12, 4))
@@ -200,7 +268,7 @@ plt.xlabel('Epoch')
 plt.ylabel('F1 Score')
 plt.legend()
 plt.title('Training and Validation F1 Score')
-plt.savefig('training_f1_score_top_model_early_stopping.png') # Save the F1 score plot
+plt.savefig('training_f1_score_top_model_early_stopping.png')
 
 plt.subplot(1, 2, 2)
 plt.plot(history.history['loss'], label='Train Loss')
@@ -209,6 +277,6 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend()
 plt.title('Training and Validation Loss')
-plt.savefig('training_loss_top_model_early_stopping.png') # Save the loss plot
+plt.savefig('training_loss_top_model_early_stopping.png')
 
 print("\nTraining history plots saved as 'training_f1_score_top_model_early_stopping.png' and 'training_loss_top_model_early_stopping.png'")
