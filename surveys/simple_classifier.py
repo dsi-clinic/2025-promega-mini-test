@@ -20,13 +20,6 @@ from sklearn.metrics import confusion_matrix
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     print(f"TensorFlow is using the following GPUs: {gpus}")
-    try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        logical_gpus = tf.config.list_logical_devices('GPU')
-        print(f"{len(gpus)} Physical GPUs, {len(logical_gpus)} Logical GPUs available")
-    except RuntimeError as e:
-        print(e)
 else:
     print("TensorFlow is using the CPU.")
 
@@ -64,28 +57,22 @@ def normalize_key(key):
     key = re.sub(r'\(.*\)', '', key)
     return key
 
-# --- 1. Load the old labeled data for labels ---
-try:
-    with open('labeled_organoid_mapping_for_classification.json') as f:
-        old_labeled_data = json.load(f)
-except FileNotFoundError:
-    print("Error: 'labeled_organoid_mapping_for_classification.json' not found.")
-    exit()
-except json.JSONDecodeError:
-    print("Error: Could not decode JSON from 'labeled_organoid_mapping_for_classification.json'.")
-    exit()
+# --- 1. Load the labeled data for labels ---
+with open('complete_agreement_organoids.json') as f:
+    labeled_data = json.load(f)
 
-modified_old_labeled_data = {}
-for key, data in old_labeled_data.items():
+
+modified_labeled_data = {}
+for key, data in labeled_data.items():
     # Use regex to find and replace the day number (e.g., DyXX) in the key
     new_key = re.sub(r'[Dd]y(\d+)', f'Dy{TARGET_DAY:02d}', key)
-    modified_old_labeled_data[new_key] = data
+    modified_labeled_data[new_key] = data
 
-old_labeled_data = modified_old_labeled_data # Overwrite with the modified data
+labeled_data = modified_labeled_data # Overwrite with the modified data
 
 
 # Create a dictionary to map normalized image keys to labels
-key_to_label = {normalize_key(key): data['label'] for key, data in old_labeled_data.items()}
+key_to_label = {normalize_key(key): data['label'] for key, data in labeled_data.items()}
 
 # --- 2. Load the new mapping data and combine with old labels ---
 all_new_data = {}

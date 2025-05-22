@@ -4,7 +4,7 @@
 | Config above + class weight + data augmentation + unfreeze 10 last layers for fine-tuning                                                                                      | 8          | **Day30** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 38+39 epochs      | 76% F1 on validation but F1 on training is 100% (overfitting?)                 |
 | Config above                                                                                     | 8          | **Day17** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 42+84 epochs      | 72% F1 on validation but F1 on training is 100% (overfitting?)                 |
 | Config above                                                                                     | 8          | **Day15** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 24+48 epochs      | 67% F1 on validation but F1 on training is 100% (overfitting?)                 |
-| Config above                                                                                     | 8          | **Day06** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 34+35 epochs      | 57% F1 on validation but F1 on training is 100% (overfitting?)                 |
+| Config above                                                                                     | 8          | **Day06** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 34+66 epochs      | 73% F1 on validation and 97% F1 on training                |
 
 
 
@@ -38,8 +38,8 @@ confusion matrix Day17:
 
   Confusion Matrix Dy06:
 
-[[ 1  5]
+[[ 5  3]
 
- [ 2 12]]
+ [ 3 11]]
 
 ---
