@@ -1,0 +1,632 @@
+{
+  "Ba2 96_2 Dy30 B9": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 D2": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 C9": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 C8(1)%": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy28 G1": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 B9": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 G1": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 H3": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D5": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 C5": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 G7": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 E3(2)% INV": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 A2": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 H5": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 C1(2)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 E1": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 G11": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 E4": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy28 G11": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 D12": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 B6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 D3": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 D4": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 E12": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 D2": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 A2 INV": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 B8": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 G8": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 G9": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 C4": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy28 A8": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 A8": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 C8": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 C3": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 H11": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 B10": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D10(1)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 B11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 F12": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 E12": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 C6(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 B9(stitched)#%": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 G1": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 H3 INV": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 H8(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 B4 INV": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 F6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 C7": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 E10": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 F2": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 A5": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 E3(2)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 A8 INV": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 H2(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 A11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 E10": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 D4 INV": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 F9": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 C7": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 C11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy28 C11": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 B4": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 G4(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 G6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 A12(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 B5(2)%": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 A9": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 A8": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 G1": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 C2": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 E8(1)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 B3(2)%": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 H7": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 C11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 B6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 C4": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 C12": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 F1": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 E5 INV": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 E11": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 H7": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 D4": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 B2": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D10(2)%": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 B8(1)% INV": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D12": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 A7": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 D3": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 F3 INV": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 B7": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 A4": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 C3": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 B8(#)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 H6(#)%": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 D5": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 E12(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 H4": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 D5(1)%": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 F6": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 D9": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 D10": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 H9": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 F3": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 E2": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy28 B12": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 F4": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 E11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D11 INV": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 G5": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 A9": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 C10": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 G3 INV": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 E4": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 B5": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 B10": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 H7": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 F11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 A5(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 G6": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 B1": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 F8": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 D6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 E5": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 G3": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 C9": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 E9": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 D11": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 E6": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 B6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 C8": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 C11 INV": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 A2": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 E6": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy28 A2": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 C10": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 C5": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 E8": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 E2": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 B12": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 H3": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 B8(1)%": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 A4(stitched)": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 A6 INV": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D2": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D3 INV": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 C1": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 B1": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 D6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 E6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 G3": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 E3": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 B3 INV": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 E3(1)%": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 D11(#)%": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 A5": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 A7": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 E6 INV": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 F6": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 C11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 B8(2)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 E9(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 H3 INV": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 B5": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 C4": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 E11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 A6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 G2": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 B5(1)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 D1": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 A11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 C3": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 D9": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy28 F12": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 F12": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 D7(1)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 F1": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 B10": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D4(stitched)": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 F7": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 C6": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 C8(2)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy28 A7": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 A7": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 H11": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 F7": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 C5(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 G11": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 A3": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 H6": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 C10 INV": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 A6": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 B3(1)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 H1": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 G4": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 B10 INV": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 D5(2)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba1 96_1 Dy30 E7": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 F12": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 D7(stitched)": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_2 Dy30 D12(1)%": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 F2": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 C7(stitched)": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 E8(2)%": {
+    "label": "Not Acceptable"
+  },
+  "Ba2 96_1 Dy30 D1": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 G9": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_1 Dy30 B7(#)%": {
+    "label": "Acceptable"
+  },
+  "Ba1 96_1 Dy30 C10": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy30 A3": {
+    "label": "Acceptable"
+  },
+  "Ba2 96_2 Dy28 A3": {
+    "label": "Acceptable"
+  }
+}
