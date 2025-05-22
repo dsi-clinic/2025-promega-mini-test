@@ -58,7 +58,12 @@ def normalize_key(key):
     return key
 
 # --- 1. Load the labeled data for labels ---
-with open('complete_agreement_organoids.json') as f:
+
+# FOR COMPLETE AGREEMENTS (more accurate): 'complete_agreement_organoids.json':
+
+# FOR STRONG AGREEMENTS (more data): 'labeled_organoid_strong_agreement.json':
+
+with open('labeled_organoid_strong_agreement.json') as f:
     labeled_data = json.load(f)
 
 

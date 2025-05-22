@@ -1,25 +1,32 @@
-| Models tracking                                                                                                                               | Batch Size | Data Subset     | Data Size & Composition                                                                | Validation Split | Early Stopping | Performance                                                                       |
+| Models tracking                                                                                                                               | Batch Size | Data Subset     | Data Size & Composition                                                                | Validation Split | Epochs (Early Stopping) | Performance                                                                       |
 |---------------------------------------------------------------------------------------------------------------------------------------------------|------------|-----------------|----------------------------------------------------------------------------------------|------------------|----------------|-----------------------------------------------------------------------------------|
-| Pretrained Resnet50 for images and simple model for masks                                                                                       | 8          | **Day30** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 22 epochs      | 85% F1 on validation but F1 on training is 100% (overfitting?)                 |
-| Config above + class weight + data augmentation + unfreeze 10 last layers for fine-tuning                                                                                      | 8          | **Day30** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 38+39 epochs      | 76% F1 on validation but F1 on training is 100% (overfitting?)                 |
-| Config above                                                                                     | 8          | **Day17** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 42+84 epochs      | 72% F1 on validation but F1 on training is 100% (overfitting?)                 |
-| Config above                                                                                     | 8          | **Day15** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 24+48 epochs      | 67% F1 on validation but F1 on training is 100% (overfitting?)                 |
-| Config above                                                                                     | 8          | **Day06** BA1&2 | 70 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 34+66 epochs      | 73% F1 on validation and 97% F1 on training                |
+| Pretrained Resnet50 for images and simple model for masks + class weight + data augmentation + unfreeze 10 last layers for fine-tuning                                                                                      | 8          | **Day30** BA1&2 | 65+35 labeled organoids, image + mask + label (full agreement on class) | 20%              | 27+55 epochs      | 91% F1 on validation and F1 on training is 100%
+| Config above                                                                                     | 8          | **Day17** BA1&2 | 65+26 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 42+84 epochs      | 72% F1 on validation but F1 on training is 100% (overfitting?)                 |
+| Config above                                                                                     | 8          | **Day15** BA1&2 | 65+26 labeled organoids, image + mask + label (full agreement on class and quality (good)) | 20%              | 24+48 epochs      | 67% F1 on validation but F1 on training is 100% (overfitting?)                 |
+| Config above                                                                                     | 8          | **Day06** BA1&2 | 65+35 labeled organoids, image + mask + label (full agreement on class) | 20%              | 34+66 epochs      | 73% F1 on validation and 97% F1 on training                |
+|
+|
+| Config above                                                                                     | 8          | **Day30** BA1&2 | 136+49 labeled organoids, image + mask + label (**Strong** agreement on class) | 20%              | 35+49 epochs      | 72% F1 on validation and 97% F1 on training                |
+| Config above                                                                                     | 8          | **Day17** BA1&2 | 140+35 labeled organoids, image + mask + label (**Strong** agreement on class) | 20%              | 37+42 epochs      | 67% F1 on validation and 97% F1 on training                |
+| Config above                                                                                     | 8          | **Day06** BA1&2 | 147+54 labeled organoids, image + mask + label (**Strong** agreement on class) | 20%              | 38+40 epochs      | 63% F1 on validation and 97% F1 on training                |
 
-
-
- ---
-
-confusion matrix Day30:
-
-
- [[ 1 4] 
- 
- [ 0 14]]
 
 ---
 
-confusion matrix Day17:
+## Best models path:
+* /net/projects2/promega/data-analysis/best_models
+
+---
+
+confusion matrix Day30 Complete Agreement on class:
+
+[[ 6  1]
+
+ [ 1 12]]
+
+---
+
+confusion matrix Day17 Complete Agreement on class AND quality:
 
 [[2 3]
 
@@ -28,7 +35,7 @@ confusion matrix Day17:
 ---
 
 
- Confusion Matrix Dy15:
+ Confusion Matrix Dy15 on class AND quality:
 
 [[ 1  4]
 
@@ -36,10 +43,27 @@ confusion matrix Day17:
 
 ---
 
-  Confusion Matrix Dy06:
+  Confusion Matrix Dy06 Complete Agreement on class:
 
 [[ 5  3]
 
  [ 3 11]]
 
+---
+
+
+confusion matrix Day30 Strong Agreement:
+
+[[ 2  8]
+
+ [ 0 27]]
+ 
+---
+
+confusion matrix Day06 Strong Agreement:
+
+[[ 7  4]
+
+ [16 14]]
+ 
 ---
