@@ -58,7 +58,9 @@ class ImageMapper:
             "Number of Focus":                        "numFocus",
             "First Focus":                            "firstZ",
             "Last Focus":                             "lastZ",
-            "Focus Step (µm)":                        "dz"
+            "Focus Step (µm)":                        "dz",
+            "Cell line":                              "cellLine",
+            "Treatments (AAV)":                       "treatment"
         })
 
         def split_pid(pid: str) -> pd.Series:
@@ -113,7 +115,8 @@ class ImageMapper:
         return df[[
             "photoID", "orgID", "batchPlate", "dayID", "wellID",
             "Microscope", "objective", "Image Width (Pixel)",
-            "Image Width (µm)", "um_per_px", "numFocus", "firstZ", "lastZ", "dz"
+            "Image Width (µm)", "um_per_px", "numFocus", "firstZ", "lastZ", "dz",
+            "cellLine", "treatment"
         ]]
 
     def resolve_filename(
@@ -305,6 +308,8 @@ class ImageMapper:
                 "Stitched": stitched_flag,
                 "um_per_px": float(group_df["um_per_px"].iloc[0]),
                 "all_files": [str(f) for f in all_files],
+                "cellLine": group_df["cellLine"].iloc[0],
+                "treatment": group_df["treatment"].iloc[0],
             }
 
         out_json.write_text(json.dumps(mapping, indent=2))
