@@ -1,69 +1,67 @@
 import os
 import json
 import re
+from pathlib import Path
+from dotenv import load_dotenv
+from paths import ORIGINAL_MAPPING, MANUAL_MASK_FOLDERS, MANUAL_MAPPING_OUTPUT_DIR
 
-# File paths
-original_mapping_path = '/net/projects2/promega/data-analysis/output/image_mapping.json'
-new_masks_folders = [
-    '/net/projects2/promega/data-analysis/manual_masks/Manuais',
-    '/net/projects2/promega/data-analysis/manual_masks/Treshold'
-]
-new_mapping_path = '/net/projects2/promega/data-analysis/output/image_mapping_day10_manual.json'
+# === USER VARIABLES ===
+TARGET_DAY = 'Dy10'
+TARGET_BA = 'Ba1'
+OUTPUT_NAME = f"image_mapping_{TARGET_DAY.lower()}_{TARGET_BA.lower()}_manual.json"
 
-# Load the original mapping
+# === Setup ===
+load_dotenv()
+
+# Paths
+original_mapping_path = ORIGINAL_MAPPING
+new_masks_folders = MANUAL_MASK_FOLDERS
+new_mapping_path = MANUAL_MAPPING_OUTPUT_DIR / OUTPUT_NAME
+
+# === Load base mapping ===
 with open(original_mapping_path, 'r') as f:
     mapping = json.load(f)
 
-# List the files in all new masks folders
+# === List available masks ===
 mask_files = []
 for folder in new_masks_folders:
-    folder_files = os.listdir(folder)
-    mask_files.extend([(folder, f) for f in folder_files])
+    folder = Path(folder)
+    if not folder.exists():
+        print(f"Warning: mask folder does not exist: {folder}")
+        continue
+    mask_files.extend([(folder, f.name) for f in folder.iterdir() if f.is_file()])
 
-# Print all filenames in the mask folders for debugging purposes
-print("Files in the new masks folders:")
-for folder, mask_file in mask_files:
-    print(f"{folder}: {mask_file}")
+print(f"\nFound {len(mask_files)} mask files across {len(new_masks_folders)} folders.\n")
 
 new_mapping = {}
 
-# Process only BA "Ba1" and day "Dy24" entries
+# === Filter and match entries ===
 for key, info in mapping.items():
-    if info.get('dayID') == 'Dy10' and info.get('BA') == 'Ba1':  # Changed Dy30 to Dy24 here
-        # Use the wellID from the mapping, e.g., "A4"
+    if info.get('dayID') == TARGET_DAY and info.get('BA') == TARGET_BA:
         well = info.get('wellID')
-        dayID = info.get('dayID')  # 'Dy24'
-        BA = info.get('BA')  # 'Ba1'
+        if not well:
+            continue
 
-        # Create patterns to match both Mask_M and Mask_T prefixes
-        pattern_manuais = r'Mask_M.*' + re.escape(BA) + r'.*' + re.escape(dayID) + r'.*' + re.escape(well)
-        pattern_treshold = r'Mask_T.*' + re.escape(BA) + r'.*' + re.escape(dayID) + r'.*' + re.escape(well)
-        
-        # Combine patterns with OR condition
-        combined_pattern = f'({pattern_manuais}|{pattern_treshold})'
+        pattern_m = fr"Mask_M.*{re.escape(TARGET_BA)}.*{re.escape(TARGET_DAY)}.*{re.escape(well)}"
+        pattern_t = fr"Mask_T.*{re.escape(TARGET_BA)}.*{re.escape(TARGET_DAY)}.*{re.escape(well)}"
+        combined_pattern = f"({pattern_m}|{pattern_t})"
 
-        # Debugging: print the pattern being used
-        print(f"\nMatching for key: {key} with wellID: {well}, dayID: {dayID}, BA: {BA}")
-        print(f"Combined pattern: {combined_pattern}")
-        
-        # Look for mask files that match either pattern in any folder
-        matching_files = [(folder, mf) for folder, mf in mask_files if re.search(combined_pattern, mf)]
-        
-        # Debugging: print the matching files
-        if matching_files:
-            print(f"Found matching mask files: {matching_files}")
-        
-        if matching_files:
-            # If there are multiple matches, choose the first one
-            mask_folder, mask_file = matching_files[0]
-            # Add a new attribute "Mask Path" with the full path of the mask file
-            info['Mask Path'] = os.path.join(mask_folder, mask_file)
+        matches = [(folder, mf) for folder, mf in mask_files if re.search(combined_pattern, mf)]
+
+        print(f"\nProcessing: {key} | {TARGET_DAY}, {TARGET_BA}, {well}")
+        print(f"  Regex: {combined_pattern}")
+        print(f"  Matches found: {len(matches)}")
+
+        if matches:
+            mask_folder, mask_file = matches[0]  # use first match
+            info['Mask Path'] = str(mask_folder / mask_file)
             new_mapping[key] = info
         else:
-            print(f"No matching mask found for key: {key} with wellID: {well} and dayID: {dayID}")
+            print(f"  -> No matching mask found.")
 
-# Save the new mapping JSON
+# === Save new mapping ===
+new_mapping_path.parent.mkdir(parents=True, exist_ok=True)
 with open(new_mapping_path, 'w') as f:
     json.dump(new_mapping, f, indent=4)
 
-print(f"\nNew mapping created with {len(new_mapping)} entries and saved to {new_mapping_path}")
+print(f"\n Saved {len(new_mapping)} entries to: {new_mapping_path}")

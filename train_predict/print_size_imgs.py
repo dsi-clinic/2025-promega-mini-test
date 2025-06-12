@@ -2,10 +2,9 @@ import os
 import json
 from pathlib import Path
 import cv2  # Need cv2 to load images and get shapes
+from paths import MASKS_FOLDER, DAY30_MAPPING as JSON_MAPPING_PATH
 
 
-MASKS_FOLDER = "/net/projects2/promega/data-analysis/masks"
-JSON_MAPPING_PATH = "/net/projects2/promega/data-analysis/output/image_mapping_day30_manual.json"
 # --- Load the JSON mapping file ---
 try:
     with open(JSON_MAPPING_PATH, 'r') as f:

@@ -4,14 +4,11 @@ import argparse
 import shutil
 from pathlib import Path
 import cv2
+from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+
 
 # --------------- configuration -----------------
-TARGET_WIDTH, TARGET_HEIGHT = 256, 192
-TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT)
 INTERPOLATION = cv2.INTER_LINEAR
-
-ORIGINAL_MAPPING = Path("/net/projects2/promega/data-analysis/output/image_mapping.json")
-OUTPUT_DIR       = Path("/net/projects2/promega/data-analysis/output/processed_dataset_256x192")
 
 # --------------- helpers -----------------------
 def norm(s: str) -> str:

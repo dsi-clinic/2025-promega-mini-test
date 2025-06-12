@@ -4,11 +4,10 @@ import argparse
 from pathlib import Path
 import cv2
 import numpy as np
+from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR
+
 
 # ======== HARD-CODED CONFIG ========
-TARGET_WIDTH  = 256
-TARGET_HEIGHT = 192
-TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
 IMAGE_INTERP  = cv2.INTER_LINEAR
 MASK_INTERP   = cv2.INTER_NEAREST
 
@@ -37,9 +36,10 @@ args = parser.parse_args()
 
 # ======== SET UP OUTPUT FOLDERS ========
 first_json = Path(args.mapping[0])
-out_base   = Path(args.output) if args.output else first_json.parent / f"processed_{TARGET_WIDTH}x{TARGET_HEIGHT}"
-images_out = out_base / 'images'
-masks_out  = out_base / 'masks'
+out_base = Path(args.output) if args.output else PROCESSED_IMAGES_DIR.parent
+images_out = PROCESSED_IMAGES_DIR
+masks_out  = PROCESSED_MASKS_DIR
+
 for d in (out_base, images_out, masks_out):
     d.mkdir(parents=True, exist_ok=True)
 print(f"Writing processed data to: {out_base}")
@@ -104,7 +104,8 @@ for img_id, info in master_map.items():
     proc += 1
 
 # ======== DUMP NEW MAPPING ========
-new_json = out_base / f"mapping_processed_total_{TARGET_WIDTH}x{TARGET_HEIGHT}.json"
+new_json = out_base / f"mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json"
+
 with open(new_json, 'w') as f:
     json.dump(new_map, f, indent=2)
 

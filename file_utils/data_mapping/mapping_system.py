@@ -1,9 +1,10 @@
-import os
 import json
 import logging
 from pathlib import Path
+
 from dotenv import load_dotenv, find_dotenv
 from .image_mapper import ImageMapper
+from . import paths  # ← import your paths.py
 
 # Configure logging
 logging.basicConfig(
@@ -13,23 +14,26 @@ logging.basicConfig(
 
 class MappingSystem:
     def __init__(self):
-        # auto-find the nearest .env (and overwrite any existing env vars)
+        # Auto-discover and load .env
         env_file = find_dotenv()
         logging.info(f"Auto-discovered .env at {env_file}")
         load_dotenv(env_file, override=True)
 
-        # now these will actually be set
-        for var in ("BASE_PATH","META_FILE","OUTPUT_FOLDER"):
-            logging.info(f"{var} = {os.getenv(var)}")
+        # Log a few core variables
+        logging.info(f"BASE_PATH     = {paths.BASE_PATH}")
+        logging.info(f"META_FILE     = {paths.META_FILE}")
+        logging.info(f"OUTPUT_FOLDER = {paths.OUTPUT_FOLDER}")
 
-        self.base_path     = Path(os.getenv("BASE_PATH"))
-        self.meta_file     = Path(os.getenv("META_FILE"))
-        self.output_folder = Path(os.getenv("OUTPUT_FOLDER"))
+        self.base_path     = paths.BASE_PATH
+        self.meta_file     = paths.META_FILE
+        self.output_folder = paths.OUTPUT_FOLDER
+
         logging.info(f"-> Using meta_file path: {self.meta_file} (exists? {self.meta_file.exists()})")
-                # **Instantiate the mapper here!**
+
+        # Instantiate mapper
         self.mapper = ImageMapper(
-            base_dir = self.base_path,
-            meta_csv = self.meta_file
+            base_dir=self.base_path,
+            meta_csv=self.meta_file
         )
         
     def generate_key_mapping(self) -> dict:
