@@ -7,6 +7,7 @@ from tqdm import tqdm
 base_image_mapping_path = '/net/projects2/promega/data-analysis/output/image_mapping.json'
 processed_root_dir = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
 survey_json_path = '/home/amandabrooke/2025-promega-mini-test/surveys/organoid_surveys_aggregated.json'
+metabolite_json_path = '/net/projects2/promega/data-analysis/metabolite_data/metabolite_map.json'
 output_path = 'final_combined_metadata.json'
 
 # --- Load base image mapping ---
@@ -16,7 +17,10 @@ with open(base_image_mapping_path) as f:
 # --- Load survey evaluations ---
 with open(survey_json_path) as f:
     survey_data = json.load(f)
-    
+
+# --- Load metabolite data ---
+with open(metabolite_json_path) as f:
+    metabolite_data = json.load(f)
 
 # --- Normalize survey data into mapping keyed by "BA1 Dy03 A1" ---
 survey_lookup = {}
@@ -28,7 +32,7 @@ for org_id, survey_entry in survey_data.items():
     else:
         continue
 
-    # Normalize image_id (e.g., "Ba2 96_2 Dy30 H11") → "BA2_96_2 Dy30 H11" → "BA2 Dy30 H11"
+    # Normalize image_id → e.g. "Ba2 96_2 Dy30 H11" → "BA2 Dy30 H11"
     parts = image_id.strip().split()
     if len(parts) >= 4:
         BA = parts[0].split('_')[0].upper()
@@ -37,10 +41,9 @@ for org_id, survey_entry in survey_data.items():
         key = f"{BA} {dayID} {wellID}"
         survey_lookup[key] = survey_entry
 
-
 # --- Load all nested processed mappings ---
 processed_mapping = {}
-for dirpath, dirnames, filenames in os.walk(processed_root_dir):
+for dirpath, _, filenames in os.walk(processed_root_dir):
     for file in filenames:
         if file.startswith("image_mapping_") and file.endswith("_processed.json"):
             full_path = os.path.join(dirpath, file)
@@ -55,15 +58,19 @@ for key in base_mapping:
     entry = {}
 
     # Base mapping
-    entry.update(base_mapping.get(key, {}))
+    entry.update(base_mapping[key])
 
     # Processed mask info
     if key in processed_mapping:
         entry.update(processed_mapping[key])
 
-    # Survey evaluations (if present)
+    # Survey info
     if key in survey_lookup:
-        entry['survey'] = survey_lookup[key]
+        entry["survey"] = survey_lookup[key]
+
+    # Metabolite info
+    if key in metabolite_data:
+        entry["metabolites"] = metabolite_data[key]
 
     final_data[key] = entry
 
@@ -71,4 +78,4 @@ for key in base_mapping:
 with open(output_path, 'w') as f:
     json.dump(final_data, f, indent=2)
 
-print(f"Merged metadata written to: {output_path}")
+print(f"Merged metadata written to: {output_path} ({len(final_data)} total entries)")
