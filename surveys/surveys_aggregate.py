@@ -11,15 +11,39 @@ load_dotenv(find_dotenv(), override=True)
 input_dir = os.getenv("SURVEY_RESULTS")
 print("SURVEY_RESULTS =", input_dir)
 
+
 def parse_image_id(image_id):
-    match = re.search(r"(Ba\d+ \d+_\d+) (Dy\d+) ([A-H]\d+)", image_id)
-    if match:
+    # Normalize: remove parentheses and non-alphanumerics (except underscore), normalize whitespace
+    cleaned = re.sub(r"\(.*?\)", "", image_id)         # Remove parenthetical text
+    cleaned = re.sub(r"[^A-Za-z0-9\s_]", "", cleaned)  # Remove special chars except underscore
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()     # Normalize whitespace
+
+    parts = cleaned.split()
+
+    try:
+        # Extract BA (e.g., "Ba2") and make uppercase
+        ba_idx = next(i for i, p in enumerate(parts) if re.match(r"Ba\d+", p, re.IGNORECASE))
+        ba = parts[ba_idx].upper()
+
+        # Check if next part is a plate number like "96_2"
+        plate = ""
+        if ba == "BA2" and ba_idx + 1 < len(parts) and re.match(r"\d+_\d+", parts[ba_idx + 1]):
+            plate = parts[ba_idx + 1]
+
+        full_ba = f"{ba} {plate}".strip()
+
+        # Extract dayID (e.g., Dy30) and wellID (e.g., H11)
+        dy = next(p for p in parts if re.match(r"Dy\d+", p, re.IGNORECASE))
+        well = next(p for p in parts if re.match(r"^[A-H]\d{1,2}$", p, re.IGNORECASE))
+
         return {
-            "BA": match.group(1),
-            "dayID": match.group(2),
-            "wellID": match.group(3)
+            "BA": full_ba,
+            "dayID": dy,
+            "wellID": well
         }
-    return {}
+    except (IndexError, StopIteration):
+        return {}
+
 
 def process_organoid_files(directory):
     data = defaultdict(lambda: {"evaluations": [], "quality_scores": []})
@@ -47,21 +71,25 @@ def process_organoid_files(directory):
                         quality = next((p for p in parts if p in ['Good', 'Bad', 'Reasonable']), None)
                         parsed_meta = parse_image_id(image_id) if image_id else {}
 
+                        # Set common info once per organoid_id
+                        if parsed_meta:
+                            data[organoid_id]["parsed_id"] = parsed_meta
+                            data[organoid_id]["image_id"] = image_id
+
+                        # Now just log individual scores or evals
                         if is_quality_form and image_id and quality:
                             data[organoid_id]["quality_scores"].append({
-                                "image_id": image_id,
                                 "quality": quality,
-                                "source_file": os.path.basename(file),
-                                **parsed_meta
+                                "source_file": os.path.basename(file)
                             })
                         elif not is_quality_form and organoid_id and evaluation and image_id:
                             data[organoid_id]["evaluations"].append({
-                                "image_id": image_id,
                                 "evaluation": evaluation,
                                 "employee": employee_name,
-                                "source_file": os.path.basename(file),
-                                **parsed_meta
+                                "source_file": os.path.basename(file)
                             })
+
+
         except Exception as e:
             print(f"Error processing file {file}: {e}")
             continue
