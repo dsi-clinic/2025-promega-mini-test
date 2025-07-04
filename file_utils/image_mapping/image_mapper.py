@@ -10,6 +10,10 @@ from skimage.io import imread
 
 logging.basicConfig(level=logging.DEBUG)
 
+def extract_z(f: Path) -> int:
+    m = re.search(r" Z(\d+)", f.name, re.IGNORECASE)
+    return int(m.group(1)) if m else -1
+        
 class ImageMapper:
     BA_FOLDER_MAP = {
         "BA1": "BA1",
@@ -109,8 +113,12 @@ class ImageMapper:
 
     def resolve_filename(
         self, file_photoID: str, img_folder: str|Path, batch_plate: str = None
-    ) -> tuple[Path|None, str, list[Path]]:
-        """1) prefix‐match  2) sort by Z  3) stitched‐tile  4) BA3 Pt1  5) Z0/.tif  6) fallback."""
+    ) -> tuple[Path|None, str, list[Path], dict|None]:
+        """
+        1) prefix‐match  2) sort by Z  3) stitched‐tile  4) BA3 Pt1  5) Z0/.tif  6) fallback.
+        Now returns tuple of (chosen_file, stitched_flag, all_files, stitched_groups)
+        where stitched_groups is dict of {identifier: [files]} for multiple stitched entries
+        """
         img_folder = Path(img_folder)
         logging.info(f"Resolving filename for {file_photoID} in {img_folder}")
 
@@ -119,8 +127,6 @@ class ImageMapper:
         well_id = well_match.group(1) if well_match else ""
         search_id = file_photoID
 
-
-        
         # Handle special case for BA3 Pt1 conversion
         if "ba3" in search_id.lower() and "96_1" in batch_plate.lower() and "96_1" not in search_id:
             # Try both versions - with Pt1 and with 96_1
@@ -148,13 +154,13 @@ class ImageMapper:
                 logging.info(f"Using multiple search patterns: {search_ids}")
             else:
                 search_ids = [search_id]
-
+        else:
+            search_ids = [search_id]
 
         # Try all search IDs until we find matches
         candidates = []
         for sid in search_ids:
             # DON'T strip special characters - keep the full identifier
-            # Just clean up any trailing whitespace
             clean_sid = sid.strip()
             
             # Create multiple search patterns to handle different file naming conventions
@@ -164,28 +170,23 @@ class ImageMapper:
             patterns.append(rf"\b{re.escape(clean_sid)}(?=[\s._Z(]|$)")
             
             # 2. More flexible pattern that handles special characters
-            # This pattern looks for the exact string followed by common delimiters
             patterns.append(rf"{re.escape(clean_sid)}(?=[\s._Z]|$)")
             
             # 3. Handle cases where special characters might be represented differently
-            # Create a version that treats parentheses content as optional
             if '(' in clean_sid and ')' in clean_sid:
-                # Extract the part before parentheses and the part in parentheses
                 base_part = clean_sid.split('(')[0].strip()
                 paren_content = re.search(r'\(([^)]*)\)', clean_sid)
                 if paren_content:
                     paren_part = paren_content.group(1)
-                    # Try pattern that matches base part followed by parentheses with any content
                     patterns.append(rf"\b{re.escape(base_part)}\s*\([^)]*{re.escape(paren_part)}[^)]*\)")
-                    # Also try pattern that matches base part with flexible parentheses content
                     patterns.append(rf"\b{re.escape(base_part)}\s*\([^)]*\)")
             
-            # 4. Fallback pattern - just match the well ID part flexibly
+            # 4. Fallback pattern - match well ID with flexible stitched patterns
             well_match = re.search(r'([A-Za-z]\d+)', clean_sid)
             if well_match:
                 well_id = well_match.group(1)
-                # Look for well ID followed by any special characters
-                patterns.append(rf"\b{re.escape(well_id)}\s*[(%#]*[^A-Za-z]*")
+                # Look for well ID followed by any stitched patterns
+                patterns.append(rf"\b{re.escape(well_id)}\s*\([^)]*\)")
             
             logging.debug(f"Trying patterns for {clean_sid}: {patterns}")
             
@@ -207,7 +208,6 @@ class ImageMapper:
 
         # If still no candidates, try more permissive search
         if not candidates:
-            # Extract well ID from the search pattern
             well_match = re.search(r'([A-Za-z]\d+)', file_photoID)
             if well_match:
                 well_id = well_match.group(1)
@@ -216,7 +216,6 @@ class ImageMapper:
                 # Look for files with the well ID in the filename - very permissive
                 candidates = []
                 for f in img_folder.rglob("*.tif"):
-                    # Check if the well ID appears in the filename
                     if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE):
                         candidates.append(f)
                 
@@ -228,33 +227,111 @@ class ImageMapper:
 
         if not candidates:
             logging.warning(f"No files found for {file_photoID} in {img_folder}")
-            return None, "No", []
+            return None, "No", [], None
+
+        # Log all candidates before processing
+        logging.info(f"All candidates found for {file_photoID}:")
+        for i, f in enumerate(candidates):
+            logging.info(f"  {i}: {f.name}")
 
         # 2) sort by Z-index
-        def extract_z(f: Path) -> int:
-            m = re.search(r" Z(\d+)", f.name, re.IGNORECASE)
-            return int(m.group(1)) if m else -1
+
         candidates.sort(key=extract_z)
 
         logging.debug(f"[STITCH CHECK] well_id = {well_id}")
         logging.debug(f"[STITCH CHECK] candidate files = {[f.name for f in candidates]}")
 
+        # 3) Enhanced stitched‐tile check - detect various stitched patterns
+        def is_stitched_file(filename: str) -> bool:
+            """
+            Detect if a filename indicates a stitched image based on various patterns:
+            - (stitched) Z_.tif
+            - (#)% Z_.tif
+            - (1)%, (2)%, etc. Z_.tif
+            - (1 of 2), (2 of 2), etc. Z_.tif
+            - (1 of 2)(#)% Z_.tif
+            - Multiple parentheses patterns
+            """
+            fname = filename.lower()
+            
+            # Pattern 1: Explicit stitched keyword
+            if re.search(r'\(stitched\)', fname):
+                return True
+            
+            # Pattern 2: (#)% format
+            if re.search(r'\(#\)%', fname):
+                return True
+            
+            # Pattern 3: (number)% format - but not just any number in parentheses
+            if re.search(r'\(\d+\)%', fname):
+                return True
+            
+            # Pattern 4: (X of Y) format
+            if re.search(r'\(\d+\s+of\s+\d+\)', fname):
+                return True
+            
+            # Pattern 5: Multiple parentheses combinations like (1 of 2)(#)%
+            if re.search(r'\([^)]*\)\([^)]*\)', fname):
+                return True
+            
+            # Pattern 6: Any parentheses with % symbol
+            if re.search(r'\([^)]*\).*%', fname):
+                return True
+            
+            return False
 
-        # 3) stitched‐tile check - detect numeric tile indices like A1(1).tif
-        # 3) stitched‐tile check - detect numeric tile indices like A1(1).tif
+        def extract_stitched_identifier(filename: str) -> str:
+            """
+            Extract the stitched identifier from filename to group similar stitched files.
+            Returns the full stitched pattern like '(1 of 2)', '(#)%', '(stitched)', etc.
+            """
+            fname = filename
+            
+            # Look for various stitched patterns and return the full match
+            patterns = [
+                r'\(stitched\)',
+                r'\(\d+\s+of\s+\d+\)',  # (1 of 2), (2 of 2), etc.
+                r'\(\d+\)%',            # (1)%, (2)%, etc.
+                r'\(#\)%',              # (#)%
+                r'\([^)]*\)\([^)]*\)',  # Multiple parentheses like (1 of 2)(#)%
+                r'\([^)]*\).*%',        # Any parentheses with % symbol
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, fname, re.IGNORECASE)
+                if match:
+                    return match.group(0)
+            
+            # Fallback - return any parentheses content
+            match = re.search(r'\([^)]*\)', fname)
+            return match.group(0) if match else ""
+
         stitched_files = []
+        regular_files = []
+        
         for f in candidates:
-            fname = f.name.lower()
-            if "(" in fname and ")" in fname and re.search(r"\(\d+\)", fname):
-                logging.info(f"[STITCH CHECK] Found candidate stitched tile: {f.name}")
+            if is_stitched_file(f.name):
+                logging.info(f"[STITCH CHECK] Found stitched tile: {f.name}")
                 stitched_files.append(f)
+            else:
+                regular_files.append(f)
 
+        # If we have stitched files, group them by their unique identifiers
         if stitched_files:
-            stitched_files.sort(key=extract_z)
-            logging.info(f"[STITCH CHECK] Final stitched file chosen: {stitched_files[0].name}")
-            return stitched_files[0], "Yes", candidates
-
-
+            # Group stitched files by their unique identifier
+            stitched_groups = {}
+            for f in stitched_files:
+                identifier = extract_stitched_identifier(f.name)
+                if identifier not in stitched_groups:
+                    stitched_groups[identifier] = []
+                stitched_groups[identifier].append(f)
+            
+            logging.info(f"[STITCH CHECK] Found {len(stitched_groups)} unique stitched groups:")
+            for identifier, files in stitched_groups.items():
+                logging.info(f"  Group '{identifier}': {len(files)} files")
+            
+            # Return info about all stitched groups for separate processing
+            return None, "Multiple_Stitched", candidates, stitched_groups
 
         # 4) BA3 Pt1 / 96_1 special case handling
         if "ba3" in search_id.lower():
@@ -264,47 +341,61 @@ class ImageMapper:
                     for suffix in (" Z0.tif", ".tif"):
                         alt_file = img_folder / (search_id.replace(version, replacement) + suffix)
                         if alt_file.is_file():
-                            return alt_file, "No", candidates
+                            return alt_file, "No", candidates, None
 
         # 5) explicit Z0 or bare .tif
         for sid in search_ids:
             z0 = img_folder / f"{sid} Z0.tif"
             bare = img_folder / f"{sid}.tif"
-            if z0.is_file():    return z0,   "No", candidates
-            if bare.is_file():  return bare, "No", candidates
+            if z0.is_file():    
+                logging.info(f"Found Z0 file: {z0.name}")
+                return z0, "No", candidates, None
+            if bare.is_file():  
+                logging.info(f"Found bare .tif file: {bare.name}")
+                return bare, "No", candidates, None
 
         # 6) fallback to first candidate
         candidates = [f for f in candidates if well_id.lower() in f.name.lower()]
 
         if candidates:
-            return candidates[0], "No", candidates
+            logging.info(f"Using fallback candidate: {candidates[0].name}")
+            return candidates[0], "No", candidates, None
 
         logging.warning(f"No files found for {search_id} in {img_folder}")
-        return None, "No", []
+        return None, "No", [], None
+
 
     def make_mapping_json(self, out_json: Path):
         """
-        Loop through metadata → build one ‘full_id’ per (dayID, batchPlate, wellID)
+        Loop through metadata → build one 'full_id' per (dayID, batchPlate, wellID)
         → ask resolve_filename() once → store results in a JSON file.
+        Enhanced logging for debugging.
         """
         logging.info("Generating key-mapping JSON…")
 
-        cleaned  = self.clean_metadata()
-        grouped  = cleaned.groupby(["dayID", "batchPlate", "wellID"])
-        mapping  = {}
+        cleaned = self.clean_metadata()
+        grouped = cleaned.groupby(["dayID", "batchPlate", "wellID"])
+        mapping = {}
+        
+        # Statistics for debugging
+        total_groups = len(grouped)
+        stitched_count = 0
+        found_count = 0
+        
+        logging.info(f"Processing {total_groups} unique combinations")
 
         for (day_id, batch_plate, well_id), group_df in grouped:
             logging.info(f"Processing {batch_plate} {day_id} {well_id}")
 
             # ───────────────────────────────────────────────────────── full_id
-            parts   = batch_plate.split()                    # e.g. ['Ba2', '96_1']
-            ba_str  = " ".join([parts[0].upper(), *parts[1:]])  # 'BA2 96_1' | 'BA4'
+            parts = batch_plate.split()                    # e.g. ['Ba2', '96_1']
+            ba_str = " ".join([parts[0].upper(), *parts[1:]])  # 'BA2 96_1' | 'BA4'
             full_id = f"{ba_str} {day_id} {well_id}"           # 'BA2 96_1 Dy21 D12'
             logging.debug(f"Constructed full ID: {full_id}")
 
             # ───────────────────────────────────────────────────────── pick folder
             ba_part = parts[0].upper()                        # BA1 / BA2 / BA3 …
-            sub     = self.BA_FOLDER_MAP[ba_part]             # str or [str, str]
+            sub = self.BA_FOLDER_MAP[ba_part]             # str or [str, str]
 
             if isinstance(sub, list):
                 # BA2 ⇢ pick the 96_1 / 96_2 sub-folder that matches the batchPlate
@@ -318,34 +409,107 @@ class ImageMapper:
                 continue
 
             # ───────────────────────────────────────────────────────── find file
-            chosen, stitched_flag, all_files = self.resolve_filename(
-                full_id, img_folder, batch_plate
-            )
-            if chosen is None:        # resolve_filename already logged the failure
-                continue
+            result = self.resolve_filename(full_id, img_folder, batch_plate)
+            chosen, stitched_flag, all_files, stitched_groups = result
+            
+            if chosen is None and stitched_flag != "Multiple_Stitched":
+                continue  # resolve_filename already logged the failure
 
-            # stitched stack → focus_idx = -1 ; otherwise choose best-focus Z
+            # Handle multiple stitched groups - create separate entries for each
+            if stitched_flag == "Multiple_Stitched" and stitched_groups:
+                logging.info(f"Processing {len(stitched_groups)} stitched groups for {full_id}")
+                
+                for identifier, group_files in stitched_groups.items():
+                    # Sort files in this group by Z-index
+                    group_files.sort(key=extract_z)
+                    
+                    logging.info(f"  Processing stitched group '{identifier}' with {len(group_files)} files:")
+                    for i, f in enumerate(group_files):
+                        z_val = extract_z(f)
+                        logging.info(f"    {i}: {f.name} (Z={z_val})")
+                    
+                    # Find best focus within this stitched group
+                    best_idx = self.find_best_focus(group_files)
+                    if 0 <= best_idx < len(group_files):
+                        final_file = group_files[best_idx]
+                        focus_idx = best_idx
+                    else:
+                        final_file = group_files[0]  # Fallback to first file
+                        focus_idx = 0
+                    
+                    logging.info(f"    Best focus for group '{identifier}': {final_file.name} (idx {focus_idx})")
+                    
+                    # Create unique full_id for this stitched group
+                    stitched_full_id = f"{full_id}{identifier}"
+                    
+                    # Extract actual Z-value for reference
+                    z_match = re.search(r' Z(\d+)', final_file.name, re.IGNORECASE)
+                    actual_z = int(z_match.group(1)) if z_match else 0
+                    
+                    found_count += 1
+                    stitched_count += 1
+                    
+                    # Record this stitched group
+                    mapping[stitched_full_id] = {
+                        "dayID": day_id,
+                        "BA": ba_str,
+                        "wellID": well_id,
+                        "stitched_identifier": identifier,
+                        "Best Z": focus_idx,
+                        "Best Z Filename": str(final_file),
+                        "Actual Z Value": actual_z,
+                        "Stitched": "Yes",
+                        "um_per_px": float(group_df["um_per_px"].iloc[0]),
+                        "all_files": [str(f) for f in group_files],
+                        "cellLine": group_df["cellLine"].iloc[0],
+                        "treatment": group_df["treatment"].iloc[0],
+                    }
+                
+                continue  # Move to next group - we've processed all stitched variants
+
+            # Handle single stitched file or regular files
+            found_count += 1
             if stitched_flag == "Yes":
-                focus_idx = -1
-                final     = chosen
+                stitched_count += 1
+
+            # stitched stack → find best focus among stitched files; otherwise choose best-focus Z
+            if stitched_flag == "Yes":
+                # For stitched files, we already selected the best focus during detection
+                focus_idx = -1  # We'll store the actual Z-index separately
+                final = chosen
+                
+                # Extract the Z-index from the chosen stitched file for reference
+                z_match = re.search(r' Z(\d+)', chosen.name, re.IGNORECASE)
+                actual_z = int(z_match.group(1)) if z_match else 0
+                
+                logging.info(f"Using stitched image: {chosen.name} (Z={actual_z})")
             else:
-                idx       = self.find_best_focus(all_files)
+                idx = self.find_best_focus(all_files)
                 focus_idx = idx if 0 <= idx < len(all_files) else -1
-                final     = all_files[focus_idx] if focus_idx >= 0 else chosen
+                final = all_files[focus_idx] if focus_idx >= 0 else chosen
+                logging.info(f"Using best focus image (idx {focus_idx}): {final.name}")
 
             # ───────────────────────────────────────────────────────── record row
             mapping[full_id] = {
-                "dayID":      day_id,
-                "BA":         ba_str,
-                "wellID":     well_id,
-                "Best Z":     focus_idx,
+                "dayID": day_id,
+                "BA": ba_str,
+                "wellID": well_id,
+                "Best Z": focus_idx,
                 "Best Z Filename": str(final),
-                "Stitched":   stitched_flag,
-                "um_per_px":  float(group_df["um_per_px"].iloc[0]),
-                "all_files":  [str(f) for f in all_files],
-                "cellLine":   group_df["cellLine"].iloc[0],
-                "treatment":  group_df["treatment"].iloc[0],
+                "Stitched": stitched_flag,
+                "um_per_px": float(group_df["um_per_px"].iloc[0]),
+                "all_files": [str(f) for f in all_files],
+                "cellLine": group_df["cellLine"].iloc[0],
+                "treatment": group_df["treatment"].iloc[0],
             }
+
+        # Final statistics
+        logging.info(f"=== MAPPING SUMMARY ===")
+        logging.info(f"Total groups processed: {total_groups}")
+        logging.info(f"Files found: {found_count}")
+        logging.info(f"Stitched images detected: {stitched_count}")
+        logging.info(f"Success rate: {found_count/total_groups*100:.1f}%")
+        logging.info(f"Stitched rate: {stitched_count/found_count*100:.1f}%" if found_count > 0 else "Stitched rate: 0%")
 
         out_json.write_text(json.dumps(mapping, indent=2))
         logging.info(f"Wrote mapping JSON to {out_json}")
