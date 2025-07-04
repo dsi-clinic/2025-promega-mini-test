@@ -2,6 +2,7 @@ import os
 import json
 from glob import glob
 from tqdm import tqdm
+import re
 
 # --- Paths ---
 base_image_mapping_path = '/net/projects2/promega/data-analysis/output/image_mapping.json'
@@ -25,21 +26,31 @@ with open(metabolite_json_path) as f:
 # --- Normalize survey data into mapping keyed by "BA1 Dy03 A1" ---
 survey_lookup = {}
 for org_id, survey_entry in survey_data.items():
-    if 'evaluations' in survey_entry and survey_entry['evaluations']:
-        image_id = survey_entry['evaluations'][0]['image_id']
-    elif 'quality_scores' in survey_entry and survey_entry['quality_scores']:
-        image_id = survey_entry['quality_scores'][0]['image_id']
-    else:
+    image_id = survey_entry.get('image_id', None)
+    if not image_id:
         continue
 
     # Normalize image_id → e.g. "Ba2 96_2 Dy30 H11" → "BA2 Dy30 H11"
     parts = image_id.strip().split()
     if len(parts) >= 4:
-        BA = parts[0].split('_')[0].upper()
+        BA_raw = parts[0].upper()
+        plate_part = ""
+        if BA_raw == "BA2" and len(parts) > 1 and re.match(r"(96_[12])", parts[1]):
+            plate_part = parts[1]
+        BA = f"{BA_raw} {plate_part}".strip()
+
         dayID = parts[2]
-        wellID = parts[3]
+        
+        # --- Clean the wellID properly ---
+        well_raw = parts[3]
+        well_match = re.search(r"[A-Za-z]\d+", well_raw)
+        wellID = well_match.group(0) if well_match else well_raw.strip()
+
         key = f"{BA} {dayID} {wellID}"
         survey_lookup[key] = survey_entry
+
+
+
 
 # --- Load all nested processed mappings ---
 processed_mapping = {}

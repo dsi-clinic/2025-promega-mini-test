@@ -8,6 +8,8 @@ from tifffile import TiffFile  # if you ever need it
 import cv2
 from skimage.io import imread
 
+logging.basicConfig(level=logging.DEBUG)
+
 class ImageMapper:
     BA_FOLDER_MAP = {
         "BA1": "BA1",
@@ -92,23 +94,28 @@ class ImageMapper:
             raw_well = " ".join(well_parts)
             
             # 4. Clean the well ID - keep the core ID part but strip trailing special chars
-            # First, identify the well pattern: usually letter followed by number (B6, H12, etc.)
-            well_match = re.match(r"^([A-Za-z]\d+).*$", raw_well)
-            if well_match:
-                # We found a standard well pattern - use it as is
-                wellID = well_match.group(1)
-            else:
-                # If no standard pattern found, just remove trailing special chars
-                wellID = re.sub(r"[#%()]+$", "", raw_well).strip()
+            # 4. Preserve stitched index, if it exists
+            well_match = re.search(r"[A-Za-z]\d+\([^)]*\)|[A-Za-z]\d+", raw_well)
+            wellID = well_match.group(0) if well_match else raw_well.strip()
+
+            # # First, identify the well pattern: usually letter followed by number (B6, H12, etc.)
+            # well_match = re.match(r"^([A-Za-z]\d+).*$", raw_well)
+            # if well_match:
+            #     # We found a standard well pattern - use it as is
+            #     wellID = well_match.group(1)
+            # else:
+            #     # If no standard pattern found, just remove trailing special chars
+            #     wellID = re.sub(r"[#%()]+$", "", raw_well).strip()
             
-            # Special case for capturing "(1" as part of the ID if it exists
-            if "(" in raw_well and not raw_well.endswith(")"):
-                paren_match = re.search(r"([A-Za-z]\d+\([^)]*)", raw_well)
-                if paren_match:
-                    wellID = paren_match.group(1)
+            # # Special case for capturing "(1" as part of the ID if it exists
+            # if "(" in raw_well and not raw_well.endswith(")"):
+            #     paren_match = re.search(r"([A-Za-z]\d+\([^)]*)", raw_well)
+            #     if paren_match:
+            #         wellID = paren_match.group(1)
             
             logging.debug(f"Split {pid!r} into: batch={batchPlate!r}, day={dayID!r}, well={wellID!r}")
             return pd.Series([batchPlate, dayID, wellID])
+
 
         df[["batchPlate", "dayID", "wellID"]] = df["photoID"].apply(split_pid)
 
@@ -119,6 +126,7 @@ class ImageMapper:
             "cellLine", "treatment"
         ]]
 
+
     def resolve_filename(
         self, file_photoID: str, img_folder: str|Path, batch_plate: str = None
     ) -> tuple[Path|None, str, list[Path]]:
@@ -126,8 +134,12 @@ class ImageMapper:
         img_folder = Path(img_folder)
         logging.info(f"Resolving filename for {file_photoID} in {img_folder}")
 
-        # If we have information about 96_1 or 96_2 in batch_plate, include it in the search pattern
+        # Extract well ID once from the original input
+        well_match = re.search(r'([A-Za-z]\d+)', file_photoID)
+        well_id = well_match.group(1) if well_match else ""
         search_id = file_photoID
+
+
         
         # Handle special case for BA3 Pt1 conversion
         if "ba3" in search_id.lower() and "96_1" in batch_plate.lower() and "96_1" not in search_id:
@@ -138,48 +150,77 @@ class ImageMapper:
                 re.sub(r"BA3\b", "BA3 Pt1", search_id, flags=re.IGNORECASE)
             ]
             logging.info(f"Using multiple search patterns for BA3: {search_ids}")
-        elif batch_plate and "96_" in batch_plate and "96_" not in search_id:
-            # For other batches, add the plate info (96_1 or 96_2) if missing
-            plate_suffix = re.search(r"96_[12]", batch_plate)
-            if plate_suffix:
-                ba_match = re.search(r"BA\d+", search_id.upper())
-                if ba_match:
-                    ba_part = ba_match.group(0)
-                    adjusted_id = re.sub(
-                        rf"{ba_part}\b", 
-                        f"{ba_part} {plate_suffix.group(0)}", 
-                        search_id, 
-                        flags=re.IGNORECASE
-                    )
-                    search_ids = [search_id, adjusted_id]
-                    logging.info(f"Using multiple search patterns: {search_ids}")
-                else:
-                    search_ids = [search_id]
+        elif batch_plate:
+            plate_suffix_match = re.search(r"(96_[12]|Pt1)", batch_plate, re.IGNORECASE)
+            ba_match = re.search(r"BA\d+", search_id, re.IGNORECASE)
+
+            if ba_match and plate_suffix_match:
+                base_id = search_id.strip()
+                ba_part = ba_match.group(0)
+                plate_suffix = plate_suffix_match.group(1)
+
+                # Add versions: raw, with 96_1 or 96_2, and Pt1 (to handle bad filenames)
+                with_suffix = re.sub(rf"{ba_part}\b", f"{ba_part} {plate_suffix}", base_id, flags=re.IGNORECASE)
+                alt_suffix = "Pt1" if "96_" in plate_suffix else "96_1"
+                alt_version = re.sub(rf"{ba_part}\b", f"{ba_part} {alt_suffix}", base_id, flags=re.IGNORECASE)
+
+                search_ids = [base_id, with_suffix, alt_version]
+                logging.info(f"Using multiple search patterns: {search_ids}")
             else:
                 search_ids = [search_id]
-        else:
-            search_ids = [search_id]
+
 
         # Try all search IDs until we find matches
         candidates = []
         for sid in search_ids:
-            # Strip any trailing special characters for search pattern
-            clean_sid = re.sub(r"[%#()]+$", "", sid).strip()
+            # DON'T strip special characters - keep the full identifier
+            # Just clean up any trailing whitespace
+            clean_sid = sid.strip()
             
-            # Try two matching approaches: word boundary and more flexible
-            patterns = [
-                rf"\b{re.escape(clean_sid)}(?=[\s(]|$)",  # Word boundary
-                rf"{re.escape(clean_sid)}(?:\s|\.|$)"      # More flexible
-            ]
+            # Create multiple search patterns to handle different file naming conventions
+            patterns = []
+            
+            # 1. Exact match with word boundary (for standard cases)
+            patterns.append(rf"\b{re.escape(clean_sid)}(?=[\s._Z(]|$)")
+            
+            # 2. More flexible pattern that handles special characters
+            # This pattern looks for the exact string followed by common delimiters
+            patterns.append(rf"{re.escape(clean_sid)}(?=[\s._Z]|$)")
+            
+            # 3. Handle cases where special characters might be represented differently
+            # Create a version that treats parentheses content as optional
+            if '(' in clean_sid and ')' in clean_sid:
+                # Extract the part before parentheses and the part in parentheses
+                base_part = clean_sid.split('(')[0].strip()
+                paren_content = re.search(r'\(([^)]*)\)', clean_sid)
+                if paren_content:
+                    paren_part = paren_content.group(1)
+                    # Try pattern that matches base part followed by parentheses with any content
+                    patterns.append(rf"\b{re.escape(base_part)}\s*\([^)]*{re.escape(paren_part)}[^)]*\)")
+                    # Also try pattern that matches base part with flexible parentheses content
+                    patterns.append(rf"\b{re.escape(base_part)}\s*\([^)]*\)")
+            
+            # 4. Fallback pattern - just match the well ID part flexibly
+            well_match = re.search(r'([A-Za-z]\d+)', clean_sid)
+            if well_match:
+                well_id = well_match.group(1)
+                # Look for well ID followed by any special characters
+                patterns.append(rf"\b{re.escape(well_id)}\s*[(%#]*[^A-Za-z]*")
+            
+            logging.debug(f"Trying patterns for {clean_sid}: {patterns}")
             
             for pattern in patterns:
-                search_re = re.compile(pattern, re.IGNORECASE)
-                these_candidates = [f for f in img_folder.rglob("*.tif") if search_re.search(f.name)]
-                
-                if these_candidates:
-                    candidates = these_candidates
-                    logging.info(f"Found {len(candidates)} matches with pattern: {pattern}")
-                    break
+                try:
+                    search_re = re.compile(pattern, re.IGNORECASE)
+                    these_candidates = [f for f in img_folder.rglob("*.tif") if search_re.search(f.name)]
+                    
+                    if these_candidates:
+                        candidates = these_candidates
+                        logging.info(f"Found {len(candidates)} matches with pattern: {pattern}")
+                        break
+                except re.error as e:
+                    logging.warning(f"Invalid regex pattern {pattern}: {e}")
+                    continue
             
             if candidates:
                 break
@@ -187,25 +228,53 @@ class ImageMapper:
         # If still no candidates, try more permissive search
         if not candidates:
             # Extract well ID from the search pattern
-            well_match = re.search(r"[A-Za-z]\d+(?:\([^)]*)?", search_id)
+            well_match = re.search(r'([A-Za-z]\d+)', file_photoID)
             if well_match:
-                well_id = well_match.group(0)
+                well_id = well_match.group(1)
                 logging.info(f"Trying fallback search with well ID: {well_id}")
                 
-                # Look for files with the well ID in the filename
-                candidates = [f for f in img_folder.rglob("*.tif") 
-                             if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE)]
+                # Look for files with the well ID in the filename - very permissive
+                candidates = []
+                for f in img_folder.rglob("*.tif"):
+                    # Check if the well ID appears in the filename
+                    if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE):
+                        candidates.append(f)
+                
+                # If still no matches, try even more permissive search
+                if not candidates:
+                    for f in img_folder.rglob("*.tif"):
+                        if well_id.lower() in f.name.lower():
+                            candidates.append(f)
+
+        if not candidates:
+            logging.warning(f"No files found for {file_photoID} in {img_folder}")
+            return None, "No", []
 
         # 2) sort by Z-index
         def extract_z(f: Path) -> int:
-            m = re.search(r" Z(\d+)\.tif$", f.name, re.IGNORECASE)
+            m = re.search(r" Z(\d+)", f.name, re.IGNORECASE)
             return int(m.group(1)) if m else -1
         candidates.sort(key=extract_z)
 
-        # 3) stitched‐tile check
+        logging.debug(f"[STITCH CHECK] well_id = {well_id}")
+        logging.debug(f"[STITCH CHECK] candidate files = {[f.name for f in candidates]}")
+
+
+        # 3) stitched‐tile check - detect numeric tile indices like A1(1).tif
+        # 3) stitched‐tile check - detect numeric tile indices like A1(1).tif
+        stitched_files = []
         for f in candidates:
-            if re.search(r"\(\d+\s*of\s*\d+\)", f.name):
-                return f, "Yes", candidates
+            fname = f.name.lower()
+            if "(" in fname and ")" in fname and re.search(r"\(\d+\)", fname):
+                logging.info(f"[STITCH CHECK] Found candidate stitched tile: {f.name}")
+                stitched_files.append(f)
+
+        if stitched_files:
+            stitched_files.sort(key=extract_z)
+            logging.info(f"[STITCH CHECK] Final stitched file chosen: {stitched_files[0].name}")
+            return stitched_files[0], "Yes", candidates
+
+
 
         # 4) BA3 Pt1 / 96_1 special case handling
         if "ba3" in search_id.lower():
@@ -225,6 +294,8 @@ class ImageMapper:
             if bare.is_file():  return bare, "No", candidates
 
         # 6) fallback to first candidate
+        candidates = [f for f in candidates if well_id.lower() in f.name.lower()]
+
         if candidates:
             return candidates[0], "No", candidates
 
@@ -251,18 +322,13 @@ class ImageMapper:
                 ba_str = f"{ba_part} {parts[1]}"
                 # Include the plate info in the ID
                 full_id = f"{ba_str} {day_id} {well_id}"
-            elif ba_part == "BA3" and len(parts) > 1:
-                # For BA3, handle both cases: 96_1 and Pt1
-                if "96_1" in parts[1]:
-                    ba_str = f"{ba_part} {parts[1]}"
-                elif "Pt1" in parts[1]:
-                    ba_str = f"{ba_part} {parts[1]}"
-                else:
-                    ba_str = ba_part
+            elif ba_part == "BA3" and len(parts) > 1 and parts[1] in ["Pt1"]:
+                ba_str = f"{ba_part} {parts[1]}"
                 full_id = f"{ba_str} {day_id} {well_id}"
             else:
                 ba_str = ba_part
                 full_id = f"{ba_str} {day_id} {well_id}"
+
             
             logging.debug(f"Constructed full ID: {full_id}")
 
