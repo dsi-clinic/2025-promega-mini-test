@@ -257,27 +257,21 @@ class ImageMapper:
             # Pattern 1: Explicit stitched keyword
             if re.search(r'\(stitched\)', fname):
                 return True
-            
-            # Pattern 2: (#)% format
-            if re.search(r'\(#\)%', fname):
-                return True
-            
-            # Pattern 3: (number)% format - but not just any number in parentheses
-            if re.search(r'\(\d+\)%', fname):
-                return True
-            
-            # Pattern 4: (X of Y) format
+
+            # Pattern 2: (X of Y) — clearly stitched
             if re.search(r'\(\d+\s+of\s+\d+\)', fname):
                 return True
-            
-            # Pattern 5: Multiple parentheses combinations like (1 of 2)(#)%
-            if re.search(r'\([^)]*\)\([^)]*\)', fname):
+
+            # Pattern 3: (digit)% — stitched, but skip if it contains only #
+            for match in re.findall(r'\([^)]*\)', fname):
+                if "%" in match and re.search(r'\d', match):  # Has % and digit = stitched
+                    return True
+
+            # Pattern 4: Multiple parentheses — stitched if any contain digit
+            all_parens = re.findall(r'\([^)]*\)', fname)
+            if len(all_parens) >= 2 and any(re.search(r'\d', p) for p in all_parens):
                 return True
-            
-            # Pattern 6: Any parentheses with % symbol
-            if re.search(r'\([^)]*\).*%', fname):
-                return True
-            
+
             return False
 
         def extract_stitched_identifier(filename: str) -> str:
