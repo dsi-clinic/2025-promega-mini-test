@@ -3,90 +3,90 @@ import json
 from glob import glob
 from tqdm import tqdm
 import re
+#!/usr/bin/env python3
+import json, os, re, pathlib
+from glob import glob
+from tqdm import tqdm
 
-# --- Paths ---
+# ───────── paths ─────────────────────────────────────────────────────────
 base_image_mapping_path = '/net/projects2/promega/data-analysis/output/image_mapping.json'
-processed_root_dir = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
-survey_json_path = '/home/amandabrooke/2025-promega-mini-test/surveys/organoid_surveys_aggregated.json'
-metabolite_json_path = '/net/projects2/promega/data-analysis/metabolite_data/metabolite_map.json'
-output_path = 'final_combined_metadata.json'
+processed_root_dir      = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
+survey_json_path        = '/home/amandabrooke/2025-promega-mini-test/surveys/organoid_surveys_aggregated.json'
+metabolite_json_path    = '/net/projects2/promega/data-analysis/metabolite_data/metabolite_map.json'
+output_path             = 'final_combined_metadata.json'
 
-# --- Load base image mapping ---
-with open(base_image_mapping_path) as f:
-    base_mapping = json.load(f)
+_tok_ba    = re.compile(r'^BA\d+$',          re.IGNORECASE)
+_tok_plate = re.compile(r'^(96_[12]|PT1)$',  re.IGNORECASE)
+_tok_day   = re.compile(r'^DY\d+$',          re.IGNORECASE)
 
-# --- Load survey evaluations ---
-with open(survey_json_path) as f:
-    survey_data = json.load(f)
+def norm_key(id_like: str) -> str:
+    """
+    Normalise an ID of the form
+        'Ba2 96_1 Dy30 H11'  -> 'BA2 96_1 Dy30 H11'
+        'Ba1 Dy06 A1'        -> 'BA1 Dy06 A1'
+    """
+    parts = id_like.strip().split()
+    if not parts or not _tok_ba.match(parts[0]):
+        raise ValueError(f"Bad BA token in {id_like!r}")
 
-# --- Load metabolite data ---
-with open(metabolite_json_path) as f:
-    metabolite_data = json.load(f)
+    ba      = parts[0].upper()            # BA1, BA2, …
+    idx     = 1
 
-# --- Normalize survey data into mapping keyed by "BA1 Dy03 A1" ---
-survey_lookup = {}
-for org_id, survey_entry in survey_data.items():
-    image_id = survey_entry.get('image_id', None)
-    if not image_id:
-        continue
+    # optional plate designator (96_1 / 96_2 / Pt1)
+    plate   = ''
+    if idx < len(parts) and _tok_plate.match(parts[idx]):
+        plate = parts[idx]
+        idx  += 1
 
-    # Normalize image_id → e.g. "Ba2 96_2 Dy30 H11" → "BA2 Dy30 H11"
-    parts = image_id.strip().split()
-    if len(parts) >= 4:
-        BA_raw = parts[0].upper()
-        plate_part = ""
-        if BA_raw == "BA2" and len(parts) > 1 and re.match(r"(96_[12])", parts[1]):
-            plate_part = parts[1]
-        BA = f"{BA_raw} {plate_part}".strip()
+    # day token (Dy##)
+    if idx >= len(parts) or not _tok_day.match(parts[idx]):
+        raise ValueError(f"Cannot find day token in {id_like!r}")
+    day = parts[idx]
+    idx += 1
 
-        dayID = parts[2]
-        
-        # --- Clean the wellID properly ---
-        well_raw = parts[3]
-        well_match = re.search(r"[A-Za-z]\d+", well_raw)
-        wellID = well_match.group(0) if well_match else well_raw.strip()
+    # remaining token is the well ID
+    if idx >= len(parts):
+        raise ValueError(f"Cannot find well token in {id_like!r}")
+    well = parts[idx]
 
-        key = f"{BA} {dayID} {wellID}"
-        survey_lookup[key] = survey_entry
-
-
+    # final normalised key
+    ba_full = f"{ba} {plate}".strip()     # keep plate for BA2 / BA3
+    return f"{ba_full} {day} {well}"
 
 
-# --- Load all nested processed mappings ---
-processed_mapping = {}
-for dirpath, _, filenames in os.walk(processed_root_dir):
-    for file in filenames:
-        if file.startswith("image_mapping_") and file.endswith("_processed.json"):
-            full_path = os.path.join(dirpath, file)
-            with open(full_path) as f:
-                data = json.load(f)
-                processed_mapping.update(data)
+# ───────── read files & re-key with norm_key() ───────────────────────────
+def load_json(path):
+    with open(path) as f: return json.load(f)
 
-# --- Merge everything ---
-final_data = {}
+base_map     = {norm_key(k): v for k, v in load_json(base_image_mapping_path).items()}
+metab_map    = {norm_key(k): v for k, v in load_json(metabolite_json_path).items()}
 
-for key in base_mapping:
+# processed – iterate over many small files
+processed_map = {}
+for p in pathlib.Path(processed_root_dir).rglob("image_mapping_*_processed.json"):
+    for k, v in load_json(p).items():
+        processed_map[norm_key(k)] = v
+
+# survey – one file, keys are inside each record
+survey_map = {}
+for row in load_json(survey_json_path).values():
+    if iid := row.get('image_id'):
+        survey_map[norm_key(iid)] = row
+
+# ───────── merge all sources ─────────────────────────────────────────────
+all_keys   = set().union(base_map, processed_map, survey_map, metab_map)
+combined   = {}
+
+for k in tqdm(sorted(all_keys)):
     entry = {}
+    if k in base_map:      entry.update(base_map[k])
+    if k in processed_map: entry.update(processed_map[k])
+    if k in survey_map:    entry["survey"]     = survey_map[k]
+    if k in metab_map:     entry["metabolites"] = metab_map[k]
+    combined[k] = entry
 
-    # Base mapping
-    entry.update(base_mapping[key])
-
-    # Processed mask info
-    if key in processed_mapping:
-        entry.update(processed_mapping[key])
-
-    # Survey info
-    if key in survey_lookup:
-        entry["survey"] = survey_lookup[key]
-
-    # Metabolite info
-    if key in metabolite_data:
-        entry["metabolites"] = metabolite_data[key]
-
-    final_data[key] = entry
-
-# --- Save ---
+# ───────── write out ─────────────────────────────────────────────────────
 with open(output_path, 'w') as f:
-    json.dump(final_data, f, indent=2)
+    json.dump(combined, f, indent=2)
+print(f"Wrote {len(combined):,} merged records → {output_path}")
 
-print(f"Merged metadata written to: {output_path} ({len(final_data)} total entries)")

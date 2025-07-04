@@ -66,54 +66,34 @@ class ImageMapper:
         })
 
         def split_pid(pid: str) -> pd.Series:
+            """
+            Break “Ba2 96_1 Dy21 D12(1 of 2) #% Z0.tif”-style strings into
+            batchPlate = “Ba2 96_1” | “Ba1” | “Ba3 Pt1” …
+            dayID      = “Dy21”
+            wellID     = “D12”
+            """
             parts = pid.split()
-            
-            # 1. Extract the batch and plate parts
-            batch_parts = []
-            i = 0
-            while i < len(parts):
-                part = parts[i]
-                # Match Ba1, Ba2, Ba3, Ba4, etc.
-                if re.match(r"^Ba\d+$", part, re.IGNORECASE):
-                    batch_parts.append(part)
-                    # Check if the next part is 96_1 or 96_2 (for Ba2 or Ba3)
-                    if i+1 < len(parts) and re.match(r"^(?:96_[12]|Pt1)$", parts[i+1]):
-                        batch_parts.append(parts[i+1])
-                        i += 1  # Skip the next part as we've included it
-                    break  # We've found the batch part
-                i += 1
-            
-            batchPlate = " ".join(batch_parts)
-            
-            # 2. Find day part (always starts with Dy)
-            day_index = next((i for i, part in enumerate(parts) if part.upper().startswith("DY")), -1)
-            dayID = parts[day_index] if day_index >= 0 else ""
-            
-            # 3. Extract well ID (everything after day)
-            well_parts = parts[day_index+1:] if day_index >= 0 else []
-            raw_well = " ".join(well_parts)
-            
-            # 4. Clean the well ID - keep the core ID part but strip trailing special chars
-            # 4. Preserve stitched index, if it exists
-            well_match = re.search(r"[A-Za-z]\d+\([^)]*\)|[A-Za-z]\d+", raw_well)
-            wellID = well_match.group(0) if well_match else raw_well.strip()
 
-            # # First, identify the well pattern: usually letter followed by number (B6, H12, etc.)
-            # well_match = re.match(r"^([A-Za-z]\d+).*$", raw_well)
-            # if well_match:
-            #     # We found a standard well pattern - use it as is
-            #     wellID = well_match.group(1)
-            # else:
-            #     # If no standard pattern found, just remove trailing special chars
-            #     wellID = re.sub(r"[#%()]+$", "", raw_well).strip()
-            
-            # # Special case for capturing "(1" as part of the ID if it exists
-            # if "(" in raw_well and not raw_well.endswith(")"):
-            #     paren_match = re.search(r"([A-Za-z]\d+\([^)]*)", raw_well)
-            #     if paren_match:
-            #         wellID = paren_match.group(1)
-            
-            logging.debug(f"Split {pid!r} into: batch={batchPlate!r}, day={dayID!r}, well={wellID!r}")
+            # ── batchPlate ────────────────────────────────────────────
+            #  Ex.:  Ba2 96_1 | Ba3 Pt1 | Ba1
+            if len(parts) > 1 and re.match(r"^(96_[12]|Pt1)$", parts[1], re.I):
+                batchPlate = f"{parts[0]} {parts[1]}"
+                day_idx = 2
+            else:
+                batchPlate = parts[0]
+                day_idx = 1
+
+            # ── dayID (always starts with Dy..) ───────────────────────
+            dayID = parts[day_idx]
+            well_tokens = parts[day_idx + 1 :]
+
+            # ── wellID  (strip EVERYTHING after the first letter+digits) ──
+            m = re.search(r"[A-Za-z]\d{1,2}", " ".join(well_tokens))
+            wellID = m.group(0) if m else " ".join(well_tokens).strip()
+
+            logging.debug(
+                f"[split_pid] {pid!r} → batch={batchPlate!r}, day={dayID!r}, well={wellID!r}"
+            )
             return pd.Series([batchPlate, dayID, wellID])
 
 
@@ -303,83 +283,73 @@ class ImageMapper:
         return None, "No", []
 
     def make_mapping_json(self, out_json: Path):
-        """Loop through metadata, call resolve_filename once, then pick focus or keep stitched."""
-        logging.info("Generating key mapping JSON…")
+        """
+        Loop through metadata → build one ‘full_id’ per (dayID, batchPlate, wellID)
+        → ask resolve_filename() once → store results in a JSON file.
+        """
+        logging.info("Generating key-mapping JSON…")
 
-        cleaned = self.clean_metadata()
-        grouped = cleaned.groupby(["dayID", "batchPlate", "wellID"])
-        mapping = {}
+        cleaned  = self.clean_metadata()
+        grouped  = cleaned.groupby(["dayID", "batchPlate", "wellID"])
+        mapping  = {}
 
         for (day_id, batch_plate, well_id), group_df in grouped:
             logging.info(f"Processing {batch_plate} {day_id} {well_id}")
 
-            # Standardize the BA part to uppercase (BA2 instead of Ba2)
-            parts = batch_plate.split()
-            ba_part = parts[0].upper()
-            
-            # Handle BA specific logic for full ID construction
-            if ba_part == "BA2" and len(parts) > 1 and "96_" in parts[1]:
-                ba_str = f"{ba_part} {parts[1]}"
-                # Include the plate info in the ID
-                full_id = f"{ba_str} {day_id} {well_id}"
-            elif ba_part == "BA3" and len(parts) > 1 and parts[1] in ["Pt1"]:
-                ba_str = f"{ba_part} {parts[1]}"
-                full_id = f"{ba_str} {day_id} {well_id}"
-            else:
-                ba_str = ba_part
-                full_id = f"{ba_str} {day_id} {well_id}"
-
-            
+            # ───────────────────────────────────────────────────────── full_id
+            parts   = batch_plate.split()                    # e.g. ['Ba2', '96_1']
+            ba_str  = " ".join([parts[0].upper(), *parts[1:]])  # 'BA2 96_1' | 'BA4'
+            full_id = f"{ba_str} {day_id} {well_id}"           # 'BA2 96_1 Dy21 D12'
             logging.debug(f"Constructed full ID: {full_id}")
 
-            # resolve folder based on batch type
-            sub = self.BA_FOLDER_MAP[ba_part]
+            # ───────────────────────────────────────────────────────── pick folder
+            ba_part = parts[0].upper()                        # BA1 / BA2 / BA3 …
+            sub     = self.BA_FOLDER_MAP[ba_part]             # str or [str, str]
+
             if isinstance(sub, list):
-                # Handle BA2 special case with 96_1 and 96_2 subfolders
-                if len(parts) > 1 and any(plate in parts[1] for plate in ["96_1", "96_2"]):
-                    plate_suffix = parts[1]
-                    sub = next((s for s in sub if plate_suffix in s), sub[0])
-                    logging.debug(f"Selected subfolder {sub} for {plate_suffix}")
-                else:
-                    # Default to first subfolder if not specified
-                    sub = sub[0]
-                    logging.debug(f"Using default subfolder {sub}")
-            
+                # BA2 ⇢ pick the 96_1 / 96_2 sub-folder that matches the batchPlate
+                plate_suffix = parts[1] if len(parts) > 1 else ""
+                sub = next((s for s in sub if plate_suffix in s), sub[0])
+                logging.debug(f"Selected subfolder {sub} for {plate_suffix}")
+
             img_folder = self.base_dir / sub / day_id
             if not img_folder.exists():
                 logging.warning(f"Image folder does not exist: {img_folder}")
                 continue
 
-            # Pass batch_plate to help with special case resolution
-            chosen, stitched_flag, all_files = self.resolve_filename(full_id, img_folder, batch_plate)
-            if chosen is None:
-                continue  # already logged
+            # ───────────────────────────────────────────────────────── find file
+            chosen, stitched_flag, all_files = self.resolve_filename(
+                full_id, img_folder, batch_plate
+            )
+            if chosen is None:        # resolve_filename already logged the failure
+                continue
 
-            # compute Best Z (or -1 if stitched)
+            # stitched stack → focus_idx = -1 ; otherwise choose best-focus Z
             if stitched_flag == "Yes":
                 focus_idx = -1
-                final = chosen
+                final     = chosen
             else:
-                idx = self.find_best_focus(all_files)
+                idx       = self.find_best_focus(all_files)
                 focus_idx = idx if 0 <= idx < len(all_files) else -1
-                final = all_files[focus_idx] if focus_idx >= 0 else chosen
+                final     = all_files[focus_idx] if focus_idx >= 0 else chosen
 
-            # write out
+            # ───────────────────────────────────────────────────────── record row
             mapping[full_id] = {
-                "dayID": day_id,
-                "BA": ba_str,
-                "wellID": well_id,
-                "Best Z": focus_idx,
+                "dayID":      day_id,
+                "BA":         ba_str,
+                "wellID":     well_id,
+                "Best Z":     focus_idx,
                 "Best Z Filename": str(final),
-                "Stitched": stitched_flag,
-                "um_per_px": float(group_df["um_per_px"].iloc[0]),
-                "all_files": [str(f) for f in all_files],
-                "cellLine": group_df["cellLine"].iloc[0],
-                "treatment": group_df["treatment"].iloc[0],
+                "Stitched":   stitched_flag,
+                "um_per_px":  float(group_df["um_per_px"].iloc[0]),
+                "all_files":  [str(f) for f in all_files],
+                "cellLine":   group_df["cellLine"].iloc[0],
+                "treatment":  group_df["treatment"].iloc[0],
             }
 
         out_json.write_text(json.dumps(mapping, indent=2))
         logging.info(f"Wrote mapping JSON to {out_json}")
+
 
     def find_best_focus(self, files: list[Path]) -> int:
         if not files:
