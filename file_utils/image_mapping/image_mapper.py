@@ -171,6 +171,7 @@ class ImageMapper:
             
             # 2. More flexible pattern that handles special characters
             patterns.append(rf"{re.escape(clean_sid)}(?=[\s._Z]|$)")
+
             
             # 3. Handle cases where special characters might be represented differently
             if '(' in clean_sid and ')' in clean_sid:
@@ -256,7 +257,7 @@ class ImageMapper:
             
             # Pattern 1: Explicit stitched keyword
             if re.search(r'\(stitched\)', fname):
-                return True
+                return False
 
             # Pattern 2: (X of Y) — clearly stitched
             if re.search(r'\(\d+\s+of\s+\d+\)', fname):
