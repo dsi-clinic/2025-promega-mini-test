@@ -247,11 +247,14 @@ class ImageMapper:
             """
             Detect if a filename indicates a stitched image based on various patterns:
             - (stitched) Z_.tif
-            - (#)% Z_.tif
             - (1)%, (2)%, etc. Z_.tif
             - (1 of 2), (2 of 2), etc. Z_.tif
             - (1 of 2)(#)% Z_.tif
-            - Multiple parentheses patterns
+            Not stitched but has paranthesis:
+            - (#)% Z_.tif
+            Image duplications
+            - (1)% Z_.tif
+            - (2)% Z_.tif
             """
             fname = filename.lower()
             
@@ -266,7 +269,7 @@ class ImageMapper:
             # Pattern 3: (digit)% — stitched, but skip if it contains only #
             for match in re.findall(r'\([^)]*\)', fname):
                 if "%" in match and re.search(r'\d', match):  # Has % and digit = stitched
-                    return True
+                    return False
 
             # Pattern 4: Multiple parentheses — stitched if any contain digit
             all_parens = re.findall(r'\([^)]*\)', fname)
