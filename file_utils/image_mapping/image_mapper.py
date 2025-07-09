@@ -13,6 +13,20 @@ logging.basicConfig(level=logging.DEBUG)
 def extract_z(f: Path) -> int:
     m = re.search(r" Z(\d+)", f.name, re.IGNORECASE)
     return int(m.group(1)) if m else -1
+
+def classify_image_file(filename: str) -> str:
+    fname = filename.lower()
+
+    if re.search(r'\(stitched\)', fname):
+        return "Stitched"
+    if re.search(r'\(stitched\)[^)]*%', fname):
+        return "Stitched"
+    if re.search(r'\(\d+\s+of\s+\d+\)', fname):
+        return "Partial"
+    if re.search(r'\((\d+|#)\)', fname) or re.search(r'\((\d+|#)\)%', fname):
+        return "Duplicate"
+    return "Regular"
+
         
 class ImageMapper:
     BA_FOLDER_MAP = {
@@ -239,44 +253,43 @@ class ImageMapper:
 
         candidates.sort(key=extract_z)
 
-        logging.debug(f"[STITCH CHECK] well_id = {well_id}")
-        logging.debug(f"[STITCH CHECK] candidate files = {[f.name for f in candidates]}")
 
-        # 3) Enhanced stitched‐tile check - detect various stitched patterns
-        def is_stitched_file(filename: str) -> bool:
-            """
-            Detect if a filename indicates a stitched image based on various patterns:
-            - (stitched) Z_.tif
-            - (1)%, (2)%, etc. Z_.tif
-            - (1 of 2), (2 of 2), etc. Z_.tif
-            - (1 of 2)(#)% Z_.tif
-            Not stitched but has paranthesis:
-            - (#)% Z_.tif
-            Image duplications
-            - (1)% Z_.tif
-            - (2)% Z_.tif
-            """
-            fname = filename.lower()
+        # # 3) Enhanced stitched‐tile check - detect various stitched patterns
+        # def is_stitched_file(filename: str) -> bool:
+        #     """
+        #     Detect if a filename indicates a stitched image based on various patterns:
+        #     - (stitched) Z_.tif
+        #     - (1)%, (2)%, etc. Z_.tif
+        #     - (1 of 2), (2 of 2), etc. Z_.tif
+        #     - (1 of 2)(#)% Z_.tif
+        #     Not stitched but has paranthesis:
+        #     - (#)% Z_.tif
+        #     Image duplications
+        #     - (1)% Z_.tif
+        #     - (2)% Z_.tif
+        #     """
+        #     fname = filename.lower()
             
-            # Pattern 1: Explicit stitched keyword
-            if re.search(r'\(stitched\)', fname):
-                return False
+        #     # Pattern 1: Explicit stitched keyword
+        #     if re.search(r'\(stitched\)', fname):
+        #         return True
 
-            # Pattern 2: (X of Y) — clearly stitched
-            if re.search(r'\(\d+\s+of\s+\d+\)', fname):
-                return True
+        #     # Pattern 2: (X of Y) — clearly stitched
+        #     if re.search(r'\(\d+\s+of\s+\d+\)', fname):
+        #         return True
 
-            # Pattern 3: (digit)% — stitched, but skip if it contains only #
-            for match in re.findall(r'\([^)]*\)', fname):
-                if "%" in match and re.search(r'\d', match):  # Has % and digit = stitched
-                    return False
+        #     # Pattern 3: (digit)% — stitched, but skip if it contains only #
+        #     for match in re.findall(r'\([^)]*\)', fname):
+        #         if "%" in match and re.search(r'\d', match):  # Has % and digit = stitched
+        #             return True
 
-            # Pattern 4: Multiple parentheses — stitched if any contain digit
-            all_parens = re.findall(r'\([^)]*\)', fname)
-            if len(all_parens) >= 2 and any(re.search(r'\d', p) for p in all_parens):
-                return True
+        #     # Pattern 4: Multiple parentheses — stitched if any contain digit
+        #     all_parens = re.findall(r'\([^)]*\)', fname)
+        #     if len(all_parens) >= 2 and any(re.search(r'\d', p) for p in all_parens):
+        #         return True
 
-            return False
+        #     return True
+
 
         def extract_stitched_identifier(filename: str) -> str:
             """
@@ -305,31 +318,43 @@ class ImageMapper:
             return match.group(0) if match else ""
 
         stitched_files = []
+        partial_files = []
+        duplicate_files = []
         regular_files = []
-        
+
         for f in candidates:
-            if is_stitched_file(f.name):
-                logging.info(f"[STITCH CHECK] Found stitched tile: {f.name}")
+            label = classify_image_file(f.name)
+
+            if label == "Stitched":
                 stitched_files.append(f)
+            elif label == "Partial":
+                partial_files.append(f)
+            elif label == "Duplicate":
+                duplicate_files.append(f)
             else:
                 regular_files.append(f)
 
-        # If we have stitched files, group them by their unique identifiers
+
         if stitched_files:
-            # Group stitched files by their unique identifier
             stitched_groups = {}
             for f in stitched_files:
                 identifier = extract_stitched_identifier(f.name)
-                if identifier not in stitched_groups:
-                    stitched_groups[identifier] = []
-                stitched_groups[identifier].append(f)
+                stitched_groups.setdefault(identifier, []).append(f)
             
             logging.info(f"[STITCH CHECK] Found {len(stitched_groups)} unique stitched groups:")
             for identifier, files in stitched_groups.items():
                 logging.info(f"  Group '{identifier}': {len(files)} files")
-            
-            # Return info about all stitched groups for separate processing
+
             return None, "Multiple_Stitched", candidates, stitched_groups
+
+        if duplicate_files:
+            # Pick best Z among duplicate candidates
+            duplicate_files.sort(key=extract_z)
+            idx = self.find_best_focus(duplicate_files)
+            chosen = duplicate_files[idx] if 0 <= idx < len(duplicate_files) else duplicate_files[0]
+            return chosen, "Duplicate", duplicate_files, None
+
+
 
         # 4) BA3 Pt1 / 96_1 special case handling
         if "ba3" in search_id.lower():
@@ -456,7 +481,7 @@ class ImageMapper:
                         "Best Z": focus_idx,
                         "Best Z Filename": str(final_file),
                         "Actual Z Value": actual_z,
-                        "Stitched": "Yes",
+                        "Classification": "Stitched",
                         "um_per_px": float(group_df["um_per_px"].iloc[0]),
                         "all_files": [str(f) for f in group_files],
                         "cellLine": group_df["cellLine"].iloc[0],
@@ -472,14 +497,10 @@ class ImageMapper:
 
             # stitched stack → find best focus among stitched files; otherwise choose best-focus Z
             if stitched_flag == "Yes":
-                # For stitched files, we already selected the best focus during detection
-                focus_idx = -1  # We'll store the actual Z-index separately
+                focus_idx = -1
                 final = chosen
-                
-                # Extract the Z-index from the chosen stitched file for reference
                 z_match = re.search(r' Z(\d+)', chosen.name, re.IGNORECASE)
                 actual_z = int(z_match.group(1)) if z_match else 0
-                
                 logging.info(f"Using stitched image: {chosen.name} (Z={actual_z})")
             else:
                 idx = self.find_best_focus(all_files)
@@ -488,18 +509,22 @@ class ImageMapper:
                 logging.info(f"Using best focus image (idx {focus_idx}): {final.name}")
 
             # ───────────────────────────────────────────────────────── record row
-            mapping[full_id] = {
+            classification = classify_image_file(final.name)
+
+            row_data = {
                 "dayID": day_id,
                 "BA": ba_str,
                 "wellID": well_id,
                 "Best Z": focus_idx,
                 "Best Z Filename": str(final),
-                "Stitched": stitched_flag,
+                "Classification": classification,
                 "um_per_px": float(group_df["um_per_px"].iloc[0]),
                 "all_files": [str(f) for f in all_files],
                 "cellLine": group_df["cellLine"].iloc[0],
                 "treatment": group_df["treatment"].iloc[0],
             }
+
+            mapping[full_id] = row_data
 
         # Final statistics
         logging.info(f"=== MAPPING SUMMARY ===")
