@@ -44,6 +44,10 @@ def parse_image_id(image_id):
     except (IndexError, StopIteration):
         return {}
 
+# Add this BEFORE the `def process_organoid_files(...)` line
+with open("/net/projects2/promega/data-analysis/output/image_mapping.json", "r") as f:
+    image_mapping = json.load(f)
+
 
 def process_organoid_files(directory):
     data = defaultdict(lambda: {"evaluations": [], "quality_scores": []})
@@ -55,6 +59,7 @@ def process_organoid_files(directory):
 
     for file in excel_files:
         is_quality_form = "Image Classification" in os.path.basename(file)
+        
         try:
             df = pd.read_excel(file)
 
@@ -69,32 +74,54 @@ def process_organoid_files(directory):
                         image_id = next((p for p in parts if any(x in p for x in ['Ba1', 'Ba2', 'Dy'])), None)
                         evaluation = next((p for p in parts if p in ['Acceptable', 'Not Acceptable', 'Not Loaded']), None)
                         quality = next((p for p in parts if p in ['Good', 'Bad', 'Reasonable']), None)
-                        parsed_meta = parse_image_id(image_id) if image_id else {}
+                        
+                        parsed_meta = None
+                        image_id_str = None
 
-                        # Set common info once per organoid_id
+                        if image_id:
+                            try:
+                                ba_match = re.search(r'Ba\d', image_id, re.IGNORECASE)
+                                plate_match = re.search(r'\d+_\d+', image_id)
+                                dy_match = re.search(r'Dy\d+', image_id, re.IGNORECASE)
+                                well_match = re.search(r'[A-H]\d{1,2}', image_id, re.IGNORECASE)
+
+                                if ba_match and plate_match and dy_match and well_match:
+                                    ba = ba_match.group(0).upper()
+                                    plate = plate_match.group(0)
+                                    dy = dy_match.group(0)
+                                    well = well_match.group(0).upper()
+
+                                    key_prefix = f"{ba} {plate} {dy} {well}"  # ← CORRECT
+                                    full_match = image_mapping.get(key_prefix)
+
+                                    if not full_match:
+                                        stitched_matches = {k: v for k, v in image_mapping.items() if k.startswith(key_prefix)}
+                                        if stitched_matches:
+                                            full_match = list(stitched_matches.values())[0]
+                                            image_id_str = list(stitched_matches.keys())[0]
+
+                                    if full_match:
+                                        parsed_meta = {
+                                            "BA": full_match["BA"],
+                                            "dayID": full_match["dayID"],
+                                            "wellID": full_match["wellID"]
+                                        }
+                                        if not image_id_str:
+                                            image_id_str = key_prefix
+
+                            except Exception as e:
+                                print(f"Failed to map image_id from image_mapping: {e}")
+
                         if parsed_meta:
                             data[organoid_id]["parsed_id"] = parsed_meta
-                            data[organoid_id]["image_id"] = image_id
-
-                        # Now just log individual scores or evals
-                        if is_quality_form and image_id and quality:
-                            data[organoid_id]["quality_scores"].append({
-                                "quality": quality,
-                                "source_file": os.path.basename(file)
-                            })
-                        elif not is_quality_form and organoid_id and evaluation and image_id:
-                            data[organoid_id]["evaluations"].append({
-                                "evaluation": evaluation,
-                                "employee": employee_name,
-                                "source_file": os.path.basename(file)
-                            })
-
+                            data[organoid_id]["image_id"] = image_id_str
 
         except Exception as e:
-            print(f"Error processing file {file}: {e}")
-            continue
+            print(f"Failed to process file {file}: {e}")
 
     return data
+
+    
 
 if __name__ == "__main__":
     result = process_organoid_files(input_dir)
