@@ -7,6 +7,8 @@ import warnings
 import json
 import random
 import argparse
+from paths import EARLY_MODEL, LATE_MODEL
+from paths import PROCESSED_DATA_DIR, OUTPUT_MASKS_BASE_DIR
 
 # --- Suppress warnings ---
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -22,12 +24,8 @@ except ImportError as e:
     exit()
 
 # ======== USER CONFIG ========
-# Model paths
-CONFIG_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/20250505_154220/vis_data/config.py'
-CHECKPOINT_FILE_PATH = '/net/projects2/promega/data-analysis/plots/segformer_masks/iter_1000.pth'
 
 # Base directory structure
-PREPROCESSED_JSON_DIR = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
 OUTPUT_MASKS_BASE_DIR = '/net/projects2/promega/data-analysis/predictions'
 
 # Collage samples
@@ -35,23 +33,24 @@ NUM_SAMPLES_FOR_COLLAGE = 10
 # ============================
 
 def get_mapping_paths(batch_number, day_number=30):
-    """Get zero-padded mapping JSON paths."""
+    """Get zero-padded lowercase mapping JSON paths, including 96_1 and 96_2 for batch 2."""
     day_str = f"{day_number:02d}"
+    paths = []
+
     if batch_number == 2:
-        return [
-            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_1_Dy{day_str}" /
-                f"image_mapping_BA2_96_1_Dy{day_str}_processed.json",
-            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_2_Dy{day_str}" /
-                f"image_mapping_BA2_96_2_Dy{day_str}_processed.json"
-        ]
+        for part in ["96_1", "96_2"]:
+            batch_str = f"ba{batch_number}{part}_Dy{day_str}"
+            path = Path(PROCESSED_DATA_DIR) / batch_str / f"image_mapping_{batch_str}_processed.json"
+            paths.append(path)
     else:
-        return [
-            Path(PREPROCESSED_JSON_DIR) / f"BA{batch_number}_Dy{day_str}" /
-                f"image_mapping_BA{batch_number}_Dy{day_str}_processed.json"
-        ]
+        batch_str = f"ba{batch_number}96_1_Dy{day_str}"
+        path = Path(PROCESSED_DATA_DIR) / batch_str / f"image_mapping_{batch_str}_processed.json"
+        paths.append(path)
+
+    return paths
 
 
-def run_inference(batch_number, day_number=30):
+def run_inference(batch_number, day_number=30, model_type="early", overwrite=False):
     """Run inference on specified batch/day."""
     day_str = f"{day_number:02d}"
     mapping_paths = get_mapping_paths(batch_number, day_number)
@@ -59,6 +58,9 @@ def run_inference(batch_number, day_number=30):
     total_processed = total_failed = 0
 
     for json_mapping_path in mapping_paths:
+        print(f"Checking for file: {json_mapping_path}")
+        print(f"Absolute path exists? {json_mapping_path.resolve()} -> {json_mapping_path.exists()}")
+
         if not json_mapping_path.exists():
             print(f"Warning: Preprocessed JSON not found at {json_mapping_path}")
             continue
@@ -81,7 +83,15 @@ def run_inference(batch_number, day_number=30):
             batch_mapping = json.load(f)
         print(f"\nLoaded {len(batch_mapping)} entries from {json_mapping_path.name}")
 
-        # Init model once
+        if model_type == 'early':
+            model_info = EARLY_MODEL
+        else:
+            model_info = LATE_MODEL
+
+        CONFIG_FILE_PATH = model_info["config"]
+        CHECKPOINT_FILE_PATH = model_info["checkpoint"]
+
+                # Init model once
         if 'model' not in locals():
             device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
             model = init_model(str(CONFIG_FILE_PATH), str(CHECKPOINT_FILE_PATH), device=device)
@@ -107,11 +117,16 @@ def run_inference(batch_number, day_number=30):
                 pred_mask = (result.pred_sem_seg.data.squeeze().cpu().numpy() * 255).astype(np.uint8)
 
                 mask_path = masks_dir / f"{img_path.stem}_predmask.png"
+
+                if not overwrite and mask_path.exists():
+                    processed += 1
+                    batch_mapping[img_id]['mask_path'] = str(mask_path)
+                    continue
+
                 cv2.imwrite(str(mask_path), pred_mask)
                 processed += 1
-
-                # record mask path
                 batch_mapping[img_id]['mask_path'] = str(mask_path)
+
 
                 # build collage sample
                 if img_id in sample_ids:
@@ -146,6 +161,14 @@ def run_inference(batch_number, day_number=30):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    
+    parser.add_argument(
+    '--model_type',
+    choices=['early', 'late'],
+    required=True,
+    help="Choose which model to use: 'early' or 'late'"
+    )
+
     parser.add_argument(
         '--batches',
         type=lambda s: [int(x) for x in s.split(',')],
@@ -158,13 +181,20 @@ if __name__ == "__main__":
         required=True,
         help='Comma-separated day numbers, e.g. 3,6,8'
     )
+    parser.add_argument(
+    '--overwrite',
+    action='store_true',
+    help='Force reprocessing even if mask already exists'
+    )
     args = parser.parse_args()
+
 
     for batch in args.batches:
         for day in args.days:
             print(f"\n{'='*40}")
             print(f"Processing Batch {batch}, Day {day}")
             print(f"{'='*40}")
-            run_inference(batch, day)
+            run_inference(batch, day, model_type=args.model_type, overwrite=args.overwrite)
+
 
     print("\nAll done.")

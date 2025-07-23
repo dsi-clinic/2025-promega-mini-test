@@ -106,7 +106,7 @@ def process_entry(entry):
 
 
 def main():
-    root = Path("/net/projects2/promega/data-analysis/output/processed_dataset_256x192")
+    root = Path("/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed")
     out_csv = root / "morphology_timbre_metrics.csv"
 
     json_paths = list(root.rglob("image_mapping_*_processed.json"))

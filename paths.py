@@ -47,7 +47,10 @@ ORIGINAL_MAPPING = require_env_path("ORIGINAL_MAPPING")
 
 # Processed resized image output (from original image mapping)
 PREPROCESSED_DIR     = require_env_path("PREPROCESSED_DIR")
-PROCESSED_DATA_DIR   = require_env_path("PROCESSED_DATA_DIR")  # For batch_day processed images
+PROCESSED_DATA_DIR   = require_env_path("PROCESSED_DATA_DIR")
+PREPROCESSED_JSON_DIR = PROCESSED_DATA_DIR
+OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR
+
 
 # Manual processed data and splits
 MANUAL_MAPPING_DIR       = require_env_path("MANUAL_MAPPING_DIR")
@@ -60,11 +63,11 @@ MANUAL_SPLITS_DIR        = MANUAL_PROCESSED_DIR / "split"
 # SegFormer
 # Model configs and checkpoints
 EARLY_MODEL = {
-    "config": PLOTS_FOLDER / "segformer_masks/20250505_145520/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/iter_1000_2430_2.pth",
+    "config": PLOTS_FOLDER / "segformer_masks/20250505_145514/vis_data/config.py",
+    "checkpoint": PLOTS_FOLDER / "segformer_masks/20250505_145514/iter_1000_038_2.pth",
 }
 
 LATE_MODEL = {
-    "config": PLOTS_FOLDER / "segformer_masks/20250505_145514/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/iter_1000_038_2.pth",
+    "config": PLOTS_FOLDER / "segformer_masks/20250505_154220/vis_data/config.py",
+    "checkpoint": PLOTS_FOLDER / "segformer_masks/20250505_154220/iter_1000_2430_2.pth",
 }
