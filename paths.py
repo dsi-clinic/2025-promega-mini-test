@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 import os
 from pathlib import Path
 
+
 load_dotenv()
 
 def require_env_path(key):

@@ -4,6 +4,9 @@ import argparse
 import shutil
 from pathlib import Path
 import cv2
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
 
 
@@ -22,11 +25,14 @@ def process_batch(batch_num: int, day_num: int):
     with ORIGINAL_MAPPING.open() as f:
         mapping = json.load(f)
 
-    if batch_num == 2:
-        create_mapping(mapping, "BA2 96_1", day_num)
-        create_mapping(mapping, "BA2 96_2", day_num)
-    else:
-        create_mapping(mapping, f"BA{batch_num}", day_num)
+    # Handle all BA* matches in mapping
+    all_ba_keys = set(norm(info['BA']) for info in mapping.values() if 'BA' in info)
+    batch_prefix = norm(f"BA{batch_num}")
+    batch_ids = sorted(b for b in all_ba_keys if b.startswith(batch_prefix))
+
+    for batch_id in batch_ids:
+        create_mapping(mapping, batch_id, day_num)
+
 
 def create_mapping(mapping: dict, batch_id: str, day_num: int):
     day_id     = f"Dy{day_num:02d}"
