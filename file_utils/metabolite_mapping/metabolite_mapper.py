@@ -3,7 +3,7 @@ import json
 import os
 
 # Path on your cluster
-excel_path = "/net/projects2/promega/data-analysis/metabolite_data/metabolite_data_06_16_25.xlsx"
+excel_path = "/net/projects2/promega/data-analysis/metabolite_data/metabolite_data_07_23_25.xlsx"
 output_json_path = os.path.join(os.path.dirname(excel_path), "metabolite_map.json")
 
 # Read Excel sheet
