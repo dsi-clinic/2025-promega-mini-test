@@ -2,6 +2,8 @@ Environment changes:
 - Create a conda yaml file we all agree with.
 - Jiawei has a requirements.txt that needs to be incorporated
 - Use Python 3.11. MMSeg is going to be a nightmare, ignore for now.
+- Rename the master_mapper and mapper_main to something a bit more obvious.
+
 
 Dataset changes:
 - Update the directory structure to the following structure. This should handle the data processing
