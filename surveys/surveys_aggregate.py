@@ -12,9 +12,9 @@ input_dir = os.getenv("SURVEY_RESULTS")
 print("SURVEY_RESULTS =", input_dir)
 
 def parse_image_id(image_id):
-    cleaned = re.sub(r"\(.*?\)", "", image_id)
-    cleaned = re.sub(r"[^A-Za-z0-9\s_]", "", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = re.sub(r"\(.*?\)", "", image_id)       # remove parentheses
+    cleaned = re.sub(r"[^A-Za-z0-9\s_]", " ", cleaned)  # replace junk chars with space
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()   # normalize whitespace
     parts = cleaned.split()
 
     try:
@@ -22,7 +22,9 @@ def parse_image_id(image_id):
         ba = parts[ba_idx].upper()
         plate = parts[ba_idx + 1] if ba_idx + 1 < len(parts) and re.match(r"\d+_\d+", parts[ba_idx + 1]) else ""
         dy = next(p for p in parts if re.match(r"Dy\d+", p, re.IGNORECASE))
-        well = next(p for p in parts if re.match(r"^[A-H]\d{1,2}$", p, re.IGNORECASE))
+
+        # match first valid well-looking thing
+        well = next(p for p in parts if re.match(r"^[A-H]\d{1,2}$", p))
 
         return {
             "BA": f"{ba} {plate}".strip(),
@@ -56,28 +58,34 @@ def process_organoid_files(directory):
                         organoid_id = next((p for p in parts if "Organoid_" in p), None)
                         image_id = next((p for p in parts if any(x in p for x in ['Ba1', 'Ba2', 'Dy'])), None)
                         if image_id:
-                            image_id_clean = re.sub(r"\(.*?\)", "", image_id).strip()
+                            image_id_cleaned = re.sub(r"\(.*?\)", "", image_id)
+                            image_id_cleaned = re.sub(r"[^A-Za-z0-9\s_]", " ", image_id_cleaned)
+                            image_id_cleaned = re.sub(r"\s+", " ", image_id_cleaned).strip()
                         else:
-                            image_id_clean = None
+                            image_id_cleaned = None
+
                         evaluation = next((p for p in parts if p in ['Acceptable', 'Not Acceptable', 'Not Loaded']), None)
                         quality = next((p for p in parts if p in ['Good', 'Bad', 'Reasonable']), None)
                         parsed_meta = parse_image_id(image_id) if image_id else {}
 
+                        entry = {
+                            "image_id": f"{parsed_meta['BA']} {parsed_meta['dayID']} {parsed_meta['wellID']}" if parsed_meta else image_id_cleaned,
+                            "source_file": os.path.basename(file),
+                            **parsed_meta
+                        }
+
                         if is_quality_form and image_id and quality:
-                            data[organoid_id]["quality_scores"].append({
-                                "image_id": image_id_clean,
-                                "quality": quality,
-                                "source_file": os.path.basename(file),
-                                **parsed_meta
-                            })
+                            entry["quality"] = quality
+                            data[organoid_id]["quality_scores"].append(entry)
                         elif not is_quality_form and organoid_id and evaluation and image_id:
-                            data[organoid_id]["evaluations"].append({
-                                "image_id": image_id_clean,
-                                "evaluation": evaluation,
-                                "employee": employee_name,
-                                "source_file": os.path.basename(file),
-                                **parsed_meta
-                            })
+                            entry["evaluation"] = evaluation
+                            entry["employee"] = employee_name
+                            data[organoid_id]["evaluations"].append(entry)
+
+                        # Debug: log missing parsed_meta if needed
+                        if parsed_meta == {}:
+                            print(f"Unparsed image_id: {image_id_clean} from {organoid_id} in {os.path.basename(file)}")
+
         except Exception as e:
             print(f"Error processing file {file}: {e}")
             continue
