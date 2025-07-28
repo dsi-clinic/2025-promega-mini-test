@@ -253,44 +253,6 @@ class ImageMapper:
 
         candidates.sort(key=extract_z)
 
-
-        # # 3) Enhanced stitched‐tile check - detect various stitched patterns
-        # def is_stitched_file(filename: str) -> bool:
-        #     """
-        #     Detect if a filename indicates a stitched image based on various patterns:
-        #     - (stitched) Z_.tif
-        #     - (1)%, (2)%, etc. Z_.tif
-        #     - (1 of 2), (2 of 2), etc. Z_.tif
-        #     - (1 of 2)(#)% Z_.tif
-        #     Not stitched but has paranthesis:
-        #     - (#)% Z_.tif
-        #     Image duplications
-        #     - (1)% Z_.tif
-        #     - (2)% Z_.tif
-        #     """
-        #     fname = filename.lower()
-            
-        #     # Pattern 1: Explicit stitched keyword
-        #     if re.search(r'\(stitched\)', fname):
-        #         return True
-
-        #     # Pattern 2: (X of Y) — clearly stitched
-        #     if re.search(r'\(\d+\s+of\s+\d+\)', fname):
-        #         return True
-
-        #     # Pattern 3: (digit)% — stitched, but skip if it contains only #
-        #     for match in re.findall(r'\([^)]*\)', fname):
-        #         if "%" in match and re.search(r'\d', match):  # Has % and digit = stitched
-        #             return True
-
-        #     # Pattern 4: Multiple parentheses — stitched if any contain digit
-        #     all_parens = re.findall(r'\([^)]*\)', fname)
-        #     if len(all_parens) >= 2 and any(re.search(r'\d', p) for p in all_parens):
-        #         return True
-
-        #     return True
-
-
         def extract_stitched_identifier(filename: str) -> str:
             """
             Extract the stitched identifier from filename to group similar stitched files.
