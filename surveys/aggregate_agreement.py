@@ -17,7 +17,7 @@ for organoid, values in data.items():
     top_eval, count = vote_count.most_common(1)[0]
     total_votes = sum(vote_count.values())
 
-    if count / total_votes >= 0.75:
+    if count / total_votes >= 0.99:
         labeled[organoid] = {
             "label": top_eval,
             "votes": dict(vote_count),
@@ -25,7 +25,7 @@ for organoid, values in data.items():
         }
 
 # Save labeled organoids
-with open('labeled_organoid_majority_agreement.json', 'w') as f:
+with open('labeled_organoid_complete_agreement.json', 'w') as f:
     json.dump(labeled, f, indent=2)
 
 print(f"Labeled organoids saved. Total: {len(labeled)}")
