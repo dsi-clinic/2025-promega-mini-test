@@ -25,7 +25,7 @@ for organoid, values in data.items():
         }
 
 # Save labeled organoids
-with open('labeled_organoid_complete_agreement.json', 'w') as f:
+with open('labeled_organoid_majority_agreement.json', 'w') as f:
     json.dump(labeled, f, indent=2)
 
 print(f"Labeled organoids saved. Total: {len(labeled)}")
