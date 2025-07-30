@@ -9,10 +9,14 @@ from glob import glob
 from tqdm import tqdm
 
 # ───────── paths ─────────────────────────────────────────────────────────
-base_image_mapping_path = '/net/projects2/promega/data-analysis/output/image_mapping.json'
-processed_root_dir      = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed'
-survey_json_path        = '/home/amandabrooke/2025-promega-mini-test/analysis/surveys/agreement_aggregations/organoid_surveys_aggregated.json'
-metabolite_json_path    = '/net/projects2/promega/data-analysis/metabolite_data/metabolite_map.json'
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv(), override=True)
+base_image_mapping_path = os.getenv("ORIGINAL_MAPPING")
+processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
+metabolite_json_path = os.path.join(os.getenv("BASE_PATH"), "metabolite_data", "metabolite_map.json")
+survey_json_path = "analysis/surveys/agreement_aggregations/organoid_surveys_aggregated.json"
+
 output_path             = 'all_data.json'
 
 _tok_ba    = re.compile(r'^BA\d+$',          re.IGNORECASE)
