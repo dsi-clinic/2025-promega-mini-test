@@ -2,7 +2,7 @@
 
 import logging
 
-from image_mapping.mapping_system import MappingSystem
+from scripts.mapping_system import MappingSystem
 
 
 def main() -> dict:

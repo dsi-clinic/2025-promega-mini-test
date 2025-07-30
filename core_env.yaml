@@ -1,0 +1,6 @@
+name: core_env
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:

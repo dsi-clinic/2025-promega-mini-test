@@ -1,3 +1,29 @@
+analysis/
+├── images/
+│   ├── classifier/                    # Image classification models (e.g., ViT, CNNs)
+│   ├── metrics/                       # Image analysis tools
+│   │   ├── shape_metrics/             # Organoid shape features
+│   │   └── stitching/                 # Image stitching scripts
+│   └── segmentation_mmseg/            # MMSegmentation training and inference
+│       ├── datasets/                  # Dataset definitions for mmseg
+│       ├── preprocessing/             # Mask/image preprocessing tools
+│       └── utils/                     # Custom transforms and helpers
+├── metabolites/
+│   └── classifier/                    # Classifier using metabolite data
+├── multimodal/                        # CNN classifier using merged modalities
+├── surveys/
+│   ├── agreement_aggregations/        # Processed survey agreement data
+│   ├── classifier/                    # Survey-based classifiers
+│   ├── notebooks/                     # Statistical exploration
+│   └── simulations/                   # Survey reliability simulations
+file_utils/
+├── images/                            # Image-metadata mapping tools
+├── merge/                             # Merges survey, metabolite, and image data
+├── metabolites/                       # Metabolite-metadata mapping
+├── surveys/                           # Survey-metadata mapping
+└── all_data.json                      # Output of merged data mapping
+
+
 Environment changes:
 - Create a conda yaml file we all agree with.
 - Jiawei has a requirements.txt that needs to be incorporated
