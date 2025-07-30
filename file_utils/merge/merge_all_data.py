@@ -10,10 +10,10 @@ from tqdm import tqdm
 
 # ───────── paths ─────────────────────────────────────────────────────────
 base_image_mapping_path = '/net/projects2/promega/data-analysis/output/image_mapping.json'
-processed_root_dir      = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
-survey_json_path        = '/home/amandabrooke/2025-promega-mini-test/surveys/organoid_surveys_aggregated.json'
+processed_root_dir      = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed'
+survey_json_path        = '/home/amandabrooke/2025-promega-mini-test/analysis/surveys/agreement_aggregations/organoid_surveys_aggregated.json'
 metabolite_json_path    = '/net/projects2/promega/data-analysis/metabolite_data/metabolite_map.json'
-output_path             = 'final_combined_metadata.json'
+output_path             = 'all_data.json'
 
 _tok_ba    = re.compile(r'^BA\d+$',          re.IGNORECASE)
 _tok_plate = re.compile(r'^(96_[12]|PT1)$',  re.IGNORECASE)
@@ -70,8 +70,18 @@ for p in pathlib.Path(processed_root_dir).rglob("image_mapping_*_processed.json"
 # survey – one file, keys are inside each record
 survey_map = {}
 for row in load_json(survey_json_path).values():
-    if iid := row.get('image_id'):
-        survey_map[norm_key(iid)] = row
+    # Try getting image_id from first evaluation
+    iid = None
+    if row.get("evaluations"):
+        iid = row["evaluations"][0].get("image_id")
+    elif row.get("quality_scores"):
+        iid = row["quality_scores"][0].get("image_id")
+
+    if iid:
+        try:
+            survey_map[norm_key(iid)] = row
+        except ValueError as e:
+            print(f"[SURVEY] Failed to normalize: {iid} — {e}")
 
 # ───────── merge all sources ─────────────────────────────────────────────
 all_keys   = set().union(base_map, processed_map, survey_map, metab_map)

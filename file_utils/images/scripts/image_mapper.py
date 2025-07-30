@@ -14,18 +14,28 @@ def extract_z(f: Path) -> int:
     m = re.search(r" Z(\d+)", f.name, re.IGNORECASE)
     return int(m.group(1)) if m else -1
 
-def classify_image_file(filename: str) -> str:
-    fname = filename.lower()
+def classify_image_file(fname: str) -> str:
+    fname_lower = fname.lower()
 
-    if re.search(r'\(stitched\)', fname):
+    # 1. True stitched files
+    if "(stitched)" in fname_lower:
         return "Stitched"
-    if re.search(r'\(stitched\)[^)]*%', fname):
-        return "Stitched"
-    if re.search(r'\(\d+\s+of\s+\d+\)', fname):
+
+    # 2. Partial (multi-tile images without the stitched file)
+    if re.search(r"\(\d+\s+of\s+\d+\)", fname_lower):
         return "Partial"
-    if re.search(r'\((\d+|#)\)', fname) or re.search(r'\((\d+|#)\)%', fname):
+
+    # 3. Duplicate patterns — (1), (2), etc., but not (#)
+    if re.search(r"\((\d+)\)", fname_lower):
         return "Duplicate"
+
+    # 4. Patterns like (#)% — not duplicate, not stitched
+    if re.search(r"\(#\)%", fname_lower):
+        return "Regular"
+
     return "Regular"
+
+
 
 def clean_id_for_json(s: str) -> str:
     s = re.sub(r"\[.*?\]", "", s)          # remove things in square brackets
@@ -285,6 +295,7 @@ class ImageMapper:
             match = re.search(r'\([^)]*\)', fname)
             return match.group(0) if match else ""
 
+        # Classify all candidates
         stitched_files = []
         partial_files = []
         duplicate_files = []
@@ -292,7 +303,6 @@ class ImageMapper:
 
         for f in candidates:
             label = classify_image_file(f.name)
-
             if label == "Stitched":
                 stitched_files.append(f)
             elif label == "Partial":
@@ -302,21 +312,23 @@ class ImageMapper:
             else:
                 regular_files.append(f)
 
+        # Priority 1: real stitched file (has '(stitched)' in name)
+        stitched_only = [f for f in stitched_files if "(stitched)" in f.name.lower()]
+        if stitched_only:
+            stitched_only.sort(key=extract_z)
+            logging.info(f"[STITCHED] Found stitched file: {stitched_only[0].name}")
+            return stitched_only[0], "Stitched", stitched_only, None
 
-        if stitched_files:
-            stitched_groups = {}
-            for f in stitched_files:
-                identifier = extract_stitched_identifier(f.name)
-                stitched_groups.setdefault(identifier, []).append(f)
-            
-            logging.info(f"[STITCH CHECK] Found {len(stitched_groups)} unique stitched groups:")
-            for identifier, files in stitched_groups.items():
-                logging.info(f"  Group '{identifier}': {len(files)} files")
+        # Priority 2: partial tiles like '(1 of 2)', if no stitched file
+        if partial_files:
+            partial_files.sort(key=extract_z)
+            logging.info(f"[PARTIAL] Found {len(partial_files)} partial tiles.")
+            idx = self.find_best_focus(partial_files)
+            chosen = partial_files[idx] if 0 <= idx < len(partial_files) else partial_files[0]
+            return chosen, "Partial", partial_files, None
 
-            return None, "Multiple_Stitched", candidates, stitched_groups
-
+        # Priority 3: duplicates
         if duplicate_files:
-            # Pick best Z among duplicate candidates
             duplicate_files.sort(key=extract_z)
             idx = self.find_best_focus(duplicate_files)
             chosen = duplicate_files[idx] if 0 <= idx < len(duplicate_files) else duplicate_files[0]
