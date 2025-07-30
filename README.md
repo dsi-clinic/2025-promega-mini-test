@@ -1,5 +1,6 @@
 analysis/
 ├── images/
+│   ├── resize/                        # Image resizing + updated pixel-scale metadata 
 │   ├── classifier/                    # Image classification models (e.g., ViT, CNNs)
 │   ├── metrics/                       # Image analysis tools
 │   │   ├── shape_metrics/             # Organoid shape features
