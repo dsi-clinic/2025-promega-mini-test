@@ -27,7 +27,13 @@ def classify_image_file(filename: str) -> str:
         return "Duplicate"
     return "Regular"
 
-        
+def clean_id_for_json(s: str) -> str:
+    s = re.sub(r"\[.*?\]", "", s)          # remove things in square brackets
+    s = re.sub(r"\(.*?\)", "", s)          # remove things in parentheses
+    s = re.sub(r"[^A-Za-z0-9\s_]", " ", s) # replace non-alphanumeric
+    s = re.sub(r"\s+", " ", s).strip()     # normalize whitespace
+    return s
+
 class ImageMapper:
     BA_FOLDER_MAP = {
         "BA1": "BA1",
@@ -375,7 +381,8 @@ class ImageMapper:
             # ───────────────────────────────────────────────────────── full_id
             parts = batch_plate.split()                    # e.g. ['Ba2', '96_1']
             ba_str = " ".join([parts[0].upper(), *parts[1:]])  # 'BA2 96_1' | 'BA4'
-            full_id = f"{ba_str} {day_id} {well_id}"           # 'BA2 96_1 Dy21 D12'
+            raw_full_id = f"{ba_str} {day_id} {well_id}"
+            full_id = clean_id_for_json(raw_full_id)
             logging.debug(f"Constructed full ID: {full_id}")
 
             # ───────────────────────────────────────────────────────── pick folder
@@ -425,7 +432,10 @@ class ImageMapper:
                     logging.info(f"    Best focus for group '{identifier}': {final_file.name} (idx {focus_idx})")
                     
                     # Create unique full_id for this stitched group
-                    stitched_full_id = f"{full_id}{identifier}"
+                    # Clean the stitched identifier for JSON key use
+                    safe_identifier = re.sub(r"[^\w\s]", "", identifier).strip().replace(" ", "_")
+                    stitched_full_id = f"{full_id} [{safe_identifier}]"
+
                     
                     # Extract actual Z-value for reference
                     z_match = re.search(r' Z(\d+)', final_file.name, re.IGNORECASE)
@@ -435,7 +445,8 @@ class ImageMapper:
                     stitched_count += 1
                     
                     # Record this stitched group
-                    mapping[stitched_full_id] = {
+                    clean_stitched_id = clean_id_for_json(stitched_full_id)
+                    mapping[clean_stitched_id] = {
                         "dayID": day_id,
                         "BA": ba_str,
                         "wellID": well_id,
@@ -486,7 +497,9 @@ class ImageMapper:
                 "treatment": group_df["treatment"].iloc[0],
             }
 
-            mapping[full_id] = row_data
+            clean_full_id = clean_id_for_json(full_id)
+            mapping[clean_full_id] = row_data
+
 
         # Final statistics
         logging.info(f"=== MAPPING SUMMARY ===")

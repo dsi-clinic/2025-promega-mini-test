@@ -1,8 +1,13 @@
 """This module provides the main entry point for the mapping system."""
 
 import logging
+import sys
+from pathlib import Path
 
-from scripts.mapping_system import MappingSystem
+# Add repo root to sys.path
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from file_utils.images.scripts.mapping_system import MappingSystem
 
 
 def main() -> dict:
