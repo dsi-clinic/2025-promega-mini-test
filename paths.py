@@ -29,7 +29,7 @@ OUTPUT_FOLDER     = require_env_path("OUTPUT_FOLDER")
 PLOTS_FOLDER      = require_env_path("PLOTS_FOLDER")
 LOGS_FOLDER       = require_env_path("LOGS_FOLDER")
 NPY_OUTPUTS       = require_env_path("NPY_OUTPUTS")
-PREDICTIONS_DIR   = require_env_path("PREDICTIONS_DIR")
+
 
 # Metadata
 META_FILE         = require_env_path("META_FILE")
@@ -45,11 +45,7 @@ MANUAL_MASK_FOLDERS = [
 # Original image mapping
 ORIGINAL_MAPPING = require_env_path("ORIGINAL_MAPPING")
 
-# Processed resized image output (from original image mapping)
-PREPROCESSED_DIR     = require_env_path("PREPROCESSED_DIR")
-PROCESSED_DATA_DIR   = require_env_path("PROCESSED_DATA_DIR")
-PREPROCESSED_JSON_DIR = PROCESSED_DATA_DIR
-OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR
+
 
 
 # Manual processed data and splits
@@ -60,14 +56,3 @@ PROCESSED_MASKS_DIR      = MANUAL_PROCESSED_DIR / "masks"
 MAPPING_PROCESSED_TOTAL  = require_env_path("MAPPING_PROCESSED_TOTAL")
 MANUAL_SPLITS_DIR        = MANUAL_PROCESSED_DIR / "split"
 
-# SegFormer
-# Model configs and checkpoints
-EARLY_MODEL = {
-    "config": PLOTS_FOLDER / "segformer_masks/20250505_145514/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/20250505_145514/iter_1000_038_2.pth",
-}
-
-LATE_MODEL = {
-    "config": PLOTS_FOLDER / "segformer_masks/20250505_154220/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/20250505_154220/iter_1000_2430_2.pth",
-}

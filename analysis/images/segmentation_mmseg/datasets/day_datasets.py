@@ -17,23 +17,21 @@ from mmseg.structures import SegDataSample
 import torch
 
 
-# Get the absolute path to the script's directory
-script_dir = Path(__file__).resolve().parent
+from dotenv import load_dotenv, find_dotenv
 
-# Get the parent directory (where .env should be)
-parent_dir = script_dir.parent
-
-# Load the .env file from the parent directory
-dotenv_path = parent_dir / ".env"
-
+# Automatically find the first .env file by walking up the directory tree
+dotenv_path = find_dotenv()
 load_successful = load_dotenv(dotenv_path)
+
 if not load_successful:
-    raise Exception('.env file failed to load')
+    raise Exception(f".env file failed to load. Tried: {dotenv_path}")
+
+
 
 # Assume these paths come from your .env loading logic:
-MASKS_FOLDER = Path(os.environ["MASKS_FOLDER"])
-JSON_MAPPING_PATH = Path(os.environ["JSON_MAPPING_PATH"])
-PREPROCESSED_FOLDER = Path(os.environ["PREPROCESSED_FOLDER"])
+MASKS_FOLDER = Path(os.environ["MANUAL_MASKS_DIR"])
+JSON_MAPPING_PATH = Path(os.environ["MAPPING_PROCESSED_TOTAL"])
+PREPROCESSED_FOLDER = Path(os.environ["MANUAL_PROCESSED_DIR"])
 
 
 @DATASETS.register_module()

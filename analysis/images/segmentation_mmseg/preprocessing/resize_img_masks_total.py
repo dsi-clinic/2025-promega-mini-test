@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import json
 import argparse
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import cv2
 import numpy as np
-from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR
+from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING
 
 
 # ======== HARD-CODED CONFIG ========
@@ -18,15 +20,15 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '--mapping',
     nargs='+',
-    required=True,
-    help='One or more JSON mapping files (e.g. image_mapping_day03_manual.json ...).'
+    default=[str(MANUAL_THRESHOLD_MAPPING)],
+    help='One or more JSON mapping files.'
 )
-parser.add_argument(
-    '--days',
-    nargs='+',
-    metavar='DAY',
-    help='Optional subset of day numbers to include, e.g. 03 06 10'
-)
+# parser.add_argument(
+#     '--days',
+#     nargs='+',
+#     metavar='DAY',
+#     help='Optional subset of day numbers to include, e.g. 03 06 10'
+# )
 parser.add_argument(
     '--output',
     default=None,
@@ -54,19 +56,18 @@ for jm in args.mapping:
 print(f"Loaded {len(master_map)} total entries from {len(args.mapping)} JSON(s)")
 
 # ======== DAY FILTER (OPTIONAL) ========
-if args.days:
-    allowed = {f"Dy{int(d):02d}" for d in args.days}
-    master_map = {k: v for k, v in master_map.items() if v.get('dayID') in allowed}
-    print(f"Filtered to {len(master_map)} entries for days: {sorted(allowed)}")
+# if args.days:
+#     allowed = {f"Dy{int(d):02d}" for d in args.days}
+#     master_map = {k: v for k, v in master_map.items() if v.get('dayID') in allowed}
+#     print(f"Filtered to {len(master_map)} entries for days: {sorted(allowed)}")
 
 # ======== PROCESSING LOOP ========
 new_map = {}
 proc = skip = 0
 
 for img_id, info in master_map.items():
-    # support both lowercase and Title-case keys
-    img_raw  = info.get('img_path') or info.get('Best Z Filename', '')
-    mask_raw = info.get('mask_path') or info.get('Mask Path', '')
+    img_raw  = info.get('Best Z Filename', '')
+    mask_raw = info.get('MT Mask Path', '')
     img_p = Path(img_raw)
     msk_p = Path(mask_raw)
 
@@ -83,7 +84,6 @@ for img_id, info in master_map.items():
     # resize
     img_rs  = cv2.resize(img,  TARGET_SIZE, interpolation=IMAGE_INTERP)
     msk_rs  = cv2.resize(msk,  TARGET_SIZE, interpolation=MASK_INTERP)
-    # binarize → 0 or 1
     msk_bin = (msk_rs > 0).astype(np.uint8)
 
     # save
@@ -92,8 +92,7 @@ for img_id, info in master_map.items():
     cv2.imwrite(str(out_img),  img_rs)
     cv2.imwrite(str(out_msk), msk_bin)
 
-
-    # record in new map
+    # record
     new_map[img_id] = {
         'img_path':  str(out_img.resolve()),
         'mask_path': str(out_msk.resolve()),

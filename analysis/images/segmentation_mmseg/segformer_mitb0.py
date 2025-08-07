@@ -92,7 +92,7 @@ train_dataloader = dict(
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
           'processed_dataset_256x192/manual_mappings/'
-          'processed_256x192/split/split/mapping_days2430_train.json'
+          'processed_256x192/split/mapping_days038_train.json'
         ),
         day_filter=None,
         pipeline=train_pipeline,
@@ -109,7 +109,7 @@ val_dataloader = dict(
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
           'processed_dataset_256x192/manual_mappings/'
-          'processed_256x192/split/split/mapping_days2430_val.json'
+          'processed_256x192/split/mapping_days038_val.json'
         ),
         day_filter=None,
         pipeline=val_pipeline,
@@ -126,7 +126,7 @@ test_dataloader = dict(
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
           'processed_dataset_256x192/manual_mappings/'
-          'processed_256x192/split/split/mapping_days2430_test.json'
+          'processed_256x192/split/mapping_days038_test.json'
         ),
         day_filter=None,
         pipeline=val_pipeline,
