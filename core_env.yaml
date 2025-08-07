@@ -1,4 +1,4 @@
-name: core_env
+name: promega_core_env
 channels:
   - conda-forge
   - pytorch
