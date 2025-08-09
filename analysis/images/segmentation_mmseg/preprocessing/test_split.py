@@ -9,8 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from paths import MAPPING_PROCESSED_TOTAL
 
-EARLY_DAYS = {"Dy03", "Dy06", "Dy08"}
-LATE_DAYS  = {"Dy17", "Dy20", "Dy21", "Dy24", "Dy28", "Dy30"}
+EARLY_DAYS = {"Dy03", "Dy06", "Dy08", "Dy10"}
+LATE_DAYS  = {"Dy13", "Dy15", "Dy17", "Dy20", "Dy21", "Dy24", "Dy28", "Dy30"}
 
 def split_and_save(full_map, out_prefix, split_dir, train_frac, val_frac):
     keys = list(full_map.keys())
@@ -55,10 +55,10 @@ def main(mapping_path: Path, train_frac: float, val_frac: float, split_days: boo
         late_map  = {k: v for k, v in full_map.items() if v.get("dayID") in LATE_DAYS}
 
         print(f"\n[Early Days] Splitting {len(early_map)} entries")
-        split_and_save(early_map, "mapping_days038", split_dir, train_frac, val_frac)
+        split_and_save(early_map, "mapping_days0310", split_dir, train_frac, val_frac)
 
         print(f"\n[Late Days] Splitting {len(late_map)} entries")
-        split_and_save(late_map, "mapping_days2430", split_dir, train_frac, val_frac)
+        split_and_save(late_map, "mapping_days1330", split_dir, train_frac, val_frac)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     parser.add_argument("--val_frac", type=float, default=0.1)
     parser.add_argument(
         "--split_days", action="store_true",
-        help="Also split early (03/06/08) and late (17–30) days separately"
+        help="Also split early and late days separately"
     )
     args = parser.parse_args()
     main(args.mapping, args.train_frac, args.val_frac, args.split_days)

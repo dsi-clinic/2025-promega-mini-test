@@ -9,12 +9,19 @@ custom_imports = dict(
 from day_datasets import Dy30Dataset
 
 norm_cfg = dict(type='SyncBN', requires_grad=True)
+# data_preprocessor = dict(
+#     type='ImgDataPreprocessor',
+#     mean=[127.5],
+#     std=[127.5],
+#     bgr_to_rgb=False
+# )
 data_preprocessor = dict(
     type='ImgDataPreprocessor',
-    mean=[127.5],
-    std=[127.5],
-    bgr_to_rgb=False
+    mean=[127.5, 127.5, 127.5],   # 3 channels (your PNGs are 3-ch even if grayscale)
+    std=[127.5, 127.5, 127.5],
+    bgr_to_rgb=False              # you saved via OpenCV; keep BGR
 )
+
 
 model = dict(
     type='EncoderDecoder',
@@ -29,7 +36,7 @@ model = dict(
         norm_cfg=dict(type='BN', requires_grad=True),
         norm_eval=False,
         style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet18')),
+        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
 decode_head=dict(
     type='UPerHead',  # More effective for biomedical segmentation    
     in_channels=[256, 512, 1024, 2048],  # These must match ResNet-50 output channels
@@ -41,19 +48,19 @@ decode_head=dict(
     norm_cfg=norm_cfg,
     align_corners=False,
     loss_decode=[
-        dict(type='DiceLoss', loss_weight=1.0, use_sigmoid=True, loss_name='loss_dice'),
-        dict(type='FocalLoss', loss_weight=2.0, gamma=2.0, use_sigmoid=True, loss_name='loss_focal'),
-        dict(type='CrossEntropyLoss', loss_weight=1.0, use_sigmoid=True, loss_name='loss_ce')
+        dict(type='DiceLoss', loss_weight=1.0, use_sigmoid=False, loss_name='loss_dice'),
+        #dict(type='FocalLoss', loss_weight=2.0, gamma=2.0, use_sigmoid=False, loss_name='loss_focal'),
+        dict(type='CrossEntropyLoss', loss_weight=1.0, use_sigmoid=False, loss_name='loss_ce')
     ]
 ),
     train_cfg=dict(),
     test_cfg=dict(mode='whole'))
 
-# Define your normalization and augmentation pipelines explicitly here:
-img_norm_cfg = dict(
-    mean=[127.5],
-    std=[127.5],
-    to_rgb=False)
+# # Define your normalization and augmentation pipelines explicitly here:
+# img_norm_cfg = dict(
+#     mean=[127.5],
+#     std=[127.5],
+#     to_rgb=False)
 
 # Import your custom transform at the top of your config
 custom_imports = dict(imports=['custom_transforms'])
@@ -61,13 +68,13 @@ custom_imports = dict(imports=['custom_transforms'])
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=False, with_label=False, with_seg=True),
-    dict(type='Resize', scale=(256, 192), keep_ratio=True),
+    dict(type='Resize', scale=(256, 192), keep_ratio=False),
     dict(type='RandomFlip', prob=0.5),
     # Add these augmentations:
     # dict(type='RandomRotate', prob=0.5, degree=20),
     # dict(type='PhotoMetricDistortion'),
     # dict(type='RandomCrop', crop_size=(192, 192)),
-    dict(type='Normalize', **img_norm_cfg),
+    #dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32, pad_val=0),
     dict(type='PackSegInputs')  # This is crucial for creating the 'inputs' key
 ]
@@ -76,8 +83,8 @@ train_pipeline = [
 val_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=False, with_label=False, with_seg=True),
-    dict(type='Resize', scale=(256, 192), keep_ratio=True),
-    dict(type='Normalize', **img_norm_cfg),
+    dict(type='Resize', scale=(256, 192), keep_ratio=False),
+    #dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32, pad_val=0),
     dict(type='PackSegInputs')  # This is crucial for creating the 'inputs' key
 ]
@@ -92,7 +99,7 @@ train_dataloader = dict(
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
           'processed_dataset_256x192/manual_mappings/'
-          'processed_256x192/split/mapping_days038_train.json'
+          'processed_256x192/split/mapping_days0310_train.json'
         ),
         day_filter=None,
         pipeline=train_pipeline,
@@ -109,7 +116,7 @@ val_dataloader = dict(
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
           'processed_dataset_256x192/manual_mappings/'
-          'processed_256x192/split/mapping_days038_val.json'
+          'processed_256x192/split/mapping_days0310_val.json'
         ),
         day_filter=None,
         pipeline=val_pipeline,
@@ -126,7 +133,7 @@ test_dataloader = dict(
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
           'processed_dataset_256x192/manual_mappings/'
-          'processed_256x192/split/mapping_days038_test.json'
+          'processed_256x192/split/mapping_days0310_test.json'
         ),
         day_filter=None,
         pipeline=val_pipeline,
