@@ -6,6 +6,7 @@ from dotenv import load_dotenv, find_dotenv
 from file_utils.images.scripts.image_mapper import ImageMapper
 from file_utils.images import paths
 
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
