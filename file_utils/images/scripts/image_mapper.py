@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 from skimage.io import imread
 
+
 logging.basicConfig(level=logging.DEBUG)
 
 # ---- Fast I/O and caching ----
@@ -251,50 +252,45 @@ class ImageMapper:
         where stitched_groups is dict of {identifier: [files]} for multiple stitched entries
         """
         img_folder = Path(img_folder)
-        files = list(img_folder.rglob("*.tif"))  # <— once
-
-
+        files = list(img_folder.rglob("*.tif"))  # scan once
         logging.info(f"Resolving filename for {file_photoID} in {img_folder}")
 
-        # Extract well ID once from the original input
-        well_match = re.search(r'(?<!BA)\b([A-H]\d{1,2})\b', file_photoID, re.IGNORECASE)
-        well_id = well_match.group(1).upper() if well_match else ""
+        # Strict well ID
+        m = re.search(r'(?<!BA)\b([A-H]\d{1,2})\b', file_photoID, re.IGNORECASE)
+        well_id = m.group(1).upper() if m else ""
         search_id = file_photoID
 
-        # Handle special case for BA3 Pt1 conversion
-        if "ba3" in search_id.lower() and "96_1" in batch_plate.lower() and "96_1" not in search_id:
-            # Try both versions - with Pt1 and with 96_1
+        # ALWAYS start with a default
+        search_ids = [search_id]
+
+        # BA3 special case (guard batch_plate; compare in lowercase)
+        if (
+            "ba3" in search_id.lower()
+            and batch_plate
+            and "96_1" in batch_plate.lower()
+            and "96_1" not in search_id.lower()
+        ):
             search_ids = [
                 search_id,
-                re.sub(r"BA3\b", "BA3 96_1", search_id, flags=re.IGNORECASE), 
-                re.sub(r"BA3\b", "BA3 Pt1", search_id, flags=re.IGNORECASE)
+                re.sub(r"\bBA3\b", "BA3 96_1", search_id, flags=re.IGNORECASE),
+                re.sub(r"\bBA3\b", "BA3 Pt1",  search_id, flags=re.IGNORECASE),
             ]
             logging.info(f"Using multiple search patterns for BA3: {search_ids}")
         elif batch_plate:
             plate_suffix_match = re.search(r"(96_[12]|Pt1)", batch_plate, re.IGNORECASE)
             ba_match = re.search(r"\bBA\d+\b", search_id, re.IGNORECASE)
-
             if ba_match and plate_suffix_match:
                 base_id = search_id.strip()
-                ba_part = ba_match.group(0)               # e.g. BA3
-                plate_suffix = plate_suffix_match.group(1) # e.g. 96_1 or Pt1
-
+                ba_part = ba_match.group(0)
+                plate_suffix = plate_suffix_match.group(1)
                 search_ids = [base_id]
-
-                # If base_id lacks the suffix, add it
                 if not re.search(r"\b(96_[12]|Pt1)\b", base_id, re.IGNORECASE):
-                    search_ids.append(
-                        re.sub(rf"{ba_part}\b", f"{ba_part} {plate_suffix}", base_id, flags=re.IGNORECASE)
-                    )
-
-                # Add the alternative form (Pt1 <-> 96_1) only if missing
+                    search_ids.append(re.sub(rf"{ba_part}\b", f"{ba_part} {plate_suffix}", base_id, flags=re.IGNORECASE))
                 alt_suffix = "Pt1" if plate_suffix.lower().startswith("96_") else "96_1"
                 if not re.search(rf"\b{re.escape(alt_suffix)}\b", base_id, re.IGNORECASE):
-                    search_ids.append(
-                        re.sub(rf"{ba_part}\b", f"{ba_part} {alt_suffix}", base_id, flags=re.IGNORECASE)
-                    )
-
+                    search_ids.append(re.sub(rf"{ba_part}\b", f"{ba_part} {alt_suffix}", base_id, flags=re.IGNORECASE))
                 logging.info(f"Using multiple search patterns: {search_ids}")
+
             else:
                 search_ids = [search_id]
 
