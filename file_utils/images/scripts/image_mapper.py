@@ -367,32 +367,6 @@ class ImageMapper:
 
         candidates.sort(key=extract_z)
 
-        def extract_stitched_identifier(filename: str) -> str:
-            """
-            Extract the stitched identifier from filename to group similar stitched files.
-            Returns the full stitched pattern like '(1 of 2)', '(#)%', '(stitched)', etc.
-            """
-            fname = filename
-            
-            # Look for various stitched patterns and return the full match
-            patterns = [
-                r'\(stitched\)',
-                r'\(\d+\s+of\s+\d+\)',  # (1 of 2), (2 of 2), etc.
-                r'\(\d+\)%',            # (1)%, (2)%, etc.
-                r'\(#\)%',              # (#)%
-                r'\([^)]*\)\([^)]*\)',  # Multiple parentheses like (1 of 2)(#)%
-                r'\([^)]*\).*%',        # Any parentheses with % symbol
-            ]
-            
-            for pattern in patterns:
-                match = re.search(pattern, fname, re.IGNORECASE)
-                if match:
-                    return match.group(0)
-            
-            # Fallback - return any parentheses content
-            match = re.search(r'\([^)]*\)', fname)
-            return match.group(0) if match else ""
-
         # Classify all candidates
         stitched_files = []
         partial_files = []
