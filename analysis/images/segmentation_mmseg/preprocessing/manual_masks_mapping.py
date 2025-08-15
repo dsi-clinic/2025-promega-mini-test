@@ -65,7 +65,7 @@ for key, info in mapping.items():
     m = re.search(r'(\d+)', day or "")
     if m:
         day_num = int(m.group(1))
-        day_pat = rf'(?:dy|day)[\W_]*0?{day_num}'
+        day_pat = rf'(?:dy|day)[\W_]*0*{day_num}(?!\d)'
     else:
         day_pat = flex_chunk(day)
 
