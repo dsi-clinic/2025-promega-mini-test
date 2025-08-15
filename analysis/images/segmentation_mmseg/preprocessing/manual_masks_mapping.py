@@ -1,81 +1,105 @@
-import os
-import json
-import re
-import sys
+#!/usr/bin/env python3
+import json, re, sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parents[1]))  # or adjust as needed
+from glob import glob
 from dotenv import load_dotenv
-from paths import ORIGINAL_MAPPING, MANUAL_MAPPING_OUTPUT_DIR, MANUAL_MASK_FOLDERS
 
-# === Setup ===
+# repo imports
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from paths import ORIGINAL_MAPPING, MANUAL_MASKS_DIR  # <- only use these
+
 load_dotenv()
 
-# Output name
-OUTPUT_NAME = "image_mapping_thresholded_and_manual.json"
-new_mapping_path = MANUAL_MAPPING_OUTPUT_DIR / OUTPUT_NAME
+OUTPUT_PATH = Path(MANUAL_MASKS_DIR) / "image_mapping_thresholded_and_manual.json"
+ALLOWED_EXT = {".tif", ".tiff", ".png"}
 
-# === Load base mapping ===
-with open(ORIGINAL_MAPPING, 'r') as f:
-    mapping = json.load(f)
+def flex_chunk(s: str) -> str:
+    toks = re.findall(r'[A-Za-z0-9]+', (s or "").lower())
+    return r'[\W_]*'.join(map(re.escape, toks)) if toks else ''
 
-# === List all mask files (manual and thresholded) ===
-mask_files = []
-for folder in MANUAL_MASK_FOLDERS:
-    folder = Path(folder)
-    if not folder.exists():
-        print(f"Warning: mask folder does not exist: {folder}")
-        continue
-    mask_files.extend([(folder, f.name) for f in folder.iterdir() if f.is_file()])
+def discover_batch_dirs(root: Path):
+    # Find masks-batch-* at the correct level
+    batch_dirs = [Path(p) for p in glob(str(root / "masks-batch-*")) if Path(p).is_dir()]
+    print("[DISCOVER] batch dirs:", [b.name for b in batch_dirs])
+    return batch_dirs
 
-print(f"\nFound {len(mask_files)} mask files across {len(MANUAL_MASK_FOLDERS)} folders.\n")
+def list_mask_files(batch_dirs):
+    files = []
+    per_batch_counts = []
+    for bdir in batch_dirs:
+        subdirs = [d for d in (bdir / "manual", bdir / "threshold") if d.is_dir()]
+        cnt = 0
+        for sd in subdirs:
+            for f in sd.rglob("*"):
+                if f.is_file() and f.suffix.lower() in ALLOWED_EXT:
+                    files.append(f)     # full path
+                    cnt += 1
+        per_batch_counts.append((bdir.name, cnt))
+    for name, cnt in per_batch_counts:
+        print(f"[INFO] {name}: {cnt} mask files")
+    print(f"[INFO] total masks: {len(files)}")
+    return files
 
-# === Match entries ===
+# --- load once ---
+mapping = json.loads(Path(ORIGINAL_MAPPING).read_text())
+
+# *** new: discover batches here, ignore MANUAL_MASK_FOLDERS entirely
+batch_dirs = discover_batch_dirs(Path(MANUAL_MASKS_DIR))
+mask_paths = list_mask_files(batch_dirs)
+
+if not mask_paths:
+    print("[FATAL] Found 0 mask files. Check MANUAL_MASKS_DIR.")
+    sys.exit(1)
+
 new_mapping = {}
 
 for key, info in mapping.items():
-    ba = info.get('BA')
-    day = info.get('dayID')
+    ba   = info.get('BA')
+    day  = info.get('dayID')
     well = info.get('wellID')
-
     if not (ba and day and well):
         continue
 
-    # Clean keys
-    # Clean the mapping info strings
-    ba_clean = ba.replace(" ", "").replace("_", "").lower()
-    day_clean = day.strip().lower()
-    well_clean = well.strip().lower()
+    ba_pat  = flex_chunk(ba)
+
+    m = re.search(r'(\d+)', day or "")
+    if m:
+        day_num = int(m.group(1))
+        day_pat = rf'(?:dy|day)[\W_]*0?{day_num}'
+    else:
+        day_pat = flex_chunk(day)
+
+    wl = well[0].lower()
+    wn = int(well[1:])
+    well_pat = rf'(?<![a-z0-9]){wl}0?{wn}(?!\d)'
+
+    best_z = info.get('Best Z')
+    def score(s: str) -> int:
+        s = s.lower()
+        pts = 0
+        if re.search(rf'(?<![a-z0-9]){wl}{wn}(?!\d)', s): pts += 2
+        if best_z is not None and re.search(rf'(?<!\d){best_z}(?!\d)', s): pts += 1
+        return pts
 
     matches = []
-    for folder, mf in mask_files:
-        mf_clean = mf.replace(" ", "").replace("_", "").lower()
-        if ba_clean in mf_clean and day_clean in mf_clean and well_clean in mf_clean:
-            matches.append((folder, mf))
-
-
-
-    print(f"\nProcessing: {key} | {day}, {ba}, {well}")
-    print(f"  Clean match terms: BA={ba_clean}, Day={day_clean}, Well={well_clean}")
-    print(f"  Matches found: {len(matches)}")
+    for p in mask_paths:
+        s = str(p).lower()
+        if re.search(ba_pat, s) and re.search(day_pat, s) and re.search(well_pat, s):
+            matches.append(p)
 
     if matches:
-        mask_folder, mask_file = matches[0]  # first match
-        info['Mask Path'] = str(mask_folder / mask_file)
+        matches.sort(key=lambda p: score(str(p)), reverse=True)
+        mt_path = str(matches[0].resolve())
         new_mapping[key] = {
             "dayID": info.get("dayID"),
             "BA": info.get("BA"),
             "wellID": info.get("wellID"),
             "Best Z Filename": info.get("Best Z Filename"),
-            "MT Mask Path": str(mask_folder / mask_file)
+            "MT Mask Path": mt_path,
         }
-        print(f"  -> Using mask: {mask_folder / mask_file}")
+    # else: leave unmapped; you can add logging if you want
 
-    else:
-        print(f"  -> No matching mask found.")
-
-# === Save new mapping ===
-new_mapping_path.parent.mkdir(parents=True, exist_ok=True)
-with open(new_mapping_path, 'w') as f:
-    json.dump(new_mapping, f, indent=4)
-
-print(f"\nSaved {len(new_mapping)} entries to: {new_mapping_path}")
+OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+with open(OUTPUT_PATH, 'w') as f:
+    json.dump(new_mapping, f, indent=2)
+print(f"[OK] Saved {len(new_mapping)} entries to: {OUTPUT_PATH}")

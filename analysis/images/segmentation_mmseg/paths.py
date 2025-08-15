@@ -34,8 +34,9 @@ TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
 # ---------- manual masks ----------
 MANUAL_MASKS_DIR         = BASE_PATH / "manual_masks"
 MANUAL_THRESHOLD_MAPPING = MANUAL_MASKS_DIR / "image_mapping_thresholded_and_manual.json"
+
 MANUAL_MASK_FOLDERS = [
-    Path(p) for p in glob.glob(str(MANUAL_MASKS_DIR / "masks-batch-*" / "*"))
+    Path(p) for p in glob.glob(str(MANUAL_MASKS_DIR / "masks-batch-*"))
     if Path(p).is_dir()
 ]
 
