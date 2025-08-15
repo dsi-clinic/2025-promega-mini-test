@@ -13,7 +13,7 @@ from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv(), override=True)
 base_image_mapping_path = os.getenv("ORIGINAL_MAPPING")
-processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
+#processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
 metabolite_json_path = os.path.join(os.getenv("BASE_PATH"), "metabolite_data", "metabolite_map.json")
 survey_json_path = "analysis/surveys/agreement_aggregations/organoid_surveys_aggregated.json"
 
@@ -65,11 +65,25 @@ def load_json(path):
 base_map     = {norm_key(k): v for k, v in load_json(base_image_mapping_path).items()}
 metab_map    = {norm_key(k): v for k, v in load_json(metabolite_json_path).items()}
 
-# processed – iterate over many small files
+# # processed – iterate over many small files
+# processed_map = {}
+# for p in pathlib.Path(processed_root_dir).rglob("image_mapping_*_processed.json"):
+#     for k, v in load_json(p).items():
+#         processed_map[norm_key(k)] = v
+
 processed_map = {}
-for p in pathlib.Path(processed_root_dir).rglob("image_mapping_*_processed.json"):
-    for k, v in load_json(p).items():
-        processed_map[norm_key(k)] = v
+processed_parent = os.getenv("PROCESSED_PARENT_DIR")
+
+for p in pathlib.Path(processed_parent).rglob("image_mapping_*_processed.json"):
+    if "auto_processed" in str(p):
+        for k, v in load_json(p).items():
+            norm_k = norm_key(k)
+            resolution = re.search(r'processed_dataset_(\d+x\d+)', str(p))
+            resolution = resolution.group(1) if resolution else "unknown"
+            if norm_k not in processed_map:
+                processed_map[norm_k] = {}
+            processed_map[norm_k][resolution] = v
+
 
 # survey – one file, keys are inside each record
 survey_map = {}
