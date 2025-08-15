@@ -176,3 +176,7 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+
+# All training data
+model.pth
+

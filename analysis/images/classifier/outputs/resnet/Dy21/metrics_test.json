@@ -1,0 +1,15 @@
+{
+  "day": "Dy21",
+  "day_no": 21,
+  "split": "test",
+  "accuracy": 0.6190476190476191,
+  "f1": 0.6363636363636364,
+  "val_accuracy_for_selection": 0.8571428571428571,
+  "val_n": 21,
+  "test_n": 21,
+  "actual_good": 13,
+  "predicted_good": 9,
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "backbone_key": "resnet"
+}
