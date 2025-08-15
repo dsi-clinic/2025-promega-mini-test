@@ -7,7 +7,7 @@ import cv2
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[2]))
+sys.path.append(str(Path(__file__).resolve().parents[3]))
 
 from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
 

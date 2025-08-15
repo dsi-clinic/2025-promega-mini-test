@@ -27,8 +27,8 @@ MANUAL_MAPPING_DIR   = require_env_path("MANUAL_MAPPING_DIR")
 MANUAL_PROCESSED_DIR = require_env_path("MANUAL_PROCESSED_DIR")
 
 # ---------- sizes ----------
-TARGET_WIDTH  = int(os.environ.get("TARGET_WIDTH", "256"))
-TARGET_HEIGHT = int(os.environ.get("TARGET_HEIGHT", "192"))
+TARGET_WIDTH  = int(os.environ.get("TARGET_WIDTH", "584"))
+TARGET_HEIGHT = int(os.environ.get("TARGET_HEIGHT", "384"))
 TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
 
 # ---------- manual masks ----------
@@ -52,11 +52,11 @@ OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR  # single source of truth
 
 # ---------- SegFormer model locations ----------
 EARLY_MODEL = {
-    "config":    PLOTS_FOLDER / "segformer_masks/early_normsig/20250808_210012/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/early_normsig/iter_1000.pth",
+    "config":    PLOTS_FOLDER / "segformer_masks/512x384/20250814/early/vis_data/config.py",
+    "checkpoint": PLOTS_FOLDER / "segformer_masks/512x384/20250814/early/iter_1000.pth",
 }
 
 LATE_MODEL = {
-    "config": PLOTS_FOLDER / "segformer_masks/late_normsig/20250808_203836/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/late_normsig/iter_1000.pth",
+    "config": PLOTS_FOLDER / "segformer_masks/512x384/20250814/late/vis_data/config.py",
+    "checkpoint": PLOTS_FOLDER / "segformer_masks/512x384/20250814/late/iter_1000.pth",
 }

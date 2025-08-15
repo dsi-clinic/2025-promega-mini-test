@@ -68,7 +68,7 @@ custom_imports = dict(imports=['custom_transforms'])
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=False, with_label=False, with_seg=True),
-    dict(type='Resize', scale=(256, 192), keep_ratio=False),
+    dict(type='Resize', scale=(512, 384), keep_ratio=False),
     dict(type='RandomFlip', prob=0.5),
     # Add these augmentations:
     # dict(type='RandomRotate', prob=0.5, degree=20),
@@ -83,7 +83,7 @@ train_pipeline = [
 val_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=False, with_label=False, with_seg=True),
-    dict(type='Resize', scale=(256, 192), keep_ratio=False),
+    dict(type='Resize', scale=(512, 384), keep_ratio=False),
     #dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32, pad_val=0),
     dict(type='PackSegInputs')  # This is crucial for creating the 'inputs' key
@@ -98,8 +98,8 @@ train_dataloader = dict(
         type='Dy30Dataset',
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
-          'processed_dataset_256x192/manual_mappings/'
-          'processed_256x192/split/mapping_days0310_train.json'
+          'processed_dataset_512x384/manual_mappings/'
+          'processed_512x384/split/mapping_days0310_train.json'
         ),
         day_filter=None,
         pipeline=train_pipeline,
@@ -115,8 +115,8 @@ val_dataloader = dict(
         type='Dy30Dataset',
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
-          'processed_dataset_256x192/manual_mappings/'
-          'processed_256x192/split/mapping_days0310_val.json'
+          'processed_dataset_512x384/manual_mappings/'
+          'processed_512x384/split/mapping_days0310_val.json'
         ),
         day_filter=None,
         pipeline=val_pipeline,
@@ -132,8 +132,8 @@ test_dataloader = dict(
         type='Dy30Dataset',
         json_mapping_path=(
           '/net/projects2/promega/data-analysis/output/'
-          'processed_dataset_256x192/manual_mappings/'
-          'processed_256x192/split/mapping_days0310_test.json'
+          'processed_dataset_512x384/manual_mappings/'
+          'processed_512x384/split/mapping_days0310_test.json'
         ),
         day_filter=None,
         pipeline=val_pipeline,

@@ -82,6 +82,9 @@ for img_id, info in master_map.items():
     if img is None:
         skip += 1
         continue
+    print(f"[DEBUG] Original size for {img_id}: {img.shape[1]}x{img.shape[0]}")
+    
+
 
     if not msk_p.exists():
         # manual map should have masks; if not, just skip here (we'll let the blank pass handle later if flagged)
@@ -92,6 +95,9 @@ for img_id, info in master_map.items():
     if msk is None:
         skip += 1
         continue
+    print(f"[DEBUG] Original mask size for {img_id}: {msk.shape[1]}x{msk.shape[0]}")
+    
+
 
     # resize
     img_rs  = cv2.resize(img, TARGET_SIZE, interpolation=IMAGE_INTERP)
@@ -142,6 +148,8 @@ if image_map:
         # resize + make blank mask
         img_rs = cv2.resize(img, TARGET_SIZE, interpolation=IMAGE_INTERP)
         msk_bin = np.zeros((TARGET_SIZE[1], TARGET_SIZE[0]), dtype=np.uint8)  # (H,W)
+        print(f"[DEBUG] Resized to: {img_rs.shape[1]}x{img_rs.shape[0]}")
+
 
         out_img = images_out / f"{img_id}.png"
         out_msk = masks_out  / f"{img_id}_mask.png"
