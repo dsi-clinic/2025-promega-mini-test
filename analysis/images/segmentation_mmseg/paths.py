@@ -53,11 +53,11 @@ OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR  # single source of truth
 
 # ---------- SegFormer model locations ----------
 EARLY_MODEL = {
-    "config":    PLOTS_FOLDER / "segformer_masks/512x384/20250814/early/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/512x384/20250814/early/iter_1000.pth",
+    "config": PLOTS_FOLDER / "segformer_masks/512by384/models/early/vis_data/config.py",
+    "checkpoint": PLOTS_FOLDER / "segformer_masks/512by384/models/early/iter_1000.pth",
 }
 
 LATE_MODEL = {
-    "config": PLOTS_FOLDER / "segformer_masks/512x384/20250814/late/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/512x384/20250814/late/iter_1000.pth",
+    "config": PLOTS_FOLDER / "segformer_masks/512by384/models/late/vis_data/config.py",
+    "checkpoint": PLOTS_FOLDER / "segformer_masks/512by384/models/late/iter_1000.pth",
 }

@@ -93,7 +93,8 @@ val_pipeline = [
 
 train_dataloader = dict(
     batch_size=16,
-    num_workers=2,
+    num_workers=1,
+    drop_last=True,
     dataset=dict(
         type='Dy30Dataset',
         json_mapping_path=(
