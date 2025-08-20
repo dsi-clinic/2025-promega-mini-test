@@ -1,4 +1,4 @@
-name: promega_core_env
+name: core_env
 channels:
   - pytorch
   - nvidia
@@ -6,12 +6,28 @@ channels:
   - defaults
 dependencies:
   - python=3.11
-  - pytorch>=2.0
-  - torchvision>=0.15
-  - timm>=0.9.2
-  - numpy>=1.23
-  - scikit-learn>=1.2
-  - pillow>=9.5
-  - matplotlib>=3.7
-  - seaborn>=0.12
-  - tqdm>=4.65
+  - pytorch=2.8.*
+  - torchvision=0.23.*
+  - timm=1.0.*
+  - numpy=2.2.*        # <-- if stability issues, change to "numpy<2"
+  - scikit-learn=1.7.*
+  - pandas=2.3.*
+  - scipy=1.16.*
+  - pillow=11.3.*
+  - matplotlib=3.10.*
+  - seaborn=0.13.*
+  - tqdm=4.67.*
+  - scikit-image=0.25.*
+  - opencv-python=4.12.*
+  - imagecodecs
+  - openpyxl
+  - pyyaml
+  - python-dotenv
+  - tifffile
+  - fsspec
+  - huggingface-hub
+  - safetensors
+  - ipykernel
+  - ipython
+  - jupyter_client
+  - jupyter_core
