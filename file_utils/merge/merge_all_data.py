@@ -22,6 +22,19 @@ output_path             = 'all_data.json'
 _tok_ba    = re.compile(r'^BA\d+$',          re.IGNORECASE)
 _tok_plate = re.compile(r'^(96_[12]|PT1)$',  re.IGNORECASE)
 _tok_day   = re.compile(r'^DY\d+$',          re.IGNORECASE)
+DAY_NUM_RE = re.compile(r'\bDy(\d{1,2})\b', re.IGNORECASE)
+
+def day_from_key(norm_k: str) -> int | None:
+    m = DAY_NUM_RE.search(norm_k)
+    return int(m.group(1)) if m else None
+
+def to_mdl_day(day: int | None) -> float | None:
+    if day is None:
+        return None
+    # collapse Dy20 and Dy21 to 20.5
+    if day in (20, 21):
+        return 20.5
+    return float(day)
 
 def norm_key(id_like: str) -> str:
     """
@@ -111,6 +124,10 @@ for k in tqdm(sorted(all_keys)):
     if k in processed_map: entry.update(processed_map[k])
     if k in survey_map:    entry["survey"]     = survey_map[k]
     if k in metab_map:     entry["metabolites"] = metab_map[k]
+    
+    _day = day_from_key(k)          # e.g., 20, 21, 30, ...
+    entry["day_num"] = _day         # optional: raw numeric day
+    entry["mdl_day"] = to_mdl_day(_day)  # 20/21 -> 20.5; others unchanged
     combined[k] = entry
 
 # ───────── write out ─────────────────────────────────────────────────────
