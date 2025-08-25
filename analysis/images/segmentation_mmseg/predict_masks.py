@@ -3,8 +3,23 @@
 import torch
 from pathlib import Path
 import cv2, numpy as np, warnings, json, random, argparse, sys
-from paths import EARLY_MODEL, LATE_MODEL
-from paths import PROCESSED_DATA_DIR, OUTPUT_MASKS_BASE_DIR
+
+HERE = Path(__file__).resolve()
+for p in HERE.parents:
+    if (p / "paths.py").exists() and (p / ".env").exists():
+        sys.path.insert(0, str(p))  # repo root
+        break
+else:
+    raise RuntimeError("Could not locate repo root containing paths.py and .env")
+
+# Root paths (canonical dirs)
+from paths import INFER_AUTO_PROCESSED_DIR  # where the per-day mapping JSONs live
+
+# mmseg-specific model locations / output base
+from analysis.images.segmentation_mmseg.mmseg_paths import (
+    EARLY_MODEL, LATE_MODEL, OUTPUT_MASKS_BASE_DIR,
+)
+
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -20,16 +35,20 @@ except ImportError as e:
 NUM_SAMPLES_FOR_COLLAGE = 10
 
 def get_mapping_paths(batch_number, day_number=30):
+    """Find the JSON(s) created by the infer-prep step (auto_processed)."""
     day_str = f"{day_number:02d}"
+    base = Path(INFER_AUTO_PROCESSED_DIR)
+
     paths = []
     if batch_number == 2:
         for part in ["96_1", "96_2"]:
             batch_str = f"ba{batch_number}{part}_Dy{day_str}"
-            paths.append(Path(PROCESSED_DATA_DIR) / batch_str / f"image_mapping_{batch_str}_processed.json")
+            paths.append(base / batch_str / f"image_mapping_{batch_str}_processed.json")
     else:
         batch_str = f"ba{batch_number}96_1_Dy{day_str}"
-        paths.append(Path(PROCESSED_DATA_DIR) / batch_str / f"image_mapping_{batch_str}_processed.json")
+        paths.append(base / batch_str / f"image_mapping_{batch_str}_processed.json")
     return paths
+
 
 def run_inference(batch_number, day_number=30, model_type="early", overwrite=False, dry_run=False, smoke=None):
     day_str = f"{day_number:02d}"

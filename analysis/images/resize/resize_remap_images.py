@@ -2,15 +2,25 @@
 import json
 import argparse
 import shutil
-from pathlib import Path
-import cv2
 import sys
 from pathlib import Path
+import cv2
 
-sys.path.append(str(Path(__file__).resolve().parents[3]))
+HERE = Path(__file__).resolve()
+for p in HERE.parents:
+    if (p / "paths.py").exists() and (p / ".env").exists():
+        sys.path.insert(0, str(p))
+        break
+else:
+    raise RuntimeError("Could not locate repo root containing paths.py and .env")
 
-from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
-
+from paths import (
+    TARGET_WIDTH,
+    TARGET_HEIGHT,
+    TARGET_SIZE,
+    RAW_IMAGE_MAPPING_JSON,            # <-- use this
+    INFER_AUTO_PROCESSED_DIR as OUTPUT_DIR
+)
 
 # --------------- configuration -----------------
 INTERPOLATION = cv2.INTER_LINEAR
@@ -24,7 +34,8 @@ def ba_match(json_ba: str, batch_id: str) -> bool:
 
 # --------------- main functions ----------------
 def process_batch(batch_num: int, day_num: int):
-    with ORIGINAL_MAPPING.open() as f:
+    # was: with ORIGINAL_MAPPING.open() as f:
+    with RAW_IMAGE_MAPPING_JSON.open() as f:
         mapping = json.load(f)
 
     # Handle all BA* matches in mapping
@@ -34,7 +45,6 @@ def process_batch(batch_num: int, day_num: int):
 
     for batch_id in batch_ids:
         create_mapping(mapping, batch_id, day_num)
-
 
 def create_mapping(mapping: dict, batch_id: str, day_num: int):
     day_id     = f"Dy{day_num:02d}"

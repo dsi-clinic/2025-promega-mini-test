@@ -1,11 +1,23 @@
+#!/usr/bin/env python3
 import json
 import logging
 from pathlib import Path
+import sys
 
-from dotenv import load_dotenv, find_dotenv
-from paths import ORIGINAL_MAPPING, PROCESSED_DATA_DIR, OUTPUT_FOLDER, BASE_PATH
+# --- Locate repo root (must contain paths.py and .env) ---
+HERE = Path(__file__).resolve()
+for p in HERE.parents:
+    if (p / "paths.py").exists() and (p / ".env").exists():
+        sys.path.insert(0, str(p))
+        break
+else:
+    raise RuntimeError("Could not locate repo root containing paths.py and .env")
 
-# Configure logging
+# --- Imports that rely on repo root ---
+import paths as P
+from .image_mapper import ImageMapper
+
+# --- Logging ---
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -13,41 +25,31 @@ logging.basicConfig(
 
 class MappingSystem:
     def __init__(self):
-        # Auto-discover and load .env
-        env_file = find_dotenv()
-        logging.info(f"Auto-discovered .env at {env_file}")
-        load_dotenv(env_file, override=True)
+        # paths.py already loaded .env; just log what we’re using
+        logging.info(f"BASE_PATH               = {P.BASE_PATH}")
+        logging.info(f"META_FILE               = {P.META_FILE} (exists={P.META_FILE.exists()})")
+        logging.info(f"RAW_IMAGE_MAPPING_JSON  = {P.RAW_IMAGE_MAPPING_JSON}")
 
-        # Log a few core variables
-        logging.info(f"BASE_PATH     = {paths.BASE_PATH}")
-        logging.info(f"META_FILE     = {paths.META_FILE}")
-        logging.info(f"OUTPUT_FOLDER = {paths.OUTPUT_FOLDER}")
+        # pick the raw image root; use RAW_IMAGES_DIR if you’ve added it, else BASE_PATH
+        raw_images_root = getattr(P, "RAW_IMAGES_DIR", P.BASE_PATH)
+        logging.info(f"RAW_IMAGES_ROOT         = {raw_images_root}")
 
-        self.base_path     = paths.BASE_PATH
-        self.meta_file     = paths.META_FILE
-        self.output_folder = paths.OUTPUT_FOLDER
-
-        logging.info(f"-> Using meta_file path: {self.meta_file} (exists? {self.meta_file.exists()})")
-
-        # Instantiate mapper
         self.mapper = ImageMapper(
-            base_dir=self.base_path,
-            meta_csv=self.meta_file
+            base_dir=raw_images_root,
+            meta_csv=P.META_FILE,
         )
-        
+        self.out_json = P.RAW_IMAGE_MAPPING_JSON
+
     def generate_key_mapping(self) -> dict:
-        """Have the mapper build and write image_mapping.json, then return it."""
-        logging.info("Generating key mapping JSON…")
-        # Ensure output dir exists
-        self.output_folder.mkdir(parents=True, exist_ok=True)
+        """Build image_mapping.json and return it as a dict."""
+        self.out_json.parent.mkdir(parents=True, exist_ok=True)
+        self.mapper.make_mapping_json(self.out_json)
 
-        out_json = self.output_folder / "image_mapping.json"
-        # This single call reads metadata, resolves files, picks best focus,
-        # and writes the JSON with um_per_px included.
-        self.mapper.make_mapping_json(out_json)
-
-        # Load and return for downstream use
-        with out_json.open() as f:
+        with self.out_json.open() as f:
             mapping = json.load(f)
-        logging.info(f"Mapping complete: {len(mapping)} entries")
+        logging.info(f"Mapping complete: {len(mapping)} entries → {self.out_json}")
         return mapping
+
+if __name__ == "__main__":
+    ms = MappingSystem()
+    ms.generate_key_mapping()

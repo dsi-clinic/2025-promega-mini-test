@@ -1,17 +1,37 @@
 #!/usr/bin/env python3
 import json, re, sys
-from pathlib import Path
 from glob import glob
-from dotenv import load_dotenv
+from pathlib import Path
 
-# repo imports
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-from paths import ORIGINAL_MAPPING, MANUAL_MASKS_DIR  # <- only use these
+# Locate repo root: must contain both paths.py and .env
+HERE = Path(__file__).resolve()
+for p in HERE.parents:
+    if (p / "paths.py").exists() and (p / ".env").exists():
+        sys.path.insert(0, str(p))
+        break
+else:
+    raise RuntimeError("Could not locate repo root containing paths.py and .env")
 
-load_dotenv()
+# Import ONLY root paths
+from paths import RAW_IMAGE_MAPPING_JSON, MANUAL_MASKS_DIR, MANUAL_THRESHOLD_MAPPING as OUTPUT_PATH
 
-OUTPUT_PATH = Path(MANUAL_MASKS_DIR) / "image_mapping_thresholded_and_manual.json"
 ALLOWED_EXT = {".tif", ".tiff", ".png"}
+
+def load_raw_mapping(json_path: Path) -> dict:
+    data = json.loads(Path(json_path).read_text())
+    # New wrapped format?
+    if isinstance(data, dict) and "_base_folder" in data and "entries" in data:
+        base = Path(data["_base_folder"])
+        entries = data["entries"]
+        # Re-hydrate relative paths to absolute strings for consumers
+        for v in entries.values():
+            if "Best Z Filename" in v:
+                v["Best Z Filename"] = str(base / v["Best Z Filename"])
+            if "all_files" in v and isinstance(v["all_files"], list):
+                v["all_files"] = [str(base / p) for p in v["all_files"]]
+        return entries
+    # Legacy flat mapping
+    return data
 
 def flex_chunk(s: str) -> str:
     toks = re.findall(r'[A-Za-z0-9]+', (s or "").lower())
@@ -41,9 +61,8 @@ def list_mask_files(batch_dirs):
     return files
 
 # --- load once ---
-mapping = json.loads(Path(ORIGINAL_MAPPING).read_text())
+mapping = load_raw_mapping(RAW_IMAGE_MAPPING_JSON)
 
-# *** new: discover batches here, ignore MANUAL_MASK_FOLDERS entirely
 batch_dirs = discover_batch_dirs(Path(MANUAL_MASKS_DIR))
 mask_paths = list_mask_files(batch_dirs)
 
@@ -97,7 +116,6 @@ for key, info in mapping.items():
             "Best Z Filename": info.get("Best Z Filename"),
             "MT Mask Path": mt_path,
         }
-    # else: leave unmapped; you can add logging if you want
 
 OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 with open(OUTPUT_PATH, 'w') as f:

@@ -1,208 +1,188 @@
-import os
+#!/usr/bin/env python3
 import json
+import argparse
+import sys
 from pathlib import Path
+
 import cv2
 import numpy as np
-from dotenv import load_dotenv
-import shutil # Used for potentially removing old directories
 
-# --- Configuration ---
-# SET YOUR DESIRED OUTPUT DIMENSIONS HERE
-TARGET_WIDTH = 256
-TARGET_HEIGHT = 192
-
-TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
-# Interpolation methods for resizing
-IMAGE_INTERPOLATION = cv2.INTER_LINEAR # Common choice for downscaling images
-MASK_INTERPOLATION = cv2.INTER_NEAREST  # MUST use nearest for masks
-
-# --- Load Environment Variables ---
-load_dotenv()
-try:
-    # Need original mask folder mainly if mask path isn't directly in JSON
-    MASKS_FOLDER = Path("/net/projects2/promega/data-analysis/masks")
-    JSON_MAPPING_PATH = Path("/net/projects2/promega/data-analysis/output/image_mapping_day30_manual.json")
-    # Define where the NEW processed dataset will be saved
-    # (e.g., in the same directory as the original JSON)
-    OUTPUT_BASE_FOLDER = JSON_MAPPING_PATH.parent / f"processed_dataset_{TARGET_WIDTH}x{TARGET_HEIGHT}"
-except KeyError as e:
-    print(f"Error: Environment variable {e} not set. Make sure .env file exists.")
-    exit()
-except Exception as e:
-    print(f"Error setting up paths: {e}")
-    exit()
-
-# --- Define Output Paths ---
-PROCESSED_IMAGES_FOLDER = OUTPUT_BASE_FOLDER / "images"
-PROCESSED_MASKS_FOLDER = OUTPUT_BASE_FOLDER / "masks"
-NEW_JSON_MAPPING_FILENAME = f"{JSON_MAPPING_PATH.stem}_processed_{TARGET_WIDTH}x{TARGET_HEIGHT}.json"
-NEW_JSON_MAPPING_PATH = OUTPUT_BASE_FOLDER / NEW_JSON_MAPPING_FILENAME
-
-# --- Create Output Directories ---
-# Optional: Uncomment to remove existing processed data before starting
-# if OUTPUT_BASE_FOLDER.exists():
-#     print(f"WARNING: Output folder {OUTPUT_BASE_FOLDER} already exists. Removing it...")
-#     shutil.rmtree(OUTPUT_BASE_FOLDER)
-#     print("Old output folder removed.")
-
-PROCESSED_IMAGES_FOLDER.mkdir(parents=True, exist_ok=True)
-PROCESSED_MASKS_FOLDER.mkdir(parents=True, exist_ok=True)
-print(f"Output folders created/ensured:")
-print(f"  Base:      {OUTPUT_BASE_FOLDER}")
-print(f"  Images:    {PROCESSED_IMAGES_FOLDER}")
-print(f"  Masks:     {PROCESSED_MASKS_FOLDER}")
-print(f"  New JSON:  {NEW_JSON_MAPPING_PATH}")
-
-
-# --- Load Original JSON Mapping ---
-try:
-    with open(JSON_MAPPING_PATH, 'r') as f:
-        original_image_mapping = json.load(f)
-    print(f"\nLoaded original JSON mapping: {JSON_MAPPING_PATH}")
-except Exception as e:
-    print(f"Error loading original JSON {JSON_MAPPING_PATH}: {e}")
-    exit()
-
-# --- Filter for Dy30 ---
-filtered_mapping = {k: v for k, v in original_image_mapping.items() if v.get('dayID') == 'Dy30'}
-print(f"Found {len(filtered_mapping)} entries for dayID='Dy30' to process.")
-print("-" * 30)
-
-# --- Process images and masks ---
-new_mapping_data = {} # Store data for the new JSON
-processed_count = 0
-skipped_count = 0
-
-for img_id, img_info in filtered_mapping.items():
-    print(f"Processing ID: {img_id}")
-
-    # --- Get original paths ---
-    img_path_str = img_info.get('Best Z Filename')
-    mask_path_str = img_info.get('Mask Path') # Check if 'Mask Path' exists first
-
-    # --- Construct mask path if not present ---
-    if not mask_path_str:
-        if not img_path_str:
-             print(f"  -> Skipped: Cannot construct mask path without 'Best Z Filename'.")
-             skipped_count += 1
-             continue
-        img_base_name = Path(img_path_str).stem
-        # *** ADJUST MASK FILENAME PATTERN IF NEEDED ***
-        mask_filename = f"{img_base_name}_cellpose_mask.png"
-        mask_path = MASKS_FOLDER / mask_filename
-    else:
-        mask_path = Path(mask_path_str)
-
-    if not img_path_str:
-        print(f"  -> Skipped: Missing 'Best Z Filename'.")
-        skipped_count += 1
-        continue
-    img_path = Path(img_path_str)
-
-    # --- Validate existence of originals ---
-    if not img_path.exists():
-        print(f"  -> Skipped: Original image not found: {img_path}")
-        skipped_count += 1
-        continue
-    if not mask_path.exists():
-        print(f"  -> Skipped: Original mask not found: {mask_path}")
-        skipped_count += 1
-        continue
-
-    try:
-        # --- Load original image and mask ---
-        original_img = cv2.imread(str(img_path))
-        original_mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
-
-        if original_img is None:
-            print(f"  -> Skipped: Failed to load original image: {img_path}")
-            skipped_count += 1
-            continue
-        if original_mask is None:
-            print(f"  -> Skipped: Failed to load original mask: {mask_path}")
-            skipped_count += 1
-            continue
-
-        # --- Resize image ---
-        resized_img = cv2.resize(original_img, TARGET_SIZE, interpolation=IMAGE_INTERPOLATION)
-
-        # --- Resize mask ---
-        resized_mask = cv2.resize(original_mask, TARGET_SIZE, interpolation=MASK_INTERPOLATION)
-
-        # --- Binarize mask (ensure only 0 and 255) ---
-        # Check unique values before binarizing (optional debug)
-        # print(f"    Unique values in resized mask: {np.unique(resized_mask)}")
-        binary_mask = (resized_mask > 0).astype(np.uint8)
-        # print(f"    Unique values in binarized mask: {np.unique(binary_mask)}")
-
-        # --- Define output filenames ---
-        img_suffix = img_path.suffix if img_path.suffix else '.png' # Keep original suffix or default
-        output_img_filename = f"{img_id}_{TARGET_WIDTH}x{TARGET_HEIGHT}{img_suffix}"
-        # Always save masks as PNG for lossless quality of 0/255 values
-        output_mask_filename = f"{img_id}_mask_{TARGET_WIDTH}x{TARGET_HEIGHT}.png"
-
-        output_img_path = PROCESSED_IMAGES_FOLDER / output_img_filename
-        output_mask_path = PROCESSED_MASKS_FOLDER / output_mask_filename
-
-        # --- Save processed files ---
-        save_img_success = cv2.imwrite(str(output_img_path), resized_img)
-        save_mask_success = cv2.imwrite(str(output_mask_path), binary_mask)
-
-        if not save_img_success:
-             print(f"  -> Failed: Could not save processed image to {output_img_path}")
-             # Decide if you want to skip or continue if saving fails
-             skipped_count += 1
-             continue # Skip this entry if image saving failed
-        if not save_mask_success:
-             print(f"  -> Failed: Could not save processed mask to {output_mask_path}")
-             # Decide if you want to skip or continue if saving fails
-             skipped_count += 1
-             # Clean up already saved image for this entry? Optional.
-             # if output_img_path.exists(): output_img_path.unlink()
-             continue # Skip this entry if mask saving failed
-
-        # --- Add entry to the new mapping data ---
-        # Store absolute paths in the new JSON for robustness
-        new_mapping_data[img_id] = {
-            'img_path': str(output_img_path.resolve()), # Points to the NEW processed image
-            'seg_map_path': str(output_mask_path.resolve()), # Points to the NEW processed mask
-            # Keep other relevant info
-            'img_id': img_id,
-            'dayID': img_info.get('dayID', 'Dy30'),
-            'BA': img_info.get('BA'),
-            'wellID': img_info.get('wellID'),
-            'original_img_path': str(img_path.resolve()), # Keep original path for reference
-        }
-        processed_count += 1
-        # print(f"  Successfully processed and saved.") # Uncomment for verbose output
-
-    except Exception as e:
-        print(f"  -> Skipped: UNEXPECTED ERROR during processing for ID {img_id}: {e}")
-        import traceback
-        traceback.print_exc() # Print detailed traceback for unexpected errors
-        skipped_count += 1
-        continue
-
-# --- Save the new JSON mapping ---
-if not new_mapping_data:
-    print("-" * 30)
-    print("No entries were successfully processed. New JSON mapping file will not be created.")
+# Locate repo root: must contain both paths.py and .env
+HERE = Path(__file__).resolve()
+for p in HERE.parents:
+    if (p / "paths.py").exists() and (p / ".env").exists():
+        sys.path.insert(0, str(p))
+        break
 else:
-    try:
-        with open(NEW_JSON_MAPPING_PATH, 'w') as f:
-            json.dump(new_mapping_data, f, indent=4) # Use indent for readability
-        print("-" * 30)
-        print(f"Successfully saved new JSON mapping ({len(new_mapping_data)} entries) to:")
-        print(f"  {NEW_JSON_MAPPING_PATH.resolve()}")
-    except Exception as e:
-        print("-" * 30)
-        print(f"Error saving new JSON mapping: {e}")
+    raise RuntimeError("Could not locate repo root containing paths.py and .env")
 
-# --- Final Summary ---
-print("-" * 30)
-print(f"Preprocessing Summary:")
-print(f"  Target Dimensions: {TARGET_WIDTH}x{TARGET_HEIGHT}")
-print(f"  Processed Entries: {processed_count}")
-print(f"  Skipped Entries:   {skipped_count}")
-print(f"  Processed images saved to: {PROCESSED_IMAGES_FOLDER.resolve()}")
-print(f"  Processed masks saved to:  {PROCESSED_MASKS_FOLDER.resolve()}")
+
+# --- canonical paths from root ---
+from paths import (
+    TARGET_SIZE, TARGET_WIDTH, TARGET_HEIGHT,
+    RAW_IMAGE_MAPPING_JSON,
+    TRAIN_MANUAL_PROCESSED_DIR,
+    MANUAL_MASKS_DIR,
+    MANUAL_THRESHOLD_MAPPING,
+)
+
+# derive training output subdirs
+PROCESSED_IMAGES_DIR = TRAIN_MANUAL_PROCESSED_DIR / "images"
+PROCESSED_MASKS_DIR  = TRAIN_MANUAL_PROCESSED_DIR / "masks"
+
+
+# ======== CONFIG ========
+IMAGE_INTERP = cv2.INTER_LINEAR
+MASK_INTERP  = cv2.INTER_NEAREST
+
+# ======== ARGS ========
+parser = argparse.ArgumentParser(
+    description="Resize images and masks for training from manual+threshold mappings; optionally add blanks from raw mapping."
+)
+parser.add_argument(
+    "--mapping",
+    nargs="+",
+    default=[str(MANUAL_THRESHOLD_MAPPING)],
+    help="One or more JSON mapping files (manual/threshold masks).",
+)
+parser.add_argument(
+    "--image-mapping",
+    default=str(RAW_IMAGE_MAPPING_JSON),
+    help='Path to the raw image mapping JSON that contains "Blank" flags.',
+)
+parser.add_argument(
+    "--output",
+    default=None,
+    help="Optional output base folder. Defaults to TRAIN_MANUAL_PROCESSED_DIR.",
+)
+args = parser.parse_args()
+
+# ======== OUTPUT FOLDERS ========
+out_base   = Path(args.output) if args.output else TRAIN_MANUAL_PROCESSED_DIR
+images_out = PROCESSED_IMAGES_DIR
+masks_out  = PROCESSED_MASKS_DIR
+
+for d in (out_base, images_out, masks_out):
+    d.mkdir(parents=True, exist_ok=True)
+print(f"Writing processed data to: {out_base}")
+
+# ======== LOAD & MERGE MANUAL MASK MAPPINGS ========
+master_map = {}
+for jm in args.mapping:
+    jm = Path(jm)
+    if not jm.exists():
+        raise FileNotFoundError(f"Mapping JSON not found: {jm}")
+    master_map.update(json.loads(jm.read_text()))
+print(f"Loaded {len(master_map)} manual-mask entries from {len(args.mapping)} JSON(s)")
+
+# ======== (OPTIONAL) LOAD IMAGE MAPPING WITH BLANK FLAGS ========
+image_map = {}
+if args.image_mapping:
+    imap_p = Path(args.image_mapping)
+    if not imap_p.exists():
+        raise FileNotFoundError(f"Image mapping JSON not found: {imap_p}")
+    image_map = json.loads(imap_p.read_text())
+    print(f"Loaded {len(image_map)} entries from raw image mapping (for blanks)")
+
+# ======== PROCESS MANUAL MASKS FIRST ========
+new_map = {}
+proc = skip = 0
+
+for img_id, info in master_map.items():
+    img_raw  = info.get("Best Z Filename", "")  # source image
+    mask_raw = info.get("MT Mask Path", "")     # manual mask
+    img_p = Path(img_raw)
+    msk_p = Path(mask_raw)
+
+    if not img_p.exists():
+        skip += 1
+        continue
+
+    img = cv2.imread(str(img_p))
+    if img is None:
+        skip += 1
+        continue
+
+    if not msk_p.exists():
+        # If there isn't a manual mask, skip it here; blanks may add it below.
+        skip += 1
+        continue
+
+    msk = cv2.imread(str(msk_p), cv2.IMREAD_GRAYSCALE)
+    if msk is None:
+        skip += 1
+        continue
+
+    # resize
+    img_rs  = cv2.resize(img, TARGET_SIZE, interpolation=IMAGE_INTERP)
+    msk_rs  = cv2.resize(msk, TARGET_SIZE, interpolation=MASK_INTERP)
+    msk_bin = (msk_rs > 0).astype(np.uint8)
+
+    # save
+    out_img = images_out / f"{img_id}.png"
+    out_msk = masks_out  / f"{img_id}_mask.png"
+    cv2.imwrite(str(out_img), img_rs)
+    cv2.imwrite(str(out_msk), msk_bin)
+
+    # record
+    new_map[img_id] = {
+        "img_path":  str(out_img.resolve()),
+        "mask_path": str(out_msk.resolve()),
+        "dayID":     info.get("dayID"),
+        "BA":        info.get("BA"),
+        "wellID":    info.get("wellID"),
+    }
+    proc += 1
+
+# ======== SECOND PASS: ADD BLANKS FROM RAW IMAGE MAPPING ========
+blank_added = 0
+blank_skipped = 0
+
+if image_map:
+    for img_id, info in image_map.items():
+        # only add if flagged Blank == True and not already present (i.e., no manual mask processed)
+        if not info.get("Blank", False):
+            continue
+        if img_id in new_map:
+            blank_skipped += 1
+            continue
+
+        img_raw = info.get("Best Z Filename", "")
+        img_p = Path(img_raw)
+        if not img_p.exists():
+            blank_skipped += 1
+            continue
+
+        img = cv2.imread(str(img_p))
+        if img is None:
+            blank_skipped += 1
+            continue
+
+        # resize + make blank mask
+        img_rs  = cv2.resize(img, TARGET_SIZE, interpolation=IMAGE_INTERP)
+        msk_bin = np.zeros((TARGET_SIZE[1], TARGET_SIZE[0]), dtype=np.uint8)  # (H, W)
+
+        out_img = images_out / f"{img_id}.png"
+        out_msk = masks_out  / f"{img_id}_mask.png"
+        cv2.imwrite(str(out_img), img_rs)
+        cv2.imwrite(str(out_msk), msk_bin)
+
+        new_map[img_id] = {
+            "img_path":  str(out_img.resolve()),
+            "mask_path": str(out_msk.resolve()),
+            "dayID":     info.get("dayID"),
+            "BA":        info.get("BA"),
+            "wellID":    info.get("wellID"),
+        }
+        blank_added += 1
+
+# ======== DUMP NEW MAPPING ========
+new_json = out_base / f"mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json"
+with open(new_json, "w") as f:
+    json.dump(new_map, f, indent=2)
+
+# ======== SUMMARY ========
+print(f"Processed (manual masks): {proc}, Skipped: {skip}")
+if image_map:
+    print(f"Added blanks from image mapping: {blank_added}, Skipped blanks: {blank_skipped}")
+print(f"New mapping JSON: {new_json}")

@@ -442,120 +442,98 @@ class ImageMapper:
 
     def make_mapping_json(self, out_json: Path):
         """
-        Loop through metadata → build one 'full_id' per (dayID, batchPlate, wellID)
-        → ask resolve_filename() once → store results in a JSON file.
-        Enhanced logging for debugging.
+        Build mapping and write a wrapped JSON:
+        {
+            "_base_folder": "<absolute prefix>",
+            "entries": { ... per-image entries with RELATIVE paths ... }
+        }
         """
+        import os
+
+        def to_rel(p: Path) -> Path:
+            """Return p relative to base_dir if possible; otherwise best-effort relpath."""
+            p = Path(p)
+            try:
+                return p.relative_to(self.base_dir)
+            except ValueError:
+                # Fall back to a relative path string (handles symlinks/mounts)
+                return Path(os.path.relpath(p, self.base_dir))
+
         logging.info("Generating key-mapping JSON…")
 
         cleaned = self.clean_metadata()
         grouped = cleaned.groupby(["dayID", "batchPlate", "wellID"])
-        mapping = {}
-        
-        # Statistics for debugging
+        mapping: dict[str, dict] = {}
+
         total_groups = len(grouped)
         stitched_count = 0
         found_count = 0
-        
         logging.info(f"Processing {total_groups} unique combinations")
 
         for (day_id, batch_plate, well_id), group_df in grouped:
             logging.info(f"Processing {batch_plate} {day_id} {well_id}")
 
-            # ───────────────────────────────────────────────────────── full_id
-            parts = batch_plate.split()                    # e.g. ['Ba2', '96_1']
-            ba_str = " ".join([parts[0].upper(), *parts[1:]])  # 'BA2 96_1' | 'BA4'
+            parts = batch_plate.split()
+            ba_str = " ".join([parts[0].upper(), *parts[1:]])
             raw_full_id = f"{ba_str} {day_id} {well_id}"
             full_id = clean_id_for_json(raw_full_id)
-            logging.debug(f"Constructed full ID: {full_id}")
 
-            # ───────────────────────────────────────────────────────── pick folder
-            ba_part = parts[0].upper()                        # BA1 / BA2 / BA3 …
-            sub = self.BA_FOLDER_MAP[ba_part]             # str or [str, str]
-
+            ba_part = parts[0].upper()
+            sub = self.BA_FOLDER_MAP[ba_part]  # str or [str, str]
             if isinstance(sub, list):
-                # BA2 ⇢ pick the 96_1 / 96_2 sub-folder that matches the batchPlate
                 plate_suffix = parts[1] if len(parts) > 1 else ""
                 sub = next((s for s in sub if plate_suffix in s), sub[0])
-                logging.debug(f"Selected subfolder {sub} for {plate_suffix}")
 
             img_folder = self.base_dir / sub / day_id
             if not img_folder.exists():
                 logging.warning(f"Image folder does not exist: {img_folder}")
                 continue
 
-            # ───────────────────────────────────────────────────────── find file
-            result = self.resolve_filename(full_id, img_folder, batch_plate)
-            chosen, stitched_flag, all_files, stitched_groups = result
-            # extract expected well from the mapping loop vars
-            expected_well = well_id  # from the grouped key (e.g., "A1")
+            chosen, stitched_flag, all_files, stitched_groups = self.resolve_filename(
+                raw_full_id, img_folder, batch_plate
+            )
+
+            expected_well = well_id
 
             def has_well(fname: str, well: str) -> bool:
                 return re.search(rf"\b{re.escape(well)}\b", fname, re.IGNORECASE) is not None
 
-            # If the chosen file doesn't contain the expected well ID,
-            # try to pick a candidate that *does*.
             if chosen is not None and not has_well(chosen.name, expected_well):
                 good = [f for f in (all_files or []) if has_well(f.name, expected_well)]
                 if good:
-                    # pick best focus among the matching-well candidates
                     idx = self.find_best_focus(good)
                     chosen = good[idx if 0 <= idx < len(good) else 0]
-                    stitched_flag = "No" if stitched_flag not in ("Stitched", "Multiple_Stitched") else stitched_flag
+                    if stitched_flag not in ("Stitched", "Multiple_Stitched"):
+                        stitched_flag = "No"
                     logging.warning(
-                        f"Well mismatch: expected {expected_well}, switching to {chosen.name} "
-                        f"from candidates that matched."
+                        f"Well mismatch: expected {expected_well}, switching to {chosen.name}"
                     )
                 else:
-                    # If nothing matches the expected well, safest is to SKIP this mapping
                     logging.error(
-                        f"Well mismatch for {full_id}: expected {expected_well}, "
-                        f"no candidate contains it. Skipping."
+                        f"Well mismatch for {raw_full_id}: expected {expected_well}, none matched. Skipping."
                     )
 
-            
             if chosen is None and stitched_flag != "Multiple_Stitched":
-                continue  # resolve_filename already logged the failure
+                continue
 
-            # Handle multiple stitched groups - create separate entries for each
+            # --- Multiple stitched groups: create one entry per group
             if stitched_flag == "Multiple_Stitched" and stitched_groups:
                 logging.info(f"Processing {len(stitched_groups)} stitched groups for {full_id}")
-                
                 for identifier, group_files in stitched_groups.items():
-                    # Sort files in this group by Z-index
                     group_files.sort(key=extract_z)
-                    
-                    logging.info(f"  Processing stitched group '{identifier}' with {len(group_files)} files:")
-                    for i, f in enumerate(group_files):
-                        z_val = extract_z(f)
-                        logging.info(f"    {i}: {f.name} (Z={z_val})")
-                    
-                    # Find best focus within this stitched group
                     best_idx = self.find_best_focus(group_files)
-                    if 0 <= best_idx < len(group_files):
-                        final_file = group_files[best_idx]
-                        focus_idx = best_idx
-                    else:
-                        final_file = group_files[0]  # Fallback to first file
-                        focus_idx = 0
-                    
-                    logging.info(f"    Best focus for group '{identifier}': {final_file.name} (idx {focus_idx})")
-                    
-                    # Create unique full_id for this stitched group
-                    # Clean the stitched identifier for JSON key use
+                    final_file = group_files[best_idx] if 0 <= best_idx < len(group_files) else group_files[0]
+
                     safe_identifier = re.sub(r"[^\w\s]", "", identifier).strip().replace(" ", "_")
                     stitched_full_id = f"{full_id} [{safe_identifier}]"
+                    clean_stitched_id = clean_id_for_json(stitched_full_id)
 
-                    
-                    # Extract actual Z-value for reference
                     z_match = re.search(r' Z(\d+)', final_file.name, re.IGNORECASE)
                     actual_z = int(z_match.group(1)) if z_match else 0
-                    
+
                     found_count += 1
                     stitched_count += 1
-                    
-                    # Record this stitched group
-                    clean_stitched_id = clean_id_for_json(stitched_full_id)
+
                     is_blank, area_frac = is_blankish_file(final_file)
 
                     mapping[clean_stitched_id] = {
@@ -563,73 +541,71 @@ class ImageMapper:
                         "BA": ba_str,
                         "wellID": well_id,
                         "stitched_identifier": identifier,
-                        "Best Z": focus_idx,
-                        "Best Z Filename": str(final_file),
+                        "Best Z": best_idx,
+                        "Best Z Filename": str(to_rel(final_file)),                 # RELATIVE
                         "Actual Z Value": actual_z,
                         "Classification": "Stitched",
                         "um_per_px": float(group_df["um_per_px"].iloc[0]),
-                        "all_files": [str(f) for f in group_files],
+                        "all_files": [str(to_rel(f)) for f in group_files],         # RELATIVE
                         "cellLine": group_df["cellLine"].iloc[0],
                         "treatment": group_df["treatment"].iloc[0],
                         "Blank": bool(is_blank),
-                        "blank_area_frac": float(area_frac)
-
+                        "blank_area_frac": float(area_frac),
                     }
-                
-                continue  # Move to next group - we've processed all stitched variants
+                continue  # done with this (day,ba,well)
 
-            # Handle single stitched file or regular files
+            # --- Single stitched or regular case
             found_count += 1
             if stitched_flag == "Stitched":
                 stitched_count += 1
 
-            # stitched stack → find best focus among stitched files; otherwise choose best-focus Z
             if stitched_flag == "Stitched":
                 focus_idx = -1
                 final = chosen
                 z_match = re.search(r' Z(\d+)', chosen.name, re.IGNORECASE)
                 actual_z = int(z_match.group(1)) if z_match else 0
-                logging.info(f"Using stitched image: {chosen.name} (Z={actual_z})")
             else:
                 idx = self.find_best_focus(all_files)
                 focus_idx = idx if 0 <= idx < len(all_files) else -1
                 final = all_files[focus_idx] if focus_idx >= 0 else chosen
-                logging.info(f"Using best focus image (idx {focus_idx}): {final.name}")
+                z_match = re.search(r' Z(\d+)', final.name, re.IGNORECASE)
+                actual_z = int(z_match.group(1)) if z_match else 0
 
-            # ───────────────────────────────────────────────────────── record row
             classification = classify_image_file(final.name)
             is_blank, area_frac = is_blankish_file(final)
 
-            row_data = {
+            mapping[full_id] = {
                 "dayID": day_id,
                 "BA": ba_str,
                 "wellID": well_id,
                 "Best Z": focus_idx,
-                "Best Z Filename": str(final),
+                "Best Z Filename": str(to_rel(final)),                  # RELATIVE
+                "Actual Z Value": actual_z,
                 "Classification": classification,
                 "um_per_px": float(group_df["um_per_px"].iloc[0]),
-                "all_files": [str(f) for f in all_files],
+                "all_files": [str(to_rel(f)) for f in all_files],       # RELATIVE
                 "cellLine": group_df["cellLine"].iloc[0],
                 "treatment": group_df["treatment"].iloc[0],
                 "Blank": bool(is_blank),
-                "blank_area_frac": float(area_frac)
-
+                "blank_area_frac": float(area_frac),
             }
 
-            clean_full_id = clean_id_for_json(full_id)
-            mapping[clean_full_id] = row_data
-
-
-        # Final statistics
-        logging.info(f"=== MAPPING SUMMARY ===")
+        # Final stats
+        logging.info("=== MAPPING SUMMARY ===")
         logging.info(f"Total groups processed: {total_groups}")
         logging.info(f"Files found: {found_count}")
         logging.info(f"Stitched images detected: {stitched_count}")
         logging.info(f"Success rate: {found_count/total_groups*100:.1f}%")
-        logging.info(f"Stitched rate: {stitched_count/found_count*100:.1f}%" if found_count > 0 else "Stitched rate: 0%")
+        logging.info(f"Stitched rate: {stitched_count/max(found_count,1)*100:.1f}%")
 
-        out_json.write_text(json.dumps(mapping, indent=2))
-        logging.info(f"Wrote mapping JSON to {out_json}")
+        # --- WRAP and write
+        wrapped = {
+            "_base_folder": str(self.base_dir.resolve()),
+            "entries": mapping,
+        }
+        out_json.parent.mkdir(parents=True, exist_ok=True)
+        out_json.write_text(json.dumps(wrapped, indent=2))
+        logging.info(f"Wrote mapping JSON (wrapped) to {out_json}")
 
 
     def find_best_focus(self, files: list[Path]) -> int:

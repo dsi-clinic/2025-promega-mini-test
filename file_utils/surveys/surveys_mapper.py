@@ -1,13 +1,21 @@
+import sys, os, json, glob, re
+from pathlib import Path
 import pandas as pd
-import glob
-import re
-import json
 from collections import defaultdict
+
+# --- Locate repo root (contains paths.py and .env) ---
+HERE = Path(__file__).resolve()
+root = next((p for p in HERE.parents if (p / "paths.py").exists() and (p / ".env").exists()), None)
+if not root:
+    raise RuntimeError("Could not locate repo root containing paths.py and .env")
+
+sys.path.insert(0, str(root))
+os.chdir(str(root))  # optional but helps if paths.py uses relative paths
+
 from paths import SURVEY_RESULTS, SURVEY_AGGREGATED_JSON
 
 input_dir = str(SURVEY_RESULTS)
 print("SURVEY_RESULTS =", input_dir)
-
 
 def parse_image_id(image_id):
     cleaned = re.sub(r"\(.*?\)", "", image_id)       # remove parentheses
@@ -82,7 +90,7 @@ def process_organoid_files(directory):
 
                         # Debug: log missing parsed_meta if needed
                         if parsed_meta == {}:
-                            print(f"Unparsed image_id: {image_id_cleaned} from {organoid_id} in {os.path.basename(file)}")
+                            print(f"Unparsed image_id: {image_id_clean} from {organoid_id} in {os.path.basename(file)}")
 
         except Exception as e:
             print(f"Error processing file {file}: {e}")
@@ -92,8 +100,8 @@ def process_organoid_files(directory):
 
 if __name__ == "__main__":
     result = process_organoid_files(input_dir)
-    print(f"Final count: {len(result)} organoids")
+    print(f"Final count: {len(result)} image_ids")
     SURVEY_AGGREGATED_JSON.parent.mkdir(parents=True, exist_ok=True)
-    with open(SURVEY_AGGREGATED_JSON, 'w') as f:
+    with open(SURVEY_AGGREGATED_JSON, "w") as f:
         json.dump(result, f, indent=2)
     print(f"Wrote: {SURVEY_AGGREGATED_JSON}")
