@@ -3,9 +3,7 @@ import logging
 from pathlib import Path
 
 from dotenv import load_dotenv, find_dotenv
-from file_utils.images.scripts.image_mapper import ImageMapper
-from file_utils.images import paths
-
+from paths import ORIGINAL_MAPPING, PROCESSED_DATA_DIR, OUTPUT_FOLDER, BASE_PATH
 
 # Configure logging
 logging.basicConfig(

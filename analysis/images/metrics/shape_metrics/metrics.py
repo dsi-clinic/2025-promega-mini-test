@@ -13,6 +13,9 @@ from concurrent.futures import ProcessPoolExecutor
 
 import re
 from pathlib import Path
+from paths import PROCESSED_DATA_DIR
+root = Path(PROCESSED_DATA_DIR)
+
 
 def parse_batch_day_from_key(key: str):
     s = re.sub(r'[_\-]+', ' ', key).strip()  # normalize separators
@@ -149,7 +152,7 @@ def process_entry(entry):
 
 
 def main():
-    root = Path("/net/projects2/promega/data-analysis/output/processed_dataset_512x384/auto_processed")
+    root = Path(PROCESSED_DATA_DIR)
     out_csv = root / "morphology_timbre_metrics.csv"
 
     json_paths = list(root.rglob("image_mapping_*_processed.json"))

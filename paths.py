@@ -41,3 +41,11 @@ MANUAL_MAPPING_DIR      = require_env_path("MANUAL_MAPPING_DIR")
 MANUAL_PROCESSED_DIR    = require_env_path("MANUAL_PROCESSED_DIR")
 MANUAL_SPLITS_DIR       = require_env_path("MANUAL_SPLITS_DIR")
 MAPPING_PROCESSED_TOTAL = require_env_path("MAPPING_PROCESSED_TOTAL")
+
+# --- Surveys (inputs & aggregated output) ---
+SURVEY_AGGREGATED_JSON = SURVEY_RESULTS / "organoid_surveys_aggregated.json"
+
+# --- Metabolites (source xlsx & mapping output) ---
+METABOLITE_DATA_DIR   = BASE_PATH / "metabolite_data"
+METABOLITE_SOURCE_XLSX = METABOLITE_DATA_DIR / "metabolite_data_07_23_25.xlsx"
+METABOLITE_MAP_JSON    = METABOLITE_DATA_DIR / "metabolite_map.json"

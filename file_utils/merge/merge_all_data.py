@@ -9,13 +9,15 @@ from glob import glob
 from tqdm import tqdm
 
 # ───────── paths ─────────────────────────────────────────────────────────
-from dotenv import load_dotenv, find_dotenv
+from pathlib import Path
+from paths import ORIGINAL_MAPPING, PROCESSED_PARENT_DIR, BASE_PATH, METABOLITE_MAP_JSON, SURVEY_AGGREGATED_JSON
 
-load_dotenv(find_dotenv(), override=True)
-base_image_mapping_path = os.getenv("ORIGINAL_MAPPING")
-#processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
-metabolite_json_path = os.path.join(os.getenv("BASE_PATH"), "metabolite_data", "metabolite_map.json")
-survey_json_path = "analysis/surveys/agreement_aggregations/organoid_surveys_aggregated.json"
+base_image_mapping_path = ORIGINAL_MAPPING
+# processed_root_dir = PROCESSED_DATA_DIR  # if/when you need it
+
+metabolite_json_path = METABOLITE_MAP_JSON
+survey_json_path    = SURVEY_AGGREGATED_JSON
+processed_parent = str(PROCESSED_PARENT_DIR)
 
 output_path             = 'all_data.json'
 
@@ -78,14 +80,9 @@ def load_json(path):
 base_map     = {norm_key(k): v for k, v in load_json(base_image_mapping_path).items()}
 metab_map    = {norm_key(k): v for k, v in load_json(metabolite_json_path).items()}
 
-# # processed – iterate over many small files
-# processed_map = {}
-# for p in pathlib.Path(processed_root_dir).rglob("image_mapping_*_processed.json"):
-#     for k, v in load_json(p).items():
-#         processed_map[norm_key(k)] = v
 
 processed_map = {}
-processed_parent = os.getenv("PROCESSED_PARENT_DIR")
+
 
 for p in pathlib.Path(processed_parent).rglob("image_mapping_*_processed.json"):
     if "auto_processed" in str(p):

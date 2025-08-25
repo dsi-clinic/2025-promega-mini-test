@@ -1,13 +1,10 @@
-import pandas as pd
-import json
-import os
-
-# Path on your cluster
-excel_path = "/net/projects2/promega/data-analysis/metabolite_data/metabolite_data_07_23_25.xlsx"
-output_json_path = os.path.join(os.path.dirname(excel_path), "metabolite_map.json")
+import pandas as pd, json
+from paths import METABOLITE_SOURCE_XLSX, METABOLITE_MAP_JSON
+excel_path = METABOLITE_SOURCE_XLSX
+output_json_path = METABOLITE_MAP_JSON
 
 # Read Excel sheet
-df = pd.read_excel(excel_path, sheet_name="Experimental Values")
+df = pd.read_excel(METABOLITE_SOURCE_XLSX, sheet_name="Experimental Values")
 
 # Normalize column names (strip and lowercase for consistency)
 df.columns = [col.strip().lower() for col in df.columns]
@@ -44,7 +41,9 @@ for _, row in df.iterrows():
     except Exception as e:
         print(f"Skipping row due to error: {e}")
 
+
 # Save the JSON
+output_json_path.parent.mkdir(parents=True, exist_ok=True)
 with open(output_json_path, "w") as f:
     json.dump(metabolite_map, f, indent=2)
 

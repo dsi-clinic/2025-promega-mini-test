@@ -1,15 +1,13 @@
 import pandas as pd
 import glob
-import os
 import re
 import json
 from collections import defaultdict
-from dotenv import load_dotenv, find_dotenv
+from paths import SURVEY_RESULTS, SURVEY_AGGREGATED_JSON
 
-# Load .env with override
-load_dotenv(find_dotenv(), override=True)
-input_dir = os.getenv("SURVEY_RESULTS")
+input_dir = str(SURVEY_RESULTS)
 print("SURVEY_RESULTS =", input_dir)
+
 
 def parse_image_id(image_id):
     cleaned = re.sub(r"\(.*?\)", "", image_id)       # remove parentheses
@@ -84,7 +82,7 @@ def process_organoid_files(directory):
 
                         # Debug: log missing parsed_meta if needed
                         if parsed_meta == {}:
-                            print(f"Unparsed image_id: {image_id_clean} from {organoid_id} in {os.path.basename(file)}")
+                            print(f"Unparsed image_id: {image_id_cleaned} from {organoid_id} in {os.path.basename(file)}")
 
         except Exception as e:
             print(f"Error processing file {file}: {e}")
@@ -95,5 +93,7 @@ def process_organoid_files(directory):
 if __name__ == "__main__":
     result = process_organoid_files(input_dir)
     print(f"Final count: {len(result)} organoids")
-    with open('organoid_surveys_aggregated.json', 'w') as f:
+    SURVEY_AGGREGATED_JSON.parent.mkdir(parents=True, exist_ok=True)
+    with open(SURVEY_AGGREGATED_JSON, 'w') as f:
         json.dump(result, f, indent=2)
+    print(f"Wrote: {SURVEY_AGGREGATED_JSON}")

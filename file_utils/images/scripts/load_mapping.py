@@ -5,8 +5,8 @@ import logging
 import os
 from pathlib import Path
 
-# Get JSON path from environment variable
-JSON_MAPPING_PATH = os.getenv("JSON_MAPPING_FILE")
+from paths import ORIGINAL_MAPPING
+JSON_MAPPING_PATH = ORIGINAL_MAPPING
 
 
 def load_json_mapping(json_path: str | Path) -> dict:
