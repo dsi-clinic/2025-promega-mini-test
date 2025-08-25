@@ -1,63 +1,36 @@
+from __future__ import annotations
 from pathlib import Path
 import glob
-import os
-from dotenv import load_dotenv, find_dotenv
 
-load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
-
-# ---------- helpers ----------
-def require_env_path(key: str) -> Path:
-    v = os.environ.get(key)
-    if not v:
-        raise KeyError(f"Missing required env var: {key}")
-    return Path(v)
-
-# ---------- load .env ----------
-env_path = find_dotenv()
-if not load_dotenv(env_path):
-    raise RuntimeError(f"Failed to load .env (tried: {env_path})")
-
-# ---------- core env-backed paths ----------
-BASE_PATH            = require_env_path("BASE_PATH")
-OUTPUT_FOLDER        = require_env_path("OUTPUT_FOLDER")
-PLOTS_FOLDER         = require_env_path("PLOTS_FOLDER")
-PREDICTIONS_DIR      = require_env_path("PREDICTIONS_DIR")
-ORIGINAL_MAPPING     = require_env_path("ORIGINAL_MAPPING")
-MANUAL_MAPPING_DIR   = require_env_path("MANUAL_MAPPING_DIR")
-MANUAL_PROCESSED_DIR = require_env_path("MANUAL_PROCESSED_DIR")
-
-# ---------- sizes ----------
-TARGET_WIDTH  = int(os.environ.get("TARGET_WIDTH", "584"))
-TARGET_HEIGHT = int(os.environ.get("TARGET_HEIGHT", "384"))
-TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
-
-# ---------- manual masks ----------
-MANUAL_MASKS_DIR         = BASE_PATH / "manual_masks"
-MANUAL_THRESHOLD_MAPPING = MANUAL_MASKS_DIR / "image_mapping_thresholded_and_manual.json"
-
-MANUAL_MASK_FOLDERS = [
-    Path(p) for p in glob.glob(str(MANUAL_MASKS_DIR / "masks-batch-*"))
-    if Path(p).is_dir()
-]
-
-# ---------- processed dataset (resized) ----------
-PROCESSED_IMAGES_DIR = MANUAL_PROCESSED_DIR / "images"
-PROCESSED_MASKS_DIR  = MANUAL_PROCESSED_DIR / "masks"
-MAPPING_PROCESSED_TOTAL = (
-    MANUAL_PROCESSED_DIR / f"mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json"
+# import all canonical paths from root
+from paths import (
+    BASE_PATH, OUTPUT_FOLDER, PLOTS_FOLDER, LOGS_FOLDER, NPY_OUTPUTS,
+    PREDICTIONS_DIR, SURVEY_RESULTS, META_FILE,
+    TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, TARGET_SUFFIX,
+    PREPROCESSED_DIR, PROCESSED_PARENT_DIR, PROCESSED_DATA_DIR,
+    MANUAL_MASKS_DIR, MANUAL_MAPPING_DIR, MANUAL_PROCESSED_DIR, MANUAL_SPLITS_DIR,
+    MAPPING_PROCESSED_TOTAL, CONFIG_FILE_PATH, CHECKPOINT_FILE_PATH,
 )
-PROCESSED_DATA_DIR = require_env_path("PROCESSED_DATA_DIR")
 
-# ---------- predictions ----------
-OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR  # single source of truth
+# Some existing folders under plots use "512by384" instead of "512x384".
+# Keep the current convention to avoid breaking paths. If you standardize later, change this once.
+BY_SUFFIX = f"{TARGET_WIDTH}by{TARGET_HEIGHT}"
 
-# ---------- SegFormer model locations ----------
 EARLY_MODEL = {
-    "config": PLOTS_FOLDER / "segformer_masks/512by384/models/early/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/512by384/models/early/iter_1000.pth",
+    "config":     PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/early/vis_data/config.py",
+    "checkpoint": PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/early/iter_1000.pth",
+}
+LATE_MODEL = {
+    "config":     PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/late/vis_data/config.py",
+    "checkpoint": PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/late/iter_1000.pth",
 }
 
-LATE_MODEL = {
-    "config": PLOTS_FOLDER / "segformer_masks/512by384/models/late/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / "segformer_masks/512by384/models/late/iter_1000.pth",
-}
+MANUAL_THRESHOLD_MAPPING = MANUAL_MASKS_DIR / "image_mapping_thresholded_and_manual.json"
+OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR
+PROCESSED_IMAGES_DIR  = MANUAL_PROCESSED_DIR / "images"
+PROCESSED_MASKS_DIR   = MANUAL_PROCESSED_DIR / "masks"
+
+# dynamic discovery (existing behavior preserved)
+MANUAL_MASK_FOLDERS = [
+    Path(p) for p in glob.glob(str(MANUAL_MASKS_DIR / "masks-batch-*")) if Path(p).is_dir()
+]

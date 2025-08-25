@@ -1,0 +1,857 @@
+Token	File	Line	Snippet
+BASE_PATH	token_usages_prior.tsv	2	BASE_PATH	run.sh	33	echo "BASE_PATH: $BASE_PATH"
+BASE_PATH	token_usages_prior.tsv	3	BASE_PATH	paths.py	27	BASE_PATH         = require_env_path("BASE_PATH")
+BASE_PATH	token_usages_prior.tsv	4	BASE_PATH	config.py	37	BASE_PATH      = _get_path("BASE_PATH", "data")
+BASE_PATH	token_usages_prior.tsv	5	BASE_PATH	.env	2	BASE_PATH=/net/projects2/promega/data-analysis
+BASE_PATH	token_usages_prior.tsv	6	BASE_PATH	.env	6	PLOTS_FOLDER=${BASE_PATH}/plots
+BASE_PATH	token_usages_prior.tsv	7	BASE_PATH	.env	7	LOGS_FOLDER=${BASE_PATH}/logs
+BASE_PATH	token_usages_prior.tsv	8	BASE_PATH	.env	8	NPY_OUTPUTS=${BASE_PATH}/npy_outputs
+BASE_PATH	token_usages_prior.tsv	9	BASE_PATH	.env	9	PREDICTIONS_DIR=${BASE_PATH}/predictions
+BASE_PATH	token_usages_prior.tsv	10	BASE_PATH	.env	13	SURVEY_RESULTS=${BASE_PATH}/results_surveys
+BASE_PATH	token_usages_prior.tsv	11	BASE_PATH	.env	31	MANUAL_MASKS_DIR=${BASE_PATH}/manual_masks
+BASE_PATH	token_usages_prior.tsv	12	BASE_PATH	analysis/images/segmentation_mmseg/paths.py	21	BASE_PATH            = require_env_path("BASE_PATH")
+BASE_PATH	token_usages_prior.tsv	13	BASE_PATH	analysis/images/segmentation_mmseg/paths.py	35	MANUAL_MASKS_DIR         = BASE_PATH / "manual_masks"
+BASE_PATH	token_usages_prior.tsv	14	BASE_PATH	file_utils/merge/merge_all_data.py	17	metabolite_json_path = os.path.join(os.getenv("BASE_PATH"), "metabolite_data", "metabolite_map.json")
+BASE_PATH	token_usages_prior.tsv	15	BASE_PATH	file_utils/merge/merge_all_data.py	17	metabolite_json_path = os.path.join(os.getenv("BASE_PATH"), "metabolite_data", "metabolite_map.json")
+BASE_PATH	token_usages_prior.tsv	16	BASE_PATH	file_utils/images/paths.py	8	BASE_PATH = Path(os.getenv("BASE_PATH"))
+BASE_PATH	token_usages_prior.tsv	17	BASE_PATH	file_utils/images/paths.py	8	BASE_PATH = Path(os.getenv("BASE_PATH"))
+BASE_PATH	token_usages_prior.tsv	18	BASE_PATH	file_utils/images/scripts/mapping_system.py	24	logging.info(f"BASE_PATH     = {paths.BASE_PATH}")
+BASE_PATH	token_usages_prior.tsv	19	BASE_PATH	file_utils/images/scripts/mapping_system.py	28	self.base_path     = paths.BASE_PATH
+BASE_PATH	token_usages_prior.tsv	36	LOGS_FOLDER	.env	7	LOGS_FOLDER=${BASE_PATH}/logs
+BASE_PATH	token_usages_prior.tsv	47	MANUAL_MASKS_DIR	.env	31	MANUAL_MASKS_DIR=${BASE_PATH}/manual_masks
+BASE_PATH	token_usages_prior.tsv	48	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	35	MANUAL_MASKS_DIR         = BASE_PATH / "manual_masks"
+BASE_PATH	token_usages_prior.tsv	97	NPY_OUTPUTS	.env	8	NPY_OUTPUTS=${BASE_PATH}/npy_outputs
+BASE_PATH	token_usages_prior.tsv	132	PLOTS_FOLDER	.env	6	PLOTS_FOLDER=${BASE_PATH}/plots
+BASE_PATH	token_usages_prior.tsv	141	PREDICTIONS_DIR	.env	9	PREDICTIONS_DIR=${BASE_PATH}/predictions
+BASE_PATH	token_usages_prior.tsv	175	SURVEY_RESULTS	.env	13	SURVEY_RESULTS=${BASE_PATH}/results_surveys
+BASE_PATH	token_usages_prior.tsv	14	BASE_PATH	file_utils/merge/merge_all_data.py	17	metabolite_json_path = os.path.join(os.getenv("BASE_PATH"), "metabolite_data", "metabolite_map.json")
+BASE_PATH	token_usages_prior.tsv	15	BASE_PATH	file_utils/merge/merge_all_data.py	17	metabolite_json_path = os.path.join(os.getenv("BASE_PATH"), "metabolite_data", "metabolite_map.json")
+BASE_PATH	token_usages_prior.tsv	16	BASE_PATH	file_utils/images/paths.py	8	BASE_PATH = Path(os.getenv("BASE_PATH"))
+BASE_PATH	token_usages_prior.tsv	17	BASE_PATH	file_utils/images/paths.py	8	BASE_PATH = Path(os.getenv("BASE_PATH"))
+BASE_PATH	run.sh	33	echo "BASE_PATH: $BASE_PATH"
+BASE_PATH	paths.py	22	BASE_PATH               = require_env_path("BASE_PATH")
+BASE_PATH	all_paths_catalog_prior.csv	2	.env,.env,BASE_PATH,/net/projects2/promega/data-analysis,/net/projects2/promega/data-analysis,/net/projects2/promega/data-analysis,OK,,
+BASE_PATH	all_paths_catalog_prior.csv	4	.env,.env,PLOTS_FOLDER,${BASE_PATH}/plots,/net/projects2/promega/data-analysis/plots,/net/projects2/promega/data-analysis/plots,OK,,
+BASE_PATH	all_paths_catalog_prior.csv	5	.env,.env,LOGS_FOLDER,${BASE_PATH}/logs,/net/projects2/promega/data-analysis/logs,/net/projects2/promega/data-analysis/logs,OK,,
+BASE_PATH	all_paths_catalog_prior.csv	6	.env,.env,NPY_OUTPUTS,${BASE_PATH}/npy_outputs,/net/projects2/promega/data-analysis/npy_outputs,/net/projects2/promega/data-analysis/npy_outputs,OK,,
+BASE_PATH	all_paths_catalog_prior.csv	7	.env,.env,PREDICTIONS_DIR,${BASE_PATH}/predictions,/net/projects2/promega/data-analysis/predictions,/net/projects2/promega/data-analysis/predictions,OK,,
+BASE_PATH	all_paths_catalog_prior.csv	9	.env,.env,SURVEY_RESULTS,${BASE_PATH}/results_surveys,/net/projects2/promega/data-analysis/results_surveys,/net/projects2/promega/data-analysis/results_surveys,OK,,
+BASE_PATH	all_paths_catalog_prior.csv	16	.env,.env,MANUAL_MASKS_DIR,${BASE_PATH}/manual_masks,/net/projects2/promega/data-analysis/manual_masks,/net/projects2/promega/data-analysis/manual_masks,OK,,
+BASE_PATH	all_paths_catalog_prior.csv	21	.env,.env,CONFIG_FILE_PATH,${PLOTS_FOLDER}/segformer_masks/20250422_215204/vis_data/config.py,${BASE_PATH}/plots/segformer_masks/20250422_215204/vis_data/config.py,/home/amandabrooke/2025-promega-mini-test/${BASE_PATH}/plots/segformer_masks/20250422_215204/vis_data/config.py,MISSING,,
+BASE_PATH	all_paths_catalog_prior.csv	22	.env,.env,CHECKPOINT_FILE_PATH,${PLOTS_FOLDER}/segformer_masks/iter_1000.pth,${BASE_PATH}/plots/segformer_masks/iter_1000.pth,/home/amandabrooke/2025-promega-mini-test/${BASE_PATH}/plots/segformer_masks/iter_1000.pth,MISSING,,
+BASE_PATH	all_paths_catalog_prior.csv	23	paths.py,paths.py,BASE_PATH,"require_env_path(""BASE_PATH"")","require_env_path(""BASE_PATH"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""BASE_PATH"")",MISSING,YES,unevaluated
+BASE_PATH	all_paths_catalog_prior.csv	53	paths.py,analysis/images/segmentation_mmseg/paths.py,BASE_PATH,"require_env_path(""BASE_PATH"")","require_env_path(""BASE_PATH"")","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/require_env_path(""BASE_PATH"")",MISSING,YES,unevaluated
+BASE_PATH	all_paths_catalog_prior.csv	75	paths.py,analysis/images/segmentation_mmseg/paths.py,MANUAL_MASKS_DIR,"BASE_PATH / ""manual_masks""","BASE_PATH / ""manual_masks""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/BASE_PATH / ""manual_masks""",MISSING,YES,unevaluated
+BASE_PATH	all_paths_catalog_prior.csv	101	paths.py,file_utils/images/paths.py,BASE_PATH,.,.,/home/amandabrooke/2025-promega-mini-test/file_utils/images,OK,YES,
+BASE_PATH	config.py	37	BASE_PATH      = _get_path("BASE_PATH", "data")
+BASE_PATH	.env	2	BASE_PATH=/net/projects2/promega/data-analysis
+BASE_PATH	.env	3	OUTPUT_FOLDER=${BASE_PATH}/output
+BASE_PATH	.env	4	PLOTS_FOLDER=${BASE_PATH}/plots
+BASE_PATH	.env	5	LOGS_FOLDER=${BASE_PATH}/logs
+BASE_PATH	.env	6	NPY_OUTPUTS=${BASE_PATH}/npy_outputs
+BASE_PATH	.env	7	PREDICTIONS_DIR=${BASE_PATH}/predictions
+BASE_PATH	.env	8	SURVEY_RESULTS=${BASE_PATH}/results_surveys
+BASE_PATH	.env	9	MANUAL_MASKS_DIR=${BASE_PATH}/manual_masks
+BASE_PATH	.env	10	META_FILE=${BASE_PATH}/Sample-Tracing.xlsx
+BASE_PATH	analysis/images/segmentation_mmseg/paths.py	7	BASE_PATH, OUTPUT_FOLDER, PLOTS_FOLDER, LOGS_FOLDER, NPY_OUTPUTS,
+BASE_PATH	file_utils/merge/merge_all_data.py	17	metabolite_json_path = os.path.join(os.getenv("BASE_PATH"), "metabolite_data", "metabolite_map.json")
+BASE_PATH	file_utils/merge/merge_all_data.py	17	metabolite_json_path = os.path.join(os.getenv("BASE_PATH"), "metabolite_data", "metabolite_map.json")
+BASE_PATH	file_utils/images/paths.py	1	from paths import BASE_PATH, OUTPUT_FOLDER, META_FILE
+BASE_PATH	file_utils/images/scripts/mapping_system.py	24	logging.info(f"BASE_PATH     = {paths.BASE_PATH}")
+BASE_PATH	file_utils/images/scripts/mapping_system.py	28	self.base_path     = paths.BASE_PATH
+BY_SUFFIX	analysis/images/segmentation_mmseg/paths.py	17	BY_SUFFIX = f"{TARGET_WIDTH}by{TARGET_HEIGHT}"
+BY_SUFFIX	analysis/images/segmentation_mmseg/paths.py	20	"config":     PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/early/vis_data/config.py",
+BY_SUFFIX	analysis/images/segmentation_mmseg/paths.py	21	"checkpoint": PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/early/iter_1000.pth",
+BY_SUFFIX	analysis/images/segmentation_mmseg/paths.py	24	"config":     PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/late/vis_data/config.py",
+BY_SUFFIX	analysis/images/segmentation_mmseg/paths.py	25	"checkpoint": PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/late/iter_1000.pth",
+CHECKPOINT_FILE_PATH	token_usages_prior.tsv	20	CHECKPOINT_FILE_PATH	config.py	64	CHECKPOINT_FILE_PATH = _get_path("CHECKPOINT_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/iter_1000.pth")
+CHECKPOINT_FILE_PATH	token_usages_prior.tsv	21	CHECKPOINT_FILE_PATH	.env	39	CHECKPOINT_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/iter_1000.pth
+CHECKPOINT_FILE_PATH	token_usages_prior.tsv	22	CHECKPOINT_FILE_PATH	analysis/images/segmentation_mmseg/predict_masks.py	92	CHECKPOINT_FILE_PATH = model_info["checkpoint"]
+CHECKPOINT_FILE_PATH	token_usages_prior.tsv	23	CHECKPOINT_FILE_PATH	analysis/images/segmentation_mmseg/predict_masks.py	97	model = init_model(str(CONFIG_FILE_PATH), str(CHECKPOINT_FILE_PATH), device=device)
+CHECKPOINT_FILE_PATH	token_usages_prior.tsv	27	CONFIG_FILE_PATH	analysis/images/segmentation_mmseg/predict_masks.py	97	model = init_model(str(CONFIG_FILE_PATH), str(CHECKPOINT_FILE_PATH), device=device)
+CHECKPOINT_FILE_PATH	token_usages_prior.tsv	131	PLOTS_FOLDER	config.py	64	CHECKPOINT_FILE_PATH = _get_path("CHECKPOINT_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/iter_1000.pth")
+CHECKPOINT_FILE_PATH	token_usages_prior.tsv	134	PLOTS_FOLDER	.env	39	CHECKPOINT_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/iter_1000.pth
+CHECKPOINT_FILE_PATH	all_paths_catalog_prior.csv	22	.env,.env,CHECKPOINT_FILE_PATH,${PLOTS_FOLDER}/segformer_masks/iter_1000.pth,${BASE_PATH}/plots/segformer_masks/iter_1000.pth,/home/amandabrooke/2025-promega-mini-test/${BASE_PATH}/plots/segformer_masks/iter_1000.pth,MISSING,,
+CHECKPOINT_FILE_PATH	config.py	64	CHECKPOINT_FILE_PATH = _get_path("CHECKPOINT_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/iter_1000.pth")
+CHECKPOINT_FILE_PATH	.env	27	CHECKPOINT_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/iter_1000.pth
+CHECKPOINT_FILE_PATH	analysis/images/segmentation_mmseg/paths.py	12	MAPPING_PROCESSED_TOTAL, CONFIG_FILE_PATH, CHECKPOINT_FILE_PATH,
+CONFIG_FILE_PATH	token_usages_prior.tsv	23	CHECKPOINT_FILE_PATH	analysis/images/segmentation_mmseg/predict_masks.py	97	model = init_model(str(CONFIG_FILE_PATH), str(CHECKPOINT_FILE_PATH), device=device)
+CONFIG_FILE_PATH	token_usages_prior.tsv	24	CONFIG_FILE_PATH	config.py	63	CONFIG_FILE_PATH   = _get_path("CONFIG_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/config.py")
+CONFIG_FILE_PATH	token_usages_prior.tsv	25	CONFIG_FILE_PATH	.env	38	CONFIG_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/20250422_215204/vis_data/config.py
+CONFIG_FILE_PATH	token_usages_prior.tsv	26	CONFIG_FILE_PATH	analysis/images/segmentation_mmseg/predict_masks.py	91	CONFIG_FILE_PATH = model_info["config"]
+CONFIG_FILE_PATH	token_usages_prior.tsv	27	CONFIG_FILE_PATH	analysis/images/segmentation_mmseg/predict_masks.py	97	model = init_model(str(CONFIG_FILE_PATH), str(CHECKPOINT_FILE_PATH), device=device)
+CONFIG_FILE_PATH	token_usages_prior.tsv	130	PLOTS_FOLDER	config.py	63	CONFIG_FILE_PATH   = _get_path("CONFIG_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/config.py")
+CONFIG_FILE_PATH	token_usages_prior.tsv	133	PLOTS_FOLDER	.env	38	CONFIG_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/20250422_215204/vis_data/config.py
+CONFIG_FILE_PATH	all_paths_catalog_prior.csv	21	.env,.env,CONFIG_FILE_PATH,${PLOTS_FOLDER}/segformer_masks/20250422_215204/vis_data/config.py,${BASE_PATH}/plots/segformer_masks/20250422_215204/vis_data/config.py,/home/amandabrooke/2025-promega-mini-test/${BASE_PATH}/plots/segformer_masks/20250422_215204/vis_data/config.py,MISSING,,
+CONFIG_FILE_PATH	config.py	63	CONFIG_FILE_PATH   = _get_path("CONFIG_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/config.py")
+CONFIG_FILE_PATH	.env	26	CONFIG_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/20250422_215204/vis_data/config.py
+CONFIG_FILE_PATH	analysis/images/segmentation_mmseg/paths.py	12	MAPPING_PROCESSED_TOTAL, CONFIG_FILE_PATH, CHECKPOINT_FILE_PATH,
+EARLY_MODEL	token_usages_prior.tsv	28	EARLY_MODEL	analysis/images/segmentation_mmseg/paths.py	55	EARLY_MODEL = {
+EARLY_MODEL	token_usages_prior.tsv	29	EARLY_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	10	from paths import EARLY_MODEL, LATE_MODEL
+EARLY_MODEL	token_usages_prior.tsv	30	EARLY_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	87	model_info = EARLY_MODEL
+EARLY_MODEL	token_usages_prior.tsv	32	LATE_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	10	from paths import EARLY_MODEL, LATE_MODEL
+EARLY_MODEL	all_paths_catalog_prior.csv	54	paths.py,analysis/images/segmentation_mmseg/paths.py,EARLY_MODEL,"{
+EARLY_MODEL	analysis/images/segmentation_mmseg/paths.py	19	EARLY_MODEL = {
+EARLY_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	6	from paths import EARLY_MODEL, LATE_MODEL
+EARLY_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	38	model_info = EARLY_MODEL if model_type == "early" else LATE_MODEL
+LATE_MODEL	token_usages_prior.tsv	29	EARLY_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	10	from paths import EARLY_MODEL, LATE_MODEL
+LATE_MODEL	token_usages_prior.tsv	31	LATE_MODEL	analysis/images/segmentation_mmseg/paths.py	60	LATE_MODEL = {
+LATE_MODEL	token_usages_prior.tsv	32	LATE_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	10	from paths import EARLY_MODEL, LATE_MODEL
+LATE_MODEL	token_usages_prior.tsv	33	LATE_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	89	model_info = LATE_MODEL
+LATE_MODEL	all_paths_catalog_prior.csv	64	paths.py,analysis/images/segmentation_mmseg/paths.py,LATE_MODEL,"{
+LATE_MODEL	analysis/images/segmentation_mmseg/paths.py	23	LATE_MODEL = {
+LATE_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	6	from paths import EARLY_MODEL, LATE_MODEL
+LATE_MODEL	analysis/images/segmentation_mmseg/predict_masks.py	38	model_info = EARLY_MODEL if model_type == "early" else LATE_MODEL
+LOGS_FOLDER	token_usages_prior.tsv	7	BASE_PATH	.env	7	LOGS_FOLDER=${BASE_PATH}/logs
+LOGS_FOLDER	token_usages_prior.tsv	34	LOGS_FOLDER	paths.py	30	LOGS_FOLDER       = require_env_path("LOGS_FOLDER")
+LOGS_FOLDER	token_usages_prior.tsv	35	LOGS_FOLDER	config.py	40	LOGS_FOLDER    = _get_path("LOGS_FOLDER", "logs")
+LOGS_FOLDER	token_usages_prior.tsv	36	LOGS_FOLDER	.env	7	LOGS_FOLDER=${BASE_PATH}/logs
+LOGS_FOLDER	paths.py	25	LOGS_FOLDER             = require_env_path("LOGS_FOLDER")
+LOGS_FOLDER	all_paths_catalog_prior.csv	5	.env,.env,LOGS_FOLDER,${BASE_PATH}/logs,/net/projects2/promega/data-analysis/logs,/net/projects2/promega/data-analysis/logs,OK,,
+LOGS_FOLDER	all_paths_catalog_prior.csv	24	paths.py,paths.py,LOGS_FOLDER,"require_env_path(""LOGS_FOLDER"")","require_env_path(""LOGS_FOLDER"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""LOGS_FOLDER"")",MISSING,,unevaluated
+LOGS_FOLDER	config.py	40	LOGS_FOLDER    = _get_path("LOGS_FOLDER", "logs")
+LOGS_FOLDER	.env	5	LOGS_FOLDER=${BASE_PATH}/logs
+LOGS_FOLDER	analysis/images/segmentation_mmseg/paths.py	7	BASE_PATH, OUTPUT_FOLDER, PLOTS_FOLDER, LOGS_FOLDER, NPY_OUTPUTS,
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	37	MANUAL_MAPPING_DIR	paths.py	50	MANUAL_MAPPING_DIR       = require_env_path("MANUAL_MAPPING_DIR")
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	38	MANUAL_MAPPING_DIR	config.py	58	MANUAL_MAPPING_DIR    = _get_path("MANUAL_MAPPING_DIR", f"{PREPROCESSED_DIR}/manual_mappings")
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	39	MANUAL_MAPPING_DIR	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	40	MANUAL_MAPPING_DIR	.env	32	MANUAL_MAPPING_DIR=${PREPROCESSED_DIR}/manual_mappings
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	41	MANUAL_MAPPING_DIR	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	42	MANUAL_MAPPING_DIR	analysis/images/segmentation_mmseg/paths.py	26	MANUAL_MAPPING_DIR   = require_env_path("MANUAL_MAPPING_DIR")
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	63	MANUAL_PROCESSED_DIR	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	66	MANUAL_PROCESSED_DIR	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	146	PREPROCESSED_DIR	config.py	58	MANUAL_MAPPING_DIR    = _get_path("MANUAL_MAPPING_DIR", f"{PREPROCESSED_DIR}/manual_mappings")
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	149	PREPROCESSED_DIR	.env	32	MANUAL_MAPPING_DIR=${PREPROCESSED_DIR}/manual_mappings
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	188	TARGET_HEIGHT	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	249	TARGET_SUFFIX	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+MANUAL_MAPPING_DIR	token_usages_prior.tsv	260	TARGET_WIDTH	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_MAPPING_DIR	paths.py	40	MANUAL_MAPPING_DIR      = require_env_path("MANUAL_MAPPING_DIR")
+MANUAL_MAPPING_DIR	all_paths_catalog_prior.csv	17	.env,.env,MANUAL_MAPPING_DIR,${PREPROCESSED_DIR}/manual_mappings,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,MISSING,,
+MANUAL_MAPPING_DIR	all_paths_catalog_prior.csv	18	.env,.env,MANUAL_PROCESSED_DIR,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT},${PREPROCESSED_DIR}/manual_mappings/processed_512x384,/home/amandabrooke/2025-promega-mini-test/${PREPROCESSED_DIR}/manual_mappings/processed_512x384,MISSING,,
+MANUAL_MAPPING_DIR	all_paths_catalog_prior.csv	19	.env,.env,MANUAL_SPLITS_DIR,${MANUAL_PROCESSED_DIR}/split,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,MISSING,,
+MANUAL_MAPPING_DIR	all_paths_catalog_prior.csv	20	.env,.env,MAPPING_PROCESSED_TOTAL,${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,MISSING,,
+MANUAL_MAPPING_DIR	all_paths_catalog_prior.csv	25	paths.py,paths.py,MANUAL_MAPPING_DIR,"require_env_path(""MANUAL_MAPPING_DIR"")","require_env_path(""MANUAL_MAPPING_DIR"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""MANUAL_MAPPING_DIR"")",MISSING,,unevaluated
+MANUAL_MAPPING_DIR	all_paths_catalog_prior.csv	74	paths.py,analysis/images/segmentation_mmseg/paths.py,MANUAL_MAPPING_DIR,"require_env_path(""MANUAL_MAPPING_DIR"")","require_env_path(""MANUAL_MAPPING_DIR"")","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/require_env_path(""MANUAL_MAPPING_DIR"")",MISSING,,unevaluated
+MANUAL_MAPPING_DIR	config.py	58	MANUAL_MAPPING_DIR    = _get_path("MANUAL_MAPPING_DIR", f"{PREPROCESSED_DIR}/manual_mappings")
+MANUAL_MAPPING_DIR	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+MANUAL_MAPPING_DIR	.env	20	MANUAL_MAPPING_DIR=${PREPROCESSED_DIR}/manual_mappings
+MANUAL_MAPPING_DIR	.env	21	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_MAPPING_DIR	analysis/images/segmentation_mmseg/paths.py	11	MANUAL_MASKS_DIR, MANUAL_MAPPING_DIR, MANUAL_PROCESSED_DIR, MANUAL_SPLITS_DIR,
+MANUAL_MASKS_DIR	token_usages_prior.tsv	11	BASE_PATH	.env	31	MANUAL_MASKS_DIR=${BASE_PATH}/manual_masks
+MANUAL_MASKS_DIR	token_usages_prior.tsv	13	BASE_PATH	analysis/images/segmentation_mmseg/paths.py	35	MANUAL_MASKS_DIR         = BASE_PATH / "manual_masks"
+MANUAL_MASKS_DIR	token_usages_prior.tsv	43	MANUAL_MASKS_DIR	paths.py	39	MANUAL_MASKS_DIR    = require_env_path("MANUAL_MASKS_DIR")
+MANUAL_MASKS_DIR	token_usages_prior.tsv	44	MANUAL_MASKS_DIR	paths.py	41	MANUAL_MASKS_DIR / "Manuais",
+MANUAL_MASKS_DIR	token_usages_prior.tsv	45	MANUAL_MASKS_DIR	paths.py	42	MANUAL_MASKS_DIR / "Treshold"
+MANUAL_MASKS_DIR	token_usages_prior.tsv	46	MANUAL_MASKS_DIR	config.py	57	MANUAL_MASKS_DIR      = _get_path("MANUAL_MASKS_DIR", "manual_masks")
+MANUAL_MASKS_DIR	token_usages_prior.tsv	47	MANUAL_MASKS_DIR	.env	31	MANUAL_MASKS_DIR=${BASE_PATH}/manual_masks
+MANUAL_MASKS_DIR	token_usages_prior.tsv	48	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	35	MANUAL_MASKS_DIR         = BASE_PATH / "manual_masks"
+MANUAL_MASKS_DIR	token_usages_prior.tsv	49	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	36	MANUAL_THRESHOLD_MAPPING = MANUAL_MASKS_DIR / "image_mapping_thresholded_and_manual.json"
+MANUAL_MASKS_DIR	token_usages_prior.tsv	50	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	39	Path(p) for p in glob.glob(str(MANUAL_MASKS_DIR / "masks-batch-*"))
+MANUAL_MASKS_DIR	token_usages_prior.tsv	51	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	9	from paths import ORIGINAL_MAPPING, MANUAL_MASKS_DIR  # <- only use these
+MANUAL_MASKS_DIR	token_usages_prior.tsv	52	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	13	OUTPUT_PATH = Path(MANUAL_MASKS_DIR) / "image_mapping_thresholded_and_manual.json"
+MANUAL_MASKS_DIR	token_usages_prior.tsv	53	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	47	batch_dirs = discover_batch_dirs(Path(MANUAL_MASKS_DIR))
+MANUAL_MASKS_DIR	token_usages_prior.tsv	54	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	51	print("[FATAL] Found 0 mask files. Check MANUAL_MASKS_DIR.")
+MANUAL_MASKS_DIR	token_usages_prior.tsv	55	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/datasets/day_datasets.py	32	MASKS_FOLDER = Path(os.environ["MANUAL_MASKS_DIR"])
+MANUAL_MASKS_DIR	token_usages_prior.tsv	77	MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/paths.py	36	MANUAL_THRESHOLD_MAPPING = MANUAL_MASKS_DIR / "image_mapping_thresholded_and_manual.json"
+MANUAL_MASKS_DIR	token_usages_prior.tsv	106	ORIGINAL_MAPPING	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	9	from paths import ORIGINAL_MAPPING, MANUAL_MASKS_DIR  # <- only use these
+MANUAL_MASKS_DIR	paths.py	39	MANUAL_MASKS_DIR        = require_env_path("MANUAL_MASKS_DIR")
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	16	.env,.env,MANUAL_MASKS_DIR,${BASE_PATH}/manual_masks,/net/projects2/promega/data-analysis/manual_masks,/net/projects2/promega/data-analysis/manual_masks,OK,,
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	26	paths.py,paths.py,MANUAL_MASKS_DIR,"require_env_path(""MANUAL_MASKS_DIR"")","require_env_path(""MANUAL_MASKS_DIR"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""MANUAL_MASKS_DIR"")",MISSING,YES,unevaluated
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	28	MANUAL_MASKS_DIR / ""Manuais"",
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	29	MANUAL_MASKS_DIR / ""Treshold""
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	31	MANUAL_MASKS_DIR / ""Manuais"",
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	32	MANUAL_MASKS_DIR / ""Treshold""
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	34	MANUAL_MASKS_DIR / ""Manuais"",
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	35	MANUAL_MASKS_DIR / ""Treshold""
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	75	paths.py,analysis/images/segmentation_mmseg/paths.py,MANUAL_MASKS_DIR,"BASE_PATH / ""manual_masks""","BASE_PATH / ""manual_masks""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/BASE_PATH / ""manual_masks""",MISSING,YES,unevaluated
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	77	Path(p) for p in glob.glob(str(MANUAL_MASKS_DIR / ""masks-batch-*""))
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	80	Path(p) for p in glob.glob(str(MANUAL_MASKS_DIR / ""masks-batch-*""))
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	83	Path(p) for p in glob.glob(str(MANUAL_MASKS_DIR / ""masks-batch-*""))
+MANUAL_MASKS_DIR	all_paths_catalog_prior.csv	87	paths.py,analysis/images/segmentation_mmseg/paths.py,MANUAL_THRESHOLD_MAPPING,"MANUAL_MASKS_DIR / ""image_mapping_thresholded_and_manual.json""","MANUAL_MASKS_DIR / ""image_mapping_thresholded_and_manual.json""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/MANUAL_MASKS_DIR / ""image_mapping_thresholded_and_manual.json""",MISSING,,unevaluated
+MANUAL_MASKS_DIR	config.py	57	MANUAL_MASKS_DIR      = _get_path("MANUAL_MASKS_DIR", "manual_masks")
+MANUAL_MASKS_DIR	.env	9	MANUAL_MASKS_DIR=${BASE_PATH}/manual_masks
+MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	11	MANUAL_MASKS_DIR, MANUAL_MAPPING_DIR, MANUAL_PROCESSED_DIR, MANUAL_SPLITS_DIR,
+MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	28	MANUAL_THRESHOLD_MAPPING = MANUAL_MASKS_DIR / "image_mapping_thresholded_and_manual.json"
+MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	35	Path(p) for p in glob.glob(str(MANUAL_MASKS_DIR / "masks-batch-*")) if Path(p).is_dir()
+MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	9	from paths import ORIGINAL_MAPPING, MANUAL_MASKS_DIR  # <- only use these
+MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	13	OUTPUT_PATH = Path(MANUAL_MASKS_DIR) / "image_mapping_thresholded_and_manual.json"
+MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	47	batch_dirs = discover_batch_dirs(Path(MANUAL_MASKS_DIR))
+MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	51	print("[FATAL] Found 0 mask files. Check MANUAL_MASKS_DIR.")
+MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/datasets/day_datasets.py	32	MASKS_FOLDER = Path(os.environ["MANUAL_MASKS_DIR"])
+MANUAL_MASK_FOLDERS	token_usages_prior.tsv	56	MANUAL_MASK_FOLDERS	paths.py	40	MANUAL_MASK_FOLDERS = [
+MANUAL_MASK_FOLDERS	token_usages_prior.tsv	57	MANUAL_MASK_FOLDERS	analysis/images/segmentation_mmseg/paths.py	38	MANUAL_MASK_FOLDERS = [
+MANUAL_MASK_FOLDERS	token_usages_prior.tsv	58	MANUAL_MASK_FOLDERS	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	46	# *** new: discover batches here, ignore MANUAL_MASK_FOLDERS entirely
+MANUAL_MASK_FOLDERS	all_paths_catalog_prior.csv	27	paths.py,paths.py,MANUAL_MASK_FOLDERS,"[
+MANUAL_MASK_FOLDERS	all_paths_catalog_prior.csv	76	paths.py,analysis/images/segmentation_mmseg/paths.py,MANUAL_MASK_FOLDERS,"[
+MANUAL_MASK_FOLDERS	analysis/images/segmentation_mmseg/paths.py	34	MANUAL_MASK_FOLDERS = [
+MANUAL_MASK_FOLDERS	analysis/images/segmentation_mmseg/preprocessing/manual_masks_mapping.py	46	# *** new: discover batches here, ignore MANUAL_MASK_FOLDERS entirely
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	39	MANUAL_MAPPING_DIR	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	41	MANUAL_MAPPING_DIR	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	59	MANUAL_PROCESSED_DIR	paths.py	51	MANUAL_PROCESSED_DIR     = require_env_path("MANUAL_PROCESSED_DIR")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	60	MANUAL_PROCESSED_DIR	paths.py	52	PROCESSED_IMAGES_DIR     = MANUAL_PROCESSED_DIR / "images"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	61	MANUAL_PROCESSED_DIR	paths.py	53	PROCESSED_MASKS_DIR      = MANUAL_PROCESSED_DIR / "masks"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	62	MANUAL_PROCESSED_DIR	paths.py	56	MANUAL_SPLITS_DIR        = MANUAL_PROCESSED_DIR / "split"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	63	MANUAL_PROCESSED_DIR	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	64	MANUAL_PROCESSED_DIR	config.py	60	MANUAL_SPLITS_DIR     = _get_path("MANUAL_SPLITS_DIR", f"{MANUAL_PROCESSED_DIR}/split")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	65	MANUAL_PROCESSED_DIR	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	66	MANUAL_PROCESSED_DIR	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	67	MANUAL_PROCESSED_DIR	.env	34	MANUAL_SPLITS_DIR=${MANUAL_PROCESSED_DIR}/split
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	68	MANUAL_PROCESSED_DIR	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	69	MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	27	MANUAL_PROCESSED_DIR = require_env_path("MANUAL_PROCESSED_DIR")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	70	MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	44	PROCESSED_IMAGES_DIR = MANUAL_PROCESSED_DIR / "images"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	71	MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	45	PROCESSED_MASKS_DIR  = MANUAL_PROCESSED_DIR / "masks"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	72	MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	47	MANUAL_PROCESSED_DIR / f"mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	73	MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/datasets/day_datasets.py	34	PREPROCESSED_FOLDER = Path(os.environ["MANUAL_PROCESSED_DIR"])
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	74	MANUAL_SPLITS_DIR	paths.py	56	MANUAL_SPLITS_DIR        = MANUAL_PROCESSED_DIR / "split"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	75	MANUAL_SPLITS_DIR	config.py	60	MANUAL_SPLITS_DIR     = _get_path("MANUAL_SPLITS_DIR", f"{MANUAL_PROCESSED_DIR}/split")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	76	MANUAL_SPLITS_DIR	.env	34	MANUAL_SPLITS_DIR=${MANUAL_PROCESSED_DIR}/split
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	81	MAPPING_PROCESSED_TOTAL	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	82	MAPPING_PROCESSED_TOTAL	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	160	PROCESSED_IMAGES_DIR	paths.py	52	PROCESSED_IMAGES_DIR     = MANUAL_PROCESSED_DIR / "images"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	161	PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/paths.py	44	PROCESSED_IMAGES_DIR = MANUAL_PROCESSED_DIR / "images"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	165	PROCESSED_MASKS_DIR	paths.py	53	PROCESSED_MASKS_DIR      = MANUAL_PROCESSED_DIR / "masks"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	166	PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	45	PROCESSED_MASKS_DIR  = MANUAL_PROCESSED_DIR / "masks"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	188	TARGET_HEIGHT	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	189	TARGET_HEIGHT	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	236	TARGET_SIZE	analysis/images/segmentation_mmseg/paths.py	47	MANUAL_PROCESSED_DIR / f"mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json"
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	249	TARGET_SUFFIX	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	250	TARGET_SUFFIX	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	260	TARGET_WIDTH	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_PROCESSED_DIR	token_usages_prior.tsv	261	TARGET_WIDTH	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MANUAL_PROCESSED_DIR	paths.py	41	MANUAL_PROCESSED_DIR    = require_env_path("MANUAL_PROCESSED_DIR")
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	18	.env,.env,MANUAL_PROCESSED_DIR,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT},${PREPROCESSED_DIR}/manual_mappings/processed_512x384,/home/amandabrooke/2025-promega-mini-test/${PREPROCESSED_DIR}/manual_mappings/processed_512x384,MISSING,,
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	19	.env,.env,MANUAL_SPLITS_DIR,${MANUAL_PROCESSED_DIR}/split,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,MISSING,,
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	20	.env,.env,MAPPING_PROCESSED_TOTAL,${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,MISSING,,
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	37	paths.py,paths.py,MANUAL_PROCESSED_DIR,"require_env_path(""MANUAL_PROCESSED_DIR"")","require_env_path(""MANUAL_PROCESSED_DIR"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""MANUAL_PROCESSED_DIR"")",MISSING,,unevaluated
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	38	paths.py,paths.py,MANUAL_SPLITS_DIR,"MANUAL_PROCESSED_DIR / ""split""","MANUAL_PROCESSED_DIR / ""split""","/home/amandabrooke/2025-promega-mini-test/MANUAL_PROCESSED_DIR / ""split""",MISSING,,unevaluated
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	46	paths.py,paths.py,PROCESSED_IMAGES_DIR,"MANUAL_PROCESSED_DIR / ""images""","MANUAL_PROCESSED_DIR / ""images""","/home/amandabrooke/2025-promega-mini-test/MANUAL_PROCESSED_DIR / ""images""",MISSING,,unevaluated
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	47	paths.py,paths.py,PROCESSED_MASKS_DIR,"MANUAL_PROCESSED_DIR / ""masks""","MANUAL_PROCESSED_DIR / ""masks""","/home/amandabrooke/2025-promega-mini-test/MANUAL_PROCESSED_DIR / ""masks""",MISSING,,unevaluated
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	86	paths.py,analysis/images/segmentation_mmseg/paths.py,MANUAL_PROCESSED_DIR,"require_env_path(""MANUAL_PROCESSED_DIR"")","require_env_path(""MANUAL_PROCESSED_DIR"")","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/require_env_path(""MANUAL_PROCESSED_DIR"")",MISSING,,unevaluated
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	88	paths.py,analysis/images/segmentation_mmseg/paths.py,MAPPING_PROCESSED_TOTAL,"MANUAL_PROCESSED_DIR / f""mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json""","MANUAL_PROCESSED_DIR / f""mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/MANUAL_PROCESSED_DIR / f""mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json""",MISSING,YES,unevaluated
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	95	paths.py,analysis/images/segmentation_mmseg/paths.py,PROCESSED_IMAGES_DIR,"MANUAL_PROCESSED_DIR / ""images""","MANUAL_PROCESSED_DIR / ""images""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/MANUAL_PROCESSED_DIR / ""images""",MISSING,,unevaluated
+MANUAL_PROCESSED_DIR	all_paths_catalog_prior.csv	96	paths.py,analysis/images/segmentation_mmseg/paths.py,PROCESSED_MASKS_DIR,"MANUAL_PROCESSED_DIR / ""masks""","MANUAL_PROCESSED_DIR / ""masks""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/MANUAL_PROCESSED_DIR / ""masks""",MISSING,,unevaluated
+MANUAL_PROCESSED_DIR	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+MANUAL_PROCESSED_DIR	config.py	60	MANUAL_SPLITS_DIR     = _get_path("MANUAL_SPLITS_DIR", f"{MANUAL_PROCESSED_DIR}/split")
+MANUAL_PROCESSED_DIR	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+MANUAL_PROCESSED_DIR	.env	21	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+MANUAL_PROCESSED_DIR	.env	22	MANUAL_SPLITS_DIR=${MANUAL_PROCESSED_DIR}/split
+MANUAL_PROCESSED_DIR	.env	23	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	11	MANUAL_MASKS_DIR, MANUAL_MAPPING_DIR, MANUAL_PROCESSED_DIR, MANUAL_SPLITS_DIR,
+MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	30	PROCESSED_IMAGES_DIR  = MANUAL_PROCESSED_DIR / "images"
+MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	31	PROCESSED_MASKS_DIR   = MANUAL_PROCESSED_DIR / "masks"
+MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/datasets/day_datasets.py	34	PREPROCESSED_FOLDER = Path(os.environ["MANUAL_PROCESSED_DIR"])
+MANUAL_SPLITS_DIR	token_usages_prior.tsv	62	MANUAL_PROCESSED_DIR	paths.py	56	MANUAL_SPLITS_DIR        = MANUAL_PROCESSED_DIR / "split"
+MANUAL_SPLITS_DIR	token_usages_prior.tsv	64	MANUAL_PROCESSED_DIR	config.py	60	MANUAL_SPLITS_DIR     = _get_path("MANUAL_SPLITS_DIR", f"{MANUAL_PROCESSED_DIR}/split")
+MANUAL_SPLITS_DIR	token_usages_prior.tsv	67	MANUAL_PROCESSED_DIR	.env	34	MANUAL_SPLITS_DIR=${MANUAL_PROCESSED_DIR}/split
+MANUAL_SPLITS_DIR	token_usages_prior.tsv	74	MANUAL_SPLITS_DIR	paths.py	56	MANUAL_SPLITS_DIR        = MANUAL_PROCESSED_DIR / "split"
+MANUAL_SPLITS_DIR	token_usages_prior.tsv	75	MANUAL_SPLITS_DIR	config.py	60	MANUAL_SPLITS_DIR     = _get_path("MANUAL_SPLITS_DIR", f"{MANUAL_PROCESSED_DIR}/split")
+MANUAL_SPLITS_DIR	token_usages_prior.tsv	76	MANUAL_SPLITS_DIR	.env	34	MANUAL_SPLITS_DIR=${MANUAL_PROCESSED_DIR}/split
+MANUAL_SPLITS_DIR	paths.py	42	MANUAL_SPLITS_DIR       = require_env_path("MANUAL_SPLITS_DIR")
+MANUAL_SPLITS_DIR	all_paths_catalog_prior.csv	19	.env,.env,MANUAL_SPLITS_DIR,${MANUAL_PROCESSED_DIR}/split,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,MISSING,,
+MANUAL_SPLITS_DIR	all_paths_catalog_prior.csv	38	paths.py,paths.py,MANUAL_SPLITS_DIR,"MANUAL_PROCESSED_DIR / ""split""","MANUAL_PROCESSED_DIR / ""split""","/home/amandabrooke/2025-promega-mini-test/MANUAL_PROCESSED_DIR / ""split""",MISSING,,unevaluated
+MANUAL_SPLITS_DIR	config.py	60	MANUAL_SPLITS_DIR     = _get_path("MANUAL_SPLITS_DIR", f"{MANUAL_PROCESSED_DIR}/split")
+MANUAL_SPLITS_DIR	.env	22	MANUAL_SPLITS_DIR=${MANUAL_PROCESSED_DIR}/split
+MANUAL_SPLITS_DIR	analysis/images/segmentation_mmseg/paths.py	11	MANUAL_MASKS_DIR, MANUAL_MAPPING_DIR, MANUAL_PROCESSED_DIR, MANUAL_SPLITS_DIR,
+MANUAL_THRESHOLD_MAPPING	token_usages_prior.tsv	49	MANUAL_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	36	MANUAL_THRESHOLD_MAPPING = MANUAL_MASKS_DIR / "image_mapping_thresholded_and_manual.json"
+MANUAL_THRESHOLD_MAPPING	token_usages_prior.tsv	77	MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/paths.py	36	MANUAL_THRESHOLD_MAPPING = MANUAL_MASKS_DIR / "image_mapping_thresholded_and_manual.json"
+MANUAL_THRESHOLD_MAPPING	token_usages_prior.tsv	78	MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+MANUAL_THRESHOLD_MAPPING	token_usages_prior.tsv	79	MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	22	default=[str(MANUAL_THRESHOLD_MAPPING)],
+MANUAL_THRESHOLD_MAPPING	token_usages_prior.tsv	104	ORIGINAL_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+MANUAL_THRESHOLD_MAPPING	token_usages_prior.tsv	162	PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+MANUAL_THRESHOLD_MAPPING	token_usages_prior.tsv	167	PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+MANUAL_THRESHOLD_MAPPING	token_usages_prior.tsv	240	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+MANUAL_THRESHOLD_MAPPING	all_paths_catalog_prior.csv	87	paths.py,analysis/images/segmentation_mmseg/paths.py,MANUAL_THRESHOLD_MAPPING,"MANUAL_MASKS_DIR / ""image_mapping_thresholded_and_manual.json""","MANUAL_MASKS_DIR / ""image_mapping_thresholded_and_manual.json""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/MANUAL_MASKS_DIR / ""image_mapping_thresholded_and_manual.json""",MISSING,,unevaluated
+MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/paths.py	28	MANUAL_THRESHOLD_MAPPING = MANUAL_MASKS_DIR / "image_mapping_thresholded_and_manual.json"
+MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	22	default=[str(MANUAL_THRESHOLD_MAPPING)],
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	65	MANUAL_PROCESSED_DIR	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	68	MANUAL_PROCESSED_DIR	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	80	MAPPING_PROCESSED_TOTAL	paths.py	54	MAPPING_PROCESSED_TOTAL  = require_env_path("MAPPING_PROCESSED_TOTAL")
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	81	MAPPING_PROCESSED_TOTAL	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	82	MAPPING_PROCESSED_TOTAL	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	83	MAPPING_PROCESSED_TOTAL	analysis/images/segmentation_mmseg/paths.py	46	MAPPING_PROCESSED_TOTAL = (
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	84	MAPPING_PROCESSED_TOTAL	analysis/images/segmentation_mmseg/preprocessing/test_split.py	10	from paths import MAPPING_PROCESSED_TOTAL
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	85	MAPPING_PROCESSED_TOTAL	analysis/images/segmentation_mmseg/preprocessing/test_split.py	16	mapping_path = MAPPING_PROCESSED_TOTAL
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	86	MAPPING_PROCESSED_TOTAL	analysis/images/segmentation_mmseg/datasets/day_datasets.py	33	JSON_MAPPING_PATH = Path(os.environ["MAPPING_PROCESSED_TOTAL"])
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	189	TARGET_HEIGHT	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	250	TARGET_SUFFIX	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+MAPPING_PROCESSED_TOTAL	token_usages_prior.tsv	261	TARGET_WIDTH	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MAPPING_PROCESSED_TOTAL	paths.py	43	MAPPING_PROCESSED_TOTAL = require_env_path("MAPPING_PROCESSED_TOTAL")
+MAPPING_PROCESSED_TOTAL	all_paths_catalog_prior.csv	20	.env,.env,MAPPING_PROCESSED_TOTAL,${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,MISSING,,
+MAPPING_PROCESSED_TOTAL	all_paths_catalog_prior.csv	39	paths.py,paths.py,MAPPING_PROCESSED_TOTAL,"require_env_path(""MAPPING_PROCESSED_TOTAL"")","require_env_path(""MAPPING_PROCESSED_TOTAL"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""MAPPING_PROCESSED_TOTAL"")",MISSING,YES,unevaluated
+MAPPING_PROCESSED_TOTAL	all_paths_catalog_prior.csv	88	paths.py,analysis/images/segmentation_mmseg/paths.py,MAPPING_PROCESSED_TOTAL,"MANUAL_PROCESSED_DIR / f""mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json""","MANUAL_PROCESSED_DIR / f""mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/MANUAL_PROCESSED_DIR / f""mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json""",MISSING,YES,unevaluated
+MAPPING_PROCESSED_TOTAL	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+MAPPING_PROCESSED_TOTAL	.env	23	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+MAPPING_PROCESSED_TOTAL	analysis/images/segmentation_mmseg/paths.py	12	MAPPING_PROCESSED_TOTAL, CONFIG_FILE_PATH, CHECKPOINT_FILE_PATH,
+MAPPING_PROCESSED_TOTAL	analysis/images/segmentation_mmseg/preprocessing/test_split.py	10	from paths import MAPPING_PROCESSED_TOTAL
+MAPPING_PROCESSED_TOTAL	analysis/images/segmentation_mmseg/preprocessing/test_split.py	16	mapping_path = MAPPING_PROCESSED_TOTAL
+MAPPING_PROCESSED_TOTAL	analysis/images/segmentation_mmseg/datasets/day_datasets.py	33	JSON_MAPPING_PATH = Path(os.environ["MAPPING_PROCESSED_TOTAL"])
+META_FILE	token_usages_prior.tsv	87	META_FILE	paths.py	35	META_FILE         = require_env_path("META_FILE")
+META_FILE	token_usages_prior.tsv	88	META_FILE	config.py	44	META_FILE      = _get_path("META_FILE", "Sample-Tracing.xlsx")
+META_FILE	token_usages_prior.tsv	89	META_FILE	config.py	69	# Optional: assert META_FILE.exists(), etc. If too strict for dev, comment out.
+META_FILE	token_usages_prior.tsv	90	META_FILE	.env	12	META_FILE=/net/projects2/promega/data-analysis/Sample-Tracing.xlsx
+META_FILE	token_usages_prior.tsv	91	META_FILE	file_utils/images/paths.py	9	META_FILE = Path(os.getenv("META_FILE"))
+META_FILE	token_usages_prior.tsv	92	META_FILE	file_utils/images/paths.py	9	META_FILE = Path(os.getenv("META_FILE"))
+META_FILE	token_usages_prior.tsv	93	META_FILE	file_utils/images/scripts/mapping_system.py	25	logging.info(f"META_FILE     = {paths.META_FILE}")
+META_FILE	token_usages_prior.tsv	94	META_FILE	file_utils/images/scripts/mapping_system.py	29	self.meta_file     = paths.META_FILE
+META_FILE	token_usages_prior.tsv	91	META_FILE	file_utils/images/paths.py	9	META_FILE = Path(os.getenv("META_FILE"))
+META_FILE	token_usages_prior.tsv	92	META_FILE	file_utils/images/paths.py	9	META_FILE = Path(os.getenv("META_FILE"))
+META_FILE	paths.py	29	META_FILE               = require_env_path("META_FILE")
+META_FILE	all_paths_catalog_prior.csv	8	.env,.env,META_FILE,/net/projects2/promega/data-analysis/Sample-Tracing.xlsx,/net/projects2/promega/data-analysis/Sample-Tracing.xlsx,/net/projects2/promega/data-analysis/Sample-Tracing.xlsx,OK,,
+META_FILE	all_paths_catalog_prior.csv	40	paths.py,paths.py,META_FILE,"require_env_path(""META_FILE"")","require_env_path(""META_FILE"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""META_FILE"")",MISSING,YES,unevaluated
+META_FILE	all_paths_catalog_prior.csv	102	paths.py,file_utils/images/paths.py,META_FILE,.,.,/home/amandabrooke/2025-promega-mini-test/file_utils/images,OK,YES,
+META_FILE	config.py	44	META_FILE      = _get_path("META_FILE", "Sample-Tracing.xlsx")
+META_FILE	config.py	69	# Optional: assert META_FILE.exists(), etc. If too strict for dev, comment out.
+META_FILE	.env	10	META_FILE=${BASE_PATH}/Sample-Tracing.xlsx
+META_FILE	analysis/images/segmentation_mmseg/paths.py	8	PREDICTIONS_DIR, SURVEY_RESULTS, META_FILE,
+META_FILE	file_utils/images/paths.py	1	from paths import BASE_PATH, OUTPUT_FOLDER, META_FILE
+META_FILE	file_utils/images/scripts/mapping_system.py	25	logging.info(f"META_FILE     = {paths.META_FILE}")
+META_FILE	file_utils/images/scripts/mapping_system.py	29	self.meta_file     = paths.META_FILE
+NPY_OUTPUTS	token_usages_prior.tsv	8	BASE_PATH	.env	8	NPY_OUTPUTS=${BASE_PATH}/npy_outputs
+NPY_OUTPUTS	token_usages_prior.tsv	95	NPY_OUTPUTS	paths.py	31	NPY_OUTPUTS       = require_env_path("NPY_OUTPUTS")
+NPY_OUTPUTS	token_usages_prior.tsv	96	NPY_OUTPUTS	config.py	41	NPY_OUTPUTS    = _get_path("NPY_OUTPUTS", "npy_outputs")
+NPY_OUTPUTS	token_usages_prior.tsv	97	NPY_OUTPUTS	.env	8	NPY_OUTPUTS=${BASE_PATH}/npy_outputs
+NPY_OUTPUTS	paths.py	26	NPY_OUTPUTS             = require_env_path("NPY_OUTPUTS")
+NPY_OUTPUTS	all_paths_catalog_prior.csv	6	.env,.env,NPY_OUTPUTS,${BASE_PATH}/npy_outputs,/net/projects2/promega/data-analysis/npy_outputs,/net/projects2/promega/data-analysis/npy_outputs,OK,,
+NPY_OUTPUTS	all_paths_catalog_prior.csv	41	paths.py,paths.py,NPY_OUTPUTS,"require_env_path(""NPY_OUTPUTS"")","require_env_path(""NPY_OUTPUTS"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""NPY_OUTPUTS"")",MISSING,,unevaluated
+NPY_OUTPUTS	config.py	41	NPY_OUTPUTS    = _get_path("NPY_OUTPUTS", "npy_outputs")
+NPY_OUTPUTS	.env	6	NPY_OUTPUTS=${BASE_PATH}/npy_outputs
+NPY_OUTPUTS	analysis/images/segmentation_mmseg/paths.py	7	BASE_PATH, OUTPUT_FOLDER, PLOTS_FOLDER, LOGS_FOLDER, NPY_OUTPUTS,
+OUTPUT_FOLDER	token_usages_prior.tsv	100	ORIGINAL_MAPPING	.env	20	ORIGINAL_MAPPING=${OUTPUT_FOLDER}/image_mapping.json
+OUTPUT_FOLDER	token_usages_prior.tsv	110	OUTPUT_FOLDER	paths.py	28	OUTPUT_FOLDER     = require_env_path("OUTPUT_FOLDER")
+OUTPUT_FOLDER	token_usages_prior.tsv	111	OUTPUT_FOLDER	config.py	38	OUTPUT_FOLDER  = _get_path("OUTPUT_FOLDER", "output")
+OUTPUT_FOLDER	token_usages_prior.tsv	112	OUTPUT_FOLDER	.env	5	OUTPUT_FOLDER=/net/projects2/promega/data-analysis/output
+OUTPUT_FOLDER	token_usages_prior.tsv	113	OUTPUT_FOLDER	.env	20	ORIGINAL_MAPPING=${OUTPUT_FOLDER}/image_mapping.json
+OUTPUT_FOLDER	token_usages_prior.tsv	114	OUTPUT_FOLDER	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+OUTPUT_FOLDER	token_usages_prior.tsv	115	OUTPUT_FOLDER	.env	26	PROCESSED_PARENT_DIR=${OUTPUT_FOLDER}
+OUTPUT_FOLDER	token_usages_prior.tsv	116	OUTPUT_FOLDER	analysis/images/segmentation_mmseg/paths.py	22	OUTPUT_FOLDER        = require_env_path("OUTPUT_FOLDER")
+OUTPUT_FOLDER	token_usages_prior.tsv	117	OUTPUT_FOLDER	file_utils/images/paths.py	10	OUTPUT_FOLDER = Path(os.getenv("OUTPUT_FOLDER"))
+OUTPUT_FOLDER	token_usages_prior.tsv	118	OUTPUT_FOLDER	file_utils/images/paths.py	10	OUTPUT_FOLDER = Path(os.getenv("OUTPUT_FOLDER"))
+OUTPUT_FOLDER	token_usages_prior.tsv	119	OUTPUT_FOLDER	file_utils/images/scripts/mapping_system.py	26	logging.info(f"OUTPUT_FOLDER = {paths.OUTPUT_FOLDER}")
+OUTPUT_FOLDER	token_usages_prior.tsv	120	OUTPUT_FOLDER	file_utils/images/scripts/mapping_system.py	30	self.output_folder = paths.OUTPUT_FOLDER
+OUTPUT_FOLDER	token_usages_prior.tsv	147	PREPROCESSED_DIR	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+OUTPUT_FOLDER	token_usages_prior.tsv	170	PROCESSED_PARENT_DIR	.env	26	PROCESSED_PARENT_DIR=${OUTPUT_FOLDER}
+OUTPUT_FOLDER	token_usages_prior.tsv	187	TARGET_HEIGHT	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+OUTPUT_FOLDER	token_usages_prior.tsv	259	TARGET_WIDTH	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+OUTPUT_FOLDER	token_usages_prior.tsv	117	OUTPUT_FOLDER	file_utils/images/paths.py	10	OUTPUT_FOLDER = Path(os.getenv("OUTPUT_FOLDER"))
+OUTPUT_FOLDER	token_usages_prior.tsv	118	OUTPUT_FOLDER	file_utils/images/paths.py	10	OUTPUT_FOLDER = Path(os.getenv("OUTPUT_FOLDER"))
+OUTPUT_FOLDER	paths.py	23	OUTPUT_FOLDER           = require_env_path("OUTPUT_FOLDER")
+OUTPUT_FOLDER	all_paths_catalog_prior.csv	3	.env,.env,OUTPUT_FOLDER,/net/projects2/promega/data-analysis/output,/net/projects2/promega/data-analysis/output,/net/projects2/promega/data-analysis/output,OK,,
+OUTPUT_FOLDER	all_paths_catalog_prior.csv	12	.env,.env,ORIGINAL_MAPPING,${OUTPUT_FOLDER}/image_mapping.json,/net/projects2/promega/data-analysis/output/image_mapping.json,/net/projects2/promega/data-analysis/output/image_mapping.json,OK,,
+OUTPUT_FOLDER	all_paths_catalog_prior.csv	13	.env,.env,PREPROCESSED_DIR,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT},/net/projects2/promega/data-analysis/output/processed_dataset_512x384,/net/projects2/promega/data-analysis/output/processed_dataset_512x384,OK,,
+OUTPUT_FOLDER	all_paths_catalog_prior.csv	14	.env,.env,PROCESSED_PARENT_DIR,${OUTPUT_FOLDER},/net/projects2/promega/data-analysis/output,/net/projects2/promega/data-analysis/output,OK,,
+OUTPUT_FOLDER	all_paths_catalog_prior.csv	15	.env,.env,PROCESSED_DATA_DIR,${PREPROCESSED_DIR}/auto_processed,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,MISSING,,
+OUTPUT_FOLDER	all_paths_catalog_prior.csv	17	.env,.env,MANUAL_MAPPING_DIR,${PREPROCESSED_DIR}/manual_mappings,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,MISSING,,
+OUTPUT_FOLDER	all_paths_catalog_prior.csv	43	paths.py,paths.py,OUTPUT_FOLDER,"require_env_path(""OUTPUT_FOLDER"")","require_env_path(""OUTPUT_FOLDER"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""OUTPUT_FOLDER"")",MISSING,YES,unevaluated
+OUTPUT_FOLDER	all_paths_catalog_prior.csv	90	paths.py,analysis/images/segmentation_mmseg/paths.py,OUTPUT_FOLDER,"require_env_path(""OUTPUT_FOLDER"")","require_env_path(""OUTPUT_FOLDER"")","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/require_env_path(""OUTPUT_FOLDER"")",MISSING,YES,unevaluated
+OUTPUT_FOLDER	all_paths_catalog_prior.csv	103	paths.py,file_utils/images/paths.py,OUTPUT_FOLDER,.,.,/home/amandabrooke/2025-promega-mini-test/file_utils/images,OK,YES,
+OUTPUT_FOLDER	config.py	38	OUTPUT_FOLDER  = _get_path("OUTPUT_FOLDER", "output")
+OUTPUT_FOLDER	.env	3	OUTPUT_FOLDER=${BASE_PATH}/output
+OUTPUT_FOLDER	.env	17	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+OUTPUT_FOLDER	.env	18	PROCESSED_PARENT_DIR=${OUTPUT_FOLDER}
+OUTPUT_FOLDER	analysis/images/segmentation_mmseg/paths.py	7	BASE_PATH, OUTPUT_FOLDER, PLOTS_FOLDER, LOGS_FOLDER, NPY_OUTPUTS,
+OUTPUT_FOLDER	file_utils/images/paths.py	1	from paths import BASE_PATH, OUTPUT_FOLDER, META_FILE
+OUTPUT_FOLDER	file_utils/images/scripts/mapping_system.py	26	logging.info(f"OUTPUT_FOLDER = {paths.OUTPUT_FOLDER}")
+OUTPUT_FOLDER	file_utils/images/scripts/mapping_system.py	30	self.output_folder = paths.OUTPUT_FOLDER
+OUTPUT_MASKS_BASE_DIR	token_usages_prior.tsv	121	OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/paths.py	52	OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR  # single source of truth
+OUTPUT_MASKS_BASE_DIR	token_usages_prior.tsv	122	OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/predict_masks.py	11	from paths import PROCESSED_DATA_DIR, OUTPUT_MASKS_BASE_DIR
+OUTPUT_MASKS_BASE_DIR	token_usages_prior.tsv	123	OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/predict_masks.py	29	OUTPUT_MASKS_BASE_DIR = '/net/projects2/promega/data-analysis/predictions'
+OUTPUT_MASKS_BASE_DIR	token_usages_prior.tsv	124	OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/predict_masks.py	71	output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}_{part}" / f"day{day_str}"
+OUTPUT_MASKS_BASE_DIR	token_usages_prior.tsv	125	OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/predict_masks.py	73	output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}" / f"day{day_str}"
+OUTPUT_MASKS_BASE_DIR	token_usages_prior.tsv	143	PREDICTIONS_DIR	analysis/images/segmentation_mmseg/paths.py	52	OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR  # single source of truth
+OUTPUT_MASKS_BASE_DIR	token_usages_prior.tsv	155	PROCESSED_DATA_DIR	analysis/images/segmentation_mmseg/predict_masks.py	11	from paths import PROCESSED_DATA_DIR, OUTPUT_MASKS_BASE_DIR
+OUTPUT_MASKS_BASE_DIR	all_paths_catalog_prior.csv	91	paths.py,analysis/images/segmentation_mmseg/paths.py,OUTPUT_MASKS_BASE_DIR,PREDICTIONS_DIR,PREDICTIONS_DIR,/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/PREDICTIONS_DIR,MISSING,,unevaluated
+OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/paths.py	29	OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR
+OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/predict_masks.py	7	from paths import PROCESSED_DATA_DIR, OUTPUT_MASKS_BASE_DIR
+OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/predict_masks.py	66	output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}_{part}" / f"day{day_str}"
+OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/predict_masks.py	68	output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}" / f"day{day_str}"
+PLOTS_FOLDER	token_usages_prior.tsv	6	BASE_PATH	.env	6	PLOTS_FOLDER=${BASE_PATH}/plots
+PLOTS_FOLDER	token_usages_prior.tsv	20	CHECKPOINT_FILE_PATH	config.py	64	CHECKPOINT_FILE_PATH = _get_path("CHECKPOINT_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/iter_1000.pth")
+PLOTS_FOLDER	token_usages_prior.tsv	21	CHECKPOINT_FILE_PATH	.env	39	CHECKPOINT_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/iter_1000.pth
+PLOTS_FOLDER	token_usages_prior.tsv	24	CONFIG_FILE_PATH	config.py	63	CONFIG_FILE_PATH   = _get_path("CONFIG_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/config.py")
+PLOTS_FOLDER	token_usages_prior.tsv	25	CONFIG_FILE_PATH	.env	38	CONFIG_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/20250422_215204/vis_data/config.py
+PLOTS_FOLDER	token_usages_prior.tsv	126	PLOTS_FOLDER	run.sh	43	#     --work-dir ${PLOTS_FOLDER}/segformer_masks \
+PLOTS_FOLDER	token_usages_prior.tsv	127	PLOTS_FOLDER	run.sh	60	--work-dir "${PLOTS_FOLDER}/segformer_masks" \
+PLOTS_FOLDER	token_usages_prior.tsv	128	PLOTS_FOLDER	paths.py	29	PLOTS_FOLDER      = require_env_path("PLOTS_FOLDER")
+PLOTS_FOLDER	token_usages_prior.tsv	129	PLOTS_FOLDER	config.py	39	PLOTS_FOLDER   = _get_path("PLOTS_FOLDER", "plots")
+PLOTS_FOLDER	token_usages_prior.tsv	130	PLOTS_FOLDER	config.py	63	CONFIG_FILE_PATH   = _get_path("CONFIG_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/config.py")
+PLOTS_FOLDER	token_usages_prior.tsv	131	PLOTS_FOLDER	config.py	64	CHECKPOINT_FILE_PATH = _get_path("CHECKPOINT_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/iter_1000.pth")
+PLOTS_FOLDER	token_usages_prior.tsv	132	PLOTS_FOLDER	.env	6	PLOTS_FOLDER=${BASE_PATH}/plots
+PLOTS_FOLDER	token_usages_prior.tsv	133	PLOTS_FOLDER	.env	38	CONFIG_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/20250422_215204/vis_data/config.py
+PLOTS_FOLDER	token_usages_prior.tsv	134	PLOTS_FOLDER	.env	39	CHECKPOINT_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/iter_1000.pth
+PLOTS_FOLDER	token_usages_prior.tsv	135	PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	23	PLOTS_FOLDER         = require_env_path("PLOTS_FOLDER")
+PLOTS_FOLDER	token_usages_prior.tsv	136	PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	56	"config": PLOTS_FOLDER / "segformer_masks/512by384/models/early/vis_data/config.py",
+PLOTS_FOLDER	token_usages_prior.tsv	137	PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	57	"checkpoint": PLOTS_FOLDER / "segformer_masks/512by384/models/early/iter_1000.pth",
+PLOTS_FOLDER	token_usages_prior.tsv	138	PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	61	"config": PLOTS_FOLDER / "segformer_masks/512by384/models/late/vis_data/config.py",
+PLOTS_FOLDER	token_usages_prior.tsv	139	PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	62	"checkpoint": PLOTS_FOLDER / "segformer_masks/512by384/models/late/iter_1000.pth",
+PLOTS_FOLDER	run.sh	43	#     --work-dir ${PLOTS_FOLDER}/segformer_masks \
+PLOTS_FOLDER	run.sh	60	--work-dir "${PLOTS_FOLDER}/segformer_masks" \
+PLOTS_FOLDER	paths.py	24	PLOTS_FOLDER            = require_env_path("PLOTS_FOLDER")
+PLOTS_FOLDER	all_paths_catalog_prior.csv	4	.env,.env,PLOTS_FOLDER,${BASE_PATH}/plots,/net/projects2/promega/data-analysis/plots,/net/projects2/promega/data-analysis/plots,OK,,
+PLOTS_FOLDER	all_paths_catalog_prior.csv	21	.env,.env,CONFIG_FILE_PATH,${PLOTS_FOLDER}/segformer_masks/20250422_215204/vis_data/config.py,${BASE_PATH}/plots/segformer_masks/20250422_215204/vis_data/config.py,/home/amandabrooke/2025-promega-mini-test/${BASE_PATH}/plots/segformer_masks/20250422_215204/vis_data/config.py,MISSING,,
+PLOTS_FOLDER	all_paths_catalog_prior.csv	22	.env,.env,CHECKPOINT_FILE_PATH,${PLOTS_FOLDER}/segformer_masks/iter_1000.pth,${BASE_PATH}/plots/segformer_masks/iter_1000.pth,/home/amandabrooke/2025-promega-mini-test/${BASE_PATH}/plots/segformer_masks/iter_1000.pth,MISSING,,
+PLOTS_FOLDER	all_paths_catalog_prior.csv	44	paths.py,paths.py,PLOTS_FOLDER,"require_env_path(""PLOTS_FOLDER"")","require_env_path(""PLOTS_FOLDER"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""PLOTS_FOLDER"")",MISSING,,unevaluated
+PLOTS_FOLDER	all_paths_catalog_prior.csv	55	""config"": PLOTS_FOLDER / ""segformer_masks/512by384/models/early/vis_data/config.py"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	56	""checkpoint"": PLOTS_FOLDER / ""segformer_masks/512by384/models/early/iter_1000.pth"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	58	""config"": PLOTS_FOLDER / ""segformer_masks/512by384/models/early/vis_data/config.py"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	59	""checkpoint"": PLOTS_FOLDER / ""segformer_masks/512by384/models/early/iter_1000.pth"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	61	""config"": PLOTS_FOLDER / ""segformer_masks/512by384/models/early/vis_data/config.py"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	62	""checkpoint"": PLOTS_FOLDER / ""segformer_masks/512by384/models/early/iter_1000.pth"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	65	""config"": PLOTS_FOLDER / ""segformer_masks/512by384/models/late/vis_data/config.py"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	66	""checkpoint"": PLOTS_FOLDER / ""segformer_masks/512by384/models/late/iter_1000.pth"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	68	""config"": PLOTS_FOLDER / ""segformer_masks/512by384/models/late/vis_data/config.py"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	69	""checkpoint"": PLOTS_FOLDER / ""segformer_masks/512by384/models/late/iter_1000.pth"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	71	""config"": PLOTS_FOLDER / ""segformer_masks/512by384/models/late/vis_data/config.py"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	72	""checkpoint"": PLOTS_FOLDER / ""segformer_masks/512by384/models/late/iter_1000.pth"",
+PLOTS_FOLDER	all_paths_catalog_prior.csv	92	paths.py,analysis/images/segmentation_mmseg/paths.py,PLOTS_FOLDER,"require_env_path(""PLOTS_FOLDER"")","require_env_path(""PLOTS_FOLDER"")","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/require_env_path(""PLOTS_FOLDER"")",MISSING,,unevaluated
+PLOTS_FOLDER	config.py	39	PLOTS_FOLDER   = _get_path("PLOTS_FOLDER", "plots")
+PLOTS_FOLDER	config.py	63	CONFIG_FILE_PATH   = _get_path("CONFIG_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/config.py")
+PLOTS_FOLDER	config.py	64	CHECKPOINT_FILE_PATH = _get_path("CHECKPOINT_FILE_PATH", f"{PLOTS_FOLDER}/segformer_masks/iter_1000.pth")
+PLOTS_FOLDER	.env	4	PLOTS_FOLDER=${BASE_PATH}/plots
+PLOTS_FOLDER	.env	26	CONFIG_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/20250422_215204/vis_data/config.py
+PLOTS_FOLDER	.env	27	CHECKPOINT_FILE_PATH=${PLOTS_FOLDER}/segformer_masks/iter_1000.pth
+PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	7	BASE_PATH, OUTPUT_FOLDER, PLOTS_FOLDER, LOGS_FOLDER, NPY_OUTPUTS,
+PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	20	"config":     PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/early/vis_data/config.py",
+PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	21	"checkpoint": PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/early/iter_1000.pth",
+PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	24	"config":     PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/late/vis_data/config.py",
+PLOTS_FOLDER	analysis/images/segmentation_mmseg/paths.py	25	"checkpoint": PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/late/iter_1000.pth",
+PREDICTIONS_DIR	token_usages_prior.tsv	9	BASE_PATH	.env	9	PREDICTIONS_DIR=${BASE_PATH}/predictions
+PREDICTIONS_DIR	token_usages_prior.tsv	121	OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/paths.py	52	OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR  # single source of truth
+PREDICTIONS_DIR	token_usages_prior.tsv	140	PREDICTIONS_DIR	config.py	42	PREDICTIONS_DIR= _get_path("PREDICTIONS_DIR", "predictions")
+PREDICTIONS_DIR	token_usages_prior.tsv	141	PREDICTIONS_DIR	.env	9	PREDICTIONS_DIR=${BASE_PATH}/predictions
+PREDICTIONS_DIR	token_usages_prior.tsv	142	PREDICTIONS_DIR	analysis/images/segmentation_mmseg/paths.py	24	PREDICTIONS_DIR      = require_env_path("PREDICTIONS_DIR")
+PREDICTIONS_DIR	token_usages_prior.tsv	143	PREDICTIONS_DIR	analysis/images/segmentation_mmseg/paths.py	52	OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR  # single source of truth
+PREDICTIONS_DIR	paths.py	27	PREDICTIONS_DIR         = require_env_path("PREDICTIONS_DIR")
+PREDICTIONS_DIR	all_paths_catalog_prior.csv	7	.env,.env,PREDICTIONS_DIR,${BASE_PATH}/predictions,/net/projects2/promega/data-analysis/predictions,/net/projects2/promega/data-analysis/predictions,OK,,
+PREDICTIONS_DIR	all_paths_catalog_prior.csv	91	paths.py,analysis/images/segmentation_mmseg/paths.py,OUTPUT_MASKS_BASE_DIR,PREDICTIONS_DIR,PREDICTIONS_DIR,/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/PREDICTIONS_DIR,MISSING,,unevaluated
+PREDICTIONS_DIR	all_paths_catalog_prior.csv	93	paths.py,analysis/images/segmentation_mmseg/paths.py,PREDICTIONS_DIR,"require_env_path(""PREDICTIONS_DIR"")","require_env_path(""PREDICTIONS_DIR"")","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/require_env_path(""PREDICTIONS_DIR"")",MISSING,,unevaluated
+PREDICTIONS_DIR	config.py	42	PREDICTIONS_DIR= _get_path("PREDICTIONS_DIR", "predictions")
+PREDICTIONS_DIR	.env	7	PREDICTIONS_DIR=${BASE_PATH}/predictions
+PREDICTIONS_DIR	analysis/images/segmentation_mmseg/paths.py	8	PREDICTIONS_DIR, SURVEY_RESULTS, META_FILE,
+PREDICTIONS_DIR	analysis/images/segmentation_mmseg/paths.py	29	OUTPUT_MASKS_BASE_DIR = PREDICTIONS_DIR
+PREPROCESSED_DIR	token_usages_prior.tsv	38	MANUAL_MAPPING_DIR	config.py	58	MANUAL_MAPPING_DIR    = _get_path("MANUAL_MAPPING_DIR", f"{PREPROCESSED_DIR}/manual_mappings")
+PREPROCESSED_DIR	token_usages_prior.tsv	40	MANUAL_MAPPING_DIR	.env	32	MANUAL_MAPPING_DIR=${PREPROCESSED_DIR}/manual_mappings
+PREPROCESSED_DIR	token_usages_prior.tsv	114	OUTPUT_FOLDER	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+PREPROCESSED_DIR	token_usages_prior.tsv	144	PREPROCESSED_DIR	config.py	53	PREPROCESSED_DIR   = _get_path("PREPROCESSED_DIR", f"output/processed_dataset_{TARGET_SUFFIX}")
+PREPROCESSED_DIR	token_usages_prior.tsv	145	PREPROCESSED_DIR	config.py	55	PROCESSED_DATA_DIR = _get_path("PROCESSED_DATA_DIR", f"{PREPROCESSED_DIR}/auto_processed")
+PREPROCESSED_DIR	token_usages_prior.tsv	146	PREPROCESSED_DIR	config.py	58	MANUAL_MAPPING_DIR    = _get_path("MANUAL_MAPPING_DIR", f"{PREPROCESSED_DIR}/manual_mappings")
+PREPROCESSED_DIR	token_usages_prior.tsv	147	PREPROCESSED_DIR	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+PREPROCESSED_DIR	token_usages_prior.tsv	148	PREPROCESSED_DIR	.env	27	PROCESSED_DATA_DIR=${PREPROCESSED_DIR}/auto_processed
+PREPROCESSED_DIR	token_usages_prior.tsv	149	PREPROCESSED_DIR	.env	32	MANUAL_MAPPING_DIR=${PREPROCESSED_DIR}/manual_mappings
+PREPROCESSED_DIR	token_usages_prior.tsv	151	PROCESSED_DATA_DIR	config.py	55	PROCESSED_DATA_DIR = _get_path("PROCESSED_DATA_DIR", f"{PREPROCESSED_DIR}/auto_processed")
+PREPROCESSED_DIR	token_usages_prior.tsv	152	PROCESSED_DATA_DIR	.env	27	PROCESSED_DATA_DIR=${PREPROCESSED_DIR}/auto_processed
+PREPROCESSED_DIR	token_usages_prior.tsv	187	TARGET_HEIGHT	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+PREPROCESSED_DIR	token_usages_prior.tsv	248	TARGET_SUFFIX	config.py	53	PREPROCESSED_DIR   = _get_path("PREPROCESSED_DIR", f"output/processed_dataset_{TARGET_SUFFIX}")
+PREPROCESSED_DIR	token_usages_prior.tsv	259	TARGET_WIDTH	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+PREPROCESSED_DIR	paths.py	36	PREPROCESSED_DIR        = require_env_path("PREPROCESSED_DIR")
+PREPROCESSED_DIR	all_paths_catalog_prior.csv	13	.env,.env,PREPROCESSED_DIR,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT},/net/projects2/promega/data-analysis/output/processed_dataset_512x384,/net/projects2/promega/data-analysis/output/processed_dataset_512x384,OK,,
+PREPROCESSED_DIR	all_paths_catalog_prior.csv	15	.env,.env,PROCESSED_DATA_DIR,${PREPROCESSED_DIR}/auto_processed,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,MISSING,,
+PREPROCESSED_DIR	all_paths_catalog_prior.csv	17	.env,.env,MANUAL_MAPPING_DIR,${PREPROCESSED_DIR}/manual_mappings,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,MISSING,,
+PREPROCESSED_DIR	all_paths_catalog_prior.csv	18	.env,.env,MANUAL_PROCESSED_DIR,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT},${PREPROCESSED_DIR}/manual_mappings/processed_512x384,/home/amandabrooke/2025-promega-mini-test/${PREPROCESSED_DIR}/manual_mappings/processed_512x384,MISSING,,
+PREPROCESSED_DIR	config.py	53	PREPROCESSED_DIR   = _get_path("PREPROCESSED_DIR", f"output/processed_dataset_{TARGET_SUFFIX}")
+PREPROCESSED_DIR	config.py	55	PROCESSED_DATA_DIR = _get_path("PROCESSED_DATA_DIR", f"{PREPROCESSED_DIR}/auto_processed")
+PREPROCESSED_DIR	config.py	58	MANUAL_MAPPING_DIR    = _get_path("MANUAL_MAPPING_DIR", f"{PREPROCESSED_DIR}/manual_mappings")
+PREPROCESSED_DIR	.env	17	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+PREPROCESSED_DIR	.env	19	PROCESSED_DATA_DIR=${PREPROCESSED_DIR}/auto_processed
+PREPROCESSED_DIR	.env	20	MANUAL_MAPPING_DIR=${PREPROCESSED_DIR}/manual_mappings
+PREPROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	10	PREPROCESSED_DIR, PROCESSED_PARENT_DIR, PROCESSED_DATA_DIR,
+PROCESSED_DATA_DIR	token_usages_prior.tsv	101	ORIGINAL_MAPPING	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+PROCESSED_DATA_DIR	token_usages_prior.tsv	122	OUTPUT_MASKS_BASE_DIR	analysis/images/segmentation_mmseg/predict_masks.py	11	from paths import PROCESSED_DATA_DIR, OUTPUT_MASKS_BASE_DIR
+PROCESSED_DATA_DIR	token_usages_prior.tsv	145	PREPROCESSED_DIR	config.py	55	PROCESSED_DATA_DIR = _get_path("PROCESSED_DATA_DIR", f"{PREPROCESSED_DIR}/auto_processed")
+PROCESSED_DATA_DIR	token_usages_prior.tsv	148	PREPROCESSED_DIR	.env	27	PROCESSED_DATA_DIR=${PREPROCESSED_DIR}/auto_processed
+PROCESSED_DATA_DIR	token_usages_prior.tsv	150	PROCESSED_DATA_DIR	paths.py	55	PROCESSED_DATA_DIR = require_env_path("PROCESSED_DATA_DIR")
+PROCESSED_DATA_DIR	token_usages_prior.tsv	151	PROCESSED_DATA_DIR	config.py	55	PROCESSED_DATA_DIR = _get_path("PROCESSED_DATA_DIR", f"{PREPROCESSED_DIR}/auto_processed")
+PROCESSED_DATA_DIR	token_usages_prior.tsv	152	PROCESSED_DATA_DIR	.env	27	PROCESSED_DATA_DIR=${PREPROCESSED_DIR}/auto_processed
+PROCESSED_DATA_DIR	token_usages_prior.tsv	153	PROCESSED_DATA_DIR	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+PROCESSED_DATA_DIR	token_usages_prior.tsv	154	PROCESSED_DATA_DIR	analysis/images/segmentation_mmseg/paths.py	49	PROCESSED_DATA_DIR = require_env_path("PROCESSED_DATA_DIR")
+PROCESSED_DATA_DIR	token_usages_prior.tsv	155	PROCESSED_DATA_DIR	analysis/images/segmentation_mmseg/predict_masks.py	11	from paths import PROCESSED_DATA_DIR, OUTPUT_MASKS_BASE_DIR
+PROCESSED_DATA_DIR	token_usages_prior.tsv	156	PROCESSED_DATA_DIR	analysis/images/segmentation_mmseg/predict_masks.py	43	path = Path(PROCESSED_DATA_DIR) / batch_str / f"image_mapping_{batch_str}_processed.json"
+PROCESSED_DATA_DIR	token_usages_prior.tsv	157	PROCESSED_DATA_DIR	analysis/images/segmentation_mmseg/predict_masks.py	47	path = Path(PROCESSED_DATA_DIR) / batch_str / f"image_mapping_{batch_str}_processed.json"
+PROCESSED_DATA_DIR	token_usages_prior.tsv	158	PROCESSED_DATA_DIR	file_utils/merge/merge_all_data.py	16	#processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
+PROCESSED_DATA_DIR	token_usages_prior.tsv	159	PROCESSED_DATA_DIR	file_utils/merge/merge_all_data.py	16	#processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
+PROCESSED_DATA_DIR	token_usages_prior.tsv	190	TARGET_HEIGHT	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+PROCESSED_DATA_DIR	token_usages_prior.tsv	209	TARGET_SIZE	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+PROCESSED_DATA_DIR	token_usages_prior.tsv	262	TARGET_WIDTH	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+PROCESSED_DATA_DIR	token_usages_prior.tsv	158	PROCESSED_DATA_DIR	file_utils/merge/merge_all_data.py	16	#processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
+PROCESSED_DATA_DIR	token_usages_prior.tsv	159	PROCESSED_DATA_DIR	file_utils/merge/merge_all_data.py	16	#processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
+PROCESSED_DATA_DIR	paths.py	38	PROCESSED_DATA_DIR      = require_env_path("PROCESSED_DATA_DIR")
+PROCESSED_DATA_DIR	all_paths_catalog_prior.csv	15	.env,.env,PROCESSED_DATA_DIR,${PREPROCESSED_DIR}/auto_processed,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,MISSING,,
+PROCESSED_DATA_DIR	all_paths_catalog_prior.csv	45	paths.py,paths.py,PROCESSED_DATA_DIR,"require_env_path(""PROCESSED_DATA_DIR"")","require_env_path(""PROCESSED_DATA_DIR"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""PROCESSED_DATA_DIR"")",MISSING,,unevaluated
+PROCESSED_DATA_DIR	all_paths_catalog_prior.csv	94	paths.py,analysis/images/segmentation_mmseg/paths.py,PROCESSED_DATA_DIR,"require_env_path(""PROCESSED_DATA_DIR"")","require_env_path(""PROCESSED_DATA_DIR"")","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/require_env_path(""PROCESSED_DATA_DIR"")",MISSING,,unevaluated
+PROCESSED_DATA_DIR	config.py	55	PROCESSED_DATA_DIR = _get_path("PROCESSED_DATA_DIR", f"{PREPROCESSED_DIR}/auto_processed")
+PROCESSED_DATA_DIR	.env	19	PROCESSED_DATA_DIR=${PREPROCESSED_DIR}/auto_processed
+PROCESSED_DATA_DIR	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+PROCESSED_DATA_DIR	analysis/images/segmentation_mmseg/paths.py	10	PREPROCESSED_DIR, PROCESSED_PARENT_DIR, PROCESSED_DATA_DIR,
+PROCESSED_DATA_DIR	analysis/images/segmentation_mmseg/predict_masks.py	7	from paths import PROCESSED_DATA_DIR, OUTPUT_MASKS_BASE_DIR
+PROCESSED_DATA_DIR	analysis/images/segmentation_mmseg/predict_masks.py	28	paths.append(Path(PROCESSED_DATA_DIR) / batch_str / f"image_mapping_{batch_str}_processed.json")
+PROCESSED_DATA_DIR	analysis/images/segmentation_mmseg/predict_masks.py	31	paths.append(Path(PROCESSED_DATA_DIR) / batch_str / f"image_mapping_{batch_str}_processed.json")
+PROCESSED_DATA_DIR	file_utils/merge/merge_all_data.py	16	#processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
+PROCESSED_DATA_DIR	file_utils/merge/merge_all_data.py	16	#processed_root_dir = os.getenv("PROCESSED_DATA_DIR")
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	60	MANUAL_PROCESSED_DIR	paths.py	52	PROCESSED_IMAGES_DIR     = MANUAL_PROCESSED_DIR / "images"
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	70	MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	44	PROCESSED_IMAGES_DIR = MANUAL_PROCESSED_DIR / "images"
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	78	MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	104	ORIGINAL_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	160	PROCESSED_IMAGES_DIR	paths.py	52	PROCESSED_IMAGES_DIR     = MANUAL_PROCESSED_DIR / "images"
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	161	PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/paths.py	44	PROCESSED_IMAGES_DIR = MANUAL_PROCESSED_DIR / "images"
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	162	PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	163	PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	41	out_base = Path(args.output) if args.output else PROCESSED_IMAGES_DIR.parent
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	164	PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	42	images_out = PROCESSED_IMAGES_DIR
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	167	PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_IMAGES_DIR	token_usages_prior.tsv	240	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_IMAGES_DIR	all_paths_catalog_prior.csv	46	paths.py,paths.py,PROCESSED_IMAGES_DIR,"MANUAL_PROCESSED_DIR / ""images""","MANUAL_PROCESSED_DIR / ""images""","/home/amandabrooke/2025-promega-mini-test/MANUAL_PROCESSED_DIR / ""images""",MISSING,,unevaluated
+PROCESSED_IMAGES_DIR	all_paths_catalog_prior.csv	95	paths.py,analysis/images/segmentation_mmseg/paths.py,PROCESSED_IMAGES_DIR,"MANUAL_PROCESSED_DIR / ""images""","MANUAL_PROCESSED_DIR / ""images""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/MANUAL_PROCESSED_DIR / ""images""",MISSING,,unevaluated
+PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/paths.py	30	PROCESSED_IMAGES_DIR  = MANUAL_PROCESSED_DIR / "images"
+PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	41	out_base = Path(args.output) if args.output else PROCESSED_IMAGES_DIR.parent
+PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	42	images_out = PROCESSED_IMAGES_DIR
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	61	MANUAL_PROCESSED_DIR	paths.py	53	PROCESSED_MASKS_DIR      = MANUAL_PROCESSED_DIR / "masks"
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	71	MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	45	PROCESSED_MASKS_DIR  = MANUAL_PROCESSED_DIR / "masks"
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	78	MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	104	ORIGINAL_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	162	PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	165	PROCESSED_MASKS_DIR	paths.py	53	PROCESSED_MASKS_DIR      = MANUAL_PROCESSED_DIR / "masks"
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	166	PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	45	PROCESSED_MASKS_DIR  = MANUAL_PROCESSED_DIR / "masks"
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	167	PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	168	PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	43	masks_out  = PROCESSED_MASKS_DIR
+PROCESSED_MASKS_DIR	token_usages_prior.tsv	240	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_MASKS_DIR	all_paths_catalog_prior.csv	47	paths.py,paths.py,PROCESSED_MASKS_DIR,"MANUAL_PROCESSED_DIR / ""masks""","MANUAL_PROCESSED_DIR / ""masks""","/home/amandabrooke/2025-promega-mini-test/MANUAL_PROCESSED_DIR / ""masks""",MISSING,,unevaluated
+PROCESSED_MASKS_DIR	all_paths_catalog_prior.csv	96	paths.py,analysis/images/segmentation_mmseg/paths.py,PROCESSED_MASKS_DIR,"MANUAL_PROCESSED_DIR / ""masks""","MANUAL_PROCESSED_DIR / ""masks""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/MANUAL_PROCESSED_DIR / ""masks""",MISSING,,unevaluated
+PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/paths.py	31	PROCESSED_MASKS_DIR   = MANUAL_PROCESSED_DIR / "masks"
+PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	43	masks_out  = PROCESSED_MASKS_DIR
+PROCESSED_PARENT_DIR	token_usages_prior.tsv	115	OUTPUT_FOLDER	.env	26	PROCESSED_PARENT_DIR=${OUTPUT_FOLDER}
+PROCESSED_PARENT_DIR	token_usages_prior.tsv	169	PROCESSED_PARENT_DIR	config.py	54	PROCESSED_PARENT_DIR=_get_path("PROCESSED_PARENT_DIR", "output")
+PROCESSED_PARENT_DIR	token_usages_prior.tsv	170	PROCESSED_PARENT_DIR	.env	26	PROCESSED_PARENT_DIR=${OUTPUT_FOLDER}
+PROCESSED_PARENT_DIR	token_usages_prior.tsv	171	PROCESSED_PARENT_DIR	file_utils/merge/merge_all_data.py	88	processed_parent = os.getenv("PROCESSED_PARENT_DIR")
+PROCESSED_PARENT_DIR	token_usages_prior.tsv	172	PROCESSED_PARENT_DIR	file_utils/merge/merge_all_data.py	88	processed_parent = os.getenv("PROCESSED_PARENT_DIR")
+PROCESSED_PARENT_DIR	token_usages_prior.tsv	171	PROCESSED_PARENT_DIR	file_utils/merge/merge_all_data.py	88	processed_parent = os.getenv("PROCESSED_PARENT_DIR")
+PROCESSED_PARENT_DIR	token_usages_prior.tsv	172	PROCESSED_PARENT_DIR	file_utils/merge/merge_all_data.py	88	processed_parent = os.getenv("PROCESSED_PARENT_DIR")
+PROCESSED_PARENT_DIR	paths.py	37	PROCESSED_PARENT_DIR    = require_env_path("PROCESSED_PARENT_DIR")
+PROCESSED_PARENT_DIR	all_paths_catalog_prior.csv	14	.env,.env,PROCESSED_PARENT_DIR,${OUTPUT_FOLDER},/net/projects2/promega/data-analysis/output,/net/projects2/promega/data-analysis/output,OK,,
+PROCESSED_PARENT_DIR	config.py	54	PROCESSED_PARENT_DIR=_get_path("PROCESSED_PARENT_DIR", "output")
+PROCESSED_PARENT_DIR	.env	18	PROCESSED_PARENT_DIR=${OUTPUT_FOLDER}
+PROCESSED_PARENT_DIR	analysis/images/segmentation_mmseg/paths.py	10	PREPROCESSED_DIR, PROCESSED_PARENT_DIR, PROCESSED_DATA_DIR,
+PROCESSED_PARENT_DIR	file_utils/merge/merge_all_data.py	88	processed_parent = os.getenv("PROCESSED_PARENT_DIR")
+PROCESSED_PARENT_DIR	file_utils/merge/merge_all_data.py	88	processed_parent = os.getenv("PROCESSED_PARENT_DIR")
+SURVEY_RESULTS	token_usages_prior.tsv	10	BASE_PATH	.env	13	SURVEY_RESULTS=${BASE_PATH}/results_surveys
+SURVEY_RESULTS	token_usages_prior.tsv	173	SURVEY_RESULTS	paths.py	36	SURVEY_RESULTS    = require_env_path("SURVEY_RESULTS")
+SURVEY_RESULTS	token_usages_prior.tsv	174	SURVEY_RESULTS	config.py	45	SURVEY_RESULTS = _get_path("SURVEY_RESULTS", "results_surveys")
+SURVEY_RESULTS	token_usages_prior.tsv	175	SURVEY_RESULTS	.env	13	SURVEY_RESULTS=${BASE_PATH}/results_surveys
+SURVEY_RESULTS	token_usages_prior.tsv	176	SURVEY_RESULTS	file_utils/surveys/surveys_mapper.py	11	input_dir = os.getenv("SURVEY_RESULTS")
+SURVEY_RESULTS	token_usages_prior.tsv	177	SURVEY_RESULTS	file_utils/surveys/surveys_mapper.py	12	print("SURVEY_RESULTS =", input_dir)
+SURVEY_RESULTS	token_usages_prior.tsv	178	SURVEY_RESULTS	file_utils/surveys/surveys_mapper.py	11	input_dir = os.getenv("SURVEY_RESULTS")
+SURVEY_RESULTS	token_usages_prior.tsv	176	SURVEY_RESULTS	file_utils/surveys/surveys_mapper.py	11	input_dir = os.getenv("SURVEY_RESULTS")
+SURVEY_RESULTS	token_usages_prior.tsv	178	SURVEY_RESULTS	file_utils/surveys/surveys_mapper.py	11	input_dir = os.getenv("SURVEY_RESULTS")
+SURVEY_RESULTS	paths.py	28	SURVEY_RESULTS          = require_env_path("SURVEY_RESULTS")
+SURVEY_RESULTS	all_paths_catalog_prior.csv	9	.env,.env,SURVEY_RESULTS,${BASE_PATH}/results_surveys,/net/projects2/promega/data-analysis/results_surveys,/net/projects2/promega/data-analysis/results_surveys,OK,,
+SURVEY_RESULTS	all_paths_catalog_prior.csv	48	paths.py,paths.py,SURVEY_RESULTS,"require_env_path(""SURVEY_RESULTS"")","require_env_path(""SURVEY_RESULTS"")","/home/amandabrooke/2025-promega-mini-test/require_env_path(""SURVEY_RESULTS"")",MISSING,,unevaluated
+SURVEY_RESULTS	config.py	45	SURVEY_RESULTS = _get_path("SURVEY_RESULTS", "results_surveys")
+SURVEY_RESULTS	.env	8	SURVEY_RESULTS=${BASE_PATH}/results_surveys
+SURVEY_RESULTS	analysis/images/segmentation_mmseg/paths.py	8	PREDICTIONS_DIR, SURVEY_RESULTS, META_FILE,
+SURVEY_RESULTS	file_utils/surveys/surveys_mapper.py	11	input_dir = os.getenv("SURVEY_RESULTS")
+SURVEY_RESULTS	file_utils/surveys/surveys_mapper.py	12	print("SURVEY_RESULTS =", input_dir)
+SURVEY_RESULTS	file_utils/surveys/surveys_mapper.py	11	input_dir = os.getenv("SURVEY_RESULTS")
+TARGET_HEIGHT	token_usages_prior.tsv	41	MANUAL_MAPPING_DIR	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	token_usages_prior.tsv	66	MANUAL_PROCESSED_DIR	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	token_usages_prior.tsv	68	MANUAL_PROCESSED_DIR	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_HEIGHT	token_usages_prior.tsv	82	MAPPING_PROCESSED_TOTAL	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_HEIGHT	token_usages_prior.tsv	101	ORIGINAL_MAPPING	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_HEIGHT	token_usages_prior.tsv	114	OUTPUT_FOLDER	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	token_usages_prior.tsv	147	PREPROCESSED_DIR	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	token_usages_prior.tsv	153	PROCESSED_DATA_DIR	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_HEIGHT	token_usages_prior.tsv	179	TARGET_HEIGHT	paths.py	22	TARGET_HEIGHT = require_env_int("TARGET_HEIGHT")
+TARGET_HEIGHT	token_usages_prior.tsv	180	TARGET_HEIGHT	paths.py	23	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	token_usages_prior.tsv	181	TARGET_HEIGHT	paths.py	24	TARGET_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	token_usages_prior.tsv	182	TARGET_HEIGHT	config.py	48	TARGET_HEIGHT  = _get_int("TARGET_HEIGHT", 384)
+TARGET_HEIGHT	token_usages_prior.tsv	183	TARGET_HEIGHT	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	token_usages_prior.tsv	184	TARGET_HEIGHT	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	token_usages_prior.tsv	185	TARGET_HEIGHT	config.py	68	assert TARGET_WIDTH > 0 and TARGET_HEIGHT > 0
+TARGET_HEIGHT	token_usages_prior.tsv	186	TARGET_HEIGHT	.env	17	TARGET_HEIGHT=384
+TARGET_HEIGHT	token_usages_prior.tsv	187	TARGET_HEIGHT	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	token_usages_prior.tsv	188	TARGET_HEIGHT	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	token_usages_prior.tsv	189	TARGET_HEIGHT	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_HEIGHT	token_usages_prior.tsv	190	TARGET_HEIGHT	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_HEIGHT	token_usages_prior.tsv	191	TARGET_HEIGHT	analysis/images/resize/resize_remap_images.py	84	scale_y = orig_h / TARGET_HEIGHT
+TARGET_HEIGHT	token_usages_prior.tsv	192	TARGET_HEIGHT	analysis/images/segmentation_mmseg/paths.py	31	TARGET_HEIGHT = int(os.environ.get("TARGET_HEIGHT", "384"))
+TARGET_HEIGHT	token_usages_prior.tsv	193	TARGET_HEIGHT	analysis/images/segmentation_mmseg/paths.py	32	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	token_usages_prior.tsv	194	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	12	TARGET_HEIGHT = 192
+TARGET_HEIGHT	token_usages_prior.tsv	195	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_HEIGHT	token_usages_prior.tsv	196	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	27	OUTPUT_BASE_FOLDER = JSON_MAPPING_PATH.parent / f"processed_dataset_{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	token_usages_prior.tsv	197	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	38	NEW_JSON_MAPPING_FILENAME = f"{JSON_MAPPING_PATH.stem}_processed_{TARGET_WIDTH}x{TARGET_HEIGHT}.json"
+TARGET_HEIGHT	token_usages_prior.tsv	198	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	140	output_img_filename = f"{img_id}_{TARGET_WIDTH}x{TARGET_HEIGHT}{img_suffix}"
+TARGET_HEIGHT	token_usages_prior.tsv	199	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	142	output_mask_filename = f"{img_id}_mask_{TARGET_WIDTH}x{TARGET_HEIGHT}.png"
+TARGET_HEIGHT	token_usages_prior.tsv	200	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	204	print(f"  Target Dimensions: {TARGET_WIDTH}x{TARGET_HEIGHT}")
+TARGET_HEIGHT	token_usages_prior.tsv	201	TARGET_SIZE	paths.py	23	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	token_usages_prior.tsv	202	TARGET_SIZE	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	token_usages_prior.tsv	209	TARGET_SIZE	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_HEIGHT	token_usages_prior.tsv	235	TARGET_SIZE	analysis/images/segmentation_mmseg/paths.py	32	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	token_usages_prior.tsv	237	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_HEIGHT	token_usages_prior.tsv	246	TARGET_SUFFIX	paths.py	24	TARGET_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	token_usages_prior.tsv	247	TARGET_SUFFIX	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	token_usages_prior.tsv	252	TARGET_WIDTH	paths.py	23	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	token_usages_prior.tsv	253	TARGET_WIDTH	paths.py	24	TARGET_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	token_usages_prior.tsv	255	TARGET_WIDTH	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	token_usages_prior.tsv	256	TARGET_WIDTH	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	token_usages_prior.tsv	257	TARGET_WIDTH	config.py	68	assert TARGET_WIDTH > 0 and TARGET_HEIGHT > 0
+TARGET_HEIGHT	token_usages_prior.tsv	259	TARGET_WIDTH	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	token_usages_prior.tsv	260	TARGET_WIDTH	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	token_usages_prior.tsv	261	TARGET_WIDTH	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_HEIGHT	token_usages_prior.tsv	262	TARGET_WIDTH	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_HEIGHT	token_usages_prior.tsv	265	TARGET_WIDTH	analysis/images/segmentation_mmseg/paths.py	32	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	token_usages_prior.tsv	267	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_HEIGHT	token_usages_prior.tsv	268	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	27	OUTPUT_BASE_FOLDER = JSON_MAPPING_PATH.parent / f"processed_dataset_{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	token_usages_prior.tsv	269	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	38	NEW_JSON_MAPPING_FILENAME = f"{JSON_MAPPING_PATH.stem}_processed_{TARGET_WIDTH}x{TARGET_HEIGHT}.json"
+TARGET_HEIGHT	token_usages_prior.tsv	270	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	140	output_img_filename = f"{img_id}_{TARGET_WIDTH}x{TARGET_HEIGHT}{img_suffix}"
+TARGET_HEIGHT	token_usages_prior.tsv	271	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	142	output_mask_filename = f"{img_id}_mask_{TARGET_WIDTH}x{TARGET_HEIGHT}.png"
+TARGET_HEIGHT	token_usages_prior.tsv	272	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	204	print(f"  Target Dimensions: {TARGET_WIDTH}x{TARGET_HEIGHT}")
+TARGET_HEIGHT	paths.py	32	TARGET_HEIGHT           = require_env_int("TARGET_HEIGHT")
+TARGET_HEIGHT	paths.py	33	TARGET_SIZE             = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	paths.py	34	TARGET_SUFFIX           = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	all_paths_catalog_prior.csv	11	.env,.env,TARGET_HEIGHT,384,384,/home/amandabrooke/2025-promega-mini-test/384,MISSING,,
+TARGET_HEIGHT	all_paths_catalog_prior.csv	13	.env,.env,PREPROCESSED_DIR,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT},/net/projects2/promega/data-analysis/output/processed_dataset_512x384,/net/projects2/promega/data-analysis/output/processed_dataset_512x384,OK,,
+TARGET_HEIGHT	all_paths_catalog_prior.csv	15	.env,.env,PROCESSED_DATA_DIR,${PREPROCESSED_DIR}/auto_processed,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,MISSING,,
+TARGET_HEIGHT	all_paths_catalog_prior.csv	17	.env,.env,MANUAL_MAPPING_DIR,${PREPROCESSED_DIR}/manual_mappings,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,MISSING,,
+TARGET_HEIGHT	all_paths_catalog_prior.csv	18	.env,.env,MANUAL_PROCESSED_DIR,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT},${PREPROCESSED_DIR}/manual_mappings/processed_512x384,/home/amandabrooke/2025-promega-mini-test/${PREPROCESSED_DIR}/manual_mappings/processed_512x384,MISSING,,
+TARGET_HEIGHT	all_paths_catalog_prior.csv	19	.env,.env,MANUAL_SPLITS_DIR,${MANUAL_PROCESSED_DIR}/split,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,MISSING,,
+TARGET_HEIGHT	all_paths_catalog_prior.csv	20	.env,.env,MAPPING_PROCESSED_TOTAL,${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,MISSING,,
+TARGET_HEIGHT	all_paths_catalog_prior.csv	49	paths.py,paths.py,TARGET_HEIGHT,"require_env_int(""TARGET_HEIGHT"")","require_env_int(""TARGET_HEIGHT"")","/home/amandabrooke/2025-promega-mini-test/require_env_int(""TARGET_HEIGHT"")",MISSING,YES,unevaluated
+TARGET_HEIGHT	all_paths_catalog_prior.csv	50	paths.py,paths.py,TARGET_SIZE,"(TARGET_WIDTH, TARGET_HEIGHT)","(TARGET_WIDTH, TARGET_HEIGHT)","/home/amandabrooke/2025-promega-mini-test/(TARGET_WIDTH, TARGET_HEIGHT)",MISSING,,unevaluated
+TARGET_HEIGHT	all_paths_catalog_prior.csv	51	paths.py,paths.py,TARGET_SUFFIX,"f""{TARGET_WIDTH}x{TARGET_HEIGHT}""","f""{TARGET_WIDTH}x{TARGET_HEIGHT}""","/home/amandabrooke/2025-promega-mini-test/f""{TARGET_WIDTH}x{TARGET_HEIGHT}""",MISSING,,unevaluated
+TARGET_HEIGHT	all_paths_catalog_prior.csv	97	paths.py,analysis/images/segmentation_mmseg/paths.py,TARGET_HEIGHT,"int(os.environ.get(""TARGET_HEIGHT"", ""384""))","int(os.environ.get(""TARGET_HEIGHT"", ""384""))","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/int(os.environ.get(""TARGET_HEIGHT"", ""384""))",MISSING,YES,unevaluated
+TARGET_HEIGHT	all_paths_catalog_prior.csv	98	paths.py,analysis/images/segmentation_mmseg/paths.py,TARGET_SIZE,"(TARGET_WIDTH, TARGET_HEIGHT)","(TARGET_WIDTH, TARGET_HEIGHT)","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/(TARGET_WIDTH, TARGET_HEIGHT)",MISSING,,unevaluated
+TARGET_HEIGHT	config.py	48	TARGET_HEIGHT  = _get_int("TARGET_HEIGHT", 384)
+TARGET_HEIGHT	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_HEIGHT	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	config.py	68	assert TARGET_WIDTH > 0 and TARGET_HEIGHT > 0
+TARGET_HEIGHT	.env	14	TARGET_HEIGHT=384
+TARGET_HEIGHT	.env	17	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	.env	21	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_HEIGHT	.env	23	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_HEIGHT	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_HEIGHT	analysis/images/resize/resize_remap_images.py	84	scale_y = orig_h / TARGET_HEIGHT
+TARGET_HEIGHT	analysis/images/segmentation_mmseg/paths.py	9	TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, TARGET_SUFFIX,
+TARGET_HEIGHT	analysis/images/segmentation_mmseg/paths.py	17	BY_SUFFIX = f"{TARGET_WIDTH}by{TARGET_HEIGHT}"
+TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	12	TARGET_HEIGHT = 192
+TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	27	OUTPUT_BASE_FOLDER = JSON_MAPPING_PATH.parent / f"processed_dataset_{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	38	NEW_JSON_MAPPING_FILENAME = f"{JSON_MAPPING_PATH.stem}_processed_{TARGET_WIDTH}x{TARGET_HEIGHT}.json"
+TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	140	output_img_filename = f"{img_id}_{TARGET_WIDTH}x{TARGET_HEIGHT}{img_suffix}"
+TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	142	output_mask_filename = f"{img_id}_mask_{TARGET_WIDTH}x{TARGET_HEIGHT}.png"
+TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	204	print(f"  Target Dimensions: {TARGET_WIDTH}x{TARGET_HEIGHT}")
+TARGET_SIZE	token_usages_prior.tsv	72	MANUAL_PROCESSED_DIR	analysis/images/segmentation_mmseg/paths.py	47	MANUAL_PROCESSED_DIR / f"mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json"
+TARGET_SIZE	token_usages_prior.tsv	78	MANUAL_THRESHOLD_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+TARGET_SIZE	token_usages_prior.tsv	101	ORIGINAL_MAPPING	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_SIZE	token_usages_prior.tsv	104	ORIGINAL_MAPPING	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+TARGET_SIZE	token_usages_prior.tsv	153	PROCESSED_DATA_DIR	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_SIZE	token_usages_prior.tsv	162	PROCESSED_IMAGES_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+TARGET_SIZE	token_usages_prior.tsv	167	PROCESSED_MASKS_DIR	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+TARGET_SIZE	token_usages_prior.tsv	180	TARGET_HEIGHT	paths.py	23	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	token_usages_prior.tsv	183	TARGET_HEIGHT	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	token_usages_prior.tsv	190	TARGET_HEIGHT	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_SIZE	token_usages_prior.tsv	193	TARGET_HEIGHT	analysis/images/segmentation_mmseg/paths.py	32	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	token_usages_prior.tsv	195	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_SIZE	token_usages_prior.tsv	201	TARGET_SIZE	paths.py	23	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	token_usages_prior.tsv	202	TARGET_SIZE	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	token_usages_prior.tsv	203	TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	28	TARGET_SIZE = (224, 224) # Define target size as a constant
+TARGET_SIZE	token_usages_prior.tsv	204	TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	157	def load_and_preprocess_tf(img_path_tensor, mask_path_tensor, label_tensor, target_size=TARGET_SIZE):
+TARGET_SIZE	token_usages_prior.tsv	205	TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	231	# img: (TARGET_SIZE[0], TARGET_SIZE[1], 3)
+TARGET_SIZE	token_usages_prior.tsv	206	TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	232	# mask: (TARGET_SIZE[0], TARGET_SIZE[1], 1)
+TARGET_SIZE	token_usages_prior.tsv	207	TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	236	tf.ensure_shape(img, (TARGET_SIZE[0], TARGET_SIZE[1], 3)),
+TARGET_SIZE	token_usages_prior.tsv	208	TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	237	tf.ensure_shape(mask, (TARGET_SIZE[0], TARGET_SIZE[1], 1)),
+TARGET_SIZE	token_usages_prior.tsv	209	TARGET_SIZE	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_SIZE	token_usages_prior.tsv	210	TARGET_SIZE	analysis/images/resize/resize_remap_images.py	72	img_final = cv2.resize(img_raw, TARGET_SIZE, INTERPOLATION)
+TARGET_SIZE	token_usages_prior.tsv	211	TARGET_SIZE	analysis/images/classifier/train_model_accuracy.py	32	TARGET_SIZE = (224, 224)
+TARGET_SIZE	token_usages_prior.tsv	212	TARGET_SIZE	analysis/images/classifier/train_model_accuracy.py	73	t = [T.Resize(TARGET_SIZE)]
+TARGET_SIZE	token_usages_prior.tsv	213	TARGET_SIZE	analysis/images/classifier/train_model_confusion_matrix.py	32	TARGET_SIZE = (224,224)
+TARGET_SIZE	token_usages_prior.tsv	214	TARGET_SIZE	analysis/images/classifier/train_model_confusion_matrix.py	58	self.t_img = T.Compose([T.Resize(TARGET_SIZE), T.ToTensor()])
+TARGET_SIZE	token_usages_prior.tsv	215	TARGET_SIZE	analysis/images/classifier/train_model_confusion_matrix.py	59	self.t_mask = T.Compose([T.Resize(TARGET_SIZE, interpolation=T.InterpolationMode.NEAREST), T.ToTensor()])
+TARGET_SIZE	token_usages_prior.tsv	216	TARGET_SIZE	analysis/images/classifier/train_model_confusion_matrix.py	93	nn.Linear(64 * (TARGET_SIZE[0]//4) * (TARGET_SIZE[1]//4), 64),
+TARGET_SIZE	token_usages_prior.tsv	217	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/helper.py	19	self.t_resize_img  = T.Resize(TARGET_SIZE)
+TARGET_SIZE	token_usages_prior.tsv	218	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/helper.py	20	self.t_resize_mask = T.Resize(TARGET_SIZE,
+TARGET_SIZE	token_usages_prior.tsv	219	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/helper.py	46	img,  i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	token_usages_prior.tsv	220	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/helper.py	50	mask, i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	token_usages_prior.tsv	221	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom_effect/main.py	15	TARGET_SIZE = (256, 192)  # (W, H)
+TARGET_SIZE	token_usages_prior.tsv	222	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom_effect/main.py	82	out_size=TARGET_SIZE  # ✅ Resize to 256x192
+TARGET_SIZE	token_usages_prior.tsv	223	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	30	TARGET_SIZE = (224, 224)
+TARGET_SIZE	token_usages_prior.tsv	224	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	65	self.t_resize_img  = T.Resize(TARGET_SIZE)
+TARGET_SIZE	token_usages_prior.tsv	225	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	66	self.t_resize_mask = T.Resize(TARGET_SIZE,
+TARGET_SIZE	token_usages_prior.tsv	226	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	92	img,  i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	token_usages_prior.tsv	227	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	96	mask, i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	token_usages_prior.tsv	228	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	142	nn.Linear(64 * (TARGET_SIZE[0] // 4) * (TARGET_SIZE[1] // 4), 64),
+TARGET_SIZE	token_usages_prior.tsv	229	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	30	TARGET_SIZE = (224, 224)
+TARGET_SIZE	token_usages_prior.tsv	230	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	65	self.t_resize_img  = T.Resize(TARGET_SIZE)
+TARGET_SIZE	token_usages_prior.tsv	231	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	66	self.t_resize_mask = T.Resize(TARGET_SIZE,
+TARGET_SIZE	token_usages_prior.tsv	232	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	92	img,  i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	token_usages_prior.tsv	233	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	96	mask, i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	token_usages_prior.tsv	234	TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	142	nn.Linear(64 * (TARGET_SIZE[0] // 4) * (TARGET_SIZE[1] // 4), 64),
+TARGET_SIZE	token_usages_prior.tsv	235	TARGET_SIZE	analysis/images/segmentation_mmseg/paths.py	32	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	token_usages_prior.tsv	236	TARGET_SIZE	analysis/images/segmentation_mmseg/paths.py	47	MANUAL_PROCESSED_DIR / f"mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json"
+TARGET_SIZE	token_usages_prior.tsv	237	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_SIZE	token_usages_prior.tsv	238	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	127	resized_img = cv2.resize(original_img, TARGET_SIZE, interpolation=IMAGE_INTERPOLATION)
+TARGET_SIZE	token_usages_prior.tsv	239	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	130	resized_mask = cv2.resize(original_mask, TARGET_SIZE, interpolation=MASK_INTERPOLATION)
+TARGET_SIZE	token_usages_prior.tsv	240	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+TARGET_SIZE	token_usages_prior.tsv	241	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	103	img_rs  = cv2.resize(img, TARGET_SIZE, interpolation=IMAGE_INTERP)
+TARGET_SIZE	token_usages_prior.tsv	242	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	104	msk_rs  = cv2.resize(msk, TARGET_SIZE, interpolation=MASK_INTERP)
+TARGET_SIZE	token_usages_prior.tsv	243	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	149	img_rs = cv2.resize(img, TARGET_SIZE, interpolation=IMAGE_INTERP)
+TARGET_SIZE	token_usages_prior.tsv	244	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	150	msk_bin = np.zeros((TARGET_SIZE[1], TARGET_SIZE[0]), dtype=np.uint8)  # (H,W)
+TARGET_SIZE	token_usages_prior.tsv	245	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	169	new_json = out_base / f"mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json"
+TARGET_SIZE	token_usages_prior.tsv	252	TARGET_WIDTH	paths.py	23	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	token_usages_prior.tsv	255	TARGET_WIDTH	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	token_usages_prior.tsv	262	TARGET_WIDTH	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_SIZE	token_usages_prior.tsv	265	TARGET_WIDTH	analysis/images/segmentation_mmseg/paths.py	32	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	token_usages_prior.tsv	267	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_SIZE	paths.py	33	TARGET_SIZE             = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	all_paths_catalog_prior.csv	50	paths.py,paths.py,TARGET_SIZE,"(TARGET_WIDTH, TARGET_HEIGHT)","(TARGET_WIDTH, TARGET_HEIGHT)","/home/amandabrooke/2025-promega-mini-test/(TARGET_WIDTH, TARGET_HEIGHT)",MISSING,,unevaluated
+TARGET_SIZE	all_paths_catalog_prior.csv	88	paths.py,analysis/images/segmentation_mmseg/paths.py,MAPPING_PROCESSED_TOTAL,"MANUAL_PROCESSED_DIR / f""mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json""","MANUAL_PROCESSED_DIR / f""mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json""","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/MANUAL_PROCESSED_DIR / f""mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json""",MISSING,YES,unevaluated
+TARGET_SIZE	all_paths_catalog_prior.csv	98	paths.py,analysis/images/segmentation_mmseg/paths.py,TARGET_SIZE,"(TARGET_WIDTH, TARGET_HEIGHT)","(TARGET_WIDTH, TARGET_HEIGHT)","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/(TARGET_WIDTH, TARGET_HEIGHT)",MISSING,,unevaluated
+TARGET_SIZE	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	28	TARGET_SIZE = (224, 224) # Define target size as a constant
+TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	157	def load_and_preprocess_tf(img_path_tensor, mask_path_tensor, label_tensor, target_size=TARGET_SIZE):
+TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	231	# img: (TARGET_SIZE[0], TARGET_SIZE[1], 3)
+TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	232	# mask: (TARGET_SIZE[0], TARGET_SIZE[1], 1)
+TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	236	tf.ensure_shape(img, (TARGET_SIZE[0], TARGET_SIZE[1], 3)),
+TARGET_SIZE	analysis/surveys/classifier/simple_classifier.py	237	tf.ensure_shape(mask, (TARGET_SIZE[0], TARGET_SIZE[1], 1)),
+TARGET_SIZE	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_SIZE	analysis/images/resize/resize_remap_images.py	72	img_final = cv2.resize(img_raw, TARGET_SIZE, INTERPOLATION)
+TARGET_SIZE	analysis/images/classifier/train_model_accuracy.py	32	TARGET_SIZE = (224, 224)
+TARGET_SIZE	analysis/images/classifier/train_model_accuracy.py	73	t = [T.Resize(TARGET_SIZE)]
+TARGET_SIZE	analysis/images/classifier/train_model_confusion_matrix.py	32	TARGET_SIZE = (224,224)
+TARGET_SIZE	analysis/images/classifier/train_model_confusion_matrix.py	58	self.t_img = T.Compose([T.Resize(TARGET_SIZE), T.ToTensor()])
+TARGET_SIZE	analysis/images/classifier/train_model_confusion_matrix.py	59	self.t_mask = T.Compose([T.Resize(TARGET_SIZE, interpolation=T.InterpolationMode.NEAREST), T.ToTensor()])
+TARGET_SIZE	analysis/images/classifier/train_model_confusion_matrix.py	93	nn.Linear(64 * (TARGET_SIZE[0]//4) * (TARGET_SIZE[1]//4), 64),
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/helper.py	19	self.t_resize_img  = T.Resize(TARGET_SIZE)
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/helper.py	20	self.t_resize_mask = T.Resize(TARGET_SIZE,
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/helper.py	46	img,  i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/helper.py	50	mask, i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom_effect/main.py	15	TARGET_SIZE = (256, 192)  # (W, H)
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom_effect/main.py	82	out_size=TARGET_SIZE  # ✅ Resize to 256x192
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	30	TARGET_SIZE = (224, 224)
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	65	self.t_resize_img  = T.Resize(TARGET_SIZE)
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	66	self.t_resize_mask = T.Resize(TARGET_SIZE,
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	92	img,  i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	96	mask, i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/train_zoom/train_vit.py	142	nn.Linear(64 * (TARGET_SIZE[0] // 4) * (TARGET_SIZE[1] // 4), 64),
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	30	TARGET_SIZE = (224, 224)
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	65	self.t_resize_img  = T.Resize(TARGET_SIZE)
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	66	self.t_resize_mask = T.Resize(TARGET_SIZE,
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	92	img,  i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	96	mask, i, j, h, w, size=TARGET_SIZE,
+TARGET_SIZE	analysis/images/classifier/crop_zoom_test/test_zoom/train_vit.py	142	nn.Linear(64 * (TARGET_SIZE[0] // 4) * (TARGET_SIZE[1] // 4), 64),
+TARGET_SIZE	analysis/images/segmentation_mmseg/paths.py	9	TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, TARGET_SUFFIX,
+TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	127	resized_img = cv2.resize(original_img, TARGET_SIZE, interpolation=IMAGE_INTERPOLATION)
+TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	130	resized_mask = cv2.resize(original_mask, TARGET_SIZE, interpolation=MASK_INTERPOLATION)
+TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	9	from paths import TARGET_SIZE, PROCESSED_IMAGES_DIR, PROCESSED_MASKS_DIR, MANUAL_THRESHOLD_MAPPING, ORIGINAL_MAPPING
+TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	103	img_rs  = cv2.resize(img, TARGET_SIZE, interpolation=IMAGE_INTERP)
+TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	104	msk_rs  = cv2.resize(msk, TARGET_SIZE, interpolation=MASK_INTERP)
+TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	149	img_rs = cv2.resize(img, TARGET_SIZE, interpolation=IMAGE_INTERP)
+TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	150	msk_bin = np.zeros((TARGET_SIZE[1], TARGET_SIZE[0]), dtype=np.uint8)  # (H,W)
+TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks_total.py	169	new_json = out_base / f"mapping_processed_total_{TARGET_SIZE[0]}x{TARGET_SIZE[1]}.json"
+TARGET_SUFFIX	token_usages_prior.tsv	39	MANUAL_MAPPING_DIR	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+TARGET_SUFFIX	token_usages_prior.tsv	63	MANUAL_PROCESSED_DIR	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+TARGET_SUFFIX	token_usages_prior.tsv	65	MANUAL_PROCESSED_DIR	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+TARGET_SUFFIX	token_usages_prior.tsv	81	MAPPING_PROCESSED_TOTAL	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+TARGET_SUFFIX	token_usages_prior.tsv	144	PREPROCESSED_DIR	config.py	53	PREPROCESSED_DIR   = _get_path("PREPROCESSED_DIR", f"output/processed_dataset_{TARGET_SUFFIX}")
+TARGET_SUFFIX	token_usages_prior.tsv	181	TARGET_HEIGHT	paths.py	24	TARGET_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_SUFFIX	token_usages_prior.tsv	184	TARGET_HEIGHT	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_SUFFIX	token_usages_prior.tsv	246	TARGET_SUFFIX	paths.py	24	TARGET_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_SUFFIX	token_usages_prior.tsv	247	TARGET_SUFFIX	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_SUFFIX	token_usages_prior.tsv	248	TARGET_SUFFIX	config.py	53	PREPROCESSED_DIR   = _get_path("PREPROCESSED_DIR", f"output/processed_dataset_{TARGET_SUFFIX}")
+TARGET_SUFFIX	token_usages_prior.tsv	249	TARGET_SUFFIX	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+TARGET_SUFFIX	token_usages_prior.tsv	250	TARGET_SUFFIX	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+TARGET_SUFFIX	token_usages_prior.tsv	253	TARGET_WIDTH	paths.py	24	TARGET_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_SUFFIX	token_usages_prior.tsv	256	TARGET_WIDTH	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_SUFFIX	paths.py	34	TARGET_SUFFIX           = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_SUFFIX	all_paths_catalog_prior.csv	51	paths.py,paths.py,TARGET_SUFFIX,"f""{TARGET_WIDTH}x{TARGET_HEIGHT}""","f""{TARGET_WIDTH}x{TARGET_HEIGHT}""","/home/amandabrooke/2025-promega-mini-test/f""{TARGET_WIDTH}x{TARGET_HEIGHT}""",MISSING,,unevaluated
+TARGET_SUFFIX	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_SUFFIX	config.py	53	PREPROCESSED_DIR   = _get_path("PREPROCESSED_DIR", f"output/processed_dataset_{TARGET_SUFFIX}")
+TARGET_SUFFIX	config.py	59	MANUAL_PROCESSED_DIR  = _get_path("MANUAL_PROCESSED_DIR", f"{MANUAL_MAPPING_DIR}/processed_{TARGET_SUFFIX}")
+TARGET_SUFFIX	config.py	61	MAPPING_PROCESSED_TOTAL = _get_path("MAPPING_PROCESSED_TOTAL", f"{MANUAL_PROCESSED_DIR}/mapping_processed_total_{TARGET_SUFFIX}.json")
+TARGET_SUFFIX	analysis/images/segmentation_mmseg/paths.py	9	TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, TARGET_SUFFIX,
+TARGET_WIDTH	token_usages_prior.tsv	41	MANUAL_MAPPING_DIR	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	token_usages_prior.tsv	66	MANUAL_PROCESSED_DIR	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	token_usages_prior.tsv	68	MANUAL_PROCESSED_DIR	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_WIDTH	token_usages_prior.tsv	82	MAPPING_PROCESSED_TOTAL	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_WIDTH	token_usages_prior.tsv	101	ORIGINAL_MAPPING	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_WIDTH	token_usages_prior.tsv	114	OUTPUT_FOLDER	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	token_usages_prior.tsv	147	PREPROCESSED_DIR	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	token_usages_prior.tsv	153	PROCESSED_DATA_DIR	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_WIDTH	token_usages_prior.tsv	180	TARGET_HEIGHT	paths.py	23	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	token_usages_prior.tsv	181	TARGET_HEIGHT	paths.py	24	TARGET_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	token_usages_prior.tsv	183	TARGET_HEIGHT	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	token_usages_prior.tsv	184	TARGET_HEIGHT	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	token_usages_prior.tsv	185	TARGET_HEIGHT	config.py	68	assert TARGET_WIDTH > 0 and TARGET_HEIGHT > 0
+TARGET_WIDTH	token_usages_prior.tsv	187	TARGET_HEIGHT	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	token_usages_prior.tsv	188	TARGET_HEIGHT	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	token_usages_prior.tsv	189	TARGET_HEIGHT	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_WIDTH	token_usages_prior.tsv	190	TARGET_HEIGHT	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_WIDTH	token_usages_prior.tsv	193	TARGET_HEIGHT	analysis/images/segmentation_mmseg/paths.py	32	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	token_usages_prior.tsv	195	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_WIDTH	token_usages_prior.tsv	196	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	27	OUTPUT_BASE_FOLDER = JSON_MAPPING_PATH.parent / f"processed_dataset_{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	token_usages_prior.tsv	197	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	38	NEW_JSON_MAPPING_FILENAME = f"{JSON_MAPPING_PATH.stem}_processed_{TARGET_WIDTH}x{TARGET_HEIGHT}.json"
+TARGET_WIDTH	token_usages_prior.tsv	198	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	140	output_img_filename = f"{img_id}_{TARGET_WIDTH}x{TARGET_HEIGHT}{img_suffix}"
+TARGET_WIDTH	token_usages_prior.tsv	199	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	142	output_mask_filename = f"{img_id}_mask_{TARGET_WIDTH}x{TARGET_HEIGHT}.png"
+TARGET_WIDTH	token_usages_prior.tsv	200	TARGET_HEIGHT	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	204	print(f"  Target Dimensions: {TARGET_WIDTH}x{TARGET_HEIGHT}")
+TARGET_WIDTH	token_usages_prior.tsv	201	TARGET_SIZE	paths.py	23	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	token_usages_prior.tsv	202	TARGET_SIZE	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	token_usages_prior.tsv	209	TARGET_SIZE	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_WIDTH	token_usages_prior.tsv	235	TARGET_SIZE	analysis/images/segmentation_mmseg/paths.py	32	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	token_usages_prior.tsv	237	TARGET_SIZE	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_WIDTH	token_usages_prior.tsv	246	TARGET_SUFFIX	paths.py	24	TARGET_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	token_usages_prior.tsv	247	TARGET_SUFFIX	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	token_usages_prior.tsv	251	TARGET_WIDTH	paths.py	21	TARGET_WIDTH  = require_env_int("TARGET_WIDTH")
+TARGET_WIDTH	token_usages_prior.tsv	252	TARGET_WIDTH	paths.py	23	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	token_usages_prior.tsv	253	TARGET_WIDTH	paths.py	24	TARGET_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	token_usages_prior.tsv	254	TARGET_WIDTH	config.py	47	TARGET_WIDTH   = _get_int("TARGET_WIDTH", 512)
+TARGET_WIDTH	token_usages_prior.tsv	255	TARGET_WIDTH	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	token_usages_prior.tsv	256	TARGET_WIDTH	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	token_usages_prior.tsv	257	TARGET_WIDTH	config.py	68	assert TARGET_WIDTH > 0 and TARGET_HEIGHT > 0
+TARGET_WIDTH	token_usages_prior.tsv	258	TARGET_WIDTH	.env	16	TARGET_WIDTH=512
+TARGET_WIDTH	token_usages_prior.tsv	259	TARGET_WIDTH	.env	23	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	token_usages_prior.tsv	260	TARGET_WIDTH	.env	33	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	token_usages_prior.tsv	261	TARGET_WIDTH	.env	35	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_WIDTH	token_usages_prior.tsv	262	TARGET_WIDTH	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_WIDTH	token_usages_prior.tsv	263	TARGET_WIDTH	analysis/images/resize/resize_remap_images.py	83	scale_x = orig_w / TARGET_WIDTH
+TARGET_WIDTH	token_usages_prior.tsv	264	TARGET_WIDTH	analysis/images/segmentation_mmseg/paths.py	30	TARGET_WIDTH  = int(os.environ.get("TARGET_WIDTH", "584"))
+TARGET_WIDTH	token_usages_prior.tsv	265	TARGET_WIDTH	analysis/images/segmentation_mmseg/paths.py	32	TARGET_SIZE   = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	token_usages_prior.tsv	266	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	11	TARGET_WIDTH = 256
+TARGET_WIDTH	token_usages_prior.tsv	267	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_WIDTH	token_usages_prior.tsv	268	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	27	OUTPUT_BASE_FOLDER = JSON_MAPPING_PATH.parent / f"processed_dataset_{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	token_usages_prior.tsv	269	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	38	NEW_JSON_MAPPING_FILENAME = f"{JSON_MAPPING_PATH.stem}_processed_{TARGET_WIDTH}x{TARGET_HEIGHT}.json"
+TARGET_WIDTH	token_usages_prior.tsv	270	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	140	output_img_filename = f"{img_id}_{TARGET_WIDTH}x{TARGET_HEIGHT}{img_suffix}"
+TARGET_WIDTH	token_usages_prior.tsv	271	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	142	output_mask_filename = f"{img_id}_mask_{TARGET_WIDTH}x{TARGET_HEIGHT}.png"
+TARGET_WIDTH	token_usages_prior.tsv	272	TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	204	print(f"  Target Dimensions: {TARGET_WIDTH}x{TARGET_HEIGHT}")
+TARGET_WIDTH	paths.py	31	TARGET_WIDTH            = require_env_int("TARGET_WIDTH")
+TARGET_WIDTH	paths.py	33	TARGET_SIZE             = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	paths.py	34	TARGET_SUFFIX           = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	all_paths_catalog_prior.csv	10	.env,.env,TARGET_WIDTH,512,512,/home/amandabrooke/2025-promega-mini-test/512,MISSING,,
+TARGET_WIDTH	all_paths_catalog_prior.csv	13	.env,.env,PREPROCESSED_DIR,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT},/net/projects2/promega/data-analysis/output/processed_dataset_512x384,/net/projects2/promega/data-analysis/output/processed_dataset_512x384,OK,,
+TARGET_WIDTH	all_paths_catalog_prior.csv	15	.env,.env,PROCESSED_DATA_DIR,${PREPROCESSED_DIR}/auto_processed,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/auto_processed,MISSING,,
+TARGET_WIDTH	all_paths_catalog_prior.csv	17	.env,.env,MANUAL_MAPPING_DIR,${PREPROCESSED_DIR}/manual_mappings,${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,/home/amandabrooke/2025-promega-mini-test/${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}/manual_mappings,MISSING,,
+TARGET_WIDTH	all_paths_catalog_prior.csv	18	.env,.env,MANUAL_PROCESSED_DIR,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT},${PREPROCESSED_DIR}/manual_mappings/processed_512x384,/home/amandabrooke/2025-promega-mini-test/${PREPROCESSED_DIR}/manual_mappings/processed_512x384,MISSING,,
+TARGET_WIDTH	all_paths_catalog_prior.csv	19	.env,.env,MANUAL_SPLITS_DIR,${MANUAL_PROCESSED_DIR}/split,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/split,MISSING,,
+TARGET_WIDTH	all_paths_catalog_prior.csv	20	.env,.env,MAPPING_PROCESSED_TOTAL,${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json,${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,/home/amandabrooke/2025-promega-mini-test/${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}/mapping_processed_total_512x384.json,MISSING,,
+TARGET_WIDTH	all_paths_catalog_prior.csv	50	paths.py,paths.py,TARGET_SIZE,"(TARGET_WIDTH, TARGET_HEIGHT)","(TARGET_WIDTH, TARGET_HEIGHT)","/home/amandabrooke/2025-promega-mini-test/(TARGET_WIDTH, TARGET_HEIGHT)",MISSING,,unevaluated
+TARGET_WIDTH	all_paths_catalog_prior.csv	51	paths.py,paths.py,TARGET_SUFFIX,"f""{TARGET_WIDTH}x{TARGET_HEIGHT}""","f""{TARGET_WIDTH}x{TARGET_HEIGHT}""","/home/amandabrooke/2025-promega-mini-test/f""{TARGET_WIDTH}x{TARGET_HEIGHT}""",MISSING,,unevaluated
+TARGET_WIDTH	all_paths_catalog_prior.csv	52	paths.py,paths.py,TARGET_WIDTH,"require_env_int(""TARGET_WIDTH"")","require_env_int(""TARGET_WIDTH"")","/home/amandabrooke/2025-promega-mini-test/require_env_int(""TARGET_WIDTH"")",MISSING,YES,unevaluated
+TARGET_WIDTH	all_paths_catalog_prior.csv	98	paths.py,analysis/images/segmentation_mmseg/paths.py,TARGET_SIZE,"(TARGET_WIDTH, TARGET_HEIGHT)","(TARGET_WIDTH, TARGET_HEIGHT)","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/(TARGET_WIDTH, TARGET_HEIGHT)",MISSING,,unevaluated
+TARGET_WIDTH	all_paths_catalog_prior.csv	99	paths.py,analysis/images/segmentation_mmseg/paths.py,TARGET_WIDTH,"int(os.environ.get(""TARGET_WIDTH"", ""584""))","int(os.environ.get(""TARGET_WIDTH"", ""584""))","/home/amandabrooke/2025-promega-mini-test/analysis/images/segmentation_mmseg/int(os.environ.get(""TARGET_WIDTH"", ""584""))",MISSING,YES,unevaluated
+TARGET_WIDTH	config.py	47	TARGET_WIDTH   = _get_int("TARGET_WIDTH", 512)
+TARGET_WIDTH	config.py	49	TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
+TARGET_WIDTH	config.py	50	TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	config.py	68	assert TARGET_WIDTH > 0 and TARGET_HEIGHT > 0
+TARGET_WIDTH	.env	13	TARGET_WIDTH=512
+TARGET_WIDTH	.env	17	PREPROCESSED_DIR=${OUTPUT_FOLDER}/processed_dataset_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	.env	21	MANUAL_PROCESSED_DIR=${MANUAL_MAPPING_DIR}/processed_${TARGET_WIDTH}x${TARGET_HEIGHT}
+TARGET_WIDTH	.env	23	MAPPING_PROCESSED_TOTAL=${MANUAL_PROCESSED_DIR}/mapping_processed_total_${TARGET_WIDTH}x${TARGET_HEIGHT}.json
+TARGET_WIDTH	analysis/images/resize/resize_remap_images.py	12	from paths import TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, ORIGINAL_MAPPING, PROCESSED_DATA_DIR as OUTPUT_DIR
+TARGET_WIDTH	analysis/images/resize/resize_remap_images.py	83	scale_x = orig_w / TARGET_WIDTH
+TARGET_WIDTH	analysis/images/segmentation_mmseg/paths.py	9	TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE, TARGET_SUFFIX,
+TARGET_WIDTH	analysis/images/segmentation_mmseg/paths.py	17	BY_SUFFIX = f"{TARGET_WIDTH}by{TARGET_HEIGHT}"
+TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	11	TARGET_WIDTH = 256
+TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	14	TARGET_SIZE = (TARGET_WIDTH, TARGET_HEIGHT) # (Width, Height) for OpenCV resize
+TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	27	OUTPUT_BASE_FOLDER = JSON_MAPPING_PATH.parent / f"processed_dataset_{TARGET_WIDTH}x{TARGET_HEIGHT}"
+TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	38	NEW_JSON_MAPPING_FILENAME = f"{JSON_MAPPING_PATH.stem}_processed_{TARGET_WIDTH}x{TARGET_HEIGHT}.json"
+TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	140	output_img_filename = f"{img_id}_{TARGET_WIDTH}x{TARGET_HEIGHT}{img_suffix}"
+TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	142	output_mask_filename = f"{img_id}_mask_{TARGET_WIDTH}x{TARGET_HEIGHT}.png"
+TARGET_WIDTH	analysis/images/segmentation_mmseg/preprocessing/resize_img_masks.py	204	print(f"  Target Dimensions: {TARGET_WIDTH}x{TARGET_HEIGHT}")
