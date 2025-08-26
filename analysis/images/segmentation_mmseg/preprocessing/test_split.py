@@ -7,14 +7,14 @@ from pathlib import Path
 # --- locate repo root (has paths.py + .env) ---
 HERE = Path(__file__).resolve()
 for p in HERE.parents:
-    if (p / "paths.py").exists() and (p / ".env").exists():
+    if (p / "config.py").exists() and (p / ".env").exists():
         sys.path.insert(0, str(p))
         break
 else:
-    raise RuntimeError("Could not locate repo root containing paths.py and .env")
+    raise RuntimeError("Could not locate repo root containing config.py and .env")
 
 # --- canonical paths ---
-from paths import (
+from config import (
     TRAIN_MANUAL_PROCESSED_DIR,  # where resize wrote images/masks
     TRAIN_SPLITS_DIR,            # where we want the split JSONs
     TARGET_SUFFIX,               # e.g. "512x384"

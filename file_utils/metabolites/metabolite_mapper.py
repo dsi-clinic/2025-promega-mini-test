@@ -1,5 +1,5 @@
 import pandas as pd, json
-from paths import METABOLITE_SOURCE_XLSX, METABOLITE_MAP_JSON
+from config import METABOLITE_SOURCE_XLSX, METABOLITE_MAP_JSON
 excel_path = METABOLITE_SOURCE_XLSX
 output_json_path = METABOLITE_MAP_JSON
 

@@ -2,7 +2,7 @@ import os
 import json
 from pathlib import Path
 import cv2  # Need cv2 to load images and get shapes
-from paths import MASKS_FOLDER, DAY30_MAPPING as JSON_MAPPING_PATH
+from config import MASKS_FOLDER, DAY30_MAPPING as JSON_MAPPING_PATH
 
 
 # --- Load the JSON mapping file ---

@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 # ───────── paths ─────────────────────────────────────────────────────────
 from pathlib import Path
-from paths import ORIGINAL_MAPPING, PROCESSED_PARENT_DIR, BASE_PATH, METABOLITE_MAP_JSON, SURVEY_AGGREGATED_JSON
+from config import ORIGINAL_MAPPING, PROCESSED_PARENT_DIR, BASE_PATH, METABOLITE_MAP_JSON, SURVEY_AGGREGATED_JSON
 
 base_image_mapping_path = ORIGINAL_MAPPING
 # processed_root_dir = PROCESSED_DATA_DIR  # if/when you need it

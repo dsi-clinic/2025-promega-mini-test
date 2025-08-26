@@ -5,14 +5,14 @@ from collections import defaultdict
 
 # --- Locate repo root (contains paths.py and .env) ---
 HERE = Path(__file__).resolve()
-root = next((p for p in HERE.parents if (p / "paths.py").exists() and (p / ".env").exists()), None)
+root = next((p for p in HERE.parents if (p / "config.py").exists() and (p / ".env").exists()), None)
 if not root:
-    raise RuntimeError("Could not locate repo root containing paths.py and .env")
+    raise RuntimeError("Could not locate repo root containing config.py and .env")
 
 sys.path.insert(0, str(root))
-os.chdir(str(root))  # optional but helps if paths.py uses relative paths
+os.chdir(str(root))  # optional but helps if config.py uses relative paths
 
-from paths import SURVEY_RESULTS, SURVEY_AGGREGATED_JSON
+from config import SURVEY_RESULTS, SURVEY_AGGREGATED_JSON
 
 input_dir = str(SURVEY_RESULTS)
 print("SURVEY_RESULTS =", input_dir)

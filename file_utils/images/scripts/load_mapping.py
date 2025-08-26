@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 
-from paths import ORIGINAL_MAPPING
+from config import ORIGINAL_MAPPING
 JSON_MAPPING_PATH = ORIGINAL_MAPPING
 
 

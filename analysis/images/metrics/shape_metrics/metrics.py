@@ -13,7 +13,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 import re
 from pathlib import Path
-from paths import PROCESSED_DATA_DIR
+from config import PROCESSED_DATA_DIR
 root = Path(PROCESSED_DATA_DIR)
 
 
