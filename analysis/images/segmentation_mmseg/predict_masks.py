@@ -156,7 +156,6 @@ def run_inference(batch_number, day_number=30, model_type="early", overwrite=Fal
         total_processed += processed
         total_failed   += failed
 
-        # Write back augmented JSON (even on dry-run to preview paths if you like; you can skip if undesired)
         if not dry_run:
             with open(json_mapping_path, 'w') as f:
                 json.dump(batch_mapping, f, indent=2)
