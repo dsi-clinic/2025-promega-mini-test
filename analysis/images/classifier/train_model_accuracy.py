@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os, json, argparse, re
+from file_utils.common.organoid_patterns import OrganoidNormalizer
 from pathlib import Path
 from collections import defaultdict
 
@@ -47,8 +48,7 @@ def set_seed(seed=SEED):
 
 def day_to_int(day_str: str) -> int:
     # "Dy28" -> 28, fallback -1
-    m = re.search(r"[Dd][Yy](\d+)", day_str)
-    return int(m.group(1)) if m else -1
+    return OrganoidNormalizer.extract_day_number(day_str) or -1
 
 class EarlyStopping:
     def __init__(self, patience=20, min_delta=1e-4):

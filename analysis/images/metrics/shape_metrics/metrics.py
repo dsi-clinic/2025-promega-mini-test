@@ -13,16 +13,17 @@ from concurrent.futures import ProcessPoolExecutor
 
 import re
 from pathlib import Path
-from paths import PROCESSED_DATA_DIR
-root = Path(PROCESSED_DATA_DIR)
+from config import INFER_AUTO_PROCESSED_DIR
+from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer
+root = Path(INFER_AUTO_PROCESSED_DIR)
 
 
 def parse_batch_day_from_key(key: str):
-    s = re.sub(r'[_\-]+', ' ', key).strip()  # normalize separators
+    s = OrganoidNormalizer.normalize_separators(key)
     # batch: BA3, BA 3, Batch3, batch 3
-    m_b = re.search(r'\b(?:BA|Batch)\s*(\d+)\b', s, flags=re.I)
+    m_b = OrganoidPatterns.BATCH_FLEXIBLE.search(s)
     # day: Dy15, Dy 15, Day15, Day 15
-    m_d = re.search(r'\b(?:Dy|Day)\s*(\d+)\b', s, flags=re.I)
+    m_d = OrganoidPatterns.DAY_FLEXIBLE.search(s)
     batch = int(m_b.group(1)) if m_b else None
     day   = int(m_d.group(1)) if m_d else None
     return batch, day
@@ -33,12 +34,17 @@ def infer_batch_day(key: str, info: dict):
         return batch, day
     # fall back to mask_path like .../batch3/day15/...
     mp = str(info.get("mask_path", ""))
-    m = re.search(r'/batch(\d+)/day(\d+)/', mp, flags=re.I)
+    m = OrganoidPatterns.BATCH_DAY_PATH.search(mp)
     if m:
         return int(m.group(1)), int(m.group(2))
     # last resort: try img_path
     ip = str(info.get("img_path", ""))
-    m2 = re.search(r'(?:BA|Batch)\s*(\d+).*?(?:Dy|Day)\s*(\d+)', ip, flags=re.I)
+    # Extract batch and day from image path using flexible patterns
+    batch_match = OrganoidPatterns.BATCH_FLEXIBLE.search(ip)
+    day_match = OrganoidPatterns.DAY_FLEXIBLE.search(ip)
+    if batch_match and day_match:
+        return int(batch_match.group(1)), int(day_match.group(1))
+    m2 = None  # Fallback for compatibility
     if m2:
         return int(m2.group(1)), int(m2.group(2))
     return None, None
@@ -152,7 +158,7 @@ def process_entry(entry):
 
 
 def main():
-    root = Path(PROCESSED_DATA_DIR)
+    root = Path(INFER_AUTO_PROCESSED_DIR)
     out_csv = root / "morphology_timbre_metrics.csv"
 
     json_paths = list(root.rglob("image_mapping_*_processed.json"))

@@ -4,7 +4,7 @@ from pathlib import Path
 import glob
 
 # Import the root paths module once, then read attributes from it.
-import paths as ROOT
+import config as ROOT
 
 # Canonical values from root
 TARGET_WIDTH  = ROOT.TARGET_WIDTH

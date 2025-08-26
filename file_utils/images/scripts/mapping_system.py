@@ -7,14 +7,14 @@ import sys
 # --- Locate repo root (must contain paths.py and .env) ---
 HERE = Path(__file__).resolve()
 for p in HERE.parents:
-    if (p / "paths.py").exists() and (p / ".env").exists():
+    if (p / "config.py").exists() and (p / ".env").exists():
         sys.path.insert(0, str(p))
         break
 else:
-    raise RuntimeError("Could not locate repo root containing paths.py and .env")
+    raise RuntimeError("Could not locate repo root containing config.py and .env")
 
 # --- Imports that rely on repo root ---
-import paths as P
+import config as P
 from .image_mapper import ImageMapper
 
 # --- Logging ---

@@ -2,6 +2,7 @@
 import json, argparse, re
 from pathlib import Path
 import cv2, numpy as np
+from file_utils.common.organoid_patterns import OrganoidPatterns
 from collections import defaultdict
 
 ROWS = list("ABCDEFGH")
@@ -10,7 +11,7 @@ COLS = [str(i) for i in range(1, 13)]
 def sanitize(s): return re.sub(r'[^A-Za-z0-9._-]+', '_', str(s))
 
 def well_to_rc(well):
-    m = re.match(r'^([A-Ha-h])\s*([1-9]|1[0-2])$', str(well).strip())
+    m = OrganoidPatterns.WELL_FLEXIBLE.match(str(well).strip())
     return (ROWS.index(m.group(1).upper()), int(m.group(2))-1) if m else None
 
 def safe_read_image(p):
