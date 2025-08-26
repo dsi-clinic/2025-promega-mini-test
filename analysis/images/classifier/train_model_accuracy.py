@@ -26,13 +26,13 @@ BACKBONES = {
     "resnet": "resnet50",
     "efficientnet": "efficientnet_b0"
 }
-DATA_DIR = Path("analysis/images/classifier/data/preprocessed/majority/")
+DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/majority/")
 OUT_ROOT = Path("analysis/images/classifier/outputs")
 BATCH_SIZE = 16
 TARGET_SIZE = (224, 224)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 0
-SEED = 42
+SEED = 1
 # -------------------------------------------------------------
 
 # ---------- Utils ----------
