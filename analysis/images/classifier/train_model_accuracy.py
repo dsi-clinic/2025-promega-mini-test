@@ -22,14 +22,15 @@ from torchvision import transforms as T
 
 # -------- Config (defaults; can be overridden by CLI) --------
 BACKBONES = {
-    "vit": "vit_base_patch16_224",
+    "vit": "vit_base_patch16_224",   # we will set img_size=(384,512) at create_model
     "resnet": "resnet50",
     "efficientnet": "efficientnet_b0"
 }
 DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/majority/")
-OUT_ROOT = Path("analysis/images/classifier/outputs")
+OUT_ROOT = Path("analysis/images/classifier/outputs_512x384")
 BATCH_SIZE = 16
-TARGET_SIZE = (224, 224)
+# IMPORTANT: torchvision Resize expects (H, W). We want 512x384 images => (H=384, W=512)
+TARGET_SIZE = (384, 512)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 NUM_WORKERS = 0
 SEED = 1
@@ -90,15 +91,27 @@ class OrganoidDataset(Dataset):
 
 # ---------- Model ----------
 class ImageOnlyClassifier(nn.Module):
-    def __init__(self, backbone_name):
+    def __init__(self, backbone_name, target_size):
         super().__init__()
+        # If it's a ViT-like model, tell timm the image size.
+        # timm will handle positional embedding interpolation for non-224 sizes.
+        extra_args = {}
+        if "vit" in backbone_name:
+            extra_args["img_size"] = target_size  # (H, W) tuple is supported
+
         self.backbone = timm.create_model(
-            backbone_name, pretrained=True, num_classes=0, global_pool="avg"
+            backbone_name,
+            pretrained=True,
+            num_classes=0,          # feature extractor
+            global_pool="avg",
+            **extra_args
         )
         out_dim = self.backbone.num_features
+
         # freeze backbone initially
         for p in self.backbone.parameters():
             p.requires_grad = False
+
         self.classifier = nn.Sequential(
             nn.Linear(out_dim, 128),
             nn.ReLU(),
@@ -108,6 +121,7 @@ class ImageOnlyClassifier(nn.Module):
 
     def unfreeze_backbone(self):
         for name, p in self.backbone.named_parameters():
+            # unfreeze blocks/layers for fine-tuning
             if "blocks." in name or "layer" in name:
                 p.requires_grad = True
 
@@ -198,7 +212,7 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     test_loader  = make_loader(X_test, y_test, augment=False, batch_size=val_bs)
 
     # model/opt
-    model = ImageOnlyClassifier(backbone_name).to(DEVICE)
+    model = ImageOnlyClassifier(backbone_name, TARGET_SIZE).to(DEVICE)
     model_dir = OUT_ROOT / backbone_key / day_json_path.stem
     model_dir.mkdir(parents=True, exist_ok=True)
     model_path = model_dir / "model.pth"
@@ -328,6 +342,7 @@ def main():
     assert val_frac + test_frac < 0.9, "Sum of val-frac and test-frac too large."
     print(f"🧪 Using batch sizes — train: {train_bs}, val/test: {val_bs}")
     print(f"🔀 Split fractions — train: {1.0 - test_frac - val_frac:.2f}, val: {val_frac:.2f}, test: {test_frac:.2f}")
+    print(f"🖼️ Target size (HxW): {TARGET_SIZE}")
 
     # Collect results: pick the best backbone per day by **validation accuracy**
     per_day_best = {}
