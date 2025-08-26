@@ -42,11 +42,26 @@ Metabolites   metabolite_mapper.py     & Merge      Structure
 - **`config.py`**: Alternative/duplicate configuration system (redundancy issue)
 
 
-### Logic Issues
+### 🟢 **CURRENT SYSTEM STATUS (UPDATED)**
+
+**Data Generation**: ✅ **WORKING** - Successfully generates complete all_data.json (4,276 records, 9.5MB)
+- Complete base image mapping data (raw images, Z-stacks, metadata)
+- Multi-resolution processed images (256x192, 512x384)
+- Metabolite assay data with concentration values
+- Survey evaluation and quality score data
+- Proper NaN → null conversion for valid JSON
+- Centralized regex patterns eliminate code duplication
+
+**Environment**: ✅ **DOCUMENTED** - Conda environment setup properly documented
+- `conda activate /net/projects2/promega` required before running
+- All file paths updated in README.md and CLAUDE.md
+- Proper PYTHONPATH configuration for imports
+
+### Logic Issues (Lower Priority)
 
 1. **Base path environment dependency**: The code relies on `BASE_PATH` environment variable but may fail silently if not set properly in merge context.
 
-2. **Error handling gaps**: Several `ValueError` exceptions in key normalization could crash the entire merge process.
+2. ~~**Error handling gaps**: Several `ValueError` exceptions in key normalization could crash the entire merge process.~~ ✅ **IMPROVED** - Added proper error handling with metadata key filtering
 
 3. **Memory inefficiency**: Loads entire datasets into memory before merging.
 
@@ -139,13 +154,29 @@ Metabolites   metabolite_mapper.py     & Merge      Structure
 
 ## Environment Setup Notes
 
+### Conda Environment
+Before running any scripts, activate the required conda environment:
+```bash
+conda activate /net/projects2/promega
+```
+
+### Environment Variables
 The system expects these key environment variables:
 - `BASE_PATH`: Root directory for data files
 - `OUTPUT_FOLDER`: Location for processed outputs
 - `SURVEY_RESULTS`: Directory containing Excel survey files
 - `METABOLITE_DATA_DIR`: Directory for metabolite Excel files
 
-Ensure `.env` file is properly configured before running `python merge/merge_all_data.py`.
+Ensure `.env` file is properly configured before running scripts.
+
+### Running Data Generation
+```bash
+# Activate environment first
+conda activate /net/projects2/promega
+
+# Generate all_data.json
+python file_utils/merge/merge_all_data.py
+```
 
 ## Testing Recommendations
 

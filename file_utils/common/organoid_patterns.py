@@ -26,7 +26,7 @@ class OrganoidPatterns:
     DAY_TOKEN = re.compile(r'^DY\d+$', re.IGNORECASE)
     
     # Plate patterns
-    PLATE_PATTERN = re.compile(r'^(96_[12]|PT1)$', re.IGNORECASE)
+    PLATE_PATTERN = re.compile(r'\b(96_[12]|PT1)\b', re.IGNORECASE)
     PLATE_REMOVE = re.compile(r'96_[12]', re.IGNORECASE)
     PLATE_TOKEN = re.compile(r'^(96_[12]|PT1)$', re.IGNORECASE)
     

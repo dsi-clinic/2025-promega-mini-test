@@ -48,8 +48,35 @@ def clean_nan_values(obj):
     else:
         return obj
 
-base_map     = {norm_key(k): v for k, v in load_json(base_image_mapping_path).items()}
-metab_map    = {norm_key(k): v for k, v in load_json(metabolite_json_path).items()}
+# Filter out metadata keys and only process organoid keys
+def is_organoid_key(key: str) -> bool:
+    """Check if key looks like an organoid key (starts with BA)"""
+    return isinstance(key, str) and key.strip().upper().startswith('BA')
+
+base_data = load_json(base_image_mapping_path)
+base_map = {}
+
+# Handle nested structure: check if data has 'entries' key
+if 'entries' in base_data:
+    entries_data = base_data['entries']
+else:
+    entries_data = base_data
+
+for k, v in entries_data.items():
+    if is_organoid_key(k):
+        try:
+            base_map[norm_key(k)] = v
+        except ValueError as e:
+            print(f"[BASE] Failed to normalize: {k} — {e}")
+
+metab_data = load_json(metabolite_json_path)  
+metab_map = {}
+for k, v in metab_data.items():
+    if is_organoid_key(k):
+        try:
+            metab_map[norm_key(k)] = v
+        except ValueError as e:
+            print(f"[METABOLITE] Failed to normalize: {k} — {e}")
 
 
 processed_map = {}
@@ -58,11 +85,15 @@ processed_map = {}
 for p in pathlib.Path(processed_parent).rglob("image_mapping_*_processed.json"):
     if "auto_processed" in str(p):
         for k, v in load_json(p).items():
-            norm_k = norm_key(k)
-            resolution = OrganoidNormalizer.extract_resolution(str(p)) or "unknown"
-            if norm_k not in processed_map:
-                processed_map[norm_k] = {}
-            processed_map[norm_k][resolution] = v
+            if is_organoid_key(k):
+                try:
+                    norm_k = norm_key(k)
+                    resolution = OrganoidNormalizer.extract_resolution(str(p)) or "unknown"
+                    if norm_k not in processed_map:
+                        processed_map[norm_k] = {}
+                    processed_map[norm_k][resolution] = v
+                except ValueError as e:
+                    print(f"[PROCESSED] Failed to normalize: {k} — {e}")
 
 
 # survey – one file, keys are inside each record
