@@ -13,6 +13,7 @@ sys.path.insert(0, str(root))
 os.chdir(str(root))  # optional but helps if config.py uses relative paths
 
 from config import SURVEY_RESULTS, SURVEY_AGGREGATED_JSON
+from file_utils.common.organoid_patterns import OrganoidNormalizer, clean_id_for_json, norm_key
 
 input_dir = str(SURVEY_RESULTS)
 print("SURVEY_RESULTS =", input_dir)
@@ -64,9 +65,7 @@ def process_organoid_files(directory):
                         organoid_id = next((p for p in parts if "Organoid_" in p), None)
                         image_id = next((p for p in parts if any(x in p for x in ['Ba1', 'Ba2', 'Dy'])), None)
                         if image_id:
-                            image_id_cleaned = re.sub(r"\(.*?\)", "", image_id)
-                            image_id_cleaned = re.sub(r"[^A-Za-z0-9\s_]", " ", image_id_cleaned)
-                            image_id_cleaned = re.sub(r"\s+", " ", image_id_cleaned).strip()
+                            image_id_cleaned = clean_id_for_json(image_id)
                         else:
                             image_id_cleaned = None
 
@@ -90,7 +89,7 @@ def process_organoid_files(directory):
 
                         # Debug: log missing parsed_meta if needed
                         if parsed_meta == {}:
-                            print(f"Unparsed image_id: {image_id_clean} from {organoid_id} in {os.path.basename(file)}")
+                            print(f"Unparsed image_id: {image_id_cleaned} from {organoid_id} in {os.path.basename(file)}")
 
         except Exception as e:
             print(f"Error processing file {file}: {e}")

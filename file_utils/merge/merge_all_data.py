@@ -1,34 +1,26 @@
+#!/usr/bin/env python3
 import os
 import json
+import math
+import pathlib
 from glob import glob
-from tqdm import tqdm
-import re
-#!/usr/bin/env python3
-import json, os, re, pathlib
-from glob import glob
+from pathlib import Path
 from tqdm import tqdm
 
 # ───────── paths ─────────────────────────────────────────────────────────
-from pathlib import Path
-from config import ORIGINAL_MAPPING, PROCESSED_PARENT_DIR, BASE_PATH, METABOLITE_MAP_JSON, SURVEY_AGGREGATED_JSON
+from config import ORIGINAL_MAPPING, OUTPUT_FOLDER, BASE_PATH, METABOLITE_MAP_JSON, SURVEY_AGGREGATED_JSON
+from file_utils.common.organoid_patterns import OrganoidNormalizer, norm_key, day_from_key
 
 base_image_mapping_path = ORIGINAL_MAPPING
-# processed_root_dir = PROCESSED_DATA_DIR  # if/when you need it
+# processed_root_dir = INFER_AUTO_PROCESSED_DIR  # if/when you need it
 
 metabolite_json_path = METABOLITE_MAP_JSON
 survey_json_path    = SURVEY_AGGREGATED_JSON
-processed_parent = str(PROCESSED_PARENT_DIR)
+processed_parent = str(OUTPUT_FOLDER)
 
 output_path             = 'all_data.json'
 
-_tok_ba    = re.compile(r'^BA\d+$',          re.IGNORECASE)
-_tok_plate = re.compile(r'^(96_[12]|PT1)$',  re.IGNORECASE)
-_tok_day   = re.compile(r'^DY\d+$',          re.IGNORECASE)
-DAY_NUM_RE = re.compile(r'\bDy(\d{1,2})\b', re.IGNORECASE)
-
-def day_from_key(norm_k: str) -> int | None:
-    m = DAY_NUM_RE.search(norm_k)
-    return int(m.group(1)) if m else None
+# Regex patterns now centralized in organoid_patterns module
 
 def to_mdl_day(day: int | None) -> float | None:
     if day is None:
@@ -38,44 +30,23 @@ def to_mdl_day(day: int | None) -> float | None:
         return 20.5
     return float(day)
 
-def norm_key(id_like: str) -> str:
-    """
-    Normalise an ID of the form
-        'Ba2 96_1 Dy30 H11'  -> 'BA2 96_1 Dy30 H11'
-        'Ba1 Dy06 A1'        -> 'BA1 Dy06 A1'
-    """
-    parts = id_like.strip().split()
-    if not parts or not _tok_ba.match(parts[0]):
-        raise ValueError(f"Bad BA token in {id_like!r}")
-
-    ba      = parts[0].upper()            # BA1, BA2, …
-    idx     = 1
-
-    # optional plate designator (96_1 / 96_2 / Pt1)
-    plate   = ''
-    if idx < len(parts) and _tok_plate.match(parts[idx]):
-        plate = parts[idx]
-        idx  += 1
-
-    # day token (Dy##)
-    if idx >= len(parts) or not _tok_day.match(parts[idx]):
-        raise ValueError(f"Cannot find day token in {id_like!r}")
-    day = parts[idx]
-    idx += 1
-
-    # remaining token is the well ID
-    if idx >= len(parts):
-        raise ValueError(f"Cannot find well token in {id_like!r}")
-    well = parts[idx]
-
-    # final normalised key
-    ba_full = f"{ba} {plate}".strip()     # keep plate for BA2 / BA3
-    return f"{ba_full} {day} {well}"
+# norm_key and day_from_key now imported from organoid_patterns module
 
 
 # ───────── read files & re-key with norm_key() ───────────────────────────
 def load_json(path):
     with open(path) as f: return json.load(f)
+
+def clean_nan_values(obj):
+    """Recursively replace NaN values with None for valid JSON serialization"""
+    if isinstance(obj, dict):
+        return {key: clean_nan_values(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_nan_values(item) for item in obj]
+    elif isinstance(obj, float) and math.isnan(obj):
+        return None
+    else:
+        return obj
 
 base_map     = {norm_key(k): v for k, v in load_json(base_image_mapping_path).items()}
 metab_map    = {norm_key(k): v for k, v in load_json(metabolite_json_path).items()}
@@ -88,8 +59,7 @@ for p in pathlib.Path(processed_parent).rglob("image_mapping_*_processed.json"):
     if "auto_processed" in str(p):
         for k, v in load_json(p).items():
             norm_k = norm_key(k)
-            resolution = re.search(r'processed_dataset_(\d+x\d+)', str(p))
-            resolution = resolution.group(1) if resolution else "unknown"
+            resolution = OrganoidNormalizer.extract_resolution(str(p)) or "unknown"
             if norm_k not in processed_map:
                 processed_map[norm_k] = {}
             processed_map[norm_k][resolution] = v
@@ -128,7 +98,9 @@ for k in tqdm(sorted(all_keys)):
     combined[k] = entry
 
 # ───────── write out ─────────────────────────────────────────────────────
+# Clean NaN values before writing to ensure valid JSON
+combined_clean = clean_nan_values(combined)
 with open(output_path, 'w') as f:
-    json.dump(combined, f, indent=2)
+    json.dump(combined_clean, f, indent=2)
 print(f"Wrote {len(combined):,} merged records → {output_path}")
 

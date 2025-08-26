@@ -41,36 +41,6 @@ Metabolites   metabolite_mapper.py     & Merge      Structure
 - **`paths.py`**: Central path configuration with environment variable support
 - **`config.py`**: Alternative/duplicate configuration system (redundancy issue)
 
-## Status Update (Latest)
-
-### ✅ **RESOLVED ISSUES**
-1. **Configuration Redundancy FIXED**: Successfully consolidated `paths.py` and `config.py` into a single `config.py` file
-2. **All Import References Updated**: 13+ files across codebase now use `config.py`
-3. **Backward Compatibility Maintained**: All existing functionality preserved
-4. **Syntax Validation**: All key files compile successfully after changes
-
-### 🔴 **REMAINING CRITICAL ERRORS**
-
-1. **Line 93 in `surveys_mapper.py`**: 
-   ```python
-   print(f"Unparsed image_id: {image_id_clean} from {organoid_id} in {os.path.basename(file)}")
-   ```
-   **Error**: `image_id_clean` is undefined. Should be `image_id_cleaned`.
-
-2. **Duplicate imports in `merge_all_data.py` (lines 1-9)**:
-   ```python
-   import os
-   import json
-   from glob import glob
-   from tqdm import tqdm
-   import re
-   #!/usr/bin/env python3  # Misplaced shebang
-   import json, os, re, pathlib  # Duplicated imports
-   from glob import glob
-   from tqdm import tqdm
-   ```
-
-3. **Invalid JSON value in `all_data.json`**: Line 23 shows `"treatment": NaN` which is invalid JSON (should be `null`).
 
 ### Logic Issues
 
@@ -84,14 +54,10 @@ Metabolites   metabolite_mapper.py     & Merge      Structure
 
 ### 1. DRY Principle Violations
 
-- ~~**Duplicate configuration**: Both `paths.py` and `config.py` serve similar purposes~~ ✅ **RESOLVED**
 - **Repeated JSON loading**: `load_json()` function is simple but could be enhanced with error handling
-- **Duplicate imports**: Multiple files repeat the same import statements
-- **Key normalization**: Similar regex patterns repeated across files
 
 ### 2. KISS Principle Violations
 
-- **Complex regex patterns**: Multiple regex patterns that could be consolidated
 - **Nested dictionary structure**: Deep nesting in final JSON makes access complex
 - **Mixed responsibilities**: `merge_all_data.py` handles both file I/O and business logic
 
@@ -109,13 +75,6 @@ Metabolites   metabolite_mapper.py     & Merge      Structure
 - **Survey data structure**: Complex nested structure that's hard to query
 
 ## Recommended Improvements
-
-### Immediate Fixes (High Priority)
-
-1. **Fix variable name error** in `surveys_mapper.py:93`
-2. **Clean up duplicate imports** in `merge_all_data.py`
-3. **Handle NaN values** properly in JSON serialization
-4. ~~**Consolidate configuration** - remove duplicate between `paths.py` and `config.py`~~ ✅ **RESOLVED**
 
 ### Architectural Improvements (Medium Priority)
 

@@ -30,8 +30,8 @@ if not load_successful:
 
 # Assume these paths come from your .env loading logic:
 MASKS_FOLDER = Path(os.environ["MANUAL_MASKS_DIR"])
-JSON_MAPPING_PATH = Path(os.environ["MAPPING_PROCESSED_TOTAL"])
-PREPROCESSED_FOLDER = Path(os.environ["MANUAL_PROCESSED_DIR"])
+JSON_MAPPING_PATH = Path(os.environ["INFER_MAPPING_TOTAL_JSON"])
+PREPROCESSED_FOLDER = Path(os.environ["TRAIN_MANUAL_PROCESSED_DIR"])
 
 
 @DATASETS.register_module()

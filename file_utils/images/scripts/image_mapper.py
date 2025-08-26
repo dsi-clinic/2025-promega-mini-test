@@ -8,6 +8,7 @@ from tifffile import TiffFile  # if you ever need it
 import cv2
 import numpy as np
 from skimage.io import imread
+from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer, clean_id_for_json
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -30,8 +31,7 @@ def load_gray_resized(path: Path, size: tuple[int,int] | None = FAST_EVAL_SIZE) 
     return img
 
 def extract_z(f: Path) -> int:
-    m = re.search(r" Z(\d+)", f.name, re.IGNORECASE)
-    return int(m.group(1)) if m else -1
+    return OrganoidNormalizer.extract_z_level(f.name)
 def is_blankish_file(
     path: Path,
     # --- soft gates (recommended defaults) ---
@@ -123,27 +123,22 @@ def classify_image_file(fname: str) -> str:
         return "Stitched"
 
     # 2. Partial (multi-tile images without the stitched file)
-    if re.search(r"\(\d+\s+of\s+\d+\)", fname_lower):
+    if OrganoidPatterns.PARTIAL_IMAGE.search(fname_lower):
         return "Partial"
 
     # 3. Duplicate patterns — (1), (2), etc., but not (#)
-    if re.search(r"\((\d+)\)", fname_lower):
+    if OrganoidPatterns.DUPLICATE_IMAGE.search(fname_lower):
         return "Duplicate"
 
     # 4. Patterns like (#)% — not duplicate, not stitched
-    if re.search(r"\(#\)%", fname_lower):
+    if OrganoidPatterns.HASH_PERCENT.search(fname_lower):
         return "Regular"
 
     return "Regular"
 
 
 
-def clean_id_for_json(s: str) -> str:
-    s = re.sub(r"\[.*?\]", "", s)          # remove things in square brackets
-    s = re.sub(r"\(.*?\)", "", s)          # remove things in parentheses
-    s = re.sub(r"[^A-Za-z0-9\s_]", " ", s) # replace non-alphanumeric
-    s = re.sub(r"\s+", " ", s).strip()     # normalize whitespace
-    return s
+# clean_id_for_json now imported from organoid_patterns module
 
 class ImageMapper:
     BA_FOLDER_MAP = {
@@ -211,7 +206,7 @@ class ImageMapper:
 
             # ── batchPlate ────────────────────────────────────────────
             #  Ex.:  Ba2 96_1 | Ba3 Pt1 | Ba1
-            if len(parts) > 1 and re.match(r"^(96_[12]|Pt1)$", parts[1], re.I):
+            if len(parts) > 1 and OrganoidPatterns.PLATE_PATTERN.match(parts[1]):
                 batchPlate = f"{parts[0]} {parts[1]}"
                 day_idx = 2
             else:
@@ -223,7 +218,7 @@ class ImageMapper:
             well_tokens = parts[day_idx + 1 :]
 
             # ── wellID  (strip EVERYTHING after the first letter+digits) ──
-            m = re.search(r'(?<!BA)\b([A-H]\d{1,2})\b', " ".join(well_tokens), re.IGNORECASE)
+            m = OrganoidPatterns.WELL_STRICT.search(" ".join(well_tokens))
             wellID = m.group(1).upper() if m else " ".join(well_tokens).strip()
 
 
@@ -256,7 +251,7 @@ class ImageMapper:
         logging.info(f"Resolving filename for {file_photoID} in {img_folder}")
 
         # Strict well ID
-        m = re.search(r'(?<!BA)\b([A-H]\d{1,2})\b', file_photoID, re.IGNORECASE)
+        m = OrganoidPatterns.WELL_STRICT.search(file_photoID)
         well_id = m.group(1).upper() if m else ""
         search_id = file_photoID
 
@@ -272,13 +267,13 @@ class ImageMapper:
         ):
             search_ids = [
                 search_id,
-                re.sub(r"\bBA3\b", "BA3 96_1", search_id, flags=re.IGNORECASE),
-                re.sub(r"\bBA3\b", "BA3 Pt1",  search_id, flags=re.IGNORECASE),
+                OrganoidPatterns.BA_SUBSTITUTE.sub("BA3 96_1", search_id),
+                OrganoidPatterns.BA_SUBSTITUTE.sub("BA3 Pt1", search_id),
             ]
             logging.info(f"Using multiple search patterns for BA3: {search_ids}")
         elif batch_plate:
-            plate_suffix_match = re.search(r"(96_[12]|Pt1)", batch_plate, re.IGNORECASE)
-            ba_match = re.search(r"\bBA\d+\b", search_id, re.IGNORECASE)
+            plate_suffix_match = OrganoidPatterns.PLATE_PATTERN.search(batch_plate)
+            ba_match = OrganoidPatterns.BATCH_FLEXIBLE.search(search_id)
             if ba_match and plate_suffix_match:
                 base_id = search_id.strip()
                 ba_part = ba_match.group(0)
@@ -302,7 +297,7 @@ class ImageMapper:
             clean_sid = sid.strip()
 
             sid_well = None
-            m = re.search(r'(?<!BA)\b([A-H]\d{1,2})\b', clean_sid, re.IGNORECASE)
+            m = OrganoidPatterns.WELL_STRICT.search(clean_sid)
             if m:
                 sid_well = m.group(1).upper()
 
@@ -320,7 +315,7 @@ class ImageMapper:
             # 3. Handle cases where special characters might be represented differently
             if '(' in clean_sid and ')' in clean_sid:
                 base_part = clean_sid.split('(')[0].strip()
-                paren_content = re.search(r'\(([^)]*)\)', clean_sid)
+                paren_content = OrganoidPatterns.REMOVE_PARENS.search(clean_sid)
                 if paren_content:
                     paren_part = paren_content.group(1)
                     patterns.append(rf"\b{re.escape(base_part)}\s*\([^)]*{re.escape(paren_part)}[^)]*\)")
@@ -528,8 +523,7 @@ class ImageMapper:
                     stitched_full_id = f"{full_id} [{safe_identifier}]"
                     clean_stitched_id = clean_id_for_json(stitched_full_id)
 
-                    z_match = re.search(r' Z(\d+)', final_file.name, re.IGNORECASE)
-                    actual_z = int(z_match.group(1)) if z_match else 0
+                    actual_z = OrganoidNormalizer.extract_z_level(final_file.name)
 
                     found_count += 1
                     stitched_count += 1
@@ -562,14 +556,12 @@ class ImageMapper:
             if stitched_flag == "Stitched":
                 focus_idx = -1
                 final = chosen
-                z_match = re.search(r' Z(\d+)', chosen.name, re.IGNORECASE)
-                actual_z = int(z_match.group(1)) if z_match else 0
+                actual_z = OrganoidNormalizer.extract_z_level(chosen.name)
             else:
                 idx = self.find_best_focus(all_files)
                 focus_idx = idx if 0 <= idx < len(all_files) else -1
                 final = all_files[focus_idx] if focus_idx >= 0 else chosen
-                z_match = re.search(r' Z(\d+)', final.name, re.IGNORECASE)
-                actual_z = int(z_match.group(1)) if z_match else 0
+                actual_z = OrganoidNormalizer.extract_z_level(final.name)
 
             classification = classify_image_file(final.name)
             is_blank, area_frac = is_blankish_file(final)

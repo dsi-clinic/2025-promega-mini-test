@@ -4,12 +4,12 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from file_utils.common.organoid_patterns import OrganoidNormalizer, OrganoidPatterns
 
-DAY_PAT = re.compile(r"[Dd][Yy](\d+)")
+DAY_PAT = OrganoidPatterns.DAY_EXTRACT
 
 def day_to_int(day_str: str) -> int:
-    m = DAY_PAT.search(day_str)
-    return int(m.group(1)) if m else -1
+    return OrganoidNormalizer.extract_day_number(day_str) or -1
 
 def load_model_days(out_root: Path, model_key: str):
     """
