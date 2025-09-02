@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os, json, argparse, re
-from file_utils.common.organoid_patterns import OrganoidNormalizer
 from pathlib import Path
 from collections import defaultdict
 
@@ -28,7 +27,7 @@ BACKBONES = {
     "efficientnet": "efficientnet_b0"
 }
 DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/majority/")
-OUT_ROOT = Path("analysis/images/classifier/outputs_512x384")
+OUT_ROOT = Path("analysis/images/classifier/outputs_512x384_Regular_image_train_augment")
 BATCH_SIZE = 16
 # IMPORTANT: torchvision Resize expects (H, W). We want 512x384 images => (H=384, W=512)
 TARGET_SIZE = (384, 512)
@@ -48,7 +47,8 @@ def set_seed(seed=SEED):
 
 def day_to_int(day_str: str) -> int:
     # "Dy28" -> 28, fallback -1
-    return OrganoidNormalizer.extract_day_number(day_str) or -1
+    m = re.search(r"[Dd][Yy](\d+)", day_str)
+    return int(m.group(1)) if m else -1
 
 class EarlyStopping:
     def __init__(self, patience=20, min_delta=1e-4):

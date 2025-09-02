@@ -10,34 +10,8 @@ This version:
         data/preprocessed/256x192/{mode}/{day}.json
   • Run from repo root: default --all is all_data.json.
   • Natural day sorting is numeric (supports decimals like 20.5).
-
-Usage (from repo root):
-    python scripts/data_preprocessing.py --majority_threshold 4
-    # optional:
-    # python scripts/data_preprocessing.py --all all_data.json
-
-Inputs (example record shape):
-{
-  "BA1 96_1 Dy03 A1": {
-    "day_num": 3,           # used
-    "mdl_day": 3.0,         # ignored for day selection (kept for reference)
-    "BA": "BA1 96_1",
-    "wellID": "A1",
-    "Best Z Filename": "...",
-    "512x384": {"img_path":"...", "mask_path":"..."},
-    "256x192": {"img_path":"...", "mask_path":"..."},
-    "survey": { "evaluations": [ ... 5 items ... ] }   # present on day_num == 30
-  }
-}
-
-Outputs:
-  • data/preprocessed/<variant>/complete/{DAY}.json   (propagated ONLY if day 30 had 5/5)
-  • data/preprocessed/<variant>/majority/{DAY}.json   (ONLY labeled entries; unlabeled omitted)
-  • data/preprocessed/unmatched/unmatched_cases.csv
-
-Notes:
-  • Stats are variant-agnostic (count a record if it has at least one valid variant).
-  • day filename token is file-safe: e.g., 20.5 → "20_5.json".
+  • Supports optional filtering by "Classification", e.g.:
+        python scripts/data_preprocessing.py --classification Regular
 """
 
 import json
@@ -45,7 +19,6 @@ import csv
 import argparse
 import sys
 import math
-import re
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional
@@ -66,6 +39,15 @@ def s(x: Any) -> str:
 
 def norm(sval: Any) -> str:
     return s(sval).strip().upper()
+
+def classification_matches(rec: Dict[str, Any], cls_filter: Optional[str]) -> bool:
+    """
+    Returns True if no filter is provided, otherwise checks that
+    rec['Classification'] matches the given value (case-insensitive).
+    """
+    if not cls_filter:
+        return True
+    return norm(rec.get("Classification")) == norm(cls_filter)
 
 def label_from_votes(votes: List[str], mode: str = "majority", majority_threshold: int = 4) -> Optional[str]:
     """Return 'Accepted' / 'Not Accepted' / None based on 5 votes."""
@@ -101,38 +83,28 @@ def get_votes(rec: Dict[str, Any]) -> List[str]:
 
 # ---- day_num helpers ----
 def extract_day_num(rec: Dict[str, Any]) -> Optional[float]:
-    """
-    Read day_num from record.
-    Returns float (with 20/21 merged to 20.5) or None if unavailable/invalid.
-    """
     dn = rec.get("day_num", None)
     try:
         x = float(dn)
     except (TypeError, ValueError):
         return None
-    # Merge rule: 20 and 21 -> 20.5
     if math.isfinite(x) and (abs(x - 20.0) < 1e-9 or abs(x - 21.0) < 1e-9):
         x = 20.5
     return x if math.isfinite(x) else None
 
 def day_sort_key(day_str: str) -> Tuple[float, str]:
-    """
-    Sorts days numerically. day_str should be something like '3', '20.5', etc.
-    """
     try:
         return (float(day_str), day_str)
     except Exception:
         return (10**9, day_str)
 
 def day_to_str(day: float) -> str:
-    """Human/readable key like '3' or '20.5' (no trailing .0)."""
     day = round(day, 4)
     if abs(day - int(day)) < 1e-9:
         return str(int(day))
     return str(day).rstrip('0').rstrip('.')
 
 def day_to_file_token(day: float) -> str:
-    """File-safe token: replace '.' with '_'."""
     return day_to_str(day).replace(".", "_")
 
 # ---- Variant utilities ----
@@ -153,25 +125,21 @@ def variant_payload(rec: Dict[str, Any], variant: str) -> Optional[Dict[str, Any
 def compute_stats(
     all_data: Dict[str, Dict[str, Any]],
     dy30_labels: Dict[Tuple[str, str], Dict[str, Optional[str]]],
-    majority_threshold: int
+    majority_threshold: int,
+    classification_filter: Optional[str]
 ) -> Dict[str, Any]:
-    """
-    Build a comprehensive stats dictionary and return it.
-    Stats are variant-agnostic: a record counts as 'usable' if it has BA/well/day_num
-    and at least one valid variant with img+mask.
-    """
-
-    # Day 30 (dy30) coverage (by day_num==30)
     dy30_total = 0
     dy30_with_valid_survey = 0
-    dy30_label_dist_majority = Counter()  # Accepted / Not Accepted
+    dy30_label_dist_majority = Counter()
     dy30_label_dist_complete = Counter()
 
     for _, rec in all_data.items():
         if not isinstance(rec, dict): continue
+        if not classification_matches(rec, classification_filter): 
+            continue
         dn = extract_day_num(rec)
         if dn is None: continue
-        if abs(dn - 30.0) >= 1e-9:  # only true day 30
+        if abs(dn - 30.0) >= 1e-9:
             continue
         dy30_total += 1
         votes = get_votes(rec)
@@ -182,16 +150,18 @@ def compute_stats(
             if maj: dy30_label_dist_majority[maj] += 1
             if com: dy30_label_dist_complete[com] += 1
 
-    # Per-day breakdown (variant-agnostic)
     per_day_total = Counter()
-    per_day_with_match = Counter()        # has day30 majority label for that BA/well
+    per_day_with_match = Counter()
     per_day_without_match = Counter()
-    per_day_label_dist = defaultdict(Counter)  # day_str -> {Accepted, Not Accepted}
+    per_day_label_dist = defaultdict(Counter)
     unmatched_reason_counts = Counter()
 
     for image_id, rec in all_data.items():
         if not isinstance(rec, dict):
             unmatched_reason_counts["record_not_dict"] += 1
+            continue
+        if not classification_matches(rec, classification_filter):
+            unmatched_reason_counts["classification_filtered_out"] += 1
             continue
 
         day_val = extract_day_num(rec)
@@ -221,7 +191,6 @@ def compute_stats(
         else:
             per_day_without_match[day_key] += 1
 
-    # Fully matched vs partially matched days
     fully_matched_days = []
     partially_matched_days = []
     for day, total in per_day_total.items():
@@ -250,7 +219,6 @@ def compute_stats(
     return stats
 
 def print_stats_report(stats: Dict[str, Any]) -> None:
-    """Pretty-print the stats report to stdout."""
     dy30 = stats["dy30"]
     per_day = stats["per_day"]
     reasons = stats["unmatched_reason_counts"]
@@ -288,6 +256,8 @@ def main():
     parser.add_argument("--outdir", default=OUT_ROOT, help="Where to save outputs")
     parser.add_argument("--majority_threshold", type=int, default=4,
                         help="Threshold for majority agreement (3 or 4)")
+    parser.add_argument("--classification", default=None,
+                        help="If set, only include records whose 'Classification' equals this value (e.g., 'Regular'). Case-insensitive.")
     args = parser.parse_args()
 
     # ---- Load unified JSON ----
@@ -305,11 +275,12 @@ def main():
         sys.exit(2)
 
     # ---------- Pass 1: build Day30 label map ----------
-    # key: (BA.upper(), wellID.upper()) → {"majority": str|None, "complete": str|None}
     dy30_labels: Dict[Tuple[str, str], Dict[str, Optional[str]]] = {}
 
     for _, rec in all_data.items():
         if not isinstance(rec, dict):
+            continue
+        if not classification_matches(rec, args.classification):
             continue
         dn = extract_day_num(rec)
         if dn is None or abs(dn - 30.0) >= 1e-9:
@@ -325,12 +296,11 @@ def main():
         comp = label_from_votes(votes, mode="complete")
         dy30_labels[(ba, well)] = {"majority": maj, "complete": comp}
 
-    # ---------- Stats phase (pre-output) ----------
-    stats = compute_stats(all_data, dy30_labels, args.majority_threshold)
+    # ---------- Stats phase ----------
+    stats = compute_stats(all_data, dy30_labels, args.majority_threshold, args.classification)
     print_stats_report(stats)
 
-    # ---------- Pass 2: emit per-variant datasets with propagation ----------
-    # datasets_by_variant[variant][(mode, day_str)] -> List[dict]
+    # ---------- Pass 2: emit per-variant datasets ----------
     datasets_by_variant: Dict[str, Dict[Tuple[str, str], List[Dict[str, Any]]]] = {
         v: defaultdict(list) for v in VARIANTS
     }
@@ -339,6 +309,9 @@ def main():
     for image_id, rec in all_data.items():
         if not isinstance(rec, dict):
             unmatched_rows.append({"image_id": s(image_id), "reason": "record_not_dict"})
+            continue
+        if not classification_matches(rec, args.classification):
+            unmatched_rows.append({"image_id": s(image_id), "reason": "classification_filtered_out"})
             continue
 
         day_val = extract_day_num(rec)
@@ -353,7 +326,6 @@ def main():
             unmatched_rows.append({"image_id": s(image_id), "reason": "missing_BA_or_wellID"})
             continue
 
-        # Determine labels (variant-agnostic) via day 30 map
         dn_raw = rec.get("day_num", None)
         try:
             dn_raw_f = float(dn_raw)
@@ -370,9 +342,7 @@ def main():
             comp_label = inherited.get("complete")
 
         day_key = day_to_str(day_val)
-        day_file = day_to_file_token(day_val)
 
-        # For each available variant, push records to that variant's dataset
         any_variant_present = False
         for variant in VARIANTS:
             payload = variant_payload(rec, variant)
@@ -401,8 +371,6 @@ def main():
                 rec_m = dict(base_record)
                 rec_m["label"] = maj_label
                 datasets_by_variant[variant][("majority", day_key)].append(rec_m)
-            #else:
-                #unmatched_rows.append({"image_id": s(image_id), "reason": "no_day30_label"})
 
         if not any_variant_present:
             unmatched_rows.append({"image_id": s(image_id), "reason": "no_valid_variant_img_or_mask"})
