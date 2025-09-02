@@ -4,6 +4,10 @@
 data:
 	PYTHONPATH=. conda run -p /net/projects2/promega python file_utils/merge/merge_all_data.py
 
+# train the image classifier model
+train:
+	PYTHONPATH=. conda run -p /net/projects2/promega python analysis/images/classifier/train_model_accuracy.py
+
 # Clean generated data files
 clean:
 	rm -f all_data.json all_data_old.json

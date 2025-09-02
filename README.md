@@ -58,19 +58,12 @@ conda activate /net/projects2/promega
 python file_utils/merge/merge_all_data.py
 ```
 
-<<<<<<< HEAD
-Makefile:
-- make -f model.Makefile all
-- make -f model.Makefile train
-
-=======
 ### 3. Run Analysis
 ```bash
 # All analysis runs from root directory
 python analysis/images/classifier/train_model_accuracy.py
 python analysis/surveys/classifier/simple_classifier.py
 ```
->>>>>>> origin/main
 
 ## Configuration System
 
