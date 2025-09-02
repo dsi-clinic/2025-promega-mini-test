@@ -85,7 +85,7 @@ def line(ax, xs, ys, label, color, marker="o"):
 # ---------- Main ----------
 def main():
     parser = argparse.ArgumentParser(description="Plot per-model metrics across days.")
-    parser.add_argument("--out-root", default="analysis/images/classifier/outputs_512x384",
+    parser.add_argument("--out-root", default="analysis/images/classifier/outputs_512x384_train_augment",
                         help="Root output directory where metrics_* are saved")
     parser.add_argument("--models", nargs="*", default=["vit","resnet","efficientnet"],
                         help="Backbone keys (dirs under out-root) to include")

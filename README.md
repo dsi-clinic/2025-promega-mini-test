@@ -45,6 +45,10 @@ How do we run Analysis:
 - We use our default environment using conda
 - We run them from the root.
 
+Makefile:
+- make -f model.Makefile all
+- make -f model.Makefile train
+
 
 Where are we going to:
 
@@ -61,6 +65,5 @@ Where are we going to:
 
 
 - /net/projects2/promega/[some subdirectory] <- mirror what is on cloudflare. Move code toward this eventually. Need to have two commands, one which mirrors up and one which mirrors down
-
 
 

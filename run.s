@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=vit-train
+#SBATCH --job-name=promega-images-classifier
 #SBATCH --partition=general
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=32G
@@ -13,4 +13,4 @@ module purge
 source /net/scratch/jiaweizhang/promega_my_old_version/venv/bin/activate
 
 # Run your Python script
-python analysis/images/classifier/train_model_accuracy_512x384.py
+python analysis/images/classifier/train_model_accuracy.py

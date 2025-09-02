@@ -74,7 +74,7 @@ def write_table(csv_path: Path, rows):
 
 def main():
     parser = argparse.ArgumentParser(description="Create one chart and one 4-col table per model.")
-    parser.add_argument("--out-root", default="analysis/images/classifier/outputs_512x384",
+    parser.add_argument("--out-root", default="analysis/images/classifier/outputs_512x384_train_augment",
                         help="Root directory with per-model day folders")
     parser.add_argument("--models", nargs="*", default=["vit","resnet","efficientnet"],
                         help="Model directory names under out-root")
