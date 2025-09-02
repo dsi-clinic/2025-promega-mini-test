@@ -6,14 +6,14 @@ from pathlib import Path
 # Locate repo root: must contain both paths.py and .env
 HERE = Path(__file__).resolve()
 for p in HERE.parents:
-    if (p / "paths.py").exists() and (p / ".env").exists():
+    if (p / "config.py").exists() and (p / ".env").exists():
         sys.path.insert(0, str(p))
         break
 else:
-    raise RuntimeError("Could not locate repo root containing paths.py and .env")
+    raise RuntimeError("Could not locate repo root containing config.py and .env")
 
 # Import ONLY root paths
-from paths import RAW_IMAGE_MAPPING_JSON, MANUAL_MASKS_DIR, MANUAL_THRESHOLD_MAPPING as OUTPUT_PATH
+from config import RAW_IMAGE_MAPPING_JSON, MANUAL_MASKS_DIR, MANUAL_THRESHOLD_MAPPING as OUTPUT_PATH
 
 ALLOWED_EXT = {".tif", ".tiff", ".png"}
 

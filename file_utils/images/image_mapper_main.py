@@ -25,7 +25,7 @@ logging.basicConfig(
 def main() -> dict:
     """Initialize the MappingSystem and generate the mapping."""
     ms = MappingSystem()
-    mapping = ms.generate_key_mapping()  # writes to P.RAW_IMAGE_MAPPING_JSON
+    mapping = ms.generate_key_mapping()  # writes to P.RAgW_IMAGE_MAPPING_JSON
     logging.info("Mapping generation completed successfully.")
     return mapping
 

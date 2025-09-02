@@ -10,6 +10,7 @@ from tensorflow.keras.applications import ResNet50V2
 from tensorflow.keras.callbacks import EarlyStopping
 from pathlib import Path
 import re
+from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer
 from sklearn.utils import class_weight
 from collections import Counter
 import matplotlib.pyplot as plt
@@ -48,13 +49,12 @@ def normalize_key(key):
     # Remove spaces and make uppercase
     key = key.replace(" ", "").upper()
     # Handle batch numbers (Ba1 -> BA1, Ba2 -> BA2)
-    key = re.sub(r'BA(\d)', r'BA\1', key)
-    # Remove 96_1 or 96_2 from the key
-    key = re.sub(r'96_1|96_2', '', key)
-    # Standardize Dy to Dy
-    key = re.sub(r'DY', 'Dy', key)
-    # Remove any trailing parentheses and content
-    key = re.sub(r'\(.*\)', '', key)
+    # Use centralized pattern for cleaning
+    key = OrganoidNormalizer.clean_string(key)
+    # Remove plate designators
+    key = OrganoidPatterns.PLATE_REMOVE.sub('', key)
+    # Standardize case
+    key = key.upper().replace('DY', 'Dy')
     return key
 
 # --- 1. Load the labeled data for labels ---
@@ -70,7 +70,7 @@ with open('labeled_organoid_strong_agreement.json') as f:
 modified_labeled_data = {}
 for key, data in labeled_data.items():
     # Use regex to find and replace the day number (e.g., DyXX) in the key
-    new_key = re.sub(r'[Dd]y(\d+)', f'Dy{TARGET_DAY:02d}', key)
+    new_key = OrganoidPatterns.DAY_EXTRACT.sub(f'Dy{TARGET_DAY:02d}', key)
     modified_labeled_data[new_key] = data
 
 labeled_data = modified_labeled_data # Overwrite with the modified data

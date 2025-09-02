@@ -6,14 +6,14 @@ import cv2, numpy as np, warnings, json, random, argparse, sys
 
 HERE = Path(__file__).resolve()
 for p in HERE.parents:
-    if (p / "paths.py").exists() and (p / ".env").exists():
+    if (p / "config.py").exists() and (p / ".env").exists():
         sys.path.insert(0, str(p))  # repo root
         break
 else:
-    raise RuntimeError("Could not locate repo root containing paths.py and .env")
+    raise RuntimeError("Could not locate repo root containing config.py and .env")
 
 # Root paths (canonical dirs)
-from paths import INFER_AUTO_PROCESSED_DIR  # where the per-day mapping JSONs live
+from config import INFER_AUTO_PROCESSED_DIR  # where the per-day mapping JSONs live
 
 # mmseg-specific model locations / output base
 from analysis.images.segmentation_mmseg.mmseg_paths import (
@@ -156,7 +156,6 @@ def run_inference(batch_number, day_number=30, model_type="early", overwrite=Fal
         total_processed += processed
         total_failed   += failed
 
-        # Write back augmented JSON (even on dry-run to preview paths if you like; you can skip if undesired)
         if not dry_run:
             with open(json_mapping_path, 'w') as f:
                 json.dump(batch_mapping, f, indent=2)
