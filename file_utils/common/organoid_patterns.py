@@ -53,7 +53,13 @@ class OrganoidPatterns:
     
     # Path matching patterns
     BA_SUBSTITUTE = re.compile(r'\bBA3\b', re.IGNORECASE)
+    
+    STITCHED      = re.compile(r"\(stitched\)", re.IGNORECASE)
 
+
+    # split markers AFTER the split day
+    SPLIT_PAREN  = re.compile(r"\(\s*(\d+)\s*\)\s*%", re.IGNORECASE)   # e.g., C1(1)% Z0.tif
+    SPLIT_HYPHEN = re.compile(r"-\s*(\d)\s*-%", re.IGNORECASE)         # e.g., D12-2-% ...
 
 class OrganoidKey(NamedTuple):
     """Structured representation of an organoid key"""
@@ -146,6 +152,28 @@ class OrganoidNormalizer:
         ba_part = f"{key.batch} {key.plate}" if key.plate else key.batch
         return f"{ba_part} {key.day} {key.well}"
 
+    @staticmethod
+    def extract_split_info(raw_name: str) -> dict:
+        f = raw_name.lower()
+        info = {
+            "is_split": False,
+            "pre_split": False,   # kept for backward compatibility, always False now
+            "split_index": None,
+            "stitched": False,
+            "partial": False
+        }
+
+        m = OrganoidPatterns.SPLIT_PAREN.search(f) or OrganoidPatterns.SPLIT_HYPHEN.search(f)
+        if m:
+            info["is_split"] = True
+            info["split_index"] = int(m.group(1))
+
+        if OrganoidPatterns.STITCHED.search(f):
+            info["stitched"] = True
+        if OrganoidPatterns.PARTIAL_IMAGE.search(f):
+            info["partial"] = True
+
+        return info
 
 class OrganoidValidation:
     """Validation utilities for organoid keys and components"""

@@ -3,7 +3,10 @@
 # Generate the master data file with plate identifiers preserved
 data:
 	PYTHONPATH=. conda run -p /net/projects2/promega python file_utils/merge/merge_all_data.py
-
+# image mapper
+data-image-mapper:
+	PYTHONPATH=. conda run -p /net/projects2/promega python file_utils/images/image_mapper_main.py
+	
 # train the image classifier model
 train:
 	PYTHONPATH=. conda run -p /net/projects2/promega python analysis/images/classifier/train_model_accuracy.py

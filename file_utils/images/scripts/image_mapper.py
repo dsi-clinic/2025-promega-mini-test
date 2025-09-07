@@ -113,29 +113,52 @@ def is_blankish_file(
     total_area_frac = max(0.0, min(1.0, total_area_frac))
     return bool(is_blank), total_area_frac
 
+def split_info_for_file(f: Path) -> dict:
+    return OrganoidNormalizer.extract_split_info(f.name)  # already in your Normalizer
+
+def group_by_split(candidates: list[Path]) -> dict[int|None, list[Path]]:
+    groups: dict[int|None, list[Path]] = {}
+    for f in candidates:
+        info = split_info_for_file(f)
+        if info.get("is_split"):
+            groups.setdefault(info["split_index"], []).append(f)
+        else:
+            groups.setdefault(None, []).append(f)  # unsplit
+    return groups
+
+def choose_best_in_group(files: list[Path]) -> tuple[Path, str, list[Path]]:
+    files = sorted(files, key=extract_z)
+    stitched = [f for f in files if "(stitched)" in f.name.lower()]
+    if stitched:
+        return stitched[0], "Stitched", files
+    partial = [f for f in files if OrganoidPatterns.PARTIAL_IMAGE.search(f.name)]
+    if partial:
+        idx = find_best_focus(partial) if 'find_best_focus' in globals() else 0
+        return partial[idx], "Partial", files
+    regular = [f for f in files if classify_image_file(f.name) == "Regular"]
+    if regular:
+        return regular[0], "Regular", files
+    return files[0], "Regular", files
 
 
 def classify_image_file(fname: str) -> str:
-    fname_lower = fname.lower()
+    f = fname.lower()
+    is_split = bool(OrganoidPatterns.SPLIT_PAREN.search(f) or OrganoidPatterns.SPLIT_HYPHEN.search(f))
 
-    # 1. True stitched files
-    if "(stitched)" in fname_lower:
-        return "Stitched"
+    if OrganoidPatterns.STITCHED.search(f):
+        return "SplitStitched" if is_split else "Stitched"
 
-    # 2. Partial (multi-tile images without the stitched file)
-    if OrganoidPatterns.PARTIAL_IMAGE.search(fname_lower):
-        return "Partial"
+    if OrganoidPatterns.PARTIAL_IMAGE.search(f):
+        return "SplitPartial" if is_split else "Partial"
 
-    # 3. Duplicate patterns — (1), (2), etc., but not (#)
-    if OrganoidPatterns.DUPLICATE_IMAGE.search(fname_lower):
+    if is_split:
+        return "Split"
+
+    if OrganoidPatterns.DUPLICATE_IMAGE.search(f):
         return "Duplicate"
 
-    # 4. Patterns like (#)% — not duplicate, not stitched
-    if OrganoidPatterns.HASH_PERCENT.search(fname_lower):
-        return "Regular"
-
+    # no pre-split detection anymore
     return "Regular"
-
 
 
 # clean_id_for_json now imported from organoid_patterns module
@@ -197,15 +220,14 @@ class ImageMapper:
 
         def split_pid(pid: str) -> pd.Series:
             """
-            Break “Ba2 96_1 Dy21 D12(1 of 2) #% Z0.tif”-style strings into
-            batchPlate = “Ba2 96_1” | “Ba1” | “Ba3 Pt1” …
-            dayID      = “Dy21”
-            wellID     = “D12”
+            Break 'Ba2 96_1 Dy21 D12(1 of 2) #% Z0.tif' into:
+            batchPlate = 'Ba2 96_1' | 'Ba1' | 'Ba3 Pt1' …
+            dayID      = 'Dy21'
+            wellID     = 'D12'
             """
             parts = pid.split()
 
-            # ── batchPlate ────────────────────────────────────────────
-            #  Ex.:  Ba2 96_1 | Ba3 Pt1 | Ba1
+            # batchPlate
             if len(parts) > 1 and OrganoidPatterns.PLATE_PATTERN.match(parts[1]):
                 batchPlate = f"{parts[0]} {parts[1]}"
                 day_idx = 2
@@ -213,19 +235,24 @@ class ImageMapper:
                 batchPlate = parts[0]
                 day_idx = 1
 
-            # ── dayID (always starts with Dy..) ───────────────────────
+            # dayID
             dayID = parts[day_idx]
-            well_tokens = parts[day_idx + 1 :]
 
-            # ── wellID  (strip EVERYTHING after the first letter+digits) ──
-            m = OrganoidPatterns.WELL_STRICT.search(" ".join(well_tokens))
-            wellID = m.group(1).upper() if m else " ".join(well_tokens).strip()
+            # WELL: take everything after day to parse well
+            well_tokens = parts[day_idx + 1:]              # <-- missing before
+            tokens = " ".join(well_tokens)
 
+            m = OrganoidPatterns.WELL_STRICT.search(tokens)
+            if m:
+                wellID = f"{m.group(1).upper()}{m.group(2)}"  # e.g., 'E10'
+            else:
+                # fallback like 'H9(1 of 2)' -> 'H9'
+                m2 = re.search(r'([A-Ha-h]\s*\d{1,2})', tokens)
+                wellID = m2.group(1).replace(" ", "").upper() if m2 else tokens.strip().upper()
 
-            logging.debug(
-                f"[split_pid] {pid!r} → batch={batchPlate!r}, day={dayID!r}, well={wellID!r}"
-            )
+            logging.debug(f"[split_pid] {pid!r} → batch={batchPlate!r}, day={dayID!r}, well={wellID!r}")
             return pd.Series([batchPlate, dayID, wellID])
+
 
 
         df[["batchPlate", "dayID", "wellID"]] = df["photoID"].apply(split_pid)
@@ -238,21 +265,28 @@ class ImageMapper:
         ]]
 
 
-    def resolve_filename(
-        self, file_photoID: str, img_folder: str|Path, batch_plate: str = None
-    ) -> tuple[Path|None, str, list[Path], dict|None]:
-        """
-        1) prefix‐match  2) sort by Z  3) stitched‐tile  4) BA3 Pt1  5) Z0/.tif  6) fallback.
-        Now returns tuple of (chosen_file, stitched_flag, all_files, stitched_groups)
-        where stitched_groups is dict of {identifier: [files]} for multiple stitched entries
-        """
+    def resolve_filename(self, file_photoID: str, img_folder: str|Path, batch_plate: str = None):
         img_folder = Path(img_folder)
-        files = list(img_folder.rglob("*.tif"))  # scan once
-        logging.info(f"Resolving filename for {file_photoID} in {img_folder}")
+        if not img_folder.exists():
+            logging.warning(f"[resolve_filename] Folder missing: {img_folder}")
+            return None, "No", [], None
+
+        # --- gather files ONCE (case-sensitive extensions) ---
+        files: list[Path] = []
+        files.extend(img_folder.rglob("*.tif"))
+        files.extend(img_folder.rglob("*.tiff"))
+        files.extend(img_folder.rglob("*.TIF"))
+        files.extend(img_folder.rglob("*.TIFF"))
+        # de-dupe while preserving order
+        files = list(dict.fromkeys(files))
+
+        logging.info(f"[resolve_filename] Scanned {img_folder} → {len(files)} image files")
+        if not files:
+            return None, "No", [], None
 
         # Strict well ID
         m = OrganoidPatterns.WELL_STRICT.search(file_photoID)
-        well_id = m.group(1).upper() if m else ""
+        well_id = f"{m.group(1).upper()}{m.group(2)}" if m else ""
         search_id = file_photoID
 
         # ALWAYS start with a default
@@ -299,18 +333,22 @@ class ImageMapper:
             sid_well = None
             m = OrganoidPatterns.WELL_STRICT.search(clean_sid)
             if m:
-                sid_well = m.group(1).upper()
+                sid_well = f"{m.group(1).upper()}{m.group(2)}" if m else None
 
             
             # Create multiple search patterns to handle different file naming conventions
             patterns = []
-            
-            # 1. Exact match with word boundary (for standard cases)
+            # original patterns
             patterns.append(rf"\b{re.escape(clean_sid)}(?=[\s._Z(]|$)")
-            
-            # 2. More flexible pattern that handles special characters
             patterns.append(rf"{re.escape(clean_sid)}(?=[\s._Z]|$)")
 
+            # NEW: if key ends with a single row letter, allow well digits after it
+            m_row_only = re.search(r'\b([A-Ha-h])$', clean_sid)
+            if m_row_only:
+                # match e.g. “… Dy30 D12(1)% Z0.tif” when key is “… Dy30 D”
+                patterns.append(
+                    rf"\b{re.escape(clean_sid)}\s*(?:[1-9]|1[0-2])(?=[\s._\-()%]|$)"
+                )
             
             # 3. Handle cases where special characters might be represented differently
             if '(' in clean_sid and ')' in clean_sid:
@@ -323,7 +361,12 @@ class ImageMapper:
             
             # 4. Fallback pattern - match well ID with flexible stitched patterns
             if sid_well:
+                # e.g., H9(1 of 2), H9(2), H9(stitched)
                 patterns.append(rf"\b{re.escape(sid_well)}\s*\([^)]*\)")
+                # plain well token like 'H9' before space/underscore/dot/paren/end
+                patterns.append(rf"\b{re.escape(sid_well)}(?=[\s._(]|$)")
+
+
             
             logging.debug(f"Trying patterns for {clean_sid}: {patterns}")
             
@@ -361,77 +404,68 @@ class ImageMapper:
         # 2) sort by Z-index
 
         candidates.sort(key=extract_z)
-
-        # Classify all candidates
-        stitched_files = []
-        partial_files = []
-        duplicate_files = []
-        regular_files = []
-
+        
+        # Group all matches by split index (None = unsplit day)
+        groups: dict[int|None, list[Path]] = {}
         for f in candidates:
-            label = classify_image_file(f.name)
-            if label == "Stitched":
-                stitched_files.append(f)
-            elif label == "Partial":
-                partial_files.append(f)
-            elif label == "Duplicate":
-                duplicate_files.append(f)
+            info = OrganoidNormalizer.extract_split_info(f.name)
+            if info.get("is_split"):
+                groups.setdefault(info["split_index"], []).append(f)
             else:
-                regular_files.append(f)
+                groups.setdefault(None, []).append(f)
 
-        # Priority 1: real stitched file (has '(stitched)' in name)
-        stitched_only = [f for f in stitched_files if "(stitched)" in f.name.lower()]
-        if stitched_only:
-            stitched_only.sort(key=extract_z)
-            logging.info(f"[STITCHED] Found stitched file: {stitched_only[0].name}")
-            return stitched_only[0], "Stitched", stitched_only, None
+        # If the requested photoID explicitly names a child (e.g., ...C1(2)%...), honor it
+        req_info = OrganoidNormalizer.extract_split_info(file_photoID)
+        wanted = req_info.get("split_index")  # None if not specified
 
-        # Priority 2: partial tiles like '(1 of 2)', if no stitched file
-        if partial_files:
-            partial_files.sort(key=extract_z)
-            logging.info(f"[PARTIAL] Found {len(partial_files)} partial tiles.")
-            idx = self.find_best_focus(partial_files)
-            chosen = partial_files[idx] if 0 <= idx < len(partial_files) else partial_files[0]
-            return chosen, "Partial", partial_files, None
+        split_groups = {k: v for k, v in groups.items() if k is not None}
 
-        # Priority 3: duplicates
-        if duplicate_files:
-            duplicate_files.sort(key=extract_z)
-            idx = self.find_best_focus(duplicate_files)
-            chosen = duplicate_files[idx] if 0 <= idx < len(duplicate_files) else duplicate_files[0]
-            return chosen, "Duplicate", duplicate_files, None
+        wanted = req_info.get("split_index")  # None if not specified
 
+        if wanted in groups:
+            chosen, label, group_files = choose_best_in_group(groups[wanted])
+            return chosen, f"Split-{label}", candidates, {"split_index": wanted}
 
+        # If there’s exactly one split group present, pick from it
+        split_groups = {k: v for k, v in groups.items() if k is not None}
+        if len(split_groups) == 1:
+            k, files_k = next(iter(split_groups.items()))
+            chosen, label, group_files = choose_best_in_group(files_k)
+            return chosen, f"Split-{label}", candidates, {"split_index": k}
 
-        # 4) BA3 Pt1 / 96_1 special case handling
-        if "ba3" in search_id.lower():
-            # Try both Pt1 and 96_1 versions
-            for version, replacement in [("96_1", "Pt1"), ("Pt1", "96_1")]:
-                if version in search_id.lower():
-                    for suffix in (" Z0.tif", ".tif"):
-                        alt_file = img_folder / (search_id.replace(version, replacement) + suffix)
-                        if alt_file.is_file():
-                            return alt_file, "No", candidates, None
+        # If no split groups exist, fall back to unsplit group
+        if None in groups and groups[None]:
+            chosen, label, group_files = choose_best_in_group(groups[None])
+            return chosen, label, group_files, None
 
-        # 5) explicit Z0 or bare .tif
+        # Multiple split groups but caller didn’t specify which → ambiguous
+        if len(split_groups) > 1:
+            stitched_groups = {f"split_{k}": sorted(v, key=extract_z) for k, v in split_groups.items()}
+            return None, "SplitAmbiguous", candidates, stitched_groups
+
+        # (Optional) exact-file checks: “... Z0.tif” or bare “.tif”
         for sid in search_ids:
             z0 = img_folder / f"{sid} Z0.tif"
             bare = img_folder / f"{sid}.tif"
-            if z0.is_file():    
+            if z0.is_file():
                 logging.info(f"Found Z0 file: {z0.name}")
                 return z0, "No", candidates, None
-            if bare.is_file():  
+            if bare.is_file():
                 logging.info(f"Found bare .tif file: {bare.name}")
                 return bare, "No", candidates, None
 
-        # 6) fallback to first candidate
-        candidates = [f for f in candidates if well_id.lower() in f.name.lower()]
+        # Fallback: try restricting by well token in the filename
+        if well_id:
+            by_well = [f for f in candidates if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE)]
+            if by_well:
+                logging.info(f"Using fallback candidate: {by_well[0].name}")
+                return by_well[0], "No", candidates, None
 
+        # Final fallback (don’t put anything after this!)
         if candidates:
-            logging.info(f"Using fallback candidate: {candidates[0].name}")
-            return candidates[0], "No", candidates, None
+            return candidates[0], "Regular", candidates, None
 
-        logging.warning(f"No files found for {search_id} in {img_folder}")
+        logging.warning(f"No files found for {file_photoID} in {img_folder}")
         return None, "No", [], None
 
 
@@ -508,8 +542,62 @@ class ImageMapper:
                         f"Well mismatch for {raw_full_id}: expected {expected_well}, none matched. Skipping."
                     )
 
-            if chosen is None and stitched_flag != "Multiple_Stitched":
+            if chosen is None and stitched_flag not in ("Multiple_Stitched", "SplitAmbiguous"):
                 continue
+            
+            # We purposely regroup on *all_files* which now always contains every match
+            split_groups_all = group_by_split(all_files)      # {None: [... unsplit ...], 1: [...], 2: [...]}
+            child_groups = {k: v for k, v in split_groups_all.items() if k is not None}
+
+            if len(child_groups) >= 1:
+                logging.info(f"Expanding into {len(child_groups)} split children for {full_id}")
+
+                def pick_rep_file(files_for_child):
+                    files_for_child = sorted(files_for_child, key=extract_z)
+                    stitched = [f for f in files_for_child if "(stitched)" in f.name.lower()]
+                    if stitched:
+                        return stitched[0]
+                    partials = [f for f in files_for_child if OrganoidPatterns.PARTIAL_IMAGE.search(f.name)]
+                    if partials:
+                        best_idx = self.find_best_focus(partials)
+                        return partials[best_idx if 0 <= best_idx < len(partials) else 0]
+                    best_idx = self.find_best_focus(files_for_child)
+                    return files_for_child[best_idx if 0 <= best_idx < len(files_for_child) else 0]
+
+                # (optional) update counters if you want the summary to reflect each child
+                # found_count += len(child_groups)
+                # stitched_count += sum(1 for _, gf in child_groups.items()
+                #                       if any("(stitched)" in f.name.lower() for f in gf))
+
+                for child_idx, group_files in sorted(child_groups.items()):
+                    final_file = pick_rep_file(group_files)
+                    clean_child_key = f"{full_id} split_{int(child_idx)}"
+
+                    
+                    actual_z = OrganoidNormalizer.extract_z_level(final_file.name)
+                    classification = classify_image_file(final_file.name)
+                    is_blank, area_frac = is_blankish_file(final_file)
+
+                    mapping[clean_child_key] = {
+                        "dayID": day_id,
+                        "BA": ba_str,
+                        "wellID": well_id,
+                        "split_index": int(child_idx),
+                        "Best Z": -1,
+                        "Best Z Filename": str(to_rel(final_file)),
+                        "Actual Z Value": actual_z,
+                        "Classification": classification,
+                        "um_per_px": float(group_df["um_per_px"].iloc[0]),
+                        "all_files": [str(to_rel(f)) for f in sorted(group_files, key=extract_z)],
+                        "cellLine": group_df["cellLine"].iloc[0],
+                        "treatment": group_df["treatment"].iloc[0],
+                        "Blank": bool(is_blank),
+                        "blank_area_frac": float(area_frac),
+                    }
+
+                # We’ve created explicit child entries; skip the single parent entry
+                continue
+
 
             # --- Multiple stitched groups: create one entry per group
             if stitched_flag == "Multiple_Stitched" and stitched_groups:
@@ -520,8 +608,7 @@ class ImageMapper:
                     final_file = group_files[best_idx] if 0 <= best_idx < len(group_files) else group_files[0]
 
                     safe_identifier = re.sub(r"[^\w\s]", "", identifier).strip().replace(" ", "_")
-                    stitched_full_id = f"{full_id} [{safe_identifier}]"
-                    clean_stitched_id = clean_id_for_json(stitched_full_id)
+                    clean_stitched_id = f"{full_id} stitched_{safe_identifier}"
 
                     actual_z = OrganoidNormalizer.extract_z_level(final_file.name)
 
