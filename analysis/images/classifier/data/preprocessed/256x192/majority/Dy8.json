@@ -800,6 +800,16 @@
     "label": "Accepted"
   },
   {
+    "id": "BA2 96_1 DY08 A12",
+    "metadata_key": "BA2 96_1 Dy08 A12",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_A12.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_A12_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 A12 Z3.tif",
+    "label": "Not Accepted"
+  },
+  {
     "id": "BA2 96_1 DY08 A2",
     "metadata_key": "BA2 96_1 Dy08 A2",
     "variant": "256x192",
@@ -828,6 +838,16 @@
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_A4_predmask.png",
     "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 A4 Z3.tif",
     "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 A5",
+    "metadata_key": "BA2 96_1 Dy08 A5",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_A5.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_A5_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 A5 Z3.tif",
+    "label": "Not Accepted"
   },
   {
     "id": "BA2 96_1 DY08 A6",
@@ -890,6 +910,16 @@
     "label": "Not Accepted"
   },
   {
+    "id": "BA2 96_1 DY08 B4",
+    "metadata_key": "BA2 96_1 Dy08 B4",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_B4.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_B4_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 B4 Z2.tif",
+    "label": "Accepted"
+  },
+  {
     "id": "BA2 96_1 DY08 B5",
     "metadata_key": "BA2 96_1 Dy08 B5",
     "variant": "256x192",
@@ -927,6 +957,26 @@
     "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_B8.png",
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_B8_predmask.png",
     "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 B8% Z0.tif",
+    "label": "Not Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 B9",
+    "metadata_key": "BA2 96_1 Dy08 B9",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_B9.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_B9_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 B9% Z2.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 C1",
+    "metadata_key": "BA2 96_1 Dy08 C1",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_C1.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_C1_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 C1% Z4.tif",
     "label": "Not Accepted"
   },
   {
@@ -970,6 +1020,16 @@
     "label": "Accepted"
   },
   {
+    "id": "BA2 96_1 DY08 C7",
+    "metadata_key": "BA2 96_1 Dy08 C7",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_C7.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_C7_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 C7 Z2.tif",
+    "label": "Accepted"
+  },
+  {
     "id": "BA2 96_1 DY08 C8",
     "metadata_key": "BA2 96_1 Dy08 C8",
     "variant": "256x192",
@@ -1000,6 +1060,16 @@
     "label": "Accepted"
   },
   {
+    "id": "BA2 96_1 DY08 D10",
+    "metadata_key": "BA2 96_1 Dy08 D10",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_D10.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_D10_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 D10% Z2.tif",
+    "label": "Not Accepted"
+  },
+  {
     "id": "BA2 96_1 DY08 D11",
     "metadata_key": "BA2 96_1 Dy08 D11",
     "variant": "256x192",
@@ -1017,6 +1087,16 @@
     "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_D3.png",
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_D3_predmask.png",
     "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 D3 Z2.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 D4",
+    "metadata_key": "BA2 96_1 Dy08 D4",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_D4.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_D4_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 D4 Z3.tif",
     "label": "Accepted"
   },
   {
@@ -1047,6 +1127,16 @@
     "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_D9.png",
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_D9_predmask.png",
     "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 D9 Z3.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 E1",
+    "metadata_key": "BA2 96_1 Dy08 E1",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_E1.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_E1_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 E1% Z2.tif",
     "label": "Accepted"
   },
   {
@@ -1118,6 +1208,36 @@
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_E6_predmask.png",
     "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 E6 Z2.tif",
     "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 E7",
+    "metadata_key": "BA2 96_1 Dy08 E7",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_E7.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_E7_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 E7% Z3.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 E8",
+    "metadata_key": "BA2 96_1 Dy08 E8",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_E8.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_E8_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 E8% Z0.tif",
+    "label": "Not Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 E9",
+    "metadata_key": "BA2 96_1 Dy08 E9",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_E9.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_E9_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 E9 Z0.tif",
+    "label": "Not Accepted"
   },
   {
     "id": "BA2 96_1 DY08 F10",
@@ -1230,6 +1350,16 @@
     "label": "Accepted"
   },
   {
+    "id": "BA2 96_1 DY08 G4",
+    "metadata_key": "BA2 96_1 Dy08 G4",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_G4.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_G4_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 G4 Z2.tif",
+    "label": "Not Accepted"
+  },
+  {
     "id": "BA2 96_1 DY08 G5",
     "metadata_key": "BA2 96_1 Dy08 G5",
     "variant": "256x192",
@@ -1257,6 +1387,16 @@
     "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_G7.png",
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_G7_predmask.png",
     "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 G7 Z2.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 G8",
+    "metadata_key": "BA2 96_1 Dy08 G8",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_G8.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_G8_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 G8 Z2.tif",
     "label": "Accepted"
   },
   {
@@ -1317,6 +1457,16 @@
     "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_H5.png",
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_H5_predmask.png",
     "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 H5 Z2.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_1 DY08 H6",
+    "metadata_key": "BA2 96_1 Dy08 H6",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_H6.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_H6_predmask.png",
+    "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(2)% Z1.tif",
     "label": "Accepted"
   },
   {
@@ -1410,6 +1560,26 @@
     "label": "Accepted"
   },
   {
+    "id": "BA2 96_2 DY08 B3",
+    "metadata_key": "BA2 96_2 Dy08 B3",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_B3.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_B3_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 B3% Z1.tif",
+    "label": "Not Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 B5",
+    "metadata_key": "BA2 96_2 Dy08 B5",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_B5.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_B5_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 B5% Z2.tif",
+    "label": "Accepted"
+  },
+  {
     "id": "BA2 96_2 DY08 B6",
     "metadata_key": "BA2 96_2 Dy08 B6",
     "variant": "256x192",
@@ -1428,6 +1598,16 @@
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_B7_predmask.png",
     "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 B7 Z1.tif",
     "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 B8",
+    "metadata_key": "BA2 96_2 Dy08 B8",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_B8.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_B8_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 B8% Z0.tif",
+    "label": "Not Accepted"
   },
   {
     "id": "BA2 96_2 DY08 B9",
@@ -1490,6 +1670,16 @@
     "label": "Accepted"
   },
   {
+    "id": "BA2 96_2 DY08 C6",
+    "metadata_key": "BA2 96_2 Dy08 C6",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_C6.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_C6_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 C6 Z1.tif",
+    "label": "Not Accepted"
+  },
+  {
     "id": "BA2 96_2 DY08 C9",
     "metadata_key": "BA2 96_2 Dy08 C9",
     "variant": "256x192",
@@ -1507,6 +1697,26 @@
     "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_D10.png",
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_D10_predmask.png",
     "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 D10 Z2.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 D11",
+    "metadata_key": "BA2 96_2 Dy08 D11",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_D11.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_D11_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 D11(1)% Z2.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 D12",
+    "metadata_key": "BA2 96_2 Dy08 D12",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_D12.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_D12_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 D12% Z2.tif",
     "label": "Accepted"
   },
   {
@@ -1530,6 +1740,16 @@
     "label": "Not Accepted"
   },
   {
+    "id": "BA2 96_2 DY08 D5",
+    "metadata_key": "BA2 96_2 Dy08 D5",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_D5.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_D5_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 D5% Z2.tif",
+    "label": "Not Accepted"
+  },
+  {
     "id": "BA2 96_2 DY08 D6",
     "metadata_key": "BA2 96_2 Dy08 D6",
     "variant": "256x192",
@@ -1540,6 +1760,16 @@
     "label": "Accepted"
   },
   {
+    "id": "BA2 96_2 DY08 D7",
+    "metadata_key": "BA2 96_2 Dy08 D7",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_D7.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_D7_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 D7% Z2.tif",
+    "label": "Accepted"
+  },
+  {
     "id": "BA2 96_2 DY08 D9",
     "metadata_key": "BA2 96_2 Dy08 D9",
     "variant": "256x192",
@@ -1547,6 +1777,16 @@
     "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_D9.png",
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_D9_predmask.png",
     "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 D9 Z2.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 E1",
+    "metadata_key": "BA2 96_2 Dy08 E1",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_E1.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_E1_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 E1 Z2.tif",
     "label": "Accepted"
   },
   {
@@ -1568,6 +1808,26 @@
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_E11_predmask.png",
     "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 E11 Z2.tif",
     "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 E12",
+    "metadata_key": "BA2 96_2 Dy08 E12",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_E12.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_E12_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 E12 Z3.tif",
+    "label": "Not Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 E3",
+    "metadata_key": "BA2 96_2 Dy08 E3",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_E3.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_E3_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 E3% Z3.tif",
+    "label": "Not Accepted"
   },
   {
     "id": "BA2 96_2 DY08 E4",
@@ -1637,6 +1897,16 @@
     "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_F3.png",
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_F3_predmask.png",
     "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 F3 Z2.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 F5",
+    "metadata_key": "BA2 96_2 Dy08 F5",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_F5.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_F5_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 F5 Z2.tif",
     "label": "Accepted"
   },
   {
@@ -1760,6 +2030,26 @@
     "label": "Accepted"
   },
   {
+    "id": "BA2 96_2 DY08 H10",
+    "metadata_key": "BA2 96_2 Dy08 H10",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_H10.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_H10_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 H10 Z2.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 H2",
+    "metadata_key": "BA2 96_2 Dy08 H2",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_H2.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_H2_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 H2 Z1.tif",
+    "label": "Not Accepted"
+  },
+  {
     "id": "BA2 96_2 DY08 H3",
     "metadata_key": "BA2 96_2 Dy08 H3",
     "variant": "256x192",
@@ -1767,6 +2057,26 @@
     "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_H3.png",
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_H3_predmask.png",
     "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 H3 Z0.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 H6",
+    "metadata_key": "BA2 96_2 Dy08 H6",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_H6.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_H6_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 H6 Z0.tif",
+    "label": "Accepted"
+  },
+  {
+    "id": "BA2 96_2 DY08 H8",
+    "metadata_key": "BA2 96_2 Dy08 H8",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_H8.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_H8_predmask.png",
+    "Best Z Filename": "BA2/96_2/Dy08/Ba2 96_2 Dy08 H8 Z3.tif",
     "label": "Accepted"
   },
   {
@@ -2220,6 +2530,16 @@
     "label": "Accepted"
   },
   {
+    "id": "BA4 96_1 DY08 F10",
+    "metadata_key": "BA4 96_1 Dy08 F10",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba496_1_Dy08/BA4_96_1_Dy08_F10.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch4/day08/predicted_masks/BA4_96_1_Dy08_F10_predmask.png",
+    "Best Z Filename": "BA4/Dy08/Ba4 96_1 Dy08 F10 Z1.tif",
+    "label": "Accepted"
+  },
+  {
     "id": "BA4 96_1 DY08 F11",
     "metadata_key": "BA4 96_1 Dy08 F11",
     "variant": "256x192",
@@ -2478,5 +2798,15 @@
     "mask_path": "/net/projects2/promega/data-analysis/predictions/batch4/day08/predicted_masks/BA4_96_1_Dy08_H8_predmask.png",
     "Best Z Filename": "BA4/Dy08/Ba4 96_1 Dy08 H8 Z4.tif",
     "label": "Not Accepted"
+  },
+  {
+    "id": "BA4 96_1 DY08 H9",
+    "metadata_key": "BA4 96_1 Dy08 H9",
+    "variant": "256x192",
+    "day_num": 8.0,
+    "img_path": "/net/projects2/promega/data-analysis/output/processed_dataset_256x192/auto_processed/ba496_1_Dy08/BA4_96_1_Dy08_H9.png",
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch4/day08/predicted_masks/BA4_96_1_Dy08_H9_predmask.png",
+    "Best Z Filename": "BA4/Dy08/Ba4 96_1 Dy08 H9 Z3.tif",
+    "label": "Accepted"
   }
 ]

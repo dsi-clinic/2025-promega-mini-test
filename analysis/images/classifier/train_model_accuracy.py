@@ -27,7 +27,7 @@ BACKBONES = {
     "efficientnet": "efficientnet_b0"
 }
 DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/majority/")
-OUT_ROOT = Path("analysis/images/classifier/outputs_512x384_Regular_image_train_augment")
+OUT_ROOT = Path("analysis/images/classifier/outputs_512x384_Regular_image_without_train_augment")
 BATCH_SIZE = 16
 # IMPORTANT: torchvision Resize expects (H, W). We want 512x384 images => (H=384, W=512)
 TARGET_SIZE = (384, 512)
@@ -207,7 +207,7 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     class_weights = {int(k): float(w) for k, w in zip(np.unique(y_tr), weights)}
 
     # loaders (configurable batch sizes; val/test use val_bs)
-    train_loader = make_loader(X_tr, y_tr, augment=True,  batch_size=train_bs)
+    train_loader = make_loader(X_tr, y_tr, augment=False,  batch_size=train_bs)
     val_loader   = make_loader(X_val, y_val, augment=False, batch_size=val_bs)
     test_loader  = make_loader(X_test, y_test, augment=False, batch_size=val_bs)
 
