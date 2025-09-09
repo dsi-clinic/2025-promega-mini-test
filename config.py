@@ -62,6 +62,7 @@ PREDICTIONS_DIR   = require_env_path("PREDICTIONS_DIR")
 SURVEY_RESULTS    = require_env_path("SURVEY_RESULTS")
 MANUAL_MASKS_DIR  = require_env_path("MANUAL_MASKS_DIR")
 META_FILE         = require_env_path("META_FILE")
+ALL_DATA_JSON     = OUTPUT_FOLDER / "all_data.json"
 
 # The raw, first-stage image mapping JSON
 RAW_IMAGE_MAPPING_JSON = require_env_path("RAW_IMAGE_MAPPING_JSON")

@@ -3,6 +3,7 @@ import os
 import json
 import math
 import pathlib
+import re
 from glob import glob
 from pathlib import Path
 from tqdm import tqdm
@@ -18,9 +19,31 @@ metabolite_json_path = METABOLITE_MAP_JSON
 survey_json_path    = SURVEY_AGGREGATED_JSON
 processed_parent = str(OUTPUT_FOLDER)
 
-output_path             = 'all_data.json'
+output_path          = OUTPUT_FOLDER / "all_data_merged.json"
 
 # Regex patterns now centralized in organoid_patterns module
+
+SPLIT_SUFFIX_RE     = re.compile(r'\bsplit_(\d+)\b', re.IGNORECASE)
+STITCHED_SUFFIX_RE  = re.compile(r'\bstitched_[A-Za-z0-9_]+\b', re.IGNORECASE)
+
+def norm_key_with_suffix(raw_key: str) -> str:
+    """
+    Normalize the organoid key (BA… Dy… Well) but *preserve* split/stitched suffixes
+    such as 'split_1' or 'stitched_xxx' by appending them to the normalized key.
+    """
+    base = norm_key(raw_key)  # strips decorations, standardizes BA Dy Well
+    suffixes = []
+
+    m = SPLIT_SUFFIX_RE.search(raw_key)
+    if m:
+        suffixes.append(f"split_{int(m.group(1))}")
+
+    m2 = STITCHED_SUFFIX_RE.search(raw_key)
+    if m2:
+        suffixes.append(m2.group(0))  # keep as-is
+
+    return base if not suffixes else f"{base} {' '.join(suffixes)}"
+
 
 def to_mdl_day(day: int | None) -> float | None:
     if day is None:
@@ -62,22 +85,23 @@ if 'entries' in base_data:
 else:
     entries_data = base_data
 
+            
 for k, v in entries_data.items():
     if is_organoid_key(k):
         try:
-            base_map[norm_key(k)] = v
+            base_map[norm_key_with_suffix(k)] = v
         except ValueError as e:
             print(f"[BASE] Failed to normalize: {k} — {e}")
+
 
 metab_data = load_json(metabolite_json_path)  
 metab_map = {}
 for k, v in metab_data.items():
     if is_organoid_key(k):
         try:
-            metab_map[norm_key(k)] = v
+            metab_map[norm_key_with_suffix(k)] = v
         except ValueError as e:
             print(f"[METABOLITE] Failed to normalize: {k} — {e}")
-
 
 processed_map = {}
 
@@ -87,7 +111,7 @@ for p in pathlib.Path(processed_parent).rglob("image_mapping_*_processed.json"):
         for k, v in load_json(p).items():
             if is_organoid_key(k):
                 try:
-                    norm_k = norm_key(k)
+                    norm_k = norm_key_with_suffix(k)
                     resolution = OrganoidNormalizer.extract_resolution(str(p)) or "unknown"
                     if norm_k not in processed_map:
                         processed_map[norm_k] = {}
@@ -108,9 +132,10 @@ for row in load_json(survey_json_path).values():
 
     if iid:
         try:
-            survey_map[norm_key(iid)] = row
+            survey_map[norm_key_with_suffix(iid)] = row
         except ValueError as e:
             print(f"[SURVEY] Failed to normalize: {iid} — {e}")
+
 
 # ───────── merge all sources ─────────────────────────────────────────────
 all_keys   = set().union(base_map, processed_map, survey_map, metab_map)
