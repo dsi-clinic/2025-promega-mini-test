@@ -6,7 +6,7 @@ import numpy as np
 from skimage.io import imread
 from tqdm import tqdm
 
-from config import ALL_DATA_JSON, OUTPUT_FOLDER  # e.g., ALL_DATA_JSON = OUTPUT_FOLDER / "all_data_merged.json"
+from config import ALL_DATA_JSON, OUTPUT_FOLDER
 
 def load_json(p: Path):
     with open(p, "r") as f:
@@ -80,3 +80,7 @@ def main():
     save_json(Path(str(inp) + ".bak"), data)
     save_json(out, data)
     print(f"Updated {changed} entries with edge_fraction → {out} (backup alongside)")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,162 +1,141 @@
 #!/usr/bin/env python3
-import os
-import json
-import math
-import pathlib
-import re
-from glob import glob
+import json, math, pathlib, re
 from pathlib import Path
 from tqdm import tqdm
 
 # ───────── paths ─────────────────────────────────────────────────────────
-from config import ORIGINAL_MAPPING, OUTPUT_FOLDER, BASE_PATH, METABOLITE_MAP_JSON, SURVEY_AGGREGATED_JSON
+from config import ORIGINAL_MAPPING, OUTPUT_FOLDER, METABOLITE_MAP_JSON, SURVEY_AGGREGATED_JSON
 from file_utils.common.organoid_patterns import OrganoidNormalizer, norm_key, day_from_key
 
 base_image_mapping_path = ORIGINAL_MAPPING
-# processed_root_dir = INFER_AUTO_PROCESSED_DIR  # if/when you need it
+metabolite_json_path    = METABOLITE_MAP_JSON
+survey_json_path        = SURVEY_AGGREGATED_JSON
+processed_parent        = Path(OUTPUT_FOLDER)             # where image_mapping_*_processed.json live
+output_path             = OUTPUT_FOLDER / "all_data.json"
 
-metabolite_json_path = METABOLITE_MAP_JSON
-survey_json_path    = SURVEY_AGGREGATED_JSON
-processed_parent = str(OUTPUT_FOLDER)
+# ───────── helpers ───────────────────────────────────────────────────────
+SPLIT_SUFFIX_RE    = re.compile(r'\bsplit_(\d+)\b', re.IGNORECASE)
+STITCHED_SUFFIX_RE = re.compile(r'\bstitched_[A-Za-z0-9_]+\b', re.IGNORECASE)
 
-output_path          = OUTPUT_FOLDER / "all_data_merged.json"
+def load_json(path: Path):
+    with open(path) as f:
+        return json.load(f)
 
-# Regex patterns now centralized in organoid_patterns module
+def clean_nan_values(obj):
+    if isinstance(obj, dict):
+        return {k: clean_nan_values(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [clean_nan_values(v) for v in obj]
+    if isinstance(obj, float) and math.isnan(obj):
+        return None
+    return obj
 
-SPLIT_SUFFIX_RE     = re.compile(r'\bsplit_(\d+)\b', re.IGNORECASE)
-STITCHED_SUFFIX_RE  = re.compile(r'\bstitched_[A-Za-z0-9_]+\b', re.IGNORECASE)
+def is_organoid_key(key: str) -> bool:
+    return isinstance(key, str) and key.strip().upper().startswith("BA")
 
 def norm_key_with_suffix(raw_key: str) -> str:
-    """
-    Normalize the organoid key (BA… Dy… Well) but *preserve* split/stitched suffixes
-    such as 'split_1' or 'stitched_xxx' by appending them to the normalized key.
-    """
-    base = norm_key(raw_key)  # strips decorations, standardizes BA Dy Well
+    base = norm_key(raw_key)
     suffixes = []
-
     m = SPLIT_SUFFIX_RE.search(raw_key)
     if m:
         suffixes.append(f"split_{int(m.group(1))}")
-
     m2 = STITCHED_SUFFIX_RE.search(raw_key)
     if m2:
-        suffixes.append(m2.group(0))  # keep as-is
-
+        suffixes.append(m2.group(0))
     return base if not suffixes else f"{base} {' '.join(suffixes)}"
-
 
 def to_mdl_day(day: int | None) -> float | None:
     if day is None:
         return None
-    # collapse Dy20 and Dy21 to 20.5
-    if day in (20, 21):
-        return 20.5
-    return float(day)
+    return 20.5 if day in (20, 21) else float(day)
 
-# norm_key and day_from_key now imported from organoid_patterns module
+def _extract_infer_res(v: dict) -> str | None:
+    """
+    Return '512x384', '256x192', ... but ONLY for infer_resized_* paths.
+    Ignore legacy processed_dataset_* outputs entirely.
+    """
+    for field in ("img_path", "mask_path"):
+        s = v.get(field)
+        if not isinstance(s, str):
+            continue
+        if "processed_dataset_" in s:
+            return None  # skip old pipeline outputs
+        # OrganoidNormalizer.extract_resolution should recognize infer_resized_(\d+x\d+)
+        res = OrganoidNormalizer.extract_resolution(s)
+        if res:
+            return res
+    return None
 
-
-# ───────── read files & re-key with norm_key() ───────────────────────────
-def load_json(path):
-    with open(path) as f: return json.load(f)
-
-def clean_nan_values(obj):
-    """Recursively replace NaN values with None for valid JSON serialization"""
-    if isinstance(obj, dict):
-        return {key: clean_nan_values(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
-        return [clean_nan_values(item) for item in obj]
-    elif isinstance(obj, float) and math.isnan(obj):
-        return None
-    else:
-        return obj
-
-# Filter out metadata keys and only process organoid keys
-def is_organoid_key(key: str) -> bool:
-    """Check if key looks like an organoid key (starts with BA)"""
-    return isinstance(key, str) and key.strip().upper().startswith('BA')
-
-base_data = load_json(base_image_mapping_path)
+# ───────── read base mapping ─────────────────────────────────────────────
+base_data = load_json(Path(base_image_mapping_path))
+entries_data = base_data.get("entries", base_data)
 base_map = {}
 
-# Handle nested structure: check if data has 'entries' key
-if 'entries' in base_data:
-    entries_data = base_data['entries']
-else:
-    entries_data = base_data
-
-            
 for k, v in entries_data.items():
-    if is_organoid_key(k):
-        try:
-            base_map[norm_key_with_suffix(k)] = v
-        except ValueError as e:
-            print(f"[BASE] Failed to normalize: {k} — {e}")
+    if not is_organoid_key(k):
+        continue
+    try:
+        base_map[norm_key_with_suffix(k)] = v
+    except ValueError as e:
+        print(f"[BASE] Failed to normalize: {k} — {e}")
 
-
-metab_data = load_json(metabolite_json_path)  
-metab_map = {}
-for k, v in metab_data.items():
-    if is_organoid_key(k):
-        try:
-            metab_map[norm_key_with_suffix(k)] = v
-        except ValueError as e:
-            print(f"[METABOLITE] Failed to normalize: {k} — {e}")
-
+# ───────── read per-resolution (infer-resized ONLY) ─────────────────────
 processed_map = {}
+for p in processed_parent.rglob("image_mapping_*_processed.json"):
+    data = load_json(p)
+    for k, v in data.items():
+        if not is_organoid_key(k):
+            continue
+        try:
+            norm_k = norm_key_with_suffix(k)
+            res = _extract_infer_res(v)   # returns None if not infer_resized_*
+            if not res:
+                continue
+            processed_map.setdefault(norm_k, {})[res] = v
+        except ValueError as e:
+            print(f"[PROCESSED] Failed to normalize: {k} — {e}")
 
+# ───────── metabolite & survey ───────────────────────────────────────────
+metab_map = {}
+for k, v in load_json(Path(metabolite_json_path)).items():
+    if not is_organoid_key(k):
+        continue
+    try:
+        metab_map[norm_key_with_suffix(k)] = v
+    except ValueError as e:
+        print(f"[METABOLITE] Failed to normalize: {k} — {e}")
 
-for p in pathlib.Path(processed_parent).rglob("image_mapping_*_processed.json"):
-    if "auto_processed" in str(p):
-        for k, v in load_json(p).items():
-            if is_organoid_key(k):
-                try:
-                    norm_k = norm_key_with_suffix(k)
-                    resolution = OrganoidNormalizer.extract_resolution(str(p)) or "unknown"
-                    if norm_k not in processed_map:
-                        processed_map[norm_k] = {}
-                    processed_map[norm_k][resolution] = v
-                except ValueError as e:
-                    print(f"[PROCESSED] Failed to normalize: {k} — {e}")
-
-
-# survey – one file, keys are inside each record
 survey_map = {}
-for row in load_json(survey_json_path).values():
-    # Try getting image_id from first evaluation
+for row in load_json(Path(survey_json_path)).values():
     iid = None
     if row.get("evaluations"):
         iid = row["evaluations"][0].get("image_id")
     elif row.get("quality_scores"):
         iid = row["quality_scores"][0].get("image_id")
+    if not iid:
+        continue
+    try:
+        survey_map[norm_key_with_suffix(iid)] = row
+    except ValueError as e:
+        print(f"[SURVEY] Failed to normalize: {iid} — {e}")
 
-    if iid:
-        try:
-            survey_map[norm_key_with_suffix(iid)] = row
-        except ValueError as e:
-            print(f"[SURVEY] Failed to normalize: {iid} — {e}")
-
-
-# ───────── merge all sources ─────────────────────────────────────────────
-all_keys   = set().union(base_map, processed_map, survey_map, metab_map)
-combined   = {}
+# ───────── merge ─────────────────────────────────────────────────────────
+all_keys = set().union(base_map, processed_map, survey_map, metab_map)
+combined = {}
 
 for k in tqdm(sorted(all_keys)):
     entry = {}
     if k in base_map:      entry.update(base_map[k])
-    if k in processed_map: entry.update(processed_map[k])
-    if k in survey_map:    entry["survey"]     = survey_map[k]
+    if k in processed_map: entry.update(processed_map[k])     # adds {"512x384": {...}, ...}
+    if k in survey_map:    entry["survey"]      = survey_map[k]
     if k in metab_map:     entry["metabolites"] = metab_map[k]
-    
-    _day = day_from_key(k)          # e.g., 20, 21, 30, ...
-    entry["day_num"] = _day         # optional: raw numeric day
-    entry["mdl_day"] = to_mdl_day(_day)  # 20/21 -> 20.5; others unchanged
+    _day = day_from_key(k)
+    entry["day_num"] = _day
+    entry["mdl_day"] = to_mdl_day(_day)
     combined[k] = entry
 
-# ───────── write out ─────────────────────────────────────────────────────
-# Clean NaN values before writing to ensure valid JSON
+# ───────── write ─────────────────────────────────────────────────────────
 combined_clean = clean_nan_values(combined)
-with open(output_path, 'w') as f:
+with open(output_path, "w") as f:
     json.dump(combined_clean, f, indent=2)
 print(f"Wrote {len(combined):,} merged records → {output_path}")
-

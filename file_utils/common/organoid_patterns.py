@@ -42,7 +42,7 @@ class OrganoidPatterns:
     NORMALIZE_SEPARATORS = re.compile(r'[_\-]+')
     
     # File/path patterns
-    RESOLUTION_EXTRACT = re.compile(r'processed_dataset_(\d+x\d+)')
+    RESOLUTION_EXTRACT = re.compile(r'infer_resized_(\d+x\d+)', re.IGNORECASE)
     BATCH_DAY_PATH = re.compile(r'/batch(\d+)/day(\d+)/', re.IGNORECASE)
     Z_LEVEL = re.compile(r' Z(\d+)', re.IGNORECASE)
     
