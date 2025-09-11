@@ -15,11 +15,8 @@ else:
     raise RuntimeError("Could not locate repo root containing config.py and .env")
 
 from config import (
-    TARGET_WIDTH,
-    TARGET_HEIGHT,
-    TARGET_SIZE,
-    RAW_IMAGE_MAPPING_JSON,            # <-- use this
-    INFER_AUTO_PROCESSED_DIR as OUTPUT_DIR
+    TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE,
+    RAW_IMAGE_MAPPING_JSON, INFER_AUTO_PROCESSED_DIR as OUTPUT_DIR
 )
 
 # --------------- configuration -----------------
@@ -34,41 +31,39 @@ def ba_match(json_ba: str, batch_id: str) -> bool:
 
 # --------------- main functions ----------------
 def process_batch(batch_num: int, day_num: int):
-    # was: with ORIGINAL_MAPPING.open() as f:
     with RAW_IMAGE_MAPPING_JSON.open() as f:
-        mapping = json.load(f)
+        full_mapping = json.load(f)
+    entries = full_mapping.get("entries", {})
+    base_folder = full_mapping.get("_base_folder")
 
-    # Handle all BA* matches in mapping
-    all_ba_keys = set(norm(info['BA']) for info in mapping.values() if 'BA' in info)
     batch_prefix = norm(f"BA{batch_num}")
+    all_ba_keys = set(norm(info['BA']) for info in entries.values() if 'BA' in info)
     batch_ids = sorted(b for b in all_ba_keys if b.startswith(batch_prefix))
 
     for batch_id in batch_ids:
-        create_mapping(mapping, batch_id, day_num)
+        create_mapping(entries, base_folder, batch_id, day_num)
 
-def create_mapping(mapping: dict, batch_id: str, day_num: int):
-    day_id     = f"Dy{day_num:02d}"
+def create_mapping(entries: dict, base_folder: str, batch_id: str, day_num: int):
+    day_id = f"Dy{day_num:02d}"
     safe_batch = batch_id.replace(' ', '_')
     output_dir = OUTPUT_DIR / f"{safe_batch}_{day_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
-
     output_json = output_dir / f"image_mapping_{safe_batch}_{day_id}_processed.json"
+
     if output_json.exists():
-        print(f"Mapping exists: {output_json}")
+        print(f"⚠️ Skipping because mapping already exists: {output_json}")
+        print(f"   Size: {output_json.stat().st_size} bytes")
         return
 
-    # select images for this batch/day
     matches = [
         (img_id, info['Best Z Filename'], info.get('um_per_px'))
-        for img_id, info in mapping.items()
-        if norm(info.get('dayID', '')) == norm(day_id)
-        and ba_match(info.get('BA', ''), batch_id)
+        for img_id, info in entries.items()
+        if norm(info.get('dayID', '')) == norm(day_id) and ba_match(info.get('BA', ''), batch_id)
     ]
-    print(f"BA/day filter found {len(matches)} candidates.")
 
     new_mapping = {}
     for img_id, img_path_str, orig_um_px in matches:
-        img_path = Path(img_path_str)
+        img_path = Path(base_folder) / img_path_str
         if not img_path.exists():
             print(f"Skipped missing: {img_path}")
             continue
@@ -84,12 +79,10 @@ def create_mapping(mapping: dict, batch_id: str, day_num: int):
         um_x = um_y = None
         final_um_px_x = final_um_px_y = None
         if orig_um_px is not None:
-            # handle single float or (x, y) tuple
             if isinstance(orig_um_px, (list, tuple)) and len(orig_um_px) == 2:
                 um_x, um_y = orig_um_px
             else:
                 um_x = um_y = orig_um_px
-
             scale_x = orig_w / TARGET_WIDTH
             scale_y = orig_h / TARGET_HEIGHT
             final_um_px_x = um_x * scale_x
@@ -99,13 +92,13 @@ def create_mapping(mapping: dict, batch_id: str, day_num: int):
         cv2.imwrite(str(out_path), img_final)
 
         new_mapping[img_id] = {
-            "img_path":            str(out_path),
-            "orig_width_px":       orig_w,
-            "orig_height_px":      orig_h,
-            "orig_um_per_px_x":    um_x,
-            "orig_um_per_px_y":    um_y,
-            "final_um_per_px_x":   final_um_px_x,
-            "final_um_per_px_y":   final_um_px_y
+            "img_path": str(out_path),
+            "orig_width_px": orig_w,
+            "orig_height_px": orig_h,
+            "orig_um_per_px_x": um_x,
+            "orig_um_per_px_y": um_y,
+            "final_um_per_px_x": final_um_px_x,
+            "final_um_per_px_y": final_um_px_y
         }
 
     with output_json.open('w') as f:
@@ -118,25 +111,13 @@ def create_mapping(mapping: dict, batch_id: str, day_num: int):
 # --------------- CLI entrypoint ----------------
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--batches',
-        required=True,
-        help='Comma-separated batch numbers, e.g. 1,2,3'
-    )
-    parser.add_argument(
-        '--days',
-        required=True,
-        help='Comma-separated day numbers, e.g. 3,6,8'
-    )
-    parser.add_argument(
-        '--overwrite',
-        action='store_true',
-        help='Remove existing processed folders first'
-    )
+    parser.add_argument('--batches', required=True, help='Comma-separated batch numbers, e.g. 1,2,3')
+    parser.add_argument('--days', required=True, help='Comma-separated day numbers, e.g. 3,6,8')
+    parser.add_argument('--overwrite', action='store_true', help='Remove existing processed folders first')
     args = parser.parse_args()
 
     batches = [int(x) for x in args.batches.split(',')]
-    days    = [int(x) for x in args.days.split(',')]
+    days = [int(x) for x in args.days.split(',')]
 
     for batch in batches:
         for day in days:
@@ -144,14 +125,12 @@ if __name__ == "__main__":
             if args.overwrite:
                 sub_ids = ["96_1","96_2"] if batch == 2 else [None]
                 for sub in sub_ids:
-                    fname = (
-                        f"BA{batch}_{sub}_Dy{day:02d}"
-                        if sub else f"BA{batch}_Dy{day:02d}"
-                    )
+                    fname = f"BA{batch}_{sub}_Dy{day:02d}" if sub else f"BA{batch}_Dy{day:02d}"
                     folder = OUTPUT_DIR / fname
                     if folder.exists():
                         shutil.rmtree(folder)
-                        print(f"  Removed old folder {folder}")
+                        print(f" Removed old folder {folder}")
             process_batch(batch, day)
 
     print("\nAll done.")
+
