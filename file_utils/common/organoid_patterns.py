@@ -174,6 +174,22 @@ class OrganoidNormalizer:
             info["partial"] = True
 
         return info
+    
+    @staticmethod
+    def normalize_key_with_suffix(raw_name: str) -> str:
+        """Return normalized key with split/stitch suffixes (e.g., BA1 96_1 Dy30 A1 split_1)"""
+        base = OrganoidNormalizer.normalize_key(raw_name)
+        split_info = OrganoidNormalizer.extract_split_info(raw_name)
+        
+        suffixes = []
+        if split_info["is_split"] and split_info["split_index"] is not None:
+            suffixes.append(f"split_{split_info['split_index']}")
+        if split_info["stitched"]:
+            suffixes.append("stitched")
+        if split_info["partial"]:
+            suffixes.append("partial")
+        
+        return f"{base} {' '.join(suffixes)}" if suffixes else base
 
 class OrganoidValidation:
     """Validation utilities for organoid keys and components"""

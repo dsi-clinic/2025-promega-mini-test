@@ -108,7 +108,12 @@ def run_inference(batch_number, day_number=30, model_type="early", overwrite=Fal
         iter_items = list(batch_mapping.items())[:max_items]
 
         for img_id, img_info in iter_items:
-            img_path = Path(img_info['img_path'])
+            img_path = Path(img_info.get('img_path'))
+
+            if not img_info.get("img_path"):
+                failed += 1
+                continue
+
             if not img_path.exists():
                 failed += 1
                 continue
@@ -145,8 +150,9 @@ def run_inference(batch_number, day_number=30, model_type="early", overwrite=Fal
                     mask_vis   = cv2.cvtColor(mask_vis, cv2.COLOR_GRAY2BGR)
                     collage_pairs.append(np.hstack((img_resized, mask_vis)))
 
-            except Exception:
+            except Exception as e:
                 failed += 1
+
 
         if not dry_run and collage_pairs:
             cv2.imwrite(str(collage_path), np.vstack(collage_pairs))
