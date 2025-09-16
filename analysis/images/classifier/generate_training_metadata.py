@@ -12,6 +12,9 @@ This version:
   • Natural day sorting is numeric (supports decimals like 20.5).
   • Supports optional filtering by "Classification", e.g.:
         python scripts/data_preprocessing.py --classification Regular
+  • New flags:
+      --emit-raw-votes         → additionally emit raw vote counts in separate folder
+      --raw-votes-min-n <int>  → require at least N valid votes to emit raw_votes (default 1)
 """
 
 import json
@@ -80,6 +83,23 @@ def get_votes(rec: Dict[str, Any]) -> List[str]:
         if isinstance(e, dict):
             votes.append(s(e.get("evaluation")))
     return votes
+
+def count_good_bad(votes: List[str]) -> Tuple[int, int, int]:
+    """
+    Count 'acceptable' vs 'not acceptable' from 5 votes list.
+    Unknown/missing votes are ignored. Returns (good, bad, num) where num=good+bad.
+    Values are clamped to [0, 5].
+    """
+    if not votes:
+        return 0, 0, 0
+    cnt = Counter((v or "").strip().lower() for v in votes)
+    good = cnt.get("acceptable", 0)
+    bad  = cnt.get("not acceptable", 0)
+    num = good + bad
+    good = max(0, min(5, int(good)))
+    bad  = max(0, min(5, int(bad)))
+    num  = max(0, min(5, int(num)))
+    return good, bad, num
 
 # ---- day_num helpers ----
 def extract_day_num(rec: Dict[str, Any]) -> Optional[float]:
@@ -258,6 +278,10 @@ def main():
                         help="Threshold for majority agreement (3 or 4)")
     parser.add_argument("--classification", default=None,
                         help="If set, only include records whose 'Classification' equals this value (e.g., 'Regular'). Case-insensitive.")
+    parser.add_argument("--emit-raw-votes", action="store_true",
+                        help="Also emit a dataset with raw vote counts (good/bad/num) into a separate 'raw_votes' folder without changing existing outputs.")
+    parser.add_argument("--raw-votes-min-n", type=int, default=1,
+                        help="Minimum number of valid votes required to emit a raw_votes record (default: 1; set 5 to require complete).")
     args = parser.parse_args()
 
     # ---- Load unified JSON ----
@@ -294,7 +318,20 @@ def main():
         votes = get_votes(rec)
         maj = label_from_votes(votes, mode="majority", majority_threshold=args.majority_threshold)
         comp = label_from_votes(votes, mode="complete")
-        dy30_labels[(ba, well)] = {"majority": maj, "complete": comp}
+
+        # Only set raw counts if we truly have a valid 5-vote panel; otherwise leave Nones.
+        if len(votes) == 5:
+            g, b, n = count_good_bad(votes)
+        else:
+            g = b = n = None
+
+        dy30_labels[(ba, well)] = {
+            "majority": maj,
+            "complete": comp,
+            "good_votes": g,
+            "bad_votes": b,
+            "num_votes": n,
+        }
 
     # ---------- Stats phase ----------
     stats = compute_stats(all_data, dy30_labels, args.majority_threshold, args.classification)
@@ -336,10 +373,18 @@ def main():
             votes = get_votes(rec)
             maj_label = label_from_votes(votes, mode="majority", majority_threshold=args.majority_threshold)
             comp_label = label_from_votes(votes, mode="complete")
+            # Only have counts if valid panel at Dy30
+            if len(votes) == 5:
+                g_votes, b_votes, n_votes = count_good_bad(votes)
+            else:
+                g_votes = b_votes = n_votes = None
         else:
             inherited = dy30_labels.get((ba, well), {})
             maj_label = inherited.get("majority")
             comp_label = inherited.get("complete")
+            g_votes = inherited.get("good_votes")
+            b_votes = inherited.get("bad_votes")
+            n_votes = inherited.get("num_votes")
 
         day_key = day_to_str(day_val)
 
@@ -371,6 +416,25 @@ def main():
                 rec_m = dict(base_record)
                 rec_m["label"] = maj_label
                 datasets_by_variant[variant][("majority", day_key)].append(rec_m)
+
+            # Optional: emit raw vote counts into a separate mode/folder
+            if args.emit_raw_votes:
+                if (
+                    isinstance(g_votes, int)
+                    and isinstance(b_votes, int)
+                    and isinstance(n_votes, int)
+                    and n_votes >= args.raw_votes_min_n
+                ):
+                    rec_r = dict(base_record)
+                    rec_r.update({
+                        "good_votes": g_votes,
+                        "bad_votes": b_votes,
+                        "num_votes": n_votes,
+                        "good_fraction": (g_votes / n_votes) if n_votes else None,
+                    })
+                    datasets_by_variant[variant][("raw_votes", day_key)].append(rec_r)
+                else:
+                    unmatched_rows.append({"image_id": s(image_id), "reason": "raw_votes_missing_or_below_min_n"})
 
         if not any_variant_present:
             unmatched_rows.append({"image_id": s(image_id), "reason": "no_valid_variant_img_or_mask"})
