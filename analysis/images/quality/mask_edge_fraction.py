@@ -23,7 +23,8 @@ def load_mask(mask_path: Path) -> np.ndarray | None:
         if arr.ndim == 3:
             arr = arr[..., 0]  # take first channel if RGB
         return (arr > 0).astype(np.uint8)
-    except Exception:
+    except Exception as e:
+        print(f"  ⚠️  Failed to load mask {mask_path}: {e}")
         return None
 
 def edge_fraction(mask: np.ndarray) -> float:
@@ -56,30 +57,66 @@ def insert_after(d: dict, after_key: str, new_key: str, new_val):
         out[new_key] = new_val
     return out
 
+def has_mask_data(entry: dict) -> bool:
+    """Check if entry has processable mask data"""
+    info_512 = entry.get("512x384")
+    return isinstance(info_512, dict) and "mask_path" in info_512
+
 def main():
     from config import ALL_DATA_JSON
     inp = out = ALL_DATA_JSON
 
     data = load_json(inp)
 
-    changed = 0
-    for key, entry in tqdm(list(data.items()), desc="computing edge_fraction"):
+    # Filter entries that need processing
+    entries_to_process = []
+    parent_entries = 0
+    
+    for key, entry in data.items():
         if not (isinstance(key, str) and key.upper().startswith("BA")):
             continue
-        info_512 = entry.get("512x384")
-        mask_path = info_512.get("mask_path") if isinstance(info_512, dict) else None
-        if mask_path:
-            m = load_mask(Path(mask_path))
-            ef = edge_fraction(m) if m is not None else None
+            
+        if entry.get("split_children"):
+            # Parent entry with splits - skip
+            parent_entries += 1
+            continue
+            
+        if has_mask_data(entry):
+            entries_to_process.append((key, entry))
+
+    print(f"Found {len(entries_to_process)} entries with masks to process")
+    print(f"Skipping {parent_entries} parent entries (no direct masks)")
+    
+    processed = 0
+    failed = 0
+    
+    for key, entry in tqdm(entries_to_process, desc="Computing edge_fraction"):
+        info_512 = entry["512x384"]
+        mask_path = info_512["mask_path"]
+        
+        # Load and process mask
+        mask = load_mask(Path(mask_path))
+        if mask is not None:
+            ef = edge_fraction(mask)
+            processed += 1
         else:
             ef = None
+            failed += 1
+        
+        # Insert edge_fraction after blank_area_frac if it exists, otherwise at end
         data[key] = insert_after(entry, "blank_area_frac", "edge_fraction", ef)
-        changed += 1
 
-    # always write a backup
-    save_json(Path(str(inp) + ".bak"), data)
-    save_json(out, data)
-    print(f"Updated {changed} entries with edge_fraction → {out} (backup alongside)")
+    print(f"Successfully processed {processed} masks")
+    if failed > 0:
+        print(f"Failed to process {failed} masks")
+
+    # Always write a backup
+    backup_path = Path(str(inp) + ".bak")
+    save_json(backup_path, data)
+    save_json(Path(out), data)
+    
+    print(f"💾 Updated data saved to: {out}")
+    print(f"💾 Backup saved to: {backup_path}")
 
 
 if __name__ == "__main__":

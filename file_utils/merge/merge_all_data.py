@@ -36,17 +36,40 @@ def to_mdl_day(day: int | None) -> float | None:
         return None
     return 20.5 if day in (20, 21) else float(day)
 
-def _extract_infer_res(v: dict) -> str | None:
-    for field in ("img_path", "mask_path"):
-        s = v.get(field)
-        if not isinstance(s, str):
-            continue
-        if "processed_dataset_" in s:
-            return None
-        res = OrganoidNormalizer.extract_resolution(s)
-        if res:
-            return res
-    return None
+def _extract_infer_res_debug(v: dict, key: str) -> str | None:
+    print(f"[DEBUG {key}] Entry data: {v}")
+    return "512x384"  # Hardcode return for ALL entries
+
+
+def debug_resolution_extraction():
+    """Debug the exact difference between split_1 and split_2 paths"""
+    # Test with your known problematic entries
+    test_entries = {
+        "split_1": {
+            "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy17/BA4_96_1_Dy17_C12_split_1.png",
+            "mask_path": "/net/projects2/promega/data-analysis/predictions/batch4/day17/predicted_masks/BA4_96_1_Dy17_C12_split_1_predmask.png"
+        },
+        "split_2": {
+            "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy17/BA4_96_1_Dy17_C12_split_2.png", 
+            "mask_path": "/net/projects2/promega/data-analysis/predictions/batch4/day17/predicted_masks/BA4_96_1_Dy17_C12_split_2_predmask.png"
+        }
+    }
+    
+    for split_type, entry in test_entries.items():
+        print(f"\n=== TESTING {split_type} ===")
+        for field in ("img_path", "mask_path"):
+            path = entry[field]
+            print(f"Path: {path}")
+            try:
+                res = OrganoidNormalizer.extract_resolution(path)
+                print(f"extract_resolution result: '{res}'")
+            except Exception as e:
+                print(f"extract_resolution failed: {e}")
+                import traceback
+                traceback.print_exc()
+
+# Call this right after loading the OrganoidNormalizer
+debug_resolution_extraction()
 
 def get_parent_key(key: str) -> str:
     """Extract parent key from a split key or return the key if not a split"""
@@ -99,24 +122,119 @@ for k, v in entries_data.items():
 
 # Stage 2: Processed masks and images (apply key corrections)
 processed_map = {}
+processed_files_found = 0
+all_raw_keys = []
+split_1_keys_seen = []
+split_2_keys_seen = []
+
 for p in processed_parent.rglob("image_mapping_*_processed.json"):
     data = load_json(p)
+    print(f"[PROCESSED] Loading {p} with {len(data)} entries")
+    
+    # Track all keys in this file
+    file_keys = list(data.keys())
+    all_raw_keys.extend(file_keys)
+    
+    # Count split_1 vs split_2 in this file
+    file_split_1 = [k for k in file_keys if "split_1" in k]
+    file_split_2 = [k for k in file_keys if "split_2" in k]
+    print(f"[PROCESSED] File contains {len(file_split_1)} split_1 and {len(file_split_2)} split_2 entries")
+    
+    # Look for our specific problematic entries
+    target_keys = ["BA2 96_2 Dy21 D12 split_1", "BA2 96_2 Dy21 D12 split_2"]
+    found_targets = [k for k in file_keys if k in target_keys]
+    if found_targets:
+        print(f"[PROCESSED] *** FOUND TARGET KEYS IN THIS FILE: {found_targets} ***")
+    
     for k, v in data.items():
+        # Track split keys we encounter
+        if "split_1" in k:
+            split_1_keys_seen.append(k)
+        if "split_2" in k:
+            split_2_keys_seen.append(k)
+            
         if not is_organoid_key(k):
             continue
         try:
             norm_k = norm_key_with_suffix(k)
+            original_norm_k = norm_k
+            
+            # Debug specific problematic entries - catch ALL split_1 entries
+            if "split_1" in k:
+                print(f"[PROCESSED] DEBUG split_1: Raw key: '{k}' -> Normalized: '{norm_k}'")
             
             # Apply key correction if needed
             if norm_k in key_corrections:
+                old_norm_k = norm_k
                 norm_k = key_corrections[norm_k]
+                print(f"[PROCESSED] Key correction applied: {old_norm_k} -> {norm_k}")
             
-            res = _extract_infer_res(v)
+            # Use the debug function for ALL entries to see what's happening
+            res = _extract_infer_res_debug(v, k)
             if not res:
+                print(f"[PROCESSED] No resolution found for: {k} -> {norm_k}")
                 continue
+                
             processed_map.setdefault(norm_k, {})[res] = v
+            processed_files_found += 1
+            
+            # Debug: Show split_1 entries being successfully processed
+            if "split_1" in norm_k:
+                print(f"[PROCESSED] DEBUG split_1: Successfully added to processed_map: '{norm_k}' with resolution '{res}'")
+                
         except ValueError as e:
             print(f"[PROCESSED] Failed to normalize: {k} — {e}")
+
+print(f"[PROCESSED] Total processed entries loaded: {processed_files_found}")
+print(f"[PROCESSED] Total raw keys encountered: {len(all_raw_keys)}")
+print(f"[PROCESSED] Total split_1 keys seen: {len(split_1_keys_seen)}")
+print(f"[PROCESSED] Total split_2 keys seen: {len(split_2_keys_seen)}")
+print(f"[PROCESSED] First 5 split_1 keys: {split_1_keys_seen[:5]}")
+print(f"[PROCESSED] First 5 split_2 keys: {split_2_keys_seen[:5]}")
+
+# Debug: Check specific keys we know should exist
+test_keys = [
+    "BA4 96_1 Dy30 C12 split_1", 
+    "BA4 96_1 Dy30 C12 split_2",
+    "BA2 96_2 Dy08 D11 split_1",
+    "BA2 96_2 Dy08 D11 split_2"
+]
+
+print(f"[PROCESSED] Checking specific test keys:")
+for test_key in test_keys:
+    exists = test_key in processed_map
+    print(f"  '{test_key}': {exists}")
+    if not exists:
+        # Look for any keys containing parts of this
+        partial_matches = [k for k in processed_map.keys() if "C12" in k and "BA4" in k and "Dy30" in k] if "C12" in test_key else [k for k in processed_map.keys() if "D11" in k and "BA2" in k and "Dy08" in k]
+        print(f"    Partial matches: {partial_matches}")
+
+# Debug: Show sample of processed_map for splits
+print(f"[PROCESSED] Sample split entries in processed_map:")
+split_entries = {k: v for k, v in processed_map.items() if "split_" in k}
+for k, v in list(split_entries.items())[:20]:
+    print(f"  {k}: {list(v.keys())}")
+
+# Debug: Look specifically for the problematic entries
+problematic_parents = ["BA2 96_2 Dy08 D11", "BA2 96_2 Dy10 B2", "BA2 96_2 Dy21 D12"]
+for parent in problematic_parents:
+    split1_key = f"{parent} split_1"
+    split2_key = f"{parent} split_2"
+    print(f"[DEBUG] Checking {parent}:")
+    print(f"  split_1 key '{split1_key}' in processed_map: {split1_key in processed_map}")
+    print(f"  split_2 key '{split2_key}' in processed_map: {split2_key in processed_map}")
+    
+    # Look for similar keys
+    similar_keys = [k for k in processed_map.keys() if parent.replace(" ", "_") in k.replace(" ", "_")]
+    if similar_keys:
+        print(f"  Similar keys found: {similar_keys}")
+
+# Debug: Show all processed keys that contain "split_1"
+split1_keys = [k for k in processed_map.keys() if "split_1" in k]
+print(f"[DEBUG] All split_1 keys in processed_map ({len(split1_keys)}): {split1_keys[:10]}")
+
+split2_keys = [k for k in processed_map.keys() if "split_2" in k]
+print(f"[DEBUG] All split_2 keys in processed_map ({len(split2_keys)}): {split2_keys[:10]}")
 
 # Stage 3: Metabolites (only for parent keys)
 metab_map = {}
@@ -216,6 +334,17 @@ for k in tqdm(sorted(all_keys)):
         if k in processed_map:
             for res, proc_data in processed_map[k].items():
                 entry[res] = proc_data
+                print(f"[MERGE] Added {res} data to split: {k}")
+        else:
+            print(f"[MERGE] No processed data found for split: {k}")
+            
+            # Debug: Show what similar keys DO exist
+            base_key = k.replace(" split_1", "").replace(" split_2", "")
+            similar = [pk for pk in processed_map.keys() if base_key in pk]
+            if similar:
+                print(f"  Similar keys in processed_map: {similar}")
+            else:
+                print(f"  No similar keys found for base: {base_key}")
         
         # Add survey data
         if k in survey_map:
@@ -230,6 +359,7 @@ for k in tqdm(sorted(all_keys)):
             entry["split_children"] = sorted(child_splits)
             if k in metab_map:
                 entry["metabolites"] = metab_map[k]
+            print(f"[MERGE] Parent {k} has children: {child_splits}")
         else:
             # No splits: add all data including technical fields
             for f in split_fields:
