@@ -58,9 +58,9 @@ def insert_after(d: dict, after_key: str, new_key: str, new_val):
     return out
 
 def has_mask_data(entry: dict) -> bool:
-    """Check if entry has processable mask data"""
-    info_512 = entry.get("512x384")
-    return isinstance(info_512, dict) and "mask_path" in info_512
+    proc = entry.get("processed")
+    return isinstance(proc, dict) and "mask_path" in proc
+
 
 def main():
     from config import ALL_DATA_JSON
@@ -91,8 +91,8 @@ def main():
     failed = 0
     
     for key, entry in tqdm(entries_to_process, desc="Computing edge_fraction"):
-        info_512 = entry["512x384"]
-        mask_path = info_512["mask_path"]
+        mask_path = entry["processed"]["mask_path"]
+
         
         # Load and process mask
         mask = load_mask(Path(mask_path))

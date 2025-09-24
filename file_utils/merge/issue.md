@@ -1,90 +1,303 @@
-The data merging script is systematically missing all `split_1` entries while successfully processing `split_2` entries, despite both types of data existing in the source JSON files.
+We want to track a well through time with multiple sources of data, a well has an organoid and sometimes the organoid can split (split_1 or split_2) but those splits are still identified as the same (i.e. the parent well)
+We want a map that retains all the information for the organoid itself, I am not sure if the best way to do this is organoid or well centric. Organoid centric we would repeat the parent data for each split (dayID, BA, wellID, classification, cell line, treatment, and metabolite) but a well centric view would just have that parent info and then split entries with the organoid specific information (best Z, best z filename, um_per_px, survey data, infer_resized processed sizes and locations). I think the problem with the well centric approach is that we are pulling and mixing entries in these edge cases. 
 
-All upstream maps to me look good, surveys and image mapper properly split indexed. Metabolites (parent wells) are fine. 
+These are each data source and an example of each case:
+image_mapping.json (env ORIGINAL_MAPPING)
+Can have 1 or 2 entries for a well. 
+    "BA2 96_1 Dy08 H5": {
+      "dayID": "Dy08",
+      "BA": "BA2 96_1",
+      "wellID": "H5",
+      "Best Z": 2,
+      "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 H5 Z2.tif",
+      "Actual Z Value": 2,
+      "Classification": "Regular",
+      "um_per_px": 1.6870567375886525,
+      "all_files": [
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H5 Z0.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H5 Z1.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H5 Z2.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H5 Z3.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H5 Z4.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H5 Z5.tif"
+      ],
+      "cellLine": "GM23279A",
+      "treatment": NaN,
+      "Blank": false,
+      "blank_area_frac": 0.11379623413085938
+    },
+    "BA2 96_1 Dy08 H6 split_1": {
+      "dayID": "Dy08",
+      "BA": "BA2 96_1",
+      "wellID": "H6",
+      "split_index": 1,
+      "Best Z": -1,
+      "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(1)% Z3.tif",
+      "Actual Z Value": 3,
+      "Classification": "Split",
+      "um_per_px": 1.6870567375886525,
+      "all_files": [
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(1)% Z0.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(1)% Z1.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(1)% Z2.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(1)% Z3.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(1)% Z4.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(1)% Z5.tif"
+      ],
+      "cellLine": "GM23279A",
+      "treatment": NaN,
+      "Blank": false,
+      "blank_area_frac": 0.12238693237304688
+    },
+    "BA2 96_1 Dy08 H6 split_2": {
+      "dayID": "Dy08",
+      "BA": "BA2 96_1",
+      "wellID": "H6",
+      "split_index": 2,
+      "Best Z": -1,
+      "Best Z Filename": "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(2)% Z1.tif",
+      "Actual Z Value": 1,
+      "Classification": "Split",
+      "um_per_px": 1.6870567375886525,
+      "all_files": [
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(2)% Z0.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(2)% Z1.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(2)% Z2.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(2)% Z3.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(2)% Z4.tif",
+        "BA2/96_1/Dy08/Ba2 96_1 Dy08 H6(2)% Z5.tif"
+      ],
+      "cellLine": "GM23279A",
+      "treatment": NaN,
+      "Blank": false,
+      "blank_area_frac": 0.11614608764648438
+    },
 
-Errors -->
-[MERGE] Parent BA4 96_1 Dy21 C12 has children: ['BA4 96_1 Dy21 C12 split_2', 'BA4 96_1 Dy21 C12 split_1']
-[MERGE] No processed data found for split: BA4 96_1 Dy21 C12 split_1
-  Similar keys in processed_map: ['BA4 96_1 Dy21 C12 split_2']
-[MERGE] Added 512x384 data to split: BA4 96_1 Dy21 C12 split_2
-[MERGE] Parent BA4 96_1 Dy24 C12 has children: ['BA4 96_1 Dy24 C12 split_1', 'BA4 96_1 Dy24 C12 split_2']
-
-the data exists, images and masks are there and fine, i don't see any difference in the file structure/naming -->
-
-    "BA4 96_1 Dy21 C12 split_1": {
-    "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy21/BA4_96_1_Dy21_C12_split_1.png",
+    env location (INFER_RESIZED_DIR)
+      "BA2 96_1 Dy08 H5": {
+    "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_H5.png",
     "orig_width_px": 1128,
     "orig_height_px": 832,
-    "orig_um_per_px_x": 2.019503546099291,
-    "orig_um_per_px_y": 2.019503546099291,
-    "final_um_per_px_x": 4.44921875,
-    "final_um_per_px_y": 4.375591016548463,
-    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch4/day21/predicted_masks/BA4_96_1_Dy21_C12_split_1_predmask.png"
+    "orig_um_per_px_x": 1.6870567375886525,
+    "orig_um_per_px_y": 1.6870567375886525,
+    "final_um_per_px_x": 3.716796875,
+    "final_um_per_px_y": 3.6552895981087468,
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_H5_predmask.png"
   },
-  "BA4 96_1 Dy21 C12 split_2": {
-    "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy21/BA4_96_1_Dy21_C12_split_2.png",
+  "BA2 96_1 Dy08 H6 split_1": {
+    "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_H6_split_1.png",
     "orig_width_px": 1128,
     "orig_height_px": 832,
-    "orig_um_per_px_x": 2.019503546099291,
-    "orig_um_per_px_y": 2.019503546099291,
-    "final_um_per_px_x": 4.44921875,
-    "final_um_per_px_y": 4.375591016548463,
-    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch4/day21/predicted_masks/BA4_96_1_Dy21_C12_split_2_predmask.png"
+    "orig_um_per_px_x": 1.6870567375886525,
+    "orig_um_per_px_y": 1.6870567375886525,
+    "final_um_per_px_x": 3.716796875,
+    "final_um_per_px_y": 3.6552895981087468,
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_H6_split_1_predmask.png"
+  },
+  "BA2 96_1 Dy08 H6 split_2": {
+    "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_H6_split_2.png",
+    "orig_width_px": 1128,
+    "orig_height_px": 832,
+    "orig_um_per_px_x": 1.6870567375886525,
+    "orig_um_per_px_y": 1.6870567375886525,
+    "final_um_per_px_x": 3.716796875,
+    "final_um_per_px_y": 3.6552895981087468,
+    "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_H6_split_2_predmask.png"
   },
 
 
-### What We Know Works
-- `split_2` entries are processed correctly and appear in the final merged data
-- All source JSON files contain both `split_1` and `split_2` entries with valid data
-- The normalization and key correction logic works for both types
+env location (METABOLITE_MAP_JSON)
+  "BA2 96_1 Dy08 H5": {
+    "GlucoseGlo": {
+      "concentration_uM": 8.851,
+      "initial_concentration": 17702.567,
+      "is_outlier": false,
+      "well_384": "P10"
+    },
+    "GlutamateGlo": {
+      "concentration_uM": 1.772,
+      "initial_concentration": 177.198,
+      "is_outlier": false,
+      "well_384": "O10"
+    },
+    "MalateGlo": {
+      "concentration_uM": 0.048,
+      "initial_concentration": 0.95,
+      "is_outlier": false,
+      "well_384": "P9"
+    },
+    "BCAAGlo": {
+      "concentration_uM": 5.096,
+      "initial_concentration": 2038.449,
+      "is_outlier": false,
+      "well_384": "P10"
+    },
+    "LactateGlo": {
+      "concentration_uM": 3.164,
+      "initial_concentration": 1265.512,
+      "is_outlier": false,
+      "well_384": "P9"
+    },
+    "PyruvateGlo": {
+      "concentration_uM": 3.035,
+      "initial_concentration": 303.527,
+      "is_outlier": false,
+      "well_384": "O10"
+    }
+  },
+  "BA2 96_1 Dy08 H6": {
+    "GlucoseGlo": {
+      "concentration_uM": 8.729,
+      "initial_concentration": 17458.39,
+      "is_outlier": false,
+      "well_384": "P12"
+    },
+    "GlutamateGlo": {
+      "concentration_uM": 1.754,
+      "initial_concentration": 175.423,
+      "is_outlier": false,
+      "well_384": "O12"
+    },
+    "MalateGlo": {
+      "concentration_uM": 0.06,
+      "initial_concentration": 1.203,
+      "is_outlier": false,
+      "well_384": "P11"
+    },
+    "BCAAGlo": {
+      "concentration_uM": 5.439,
+      "initial_concentration": 2175.76,
+      "is_outlier": false,
+      "well_384": "P12"
+    },
+    "LactateGlo": {
+      "concentration_uM": 3.208,
+      "initial_concentration": 1283.387,
+      "is_outlier": false,
+      "well_384": "P11"
+    },
+    "PyruvateGlo": {
+      "concentration_uM": 2.697,
+      "initial_concentration": 269.679,
+      "is_outlier": false,
+      "well_384": "O12"
+    }
+  },
 
-### What's Failing
-- `split_1` entries are being loaded from JSON files but not making it into `processed_map`
-- This causes merge failures: `[MERGE] No processed data found for split: BA4 96_1 Dy17 C12 split_1`
-- Pattern is 100% consistent - ALL `split_1` entries fail, ALL `split_2` entries succeed
+  env location (SURVEY_AGGREGATED_JSON)
 
-### Example Data (Confirmed to Exist in Source)
-```json
-"BA4 96_1 Dy17 C12 split_1": {
-  "img_path": "/net/.../BA4_96_1_Dy17_C12_split_1.png",
-  "mask_path": "/net/.../BA4_96_1_Dy17_C12_split_1_predmask.png"
-},
-"BA4 96_1 Dy17 C12 split_2": {
-  "img_path": "/net/.../BA4_96_1_Dy17_C12_split_2.png", 
-  "mask_path": "/net/.../BA4_96_1_Dy17_C12_split_2_predmask.png"
-}
-```
+    "Organoid_255": {
+    "evaluations": [
+      {
+        "image_id": "Ba2 96_2 Dy30 C8",
+        "source_file": "Organoid Classification (Form B) - Part 1 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_2",
+        "dayID": "Dy30",
+        "wellID": "C8",
+        "split_index": 2,
+        "evaluation": "Not Acceptable",
+        "employee": "Stevens Rehen"
+      },
+      {
+        "image_id": "Ba2 96_2 Dy30 C8",
+        "source_file": "Organoid Classification (Form B) - Part 1 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_2",
+        "dayID": "Dy30",
+        "wellID": "C8",
+        "split_index": 2,
+        "evaluation": "Acceptable",
+        "employee": "Bruna Paulsen"
+      },
+      {
+        "image_id": "Ba2 96_2 Dy30 C8",
+        "source_file": "Organoid Classification (Form A) - Part 3 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_2",
+        "dayID": "Dy30",
+        "wellID": "C8",
+        "split_index": 2,
+        "evaluation": "Not Acceptable",
+        "employee": "Beatriz Guimaraes"
+      },
+      {
+        "image_id": "Ba2 96_2 Dy30 C8",
+        "source_file": "Organoid Classification (Form C) - Part 2 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_2",
+        "dayID": "Dy30",
+        "wellID": "C8",
+        "split_index": 2,
+        "evaluation": "Not Acceptable",
+        "employee": "Livia Goto Silva"
+      },
+      {
+        "image_id": "Ba2 96_2 Dy30 C8",
+        "source_file": "Organoid Classification (Form C) - Part 2 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_2",
+        "dayID": "Dy30",
+        "wellID": "C8",
+        "split_index": 2,
+        "evaluation": "Not Acceptable",
+        "employee": "Matheus Victor"
+      }
+    ],
+    "quality_scores": [
+      {
+        "image_id": "Ba2 96_2 Dy30 C8",
+        "source_file": "Image Classification Form - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_2",
+        "dayID": "Dy30",
+        "wellID": "C8",
+        "split_index": 2,
+        "quality": "Good"
+      }
+    ]
+  },
+  "Organoid_126": {
+    "evaluations": [
+      {
+        "image_id": "Ba2 96_1 Dy30 B2",
+        "source_file": "Organoid Classification (Form B) - Part 1 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_1",
+        "dayID": "Dy30",
+        "wellID": "B2",
+        "evaluation": "Acceptable",
+        "employee": "Stevens Rehen"
+      },
+      {
+        "image_id": "Ba2 96_1 Dy30 B2",
+        "source_file": "Organoid Classification (Form B) - Part 1 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_1",
+        "dayID": "Dy30",
+        "wellID": "B2",
+        "evaluation": "Not Acceptable",
+        "employee": "Bruna Paulsen"
+      },
+      {
+        "image_id": "Ba2 96_1 Dy30 B2",
+        "source_file": "Organoid Classification (Form A) - Part 3 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_1",
+        "dayID": "Dy30",
+        "wellID": "B2",
+        "evaluation": "Acceptable",
+        "employee": "Beatriz Guimaraes"
+      },
+      {
+        "image_id": "Ba2 96_1 Dy30 B2",
+        "source_file": "Organoid Classification (Form C) - Part 2 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_1",
+        "dayID": "Dy30",
+        "wellID": "B2",
+        "evaluation": "Acceptable",
+        "employee": "Livia Goto Silva"
+      },
+      {
+        "image_id": "Ba2 96_1 Dy30 B2",
+        "source_file": "Organoid Classification (Form C) - Part 2 of 3 - Excel Report(2025-06-13).xlsx",
+        "BA": "BA2 96_1",
+        "dayID": "Dy30",
+        "wellID": "B2",
+        "evaluation": "Not Acceptable",
+        "employee": "Matheus Victor"
+      }
+    ],
 
-What Claude says...
-
-**UPDATE**: After reviewing the `OrganoidNormalizer` code, the `extract_resolution()` method appears correct and should work for both `split_1` and `split_2` paths. This suggests the issue is elsewhere in the processing pipeline.
-
-The problem occurs during the "Stage 2: Processed masks and images" phase where `split_1` entries are being filtered out before reaching `processed_map`, while `split_2` entries pass through successfully.
-
-### Code Flow Analysis
-1. JSON files are loaded successfully ✓
-2. Both `split_1` and `split_2` keys are found in the raw data ✓  
-3. Key normalization works for both ✓
-4. **Something systematically filters out `split_1` entries** ❌
-5. Only `split_2` entries are added to `processed_map` ❌
-6. Merge phase can't find the missing `split_1` entries ❌
-
-### Revised Hypothesis
-The issue is likely NOT in `OrganoidNormalizer.extract_resolution()` but could be:
-- **Hidden exception handling**: `split_1` entries might be throwing exceptions that are caught and ignored
-- **Data format differences**: The actual JSON data for `split_1` entries might be malformed 
-- **Code path bug**: There may be a conditional that incorrectly skips `split_1` entries
-- **Debugging artifacts**: The debug code itself might have introduced a bug that affects only `split_1` entries
-
-## Debugging Attempts
-- Added extensive debug logging to trace the issue
-- Confirmed source data exists and is valid
-- Verified key normalization works correctly
-- Isolated the problem to the resolution extraction step
-- The issue is 100% reproducible and affects all `split_1` entries
-
-## Next Steps
-1. **Immediate**: Review `OrganoidNormalizer.extract_resolution()` implementation
-2. **Debug**: Add logging inside the resolution extraction method to see exact failure point
-3. **Test**: Compare path processing between `split_1` and `split_2` entries character-by-character
-4. **Fix**: Modify the regex/parsing logic to handle both suffixes consistently
+    

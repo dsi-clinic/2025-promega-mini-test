@@ -1,23 +1,43 @@
 .PHONY: data clean help
 
-# Generate the master data file with plate identifiers preserved
-data:
-	PYTHONPATH=. conda run -p /net/projects2/promega python file_utils/merge/merge_all_data.py
 # image mapper
 data-image-mapper:
 	PYTHONPATH=. conda run -p /net/projects2/promega python file_utils/images/image_mapper_main.py
-	
-# train the image classifier model
-train:
+
+data-metabolite-mapper:
+	PYTHONPATH=. conda run -p /net/projects2/promega python file_utils/metabolites/metabolite_mapper.py
+
+data-surveys-mapper:
+	PYTHONPATH=. conda run -p /net/projects2/promega python file_utils/surveys/surveys_mapper.py
+
+analysis-images-resize:
+	PYTHONPATH=. conda run -p /net/projects2/promega \
+	    python analysis/images/resize/resize_remap_images.py \
+	    --batches $(BATCHES) --days $(DAYS)
+
+train-images-segmentation:
+	????
+	PYTHONPATH=. conda run -p /net/projects2/promega python analysis/images/segmentation_mmseg/train.py ADD ARGS HERE
+
+.PHONY: analysis-images-predict-mapping
+analysis-images-predict-mapping:
+	PYTHONPATH=. conda run -n mmcv_env \
+	  python analysis/images/segmentation_mmseg/predict_masks.py \
+	    --model_type $(MODEL_TYPE) \
+	    --batches $(BATCHES) \
+	    --days $(DAYS) \
+	    $(if $(OVERWRITE),--overwrite,) \
+	    $(if $(DRY_RUN),--dry-run,) \
+	    $(if $(SMOKE),--smoke $(SMOKE),)
+
+
+data-merge:
+	PYTHONPATH=. conda run -p /net/projects2/promega python file_utils/merge/merge_all_data.py
+
+# Generate the master data file with plate identifiers preserved
+data: data-image-mapper data-metabolite-mapper data-surveys-mapper data-merge
+
+
+# Below is related to the classification problem
+train-classifier:
 	PYTHONPATH=. conda run -p /net/projects2/promega python analysis/images/classifier/train_model_accuracy.py
-
-# Clean generated data files
-clean:
-	rm -f all_data.json all_data_old.json
-
-# Show available commands
-help:
-	@echo "Available commands:"
-	@echo "  make data    - Generate all_data.json with preserved plate identifiers"
-	@echo "  make clean   - Remove generated data files"
-	@echo "  make help    - Show this help message"

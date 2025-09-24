@@ -1,395 +1,161 @@
-import json, math
+#!/usr/bin/env python3
+import json, re
 from pathlib import Path
 from tqdm import tqdm
 
-from config import ORIGINAL_MAPPING, OUTPUT_FOLDER, METABOLITE_MAP_JSON, SURVEY_AGGREGATED_JSON
-from file_utils.common.organoid_patterns import OrganoidNormalizer, day_from_key
+from config import (
+    ORIGINAL_MAPPING,
+    INFER_RESIZED_DIR,
+    METABOLITE_MAP_JSON,
+    SURVEY_AGGREGATED_JSON,
+)
 
-norm_key_with_suffix = OrganoidNormalizer.normalize_key_with_suffix
+OUTPUT_PATH = "all_data.json"
 
-# Paths
-base_image_mapping_path = ORIGINAL_MAPPING
-metabolite_json_path = METABOLITE_MAP_JSON
-survey_json_path = SURVEY_AGGREGATED_JSON
-processed_parent = Path(OUTPUT_FOLDER)
-output_path = OUTPUT_FOLDER / "all_data.json"
+# regex helpers
+_tok_ba    = re.compile(r"^BA\d+$", re.IGNORECASE)
+_tok_plate = re.compile(r"^(96_[12]|PT1)$", re.IGNORECASE)
+_tok_day   = re.compile(r"^DY\d+$", re.IGNORECASE)
+DAY_NUM_RE = re.compile(r"\bDy(\d{1,2})\b", re.IGNORECASE)
+SPLIT_TOKEN = re.compile(r"\bsplit_(\d+)\b", re.IGNORECASE)
 
-# Utility functions
-def load_json(path: Path):
+
+def load_json(path):
     with open(path) as f:
         return json.load(f)
 
-def clean_nan_values(obj):
-    if isinstance(obj, dict):
-        return {k: clean_nan_values(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [clean_nan_values(v) for v in obj]
-    if isinstance(obj, float) and math.isnan(obj):
-        return None
-    return obj
+def parent_key(id_like: str) -> str:
+    """Strip split/stitched from an ID for parent-level lookups."""
+    k = SPLIT_TOKEN.sub("", id_like)
+    k = re.sub(r"\(?stitched\)?", "", k, flags=re.IGNORECASE)
+    return " ".join(k.split()).strip()
 
-def is_organoid_key(key: str) -> bool:
-    return isinstance(key, str) and key.strip().upper().startswith("BA")
+def norm_key(id_like: str) -> str:
+    """
+    Normalize IDs for consistent parent-level comparisons.
+        'Ba2 96_1 Dy30 H11' -> 'BA2 96_1 Dy30 H11'
+    """
+    parts = id_like.strip().split()
+    if not parts or not _tok_ba.match(parts[0]):
+        raise ValueError(f"Bad BA token in {id_like!r}")
 
-def to_mdl_day(day: int | None) -> float | None:
-    if day is None:
-        return None
-    return 20.5 if day in (20, 21) else float(day)
+    ba = parts[0].upper()
+    idx = 1
 
-def _extract_infer_res_debug(v: dict, key: str) -> str | None:
-    print(f"[DEBUG {key}] Entry data: {v}")
-    return "512x384"  # Hardcode return for ALL entries
+    plate = ""
+    if idx < len(parts) and _tok_plate.match(parts[idx]):
+        plate = parts[idx]; idx += 1
+
+    if idx >= len(parts) or not _tok_day.match(parts[idx]):
+        raise ValueError(f"Cannot find day token in {id_like!r}")
+    day = parts[idx]; idx += 1
+
+    if idx >= len(parts):
+        raise ValueError(f"Cannot find well token in {id_like!r}")
+    well = parts[idx]
+
+    ba_full = f"{ba} {plate}".strip()
+    return f"{ba_full} {day} {well}"
+
+def day_from_key(k: str):
+    m = DAY_NUM_RE.search(k)
+    return int(m.group(1)) if m else None
+
+def to_mdl_day(d):
+    if d is None: return None
+    return 20.5 if d in (20, 21) else float(d)
+
+def make_composite_key(raw_key: str, norm_k: str, payload: dict):
+    """Build BA_DyXX_Well_splitX_stitched composite key."""
+    parts = norm_k.split()
+    ba = parts[0] if len(parts) > 0 else ""
+    if len(parts) > 2:
+        day = parts[-2]; well = parts[-1]
+    else:
+        day, well = "", ""
+
+    # split detection
+    split_match = SPLIT_TOKEN.search(raw_key)
+    split_str = f"split{split_match.group(1)}" if split_match else "nosplit"
+
+    # stitched detection
+    stitched_str = "nostitch"
+    if "stitched" in raw_key.lower():
+        stitched_str = "stitched"
+    elif payload.get("Classification", "").lower() == "stitched":
+        stitched_str = "stitched"
+    elif any("stitched" in str(v).lower() for v in payload.get("all_files", [])):
+        stitched_str = "stitched"
+    elif "stitched" in str(payload.get("Best Z Filename", "")).lower():
+        stitched_str = "stitched"
+
+    return f"{ba}_{day}_{well}_{split_str}_{stitched_str}"
 
 
-def debug_resolution_extraction():
-    """Debug the exact difference between split_1 and split_2 paths"""
-    # Test with your known problematic entries
-    test_entries = {
-        "split_1": {
-            "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy17/BA4_96_1_Dy17_C12_split_1.png",
-            "mask_path": "/net/projects2/promega/data-analysis/predictions/batch4/day17/predicted_masks/BA4_96_1_Dy17_C12_split_1_predmask.png"
-        },
-        "split_2": {
-            "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy17/BA4_96_1_Dy17_C12_split_2.png", 
-            "mask_path": "/net/projects2/promega/data-analysis/predictions/batch4/day17/predicted_masks/BA4_96_1_Dy17_C12_split_2_predmask.png"
-        }
-    }
-    
-    for split_type, entry in test_entries.items():
-        print(f"\n=== TESTING {split_type} ===")
-        for field in ("img_path", "mask_path"):
-            path = entry[field]
-            print(f"Path: {path}")
-            try:
-                res = OrganoidNormalizer.extract_resolution(path)
-                print(f"extract_resolution result: '{res}'")
-            except Exception as e:
-                print(f"extract_resolution failed: {e}")
-                import traceback
-                traceback.print_exc()
+# ───────── Load sources ─────────
+base_json   = load_json(ORIGINAL_MAPPING)
+base_map    = base_json.get("entries", {})   # all raw entries
 
-# Call this right after loading the OrganoidNormalizer
-debug_resolution_extraction()
+metab_map   = {norm_key(k): v for k,v in load_json(METABOLITE_MAP_JSON).items()}
 
-def get_parent_key(key: str) -> str:
-    """Extract parent key from a split key or return the key if not a split"""
-    if " split_" in key:
-        return key.split(" split_")[0]
-    return key
-
-def is_split_entry(key: str, entry: dict) -> bool:
-    """Check if an entry is a split based on key suffix OR split_index field"""
-    return " split_" in key or entry.get("split_index") is not None
-
-def get_actual_split_key(key: str, entry: dict) -> str:
-    """Generate the correct split key based on entry data"""
-    if " split_" in key:
-        return key  # Already has suffix
-    
-    split_idx = entry.get("split_index")
-    if split_idx is not None:
-        parent_key = key
-        return f"{parent_key} split_{split_idx}"
-    
-    return key  # Not a split
-
-# Load base image map
-entries_data = load_json(base_image_mapping_path)
-entries_data = entries_data.get("entries", entries_data)
-
-# Stage 1: Normalize base map and fix split keys
-base_map = {}
-key_corrections = {}  # Map old keys to new keys
-
-for k, v in entries_data.items():
-    if not is_organoid_key(k):
-        continue
-    try:
-        normk = norm_key_with_suffix(k)
-        
-        # Check if this needs to be converted to a split key
-        if is_split_entry(normk, v):
-            actual_key = get_actual_split_key(normk, v)
-            base_map[actual_key] = v
-            if actual_key != normk:
-                key_corrections[normk] = actual_key
-                print(f"[KEY CORRECTION] {normk} -> {actual_key} (split_index: {v.get('split_index')})")
-        else:
-            base_map[normk] = v
-            
-    except ValueError as e:
-        print(f"[BASE] Failed to normalize: {k} — {e}")
-
-# Stage 2: Processed masks and images (apply key corrections)
+# processed (keys may include split/stitched; store per-resolution)
 processed_map = {}
-processed_files_found = 0
-all_raw_keys = []
-split_1_keys_seen = []
-split_2_keys_seen = []
+found_files = list(Path(INFER_RESIZED_DIR).rglob("image_mapping*_processed.json"))
+print(f"Found {len(found_files)} processed JSONs under {INFER_RESIZED_DIR}")
 
-for p in processed_parent.rglob("image_mapping_*_processed.json"):
-    data = load_json(p)
-    print(f"[PROCESSED] Loading {p} with {len(data)} entries")
-    
-    # Track all keys in this file
-    file_keys = list(data.keys())
-    all_raw_keys.extend(file_keys)
-    
-    # Count split_1 vs split_2 in this file
-    file_split_1 = [k for k in file_keys if "split_1" in k]
-    file_split_2 = [k for k in file_keys if "split_2" in k]
-    print(f"[PROCESSED] File contains {len(file_split_1)} split_1 and {len(file_split_2)} split_2 entries")
-    
-    # Look for our specific problematic entries
-    target_keys = ["BA2 96_2 Dy21 D12 split_1", "BA2 96_2 Dy21 D12 split_2"]
-    found_targets = [k for k in file_keys if k in target_keys]
-    if found_targets:
-        print(f"[PROCESSED] *** FOUND TARGET KEYS IN THIS FILE: {found_targets} ***")
-    
-    for k, v in data.items():
-        # Track split keys we encounter
-        if "split_1" in k:
-            split_1_keys_seen.append(k)
-        if "split_2" in k:
-            split_2_keys_seen.append(k)
-            
-        if not is_organoid_key(k):
-            continue
-        try:
-            norm_k = norm_key_with_suffix(k)
-            original_norm_k = norm_k
-            
-            # Debug specific problematic entries - catch ALL split_1 entries
-            if "split_1" in k:
-                print(f"[PROCESSED] DEBUG split_1: Raw key: '{k}' -> Normalized: '{norm_k}'")
-            
-            # Apply key correction if needed
-            if norm_k in key_corrections:
-                old_norm_k = norm_k
-                norm_k = key_corrections[norm_k]
-                print(f"[PROCESSED] Key correction applied: {old_norm_k} -> {norm_k}")
-            
-            # Use the debug function for ALL entries to see what's happening
-            res = _extract_infer_res_debug(v, k)
-            if not res:
-                print(f"[PROCESSED] No resolution found for: {k} -> {norm_k}")
-                continue
-                
-            processed_map.setdefault(norm_k, {})[res] = v
-            processed_files_found += 1
-            
-            # Debug: Show split_1 entries being successfully processed
-            if "split_1" in norm_k:
-                print(f"[PROCESSED] DEBUG split_1: Successfully added to processed_map: '{norm_k}' with resolution '{res}'")
-                
-        except ValueError as e:
-            print(f"[PROCESSED] Failed to normalize: {k} — {e}")
+for p in found_files:
+    raw = load_json(p)
+    print(f"  - {p} ({len(raw)} entries)")
+    for k, v in raw.items():
+        # use the raw key directly, e.g. "BA2 96_1 Dy28 C1 split_1"
+        processed_map[k] = v
 
-print(f"[PROCESSED] Total processed entries loaded: {processed_files_found}")
-print(f"[PROCESSED] Total raw keys encountered: {len(all_raw_keys)}")
-print(f"[PROCESSED] Total split_1 keys seen: {len(split_1_keys_seen)}")
-print(f"[PROCESSED] Total split_2 keys seen: {len(split_2_keys_seen)}")
-print(f"[PROCESSED] First 5 split_1 keys: {split_1_keys_seen[:5]}")
-print(f"[PROCESSED] First 5 split_2 keys: {split_2_keys_seen[:5]}")
-
-# Debug: Check specific keys we know should exist
-test_keys = [
-    "BA4 96_1 Dy30 C12 split_1", 
-    "BA4 96_1 Dy30 C12 split_2",
-    "BA2 96_2 Dy08 D11 split_1",
-    "BA2 96_2 Dy08 D11 split_2"
-]
-
-print(f"[PROCESSED] Checking specific test keys:")
-for test_key in test_keys:
-    exists = test_key in processed_map
-    print(f"  '{test_key}': {exists}")
-    if not exists:
-        # Look for any keys containing parts of this
-        partial_matches = [k for k in processed_map.keys() if "C12" in k and "BA4" in k and "Dy30" in k] if "C12" in test_key else [k for k in processed_map.keys() if "D11" in k and "BA2" in k and "Dy08" in k]
-        print(f"    Partial matches: {partial_matches}")
-
-# Debug: Show sample of processed_map for splits
-print(f"[PROCESSED] Sample split entries in processed_map:")
-split_entries = {k: v for k, v in processed_map.items() if "split_" in k}
-for k, v in list(split_entries.items())[:20]:
-    print(f"  {k}: {list(v.keys())}")
-
-# Debug: Look specifically for the problematic entries
-problematic_parents = ["BA2 96_2 Dy08 D11", "BA2 96_2 Dy10 B2", "BA2 96_2 Dy21 D12"]
-for parent in problematic_parents:
-    split1_key = f"{parent} split_1"
-    split2_key = f"{parent} split_2"
-    print(f"[DEBUG] Checking {parent}:")
-    print(f"  split_1 key '{split1_key}' in processed_map: {split1_key in processed_map}")
-    print(f"  split_2 key '{split2_key}' in processed_map: {split2_key in processed_map}")
-    
-    # Look for similar keys
-    similar_keys = [k for k in processed_map.keys() if parent.replace(" ", "_") in k.replace(" ", "_")]
-    if similar_keys:
-        print(f"  Similar keys found: {similar_keys}")
-
-# Debug: Show all processed keys that contain "split_1"
-split1_keys = [k for k in processed_map.keys() if "split_1" in k]
-print(f"[DEBUG] All split_1 keys in processed_map ({len(split1_keys)}): {split1_keys[:10]}")
-
-split2_keys = [k for k in processed_map.keys() if "split_2" in k]
-print(f"[DEBUG] All split_2 keys in processed_map ({len(split2_keys)}): {split2_keys[:10]}")
-
-# Stage 3: Metabolites (only for parent keys)
-metab_map = {}
-for k, v in load_json(metabolite_json_path).items():
-    if not is_organoid_key(k):
-        continue
-    try:
-        norm_k = norm_key_with_suffix(k)
-        
-        # Apply key correction if needed
-        if norm_k in key_corrections:
-            norm_k = key_corrections[norm_k]
-            
-        parent_key = get_parent_key(norm_k)
-        metab_map[parent_key] = v
-    except ValueError as e:
-        print(f"[METABOLITE] Failed to normalize: {k} — {e}")
-
-# Stage 4: Surveys (apply key corrections)
+# surveys
 survey_map = {}
-survey_data = load_json(survey_json_path)
-for row in survey_data.values():
-    iid = None
+survey_json = load_json(SURVEY_AGGREGATED_JSON)
+for row in survey_json.values():
+    ids = []
     if row.get("evaluations"):
-        iid = row["evaluations"][0].get("image_id")
-    elif row.get("quality_scores"):
-        iid = row["quality_scores"][0].get("image_id")
-    if not iid:
-        continue
-    try:
-        norm_k = OrganoidNormalizer.normalize_key(iid)
-        split_idx = None
-        if "evaluations" in row:
-            idxs = {e.get("split_index") for e in row["evaluations"] if e.get("split_index") is not None}
-            if len(idxs) == 1:
-                split_idx = idxs.pop()
-        if split_idx is None and "quality_scores" in row:
-            idxs = {e.get("split_index") for e in row["quality_scores"] if e.get("split_index") is not None}
-            if len(idxs) == 1:
-                split_idx = idxs.pop()
-        
-        full_key = f"{norm_k} split_{split_idx}" if split_idx is not None else norm_k
-        
-        # Apply key correction if needed
-        if full_key in key_corrections:
-            full_key = key_corrections[full_key]
-            
-        survey_map[full_key] = row
-    except ValueError as e:
-        print(f"[SURVEY] Failed to normalize: {iid} — {e}")
+        ids += [ev["image_id"] for ev in row["evaluations"] if "image_id" in ev]
+    if row.get("quality_scores"):
+        ids += [qs["image_id"] for qs in row["quality_scores"] if "image_id" in qs]
+    for iid in ids:
+        survey_map[iid] = row
+        survey_map[parent_key(iid)] = row   # also allow parent-level match
 
-# Find all keys and identify split relationships
-all_keys = set(base_map) | set(processed_map) | set(metab_map) | set(survey_map)
-parent_keys = set()
-split_keys = set()
 
-for k in all_keys:
-    if " split_" in k:
-        split_keys.add(k)
-        parent_keys.add(get_parent_key(k))
-    else:
-        parent_keys.add(k)
-
-print(f"Found {len(split_keys)} split entries and {len(parent_keys)} parent entries")
-
+# ───────── Merge ─────────
 combined = {}
-shared_fields = ["dayID", "BA", "wellID", "cellLine", "treatment"]
-split_fields = [
-    "split_index", "Classification", "um_per_px", "all_files", "Best Z",
-    "Best Z Filename", "Actual Z Value", "Blank", "blank_area_frac"
-]
+for raw_k, payload in base_map.items():
+    entry = dict(payload)
 
-# Process all entries
-for k in tqdm(sorted(all_keys)):
-    entry = {}
-    base_entry = base_map.get(k, {})
-    is_split = " split_" in k
-    parent_key = get_parent_key(k)
-
-    # Add shared fields from base entry
-    for f in shared_fields:
-        if f in base_entry:
-            entry[f] = base_entry[f]
-
-    # Add day information
-    _day = day_from_key(k)
-    entry["day_num"] = _day
-    entry["mdl_day"] = to_mdl_day(_day)
-
-    if is_split:
-        # Split entry: add split-specific fields
-        for f in split_fields:
-            if f in base_entry:
-                entry[f] = base_entry[f]
-        
-        # Add processed data nested under resolution key
-        if k in processed_map:
-            for res, proc_data in processed_map[k].items():
-                entry[res] = proc_data
-                print(f"[MERGE] Added {res} data to split: {k}")
-        else:
-            print(f"[MERGE] No processed data found for split: {k}")
-            
-            # Debug: Show what similar keys DO exist
-            base_key = k.replace(" split_1", "").replace(" split_2", "")
-            similar = [pk for pk in processed_map.keys() if base_key in pk]
-            if similar:
-                print(f"  Similar keys in processed_map: {similar}")
-            else:
-                print(f"  No similar keys found for base: {base_key}")
-        
-        # Add survey data
-        if k in survey_map:
-            entry["survey"] = survey_map[k]
-    
+    # processed lookup:
+    # first try exact (works for splits + normal wells)
+    if raw_k in processed_map:
+        entry["processed"] = processed_map[raw_k]
     else:
-        # Parent entry: check if it has splits
-        child_splits = [sk for sk in split_keys if get_parent_key(sk) == k]
-        
-        if child_splits:
-            # Has splits: only add metadata and metabolites
-            entry["split_children"] = sorted(child_splits)
-            if k in metab_map:
-                entry["metabolites"] = metab_map[k]
-            print(f"[MERGE] Parent {k} has children: {child_splits}")
-        else:
-            # No splits: add all data including technical fields
-            for f in split_fields:
-                if f in base_entry:
-                    entry[f] = base_entry[f]
-            
-            # Add processed data nested under resolution key
-            if k in processed_map:
-                for res, proc_data in processed_map[k].items():
-                    entry[res] = proc_data
-            
-            # Add survey data
-            if k in survey_map:
-                entry["survey"] = survey_map[k]
-            
-            # Add metabolites
-            if k in metab_map:
-                entry["metabolites"] = metab_map[k]
+        # stitched fallback: strip "(stitched)" only
+        pk_stitchless = re.sub(r"\(stitched\)", "", raw_k, flags=re.IGNORECASE).strip()
+        if pk_stitchless in processed_map:
+            entry["processed"] = processed_map[pk_stitchless]
 
-    combined[k] = entry
+    # survey lookup: parent key (strip split + stitched)
+    pk_parent = parent_key(raw_k)
+    if pk_parent in survey_map:
+        entry["survey"] = survey_map[pk_parent]
 
-# Clean and dump
-with open(output_path, "w") as f:
-    json.dump(clean_nan_values(combined), f, indent=2)
+    # metabolite lookup: parent key only
+    if pk_parent in metab_map:
+        entry["metabolites"] = metab_map[pk_parent]
 
-print(f"Wrote {len(combined):,} merged records → {output_path}")
+    # add composite key
+    entry["composite_key"] = make_composite_key(raw_k, norm_key(raw_k), payload)
 
-# Debug: Print some split relationships
-print("\nSample split relationships:")
-for parent in sorted(parent_keys)[:5]:
-    children = [sk for sk in split_keys if get_parent_key(sk) == parent]
-    if children:
-        print(f"  {parent} -> {children}")
+    combined[raw_k] = entry
+
+
+
+# ───────── Write out ─────────
+with open(OUTPUT_PATH,"w") as f:
+    json.dump(combined, f, indent=2)
+print(f"Wrote {len(combined):,} merged records → {OUTPUT_PATH}")

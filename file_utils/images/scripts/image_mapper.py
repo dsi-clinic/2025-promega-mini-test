@@ -165,10 +165,10 @@ def classify_image_file(fname: str) -> str:
 
 class ImageMapper:
     BA_FOLDER_MAP = {
-        "BA1": "BA1",
-        "BA2": ["BA2/96_1", "BA2/96_2"],
-        "BA3": "BA3",
-        "BA4": "BA4"
+        "BA1": "Ba1",
+        "BA2": ["Ba2/96_1", "Ba2/96_2"],
+        "BA3": "Ba3",
+        "BA4": "Ba4"
     }
 
     def __init__(self, base_dir: Path, meta_csv: Path):
