@@ -8,7 +8,8 @@ from config import (
     INFER_RESIZED_DIR,
     METABOLITE_MAP_JSON,
     SURVEY_AGGREGATED_JSON,
-    ALL_DATA_JSON
+    ALL_DATA_JSON,
+    IMAGE_VERIFICATION_FORM
 )
 
 OUTPUT_PATH = str(ALL_DATA_JSON)
@@ -68,11 +69,11 @@ def to_mdl_day(d):
 
 def make_common_key(raw_key: str, norm_k: str, payload: dict):
     """
-    Build ba[_plate]_DyXX_Well_splitX_stitched
-    - 'ba' lowercased (e.g., 'ba2'); plate kept if present (e.g., '96_1')
+    Build BA[_plate]_DyXX_Well_splitX_stitched
+    (BA stays uppercase)
     """
     parts = norm_k.split()
-    ba_tok = parts[0].lower() if parts else ""  # <-- lowercased BA
+    ba_tok = parts[0].upper() if parts else ""     # <-- uppercase BA
     plate_tok = parts[1] if (len(parts) >= 4 and _tok_plate.match(parts[1])) else ""
     day  = parts[-2] if len(parts) >= 2 else ""
     well = parts[-1] if len(parts) >= 1 else ""
@@ -95,7 +96,6 @@ def make_common_key(raw_key: str, norm_k: str, payload: dict):
         stitched_str = "stitched"
 
     return f"{ba_part}_{day}_{well}_{split_str}_{stitched_str}"
-
 
 # ───────── Load sources ─────────
 base_json   = load_json(ORIGINAL_MAPPING)
