@@ -8,9 +8,10 @@ from config import (
     INFER_RESIZED_DIR,
     METABOLITE_MAP_JSON,
     SURVEY_AGGREGATED_JSON,
+    ALL_DATA_JSON
 )
 
-OUTPUT_PATH = "all_data.json"
+OUTPUT_PATH = str(ALL_DATA_JSON)
 
 # regex helpers
 _tok_ba    = re.compile(r"^BA\d+$", re.IGNORECASE)
@@ -65,14 +66,18 @@ def to_mdl_day(d):
     if d is None: return None
     return 20.5 if d in (20, 21) else float(d)
 
-def make_composite_key(raw_key: str, norm_k: str, payload: dict):
-    """Build BA_DyXX_Well_splitX_stitched composite key."""
+def make_common_key(raw_key: str, norm_k: str, payload: dict):
+    """
+    Build ba[_plate]_DyXX_Well_splitX_stitched
+    - 'ba' lowercased (e.g., 'ba2'); plate kept if present (e.g., '96_1')
+    """
     parts = norm_k.split()
-    ba = parts[0] if len(parts) > 0 else ""
-    if len(parts) > 2:
-        day = parts[-2]; well = parts[-1]
-    else:
-        day, well = "", ""
+    ba_tok = parts[0].lower() if parts else ""  # <-- lowercased BA
+    plate_tok = parts[1] if (len(parts) >= 4 and _tok_plate.match(parts[1])) else ""
+    day  = parts[-2] if len(parts) >= 2 else ""
+    well = parts[-1] if len(parts) >= 1 else ""
+
+    ba_part = f"{ba_tok}_{plate_tok}" if plate_tok else ba_tok
 
     # split detection
     split_match = SPLIT_TOKEN.search(raw_key)
@@ -89,7 +94,7 @@ def make_composite_key(raw_key: str, norm_k: str, payload: dict):
     elif "stitched" in str(payload.get("Best Z Filename", "")).lower():
         stitched_str = "stitched"
 
-    return f"{ba}_{day}_{well}_{split_str}_{stitched_str}"
+    return f"{ba_part}_{day}_{well}_{split_str}_{stitched_str}"
 
 
 # ───────── Load sources ─────────
@@ -148,8 +153,8 @@ for raw_k, payload in base_map.items():
     if pk_parent in metab_map:
         entry["metabolites"] = metab_map[pk_parent]
 
-    # add composite key
-    entry["composite_key"] = make_composite_key(raw_k, norm_key(raw_k), payload)
+    # add common key
+    entry["common_key"] = make_common_key(raw_k, norm_key(raw_k), payload)
 
     combined[raw_k] = entry
 
