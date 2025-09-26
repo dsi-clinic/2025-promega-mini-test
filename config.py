@@ -55,6 +55,7 @@ ROOT = repo_root()
 # ---- Canonical base paths ----
 BASE_PATH         = require_env_path("BASE_PATH")
 RAW_IMAGE_DATA    = require_env_path("RAW_IMAGE_DATA")
+IMAGE_VERIFICATION_FORM = require_env_path("IMAGE_VERIFICATION_FORM")
 OUTPUT_FOLDER     = require_env_path("OUTPUT_FOLDER")
 PLOTS_FOLDER      = require_env_path("PLOTS_FOLDER")
 LOGS_FOLDER       = require_env_path("LOGS_FOLDER")

@@ -142,22 +142,21 @@ def choose_best_in_group(files: list[Path]) -> tuple[Path, str, list[Path]]:
 
 
 def classify_image_file(fname: str) -> str:
+    info = OrganoidNormalizer.extract_split_info(fname)  # unified split parsing
     f = fname.lower()
-    is_split = bool(OrganoidPatterns.SPLIT_PAREN.search(f) or OrganoidPatterns.SPLIT_HYPHEN.search(f))
 
     if OrganoidPatterns.STITCHED.search(f):
-        return "SplitStitched" if is_split else "Stitched"
+        return "SplitStitched" if info["is_split"] else "Stitched"
 
     if OrganoidPatterns.PARTIAL_IMAGE.search(f):
-        return "SplitPartial" if is_split else "Partial"
+        return "SplitPartial" if info["is_split"] else "Partial"
 
-    if is_split:
+    if info["is_split"]:
         return "Split"
 
     if OrganoidPatterns.DUPLICATE_IMAGE.search(f):
         return "Duplicate"
 
-    # no pre-split detection anymore
     return "Regular"
 
 

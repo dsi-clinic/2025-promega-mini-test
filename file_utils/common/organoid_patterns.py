@@ -56,10 +56,15 @@ class OrganoidPatterns:
     
     STITCHED      = re.compile(r"\(stitched\)", re.IGNORECASE)
 
-
     # split markers AFTER the split day
-    SPLIT_PAREN  = re.compile(r"\(\s*(\d+)\s*\)\s*%", re.IGNORECASE)   # e.g., C1(1)% Z0.tif
-    SPLIT_HYPHEN = re.compile(r"-\s*(\d)\s*-%", re.IGNORECASE)         # e.g., D12-2-% ...
+    # ex: "C1(1)% Z0.tif", "C1(2) Z0.tif", "C1 (12)% Z0.tif"
+    SPLIT_PAREN  = re.compile(r"\(\s*(\d{1,2})\s*\)\s*%?", re.IGNORECASE)
+
+    # ex: "D12-2-% …", "D12_2_% …", "D12 2 % …", "D12-12-% …"
+    SPLIT_HYPHEN = re.compile(r"[-_ ](\d{1,2})\s*[-_ ]?%(?=\b|[^0-9])", re.IGNORECASE)
+
+    # explicit token (appears in some keys/csv): "… split_2 …", "… split-12 …"
+    SPLIT_TOKEN  = re.compile(r"\bsplit[_-]?(\d{1,2})\b", re.IGNORECASE)
 
 class OrganoidKey(NamedTuple):
     """Structured representation of an organoid key"""
@@ -154,26 +159,35 @@ class OrganoidNormalizer:
 
     @staticmethod
     def extract_split_info(raw_name: str) -> dict:
-        f = raw_name.lower()
+        s = raw_name.lower()
         info = {
             "is_split": False,
-            "pre_split": False,   # kept for backward compatibility, always False now
+            "pre_split": False,   # kept for backward compatibility
             "split_index": None,
             "stitched": False,
             "partial": False
         }
 
-        m = OrganoidPatterns.SPLIT_PAREN.search(f) or OrganoidPatterns.SPLIT_HYPHEN.search(f)
+        # explicit "split_2" / "split-2"
+        m = OrganoidPatterns.SPLIT_TOKEN.search(s)
+        if not m:
+            # "(2)" or "(2 of 2)" with optional trailing "%"
+            m = OrganoidPatterns.SPLIT_PAREN.search(s)
+        if not m:
+            # "-2-%" / "_12_%" / " 2 %"
+            m = OrganoidPatterns.SPLIT_HYPHEN.search(s)
+
         if m:
             info["is_split"] = True
             info["split_index"] = int(m.group(1))
 
-        if OrganoidPatterns.STITCHED.search(f):
+        if OrganoidPatterns.STITCHED.search(s):
             info["stitched"] = True
-        if OrganoidPatterns.PARTIAL_IMAGE.search(f):
+        if OrganoidPatterns.PARTIAL_IMAGE.search(s):
             info["partial"] = True
 
         return info
+
     
     @staticmethod
     def normalize_key_with_suffix(raw_name: str) -> str:
