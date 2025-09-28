@@ -4,12 +4,9 @@ import pandas as pd
 import re
 import json
 from pathlib import Path
-from tifffile import TiffFile  # if you ever need it
 import cv2
 import numpy as np
-from skimage.io import imread
 from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer, clean_id_for_json
-
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -32,6 +29,7 @@ def load_gray_resized(path: Path, size: tuple[int,int] | None = FAST_EVAL_SIZE) 
 
 def extract_z(f: Path) -> int:
     return OrganoidNormalizer.extract_z_level(f.name)
+
 def is_blankish_file(
     path: Path,
     # --- soft gates (recommended defaults) ---
@@ -142,21 +140,22 @@ def choose_best_in_group(files: list[Path]) -> tuple[Path, str, list[Path]]:
 
 
 def classify_image_file(fname: str) -> str:
-    info = OrganoidNormalizer.extract_split_info(fname)  # unified split parsing
     f = fname.lower()
+    is_split = bool(OrganoidPatterns.SPLIT_PAREN.search(f) or OrganoidPatterns.SPLIT_HYPHEN.search(f))
 
     if OrganoidPatterns.STITCHED.search(f):
-        return "SplitStitched" if info["is_split"] else "Stitched"
+        return "SplitStitched" if is_split else "Stitched"
 
     if OrganoidPatterns.PARTIAL_IMAGE.search(f):
-        return "SplitPartial" if info["is_split"] else "Partial"
+        return "SplitPartial" if is_split else "Partial"
 
-    if info["is_split"]:
+    if is_split:
         return "Split"
 
     if OrganoidPatterns.DUPLICATE_IMAGE.search(f):
         return "Duplicate"
 
+    # no pre-split detection anymore
     return "Regular"
 
 
@@ -164,10 +163,10 @@ def classify_image_file(fname: str) -> str:
 
 class ImageMapper:
     BA_FOLDER_MAP = {
-        "BA1": "Ba1",
-        "BA2": ["Ba2/96_1", "Ba2/96_2"],
-        "BA3": "Ba3",
-        "BA4": "Ba4"
+        "BA1": "BA1",
+        "BA2": ["BA2/96_1", "BA2/96_2"],
+        "BA3": "BA3",
+        "BA4": "BA4"
     }
 
     def __init__(self, base_dir: Path, meta_csv: Path):
