@@ -253,7 +253,7 @@ def main(overwrite=False, strict=False):
     for k, v in totals_reasons.items():
         print(f"  {k:>18}: {v}")
     # after the summary prints
-    report_path = Path("analysis/images/quality/overlay_decode_failures.json)
+    report_path = Path("analysis/images/quality/overlay_decode_failures.json")
     full_report = []
     for mp in tqdm(mapping_files, desc="Collect failures"):
         s = process_mapping_json(mp, overwrite=False, strict=False, sample_limit=None)

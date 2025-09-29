@@ -30,7 +30,7 @@ def ba_match(json_ba: str, batch_id: str) -> bool:
     return norm(json_ba).startswith(norm(batch_id))
 
 # --------------- main functions ----------------
-def process_batch(batch_num: int, day_num: int):
+def process_batch(batch_num: int, day_num: int, overwrite: bool):
     with RAW_IMAGE_MAPPING_JSON.open() as f:
         full_mapping = json.load(f)
     entries = full_mapping.get("entries", {})
@@ -38,21 +38,29 @@ def process_batch(batch_num: int, day_num: int):
 
     batch_prefix = norm(f"BA{batch_num}")
     all_ba_keys = set(norm(info['BA']) for info in entries.values() if 'BA' in info)
+    # collect *actual* BA variants: "ba1", "ba196_1", "ba196_2", etc.
     batch_ids = sorted(b for b in all_ba_keys if b.startswith(batch_prefix))
 
     for batch_id in batch_ids:
-        create_mapping(entries, base_folder, batch_id, day_num)
+        create_mapping(entries, base_folder, batch_id, day_num, overwrite)
 
-def create_mapping(entries: dict, base_folder: str, batch_id: str, day_num: int):
+
+def create_mapping(entries: dict, base_folder: str, batch_id: str, day_num: int, overwrite: bool):
     day_id = f"Dy{day_num:02d}"
     safe_batch = batch_id.replace(' ', '_')
     output_dir = OUTPUT_DIR / f"{safe_batch}_{day_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_json = output_dir / f"image_mapping_{safe_batch}_{day_id}_processed.json"
 
+    if overwrite and output_dir.exists():
+        # nuke the folder so we can fully rebuild
+        import shutil
+        shutil.rmtree(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
     if output_json.exists():
-        print(f"⚠️ Skipping because mapping already exists: {output_json}")
-        print(f"   Size: {output_json.stat().st_size} bytes")
+        print(f"Skipping because mapping already exists: {output_json}")
+        print(f"Size: {output_json.stat().st_size} bytes")
         return
 
     matches = [
@@ -63,6 +71,10 @@ def create_mapping(entries: dict, base_folder: str, batch_id: str, day_num: int)
 
     new_mapping = {}
     for img_id, img_path_str, orig_um_px in matches:
+        info = entries[img_id]
+        verification = info.get("verification", {})
+        main_id = verification.get("main_id", img_id.replace(' ', '_'))  # fallback to img_id if missing
+
         img_path = Path(base_folder) / img_path_str
         if not img_path.exists():
             print(f"Skipped missing: {img_path}")
@@ -77,7 +89,7 @@ def create_mapping(entries: dict, base_folder: str, batch_id: str, day_num: int)
         img_final = cv2.resize(img_raw, TARGET_SIZE, INTERPOLATION)
 
         um_x = um_y = None
-        final_um_px_x = final_um_px_y = None
+        final_um_per_px_x = final_um_per_px_y = None
         if orig_um_px is not None:
             if isinstance(orig_um_px, (list, tuple)) and len(orig_um_px) == 2:
                 um_x, um_y = orig_um_px
@@ -85,21 +97,24 @@ def create_mapping(entries: dict, base_folder: str, batch_id: str, day_num: int)
                 um_x = um_y = orig_um_px
             scale_x = orig_w / TARGET_WIDTH
             scale_y = orig_h / TARGET_HEIGHT
-            final_um_px_x = um_x * scale_x
-            final_um_px_y = um_y * scale_y
+            final_um_per_px_x = um_x * scale_x
+            final_um_per_px_y = um_y * scale_y
 
-        out_path = output_dir / f"{img_id.replace(' ', '_')}.png"
+        # --- use main_id here ---
+        out_path = output_dir / f"{main_id}.png"
         cv2.imwrite(str(out_path), img_final)
 
         new_mapping[img_id] = {
             "img_path": str(out_path),
+            "main_id": main_id,
             "orig_width_px": orig_w,
             "orig_height_px": orig_h,
             "orig_um_per_px_x": um_x,
             "orig_um_per_px_y": um_y,
-            "final_um_per_px_x": final_um_px_x,
-            "final_um_per_px_y": final_um_px_y
+            "final_um_per_px_x": final_um_per_px_x,
+            "final_um_per_px_y": final_um_per_px_y
         }
+
 
     with output_json.open('w') as f:
         json.dump(new_mapping, f, indent=2)
@@ -122,15 +137,8 @@ if __name__ == "__main__":
     for batch in batches:
         for day in days:
             print(f"\nProcessing Batch {batch}, Day {day}")
-            if args.overwrite:
-                sub_ids = ["96_1","96_2"] if batch == 2 else [None]
-                for sub in sub_ids:
-                    fname = f"BA{batch}_{sub}_Dy{day:02d}" if sub else f"BA{batch}_Dy{day:02d}"
-                    folder = OUTPUT_DIR / fname
-                    if folder.exists():
-                        shutil.rmtree(folder)
-                        print(f" Removed old folder {folder}")
-            process_batch(batch, day)
+            process_batch(batch, day, args.overwrite)
 
     print("\nAll done.")
+
 

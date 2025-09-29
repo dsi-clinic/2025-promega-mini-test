@@ -4,12 +4,10 @@ import pandas as pd
 import re
 import json
 from pathlib import Path
-from tifffile import TiffFile
 import cv2
 import numpy as np
-from skimage.io import imread
+from skimage.io import imread  # kept for parity with your env (even if unused)
 from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer, clean_id_for_json
-
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -32,86 +30,6 @@ def load_gray_resized(path: Path, size: tuple[int,int] | None = FAST_EVAL_SIZE) 
 
 def extract_z(f: Path) -> int:
     return OrganoidNormalizer.extract_z_level(f.name)
-def is_blankish_file(
-    path: Path,
-    # --- soft gates (recommended defaults) ---
-    min_total_frac: float = 0.012,    # only declares blank on area alone if truly tiny
-    min_largest_frac: float = 0.02,   # largest component must be < 2% of image
-    min_component: int = 50,          # ignore specks at eval scale
-    center_var_thresh: float = 25.0,  # Laplacian variance (texture) in center crop
-    edge_frac_thresh: float = 0.025,  # Canny edge density
-
-    # --- hysteresis band (stability) ---
-    hysteresis_low: float = 0.018,    # definitely blank if <= this
-    hysteresis_high: float = 0.028    # definitely not blank if >= this
-) -> tuple[bool, float]:
-    """
-    Return (is_blank, total_area_frac) using:
-      - Otsu both polarities (pick the *smaller* foreground)
-      - small-component removal
-      - largest component fraction
-      - center-crop Laplacian variance (texture)
-      - edge density
-      - hysteresis on total area for stability
-    """
-    gray = load_gray_resized(path, FAST_EVAL_SIZE)
-    if gray is None:
-        return False, 0.0
-
-    # Otsu both ways
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, th1 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    _, th2 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-    m1 = (th1 > 0).astype(np.uint8)
-    m2 = (th2 > 0).astype(np.uint8)
-
-    # Use the *smaller* foreground to avoid the ~0.5 trap
-    cand = m1 if m1.sum() <= m2.sum() else m2
-
-    # Remove tiny specks + track largest component
-    largest_area = 0
-    if cand.sum() > 0 and min_component > 0:
-        num, labels, stats, _ = cv2.connectedComponentsWithStats(cand, connectivity=8)
-        keep = np.zeros_like(cand)
-        for i in range(1, num):
-            area = stats[i, cv2.CC_STAT_AREA]
-            if area >= min_component:
-                keep[labels == i] = 1
-                if area > largest_area:
-                    largest_area = area
-        cand = keep
-
-    H, W = cand.shape
-    total_area_frac = float(cand.sum()) / float(H * W)
-    largest_area_frac = float(largest_area) / float(H * W)
-
-    # Center texture (quarter-size crop)
-    ch0, ch1 = H // 4, 3 * H // 4
-    cw0, cw1 = W // 4, 3 * W // 4
-    center = gray[ch0:ch1, cw0:cw1]
-    center_var = float(cv2.Laplacian(center, cv2.CV_64F).var())
-
-    # Edge density
-    edges = cv2.Canny(gray, 50, 150)
-    edge_frac = float((edges > 0).sum()) / float(H * W)
-
-    # --- Hysteresis first (stability) ---
-    if total_area_frac <= hysteresis_low:
-        is_blank = True
-    elif total_area_frac >= hysteresis_high:
-        is_blank = False
-    else:
-        # Composite decision in the gray band
-        is_blank = (
-            (largest_area_frac < min_largest_frac) and
-            (center_var < center_var_thresh) and
-            (edge_frac < edge_frac_thresh)
-        ) or (total_area_frac < min_total_frac)
-
-    # Clamp into [0, 1] for sanity
-    total_area_frac = max(0.0, min(1.0, total_area_frac))
-    return bool(is_blank), total_area_frac
 
 def split_info_for_file(f: Path) -> dict:
     return OrganoidNormalizer.extract_split_info(f.name)  # already in your Normalizer
@@ -140,7 +58,6 @@ def choose_best_in_group(files: list[Path]) -> tuple[Path, str, list[Path]]:
         return regular[0], "Regular", files
     return files[0], "Regular", files
 
-
 def classify_image_file(fname: str) -> str:
     info = OrganoidNormalizer.extract_split_info(fname)  # unified split parsing
     f = fname.lower()
@@ -159,9 +76,6 @@ def classify_image_file(fname: str) -> str:
 
     return "Regular"
 
-
-# clean_id_for_json now imported from organoid_patterns module
-
 class ImageMapper:
     BA_FOLDER_MAP = {
         "BA1": "Ba1",
@@ -170,9 +84,43 @@ class ImageMapper:
         "BA4": "Ba4"
     }
 
-    def __init__(self, base_dir: Path, meta_csv: Path):
+    def __init__(self, base_dir: Path, meta_csv: Path,
+                 verify_csv: Path | None = None):
+        """
+        verify_csv: CSV with columns including:
+          - 'main id' (or 'main_id'): canonical key like 'BA1_96_1_Dy03_A1_nosplit_nostitch'
+          - 'Images taken from blank wells [YES/NO]': YES/NO marker
+        """
         self.base_dir = Path(base_dir)
         self.meta = pd.read_excel(meta_csv, sheet_name="Images")
+
+        # Optional verification file (for Blank annotation only; no image compute)
+        self.verify_map: dict[str, str] | None = None
+        if verify_csv is not None:
+            vdf = pd.read_csv(verify_csv)
+            vdf.columns = [c.strip() for c in vdf.columns]
+            # main id column
+            if any(c.lower() == "main id" for c in vdf.columns):
+                col_main = next(c for c in vdf.columns if c.lower() == "main id")
+            elif any(c.lower() == "main_id" for c in vdf.columns):
+                col_main = next(c for c in vdf.columns if c.lower() == "main_id")
+            else:
+                raise ValueError("Verification CSV missing 'main id' / 'main_id' column.")
+
+            # blank column
+            if "Images taken from blank wells [YES/NO]" in vdf.columns:
+                col_blank = "Images taken from blank wells [YES/NO]"
+            else:
+                # fallback: any column that contains YES/NO about blanks
+                cand = [c for c in vdf.columns if "blank" in c.lower()]
+                if not cand:
+                    raise ValueError("Verification CSV missing blank YES/NO column.")
+                col_blank = cand[0]
+
+            vdf["main_id_norm"] = vdf[col_main].astype(str).str.strip()
+            vdf[col_blank] = vdf[col_blank].astype(str).str.strip().str.upper()
+            self.verify_map = dict(zip(vdf["main_id_norm"], vdf[col_blank]))
+
         self._precompute_um_per_px()
 
     def _precompute_um_per_px(self):
@@ -211,19 +159,13 @@ class ImageMapper:
             "Objective":                              "objective",
             "Number of Focus":                        "numFocus",
             "First Focus":                            "firstZ",
-            "Last Focus":                             "lastZ",
+            "Last Focus":                              "lastZ",
             "Focus Step (µm)":                        "dz",
             "Cell line":                              "cellLine",
             "Treatments (AAV)":                       "treatment"
         })
 
         def split_pid(pid: str) -> pd.Series:
-            """
-            Break 'Ba2 96_1 Dy21 D12(1 of 2) #% Z0.tif' into:
-            batchPlate = 'Ba2 96_1' | 'Ba1' | 'Ba3 Pt1' …
-            dayID      = 'Dy21'
-            wellID     = 'D12'
-            """
             parts = pid.split()
 
             # batchPlate
@@ -238,21 +180,18 @@ class ImageMapper:
             dayID = parts[day_idx]
 
             # WELL: take everything after day to parse well
-            well_tokens = parts[day_idx + 1:]              # <-- missing before
+            well_tokens = parts[day_idx + 1:]
             tokens = " ".join(well_tokens)
 
             m = OrganoidPatterns.WELL_STRICT.search(tokens)
             if m:
-                wellID = f"{m.group(1).upper()}{m.group(2)}"  # e.g., 'E10'
+                wellID = f"{m.group(1).upper()}{m.group(2)}"
             else:
-                # fallback like 'H9(1 of 2)' -> 'H9'
                 m2 = re.search(r'([A-Ha-h]\s*\d{1,2})', tokens)
                 wellID = m2.group(1).replace(" ", "").upper() if m2 else tokens.strip().upper()
 
             logging.debug(f"[split_pid] {pid!r} → batch={batchPlate!r}, day={dayID!r}, well={wellID!r}")
             return pd.Series([batchPlate, dayID, wellID])
-
-
 
         df[["batchPlate", "dayID", "wellID"]] = df["photoID"].apply(split_pid)
 
@@ -262,7 +201,6 @@ class ImageMapper:
             "Image Width (µm)", "um_per_px", "numFocus", "firstZ", "lastZ", "dz",
             "cellLine", "treatment"
         ]]
-
 
     def resolve_filename(self, file_photoID: str, img_folder: str|Path, batch_plate: str = None):
         img_folder = Path(img_folder)
@@ -318,15 +256,12 @@ class ImageMapper:
                 if not re.search(rf"\b{re.escape(alt_suffix)}\b", base_id, re.IGNORECASE):
                     search_ids.append(re.sub(rf"{ba_part}\b", f"{ba_part} {alt_suffix}", base_id, flags=re.IGNORECASE))
                 logging.info(f"Using multiple search patterns: {search_ids}")
-
             else:
                 search_ids = [search_id]
-
 
         # Try all search IDs until we find matches
         candidates = []
         for sid in search_ids:
-            # DON'T strip special characters - keep the full identifier
             clean_sid = sid.strip()
 
             sid_well = None
@@ -334,22 +269,16 @@ class ImageMapper:
             if m:
                 sid_well = f"{m.group(1).upper()}{m.group(2)}" if m else None
 
-            
-            # Create multiple search patterns to handle different file naming conventions
             patterns = []
-            # original patterns
             patterns.append(rf"\b{re.escape(clean_sid)}(?=[\s._Z(]|$)")
             patterns.append(rf"{re.escape(clean_sid)}(?=[\s._Z]|$)")
 
-            # NEW: if key ends with a single row letter, allow well digits after it
             m_row_only = re.search(r'\b([A-Ha-h])$', clean_sid)
             if m_row_only:
-                # match e.g. “… Dy30 D12(1)% Z0.tif” when key is “… Dy30 D”
                 patterns.append(
                     rf"\b{re.escape(clean_sid)}\s*(?:[1-9]|1[0-2])(?=[\s._\-()%]|$)"
                 )
-            
-            # 3. Handle cases where special characters might be represented differently
+
             if '(' in clean_sid and ')' in clean_sid:
                 base_part = clean_sid.split('(')[0].strip()
                 paren_content = OrganoidPatterns.REMOVE_PARENS.search(clean_sid)
@@ -357,18 +286,13 @@ class ImageMapper:
                     paren_part = paren_content.group(1)
                     patterns.append(rf"\b{re.escape(base_part)}\s*\([^)]*{re.escape(paren_part)}[^)]*\)")
                     patterns.append(rf"\b{re.escape(base_part)}\s*\([^)]*\)")
-            
-            # 4. Fallback pattern - match well ID with flexible stitched patterns
+
             if sid_well:
-                # e.g., H9(1 of 2), H9(2), H9(stitched)
                 patterns.append(rf"\b{re.escape(sid_well)}\s*\([^)]*\)")
-                # plain well token like 'H9' before space/underscore/dot/paren/end
                 patterns.append(rf"\b{re.escape(sid_well)}(?=[\s._(]|$)")
 
-
-            
             logging.debug(f"Trying patterns for {clean_sid}: {patterns}")
-            
+
             for pattern in patterns:
                 try:
                     search_re = re.compile(pattern, re.IGNORECASE)
@@ -380,11 +304,10 @@ class ImageMapper:
                 except re.error as e:
                     logging.warning(f"Invalid regex pattern {pattern}: {e}")
                     continue
-            
+
             if candidates:
                 break
 
-        # If still no candidates, try more permissive search
         if not candidates and well_id:
             logging.info(f"Trying fallback search with well ID: {well_id}")
             candidates = [f for f in files if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE)]
@@ -395,16 +318,14 @@ class ImageMapper:
             logging.warning(f"No files found for {file_photoID} in {img_folder}")
             return None, "No", [], None
 
-        # Log all candidates before processing
         logging.info(f"All candidates found for {file_photoID}:")
         for i, f in enumerate(candidates):
             logging.info(f"  {i}: {f.name}")
 
         # 2) sort by Z-index
-
         candidates.sort(key=extract_z)
-        
-        # Group all matches by split index (None = unsplit day)
+
+        # Group by split index
         groups: dict[int|None, list[Path]] = {}
         for f in candidates:
             info = OrganoidNormalizer.extract_split_info(f.name)
@@ -413,36 +334,29 @@ class ImageMapper:
             else:
                 groups.setdefault(None, []).append(f)
 
-        # If the requested photoID explicitly names a child (e.g., ...C1(2)%...), honor it
         req_info = OrganoidNormalizer.extract_split_info(file_photoID)
         wanted = req_info.get("split_index")  # None if not specified
 
         split_groups = {k: v for k, v in groups.items() if k is not None}
 
-        wanted = req_info.get("split_index")  # None if not specified
-
         if wanted in groups:
             chosen, label, group_files = choose_best_in_group(groups[wanted])
             return chosen, f"Split-{label}", candidates, {"split_index": wanted}
 
-        # If there’s exactly one split group present, pick from it
         split_groups = {k: v for k, v in groups.items() if k is not None}
         if len(split_groups) == 1:
             k, files_k = next(iter(split_groups.items()))
             chosen, label, group_files = choose_best_in_group(files_k)
             return chosen, f"Split-{label}", candidates, {"split_index": k}
 
-        # If no split groups exist, fall back to unsplit group
         if None in groups and groups[None]:
             chosen, label, group_files = choose_best_in_group(groups[None])
             return chosen, label, group_files, None
 
-        # Multiple split groups but caller didn’t specify which → ambiguous
         if len(split_groups) > 1:
             stitched_groups = {f"split_{k}": sorted(v, key=extract_z) for k, v in split_groups.items()}
             return None, "SplitAmbiguous", candidates, stitched_groups
 
-        # (Optional) exact-file checks: “... Z0.tif” or bare “.tif”
         for sid in search_ids:
             z0 = img_folder / f"{sid} Z0.tif"
             bare = img_folder / f"{sid}.tif"
@@ -453,20 +367,36 @@ class ImageMapper:
                 logging.info(f"Found bare .tif file: {bare.name}")
                 return bare, "No", candidates, None
 
-        # Fallback: try restricting by well token in the filename
         if well_id:
             by_well = [f for f in candidates if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE)]
             if by_well:
                 logging.info(f"Using fallback candidate: {by_well[0].name}")
                 return by_well[0], "No", candidates, None
 
-        # Final fallback (don’t put anything after this!)
         if candidates:
             return candidates[0], "Regular", candidates, None
 
         logging.warning(f"No files found for {file_photoID} in {img_folder}")
         return None, "No", [], None
 
+    @staticmethod
+    def _build_main_id(ba_str: str, day_id: str, well_id: str,
+                       split_index: int | None, classification: str) -> str:
+        """
+        Construct the verification 'main id' string to match the CSV, e.g.:
+          BA1_96_1_Dy03_A1_nosplit_nostitch
+          BA2_96_1_Dy28_C7_split_1_stitched
+        """
+        ba_token = ba_str.replace(" ", "_")            # e.g., 'BA1_96_1'
+        split_token = f"split_{int(split_index)}" if split_index is not None else "nosplit"
+        stitch_token = "stitched" if "stitched" in classification.lower() else "nostitch"
+        return f"{ba_token}_{day_id}_{well_id}_{split_token}_{stitch_token}"
+
+    @staticmethod
+    def classification_label_for_verif(split_index: int | None, classification: str) -> str:
+        split = "Split" if split_index is not None else "NoSplit"
+        stitch = "Stitched" if "stitched" in classification.lower() else "NoStitched"
+        return f"{split}{stitch}"
 
     def make_mapping_json(self, out_json: Path):
         """
@@ -484,7 +414,6 @@ class ImageMapper:
             try:
                 return p.relative_to(self.base_dir)
             except ValueError:
-                # Fall back to a relative path string (handles symlinks/mounts)
                 return Path(os.path.relpath(p, self.base_dir))
 
         logging.info("Generating key-mapping JSON…")
@@ -543,11 +472,12 @@ class ImageMapper:
 
             if chosen is None and stitched_flag not in ("Multiple_Stitched", "SplitAmbiguous"):
                 continue
-            
-            # We purposely regroup on *all_files* which now always contains every match
-            split_groups_all = group_by_split(all_files)      # {None: [... unsplit ...], 1: [...], 2: [...]}
+
+            # regroup on all_files (always every match)
+            split_groups_all = group_by_split(all_files)
             child_groups = {k: v for k, v in split_groups_all.items() if k is not None}
 
+            # ---------- CASE A: split children ----------
             if len(child_groups) >= 1:
                 logging.info(f"Expanding into {len(child_groups)} split children for {full_id}")
 
@@ -563,21 +493,14 @@ class ImageMapper:
                     best_idx = self.find_best_focus(files_for_child)
                     return files_for_child[best_idx if 0 <= best_idx < len(files_for_child) else 0]
 
-                # (optional) update counters if you want the summary to reflect each child
-                # found_count += len(child_groups)
-                # stitched_count += sum(1 for _, gf in child_groups.items()
-                #                       if any("(stitched)" in f.name.lower() for f in gf))
-
                 for child_idx, group_files in sorted(child_groups.items()):
                     final_file = pick_rep_file(group_files)
                     clean_child_key = f"{full_id} split_{int(child_idx)}"
 
-                    
                     actual_z = OrganoidNormalizer.extract_z_level(final_file.name)
                     classification = classify_image_file(final_file.name)
-                    is_blank, area_frac = is_blankish_file(final_file)
 
-                    mapping[clean_child_key] = {
+                    entry = {
                         "dayID": day_id,
                         "BA": ba_str,
                         "wellID": well_id,
@@ -590,15 +513,24 @@ class ImageMapper:
                         "all_files": [str(to_rel(f)) for f in sorted(group_files, key=extract_z)],
                         "cellLine": group_df["cellLine"].iloc[0],
                         "treatment": group_df["treatment"].iloc[0],
-                        "Blank": bool(is_blank),
-                        "blank_area_frac": float(area_frac),
                     }
 
-                # We’ve created explicit child entries; skip the single parent entry
-                continue
+                    # ---- verification block (child) ----
+                    main_id = self._build_main_id(ba_str, day_id, well_id, int(child_idx), classification)
+                    verdict = self.verify_map.get(main_id) if self.verify_map else None
+                    is_blank = (verdict == "YES")
+                    entry["verification"] = {
+                        "main_id": main_id,
+                        "classification_verification": self.classification_label_for_verif(int(child_idx), classification),
+                        "blank_verified": verdict,
+                        "blank": is_blank
+                    }
 
+                    mapping[clean_child_key] = entry
 
-            # --- Multiple stitched groups: create one entry per group
+                continue  # done with this (day,ba,well) group
+
+            # ---------- CASE B: multiple stitched groups ----------
             if stitched_flag == "Multiple_Stitched" and stitched_groups:
                 logging.info(f"Processing {len(stitched_groups)} stitched groups for {full_id}")
                 for identifier, group_files in stitched_groups.items():
@@ -614,27 +546,38 @@ class ImageMapper:
                     found_count += 1
                     stitched_count += 1
 
-                    is_blank, area_frac = is_blankish_file(final_file)
-
-                    mapping[clean_stitched_id] = {
+                    entry = {
                         "dayID": day_id,
                         "BA": ba_str,
                         "wellID": well_id,
                         "stitched_identifier": identifier,
                         "Best Z": best_idx,
-                        "Best Z Filename": str(to_rel(final_file)),                 # RELATIVE
+                        "Best Z Filename": str(to_rel(final_file)),
                         "Actual Z Value": actual_z,
                         "Classification": "Stitched",
                         "um_per_px": float(group_df["um_per_px"].iloc[0]),
-                        "all_files": [str(to_rel(f)) for f in group_files],         # RELATIVE
+                        "all_files": [str(to_rel(f)) for f in group_files],
                         "cellLine": group_df["cellLine"].iloc[0],
                         "treatment": group_df["treatment"].iloc[0],
-                        "Blank": bool(is_blank),
-                        "blank_area_frac": float(area_frac),
                     }
+
+                    # ---- verification block (multiple-stitched) ----
+                    split_idx = None  # not a specific split child here
+                    classification = "Stitched"
+                    main_id = self._build_main_id(ba_str, day_id, well_id, split_idx, classification)
+                    verdict = self.verify_map.get(main_id) if self.verify_map else None
+                    is_blank = (verdict == "YES")
+                    entry["verification"] = {
+                        "main_id": main_id,
+                        "classification_verification": self.classification_label_for_verif(split_idx, classification),
+                        "blank_verified": verdict,
+                        "blank": is_blank
+                    }
+
+                    mapping[clean_stitched_id] = entry
                 continue  # done with this (day,ba,well)
 
-            # --- Single stitched or regular case
+            # ---------- CASE C: single stitched or regular ----------
             found_count += 1
             if stitched_flag == "Stitched":
                 stitched_count += 1
@@ -650,23 +593,37 @@ class ImageMapper:
                 actual_z = OrganoidNormalizer.extract_z_level(final.name)
 
             classification = classify_image_file(final.name)
-            is_blank, area_frac = is_blankish_file(final)
 
-            mapping[full_id] = {
+            entry = {
                 "dayID": day_id,
                 "BA": ba_str,
                 "wellID": well_id,
                 "Best Z": focus_idx,
-                "Best Z Filename": str(to_rel(final)),                  # RELATIVE
+                "Best Z Filename": str(to_rel(final)),
                 "Actual Z Value": actual_z,
                 "Classification": classification,
                 "um_per_px": float(group_df["um_per_px"].iloc[0]),
-                "all_files": [str(to_rel(f)) for f in all_files],       # RELATIVE
+                "all_files": [str(to_rel(f)) for f in all_files],
                 "cellLine": group_df["cellLine"].iloc[0],
                 "treatment": group_df["treatment"].iloc[0],
-                "Blank": bool(is_blank),
-                "blank_area_frac": float(area_frac),
             }
+
+            # ---- verification block (single) ----
+            split_idx = None
+            if "split" in classification.lower():
+                # single-case path with a 'Split*' classification: we keep nosplit for main_id label.
+                split_idx = None
+            main_id = self._build_main_id(ba_str, day_id, well_id, split_idx, classification)
+            verdict = self.verify_map.get(main_id) if self.verify_map else None
+            is_blank = (verdict == "YES")
+            entry["verification"] = {
+                "main_id": main_id,
+                "classification_verification": self.classification_label_for_verif(split_idx, classification),
+                "blank_verified": verdict,
+                "blank": is_blank
+            }
+
+            mapping[full_id] = entry
 
         # Final stats
         logging.info("=== MAPPING SUMMARY ===")
@@ -685,18 +642,15 @@ class ImageMapper:
         out_json.write_text(json.dumps(wrapped, indent=2))
         logging.info(f"Wrote mapping JSON (wrapped) to {out_json}")
 
-
     def find_best_focus(self, files: list[Path]) -> int:
         if not files:
             return -1
-
         best_i = -1
         best_var = -1.0
         for i, f in enumerate(files):
             gray = load_gray_resized(f, FAST_EVAL_SIZE)
             if gray is None:
                 continue
-            # Laplacian variance on downscaled gray
             var = cv2.Laplacian(gray, cv2.CV_64F).var()
             if var > best_var:
                 best_var = var

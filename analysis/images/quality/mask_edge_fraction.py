@@ -24,7 +24,7 @@ def load_mask(mask_path: Path) -> np.ndarray | None:
             arr = arr[..., 0]  # take first channel if RGB
         return (arr > 0).astype(np.uint8)
     except Exception as e:
-        print(f"  ⚠️  Failed to load mask {mask_path}: {e}")
+        print(f"Failed to load mask {mask_path}: {e}")
         return None
 
 def edge_fraction(mask: np.ndarray) -> float:
@@ -115,8 +115,8 @@ def main():
     save_json(backup_path, data)
     save_json(Path(out), data)
     
-    print(f"💾 Updated data saved to: {out}")
-    print(f"💾 Backup saved to: {backup_path}")
+    print(f"Updated data saved to: {out}")
+    print(f"Backup saved to: {backup_path}")
 
 
 if __name__ == "__main__":
