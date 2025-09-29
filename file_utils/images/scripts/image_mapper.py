@@ -385,10 +385,10 @@ class ImageMapper:
         """
         Construct the verification 'main id' string to match the CSV, e.g.:
           BA1_96_1_Dy03_A1_nosplit_nostitch
-          BA2_96_1_Dy28_C7_split_1_stitched
+          BA2_96_1_Dy28_C7_split1_stitched
         """
         ba_token = ba_str.replace(" ", "_")            # e.g., 'BA1_96_1'
-        split_token = f"split_{int(split_index)}" if split_index is not None else "nosplit"
+        split_token = f"split{int(split_index)}" if split_index is not None else "nosplit"
         stitch_token = "stitched" if "stitched" in classification.lower() else "nostitch"
         return f"{ba_token}_{day_id}_{well_id}_{split_token}_{stitch_token}"
 
