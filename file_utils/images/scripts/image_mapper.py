@@ -4,6 +4,7 @@ import pandas as pd
 import re
 import json
 from pathlib import Path
+from collections import defaultdict
 import cv2
 import numpy as np
 from skimage.io import imread  # kept for parity with your env (even if unused)
@@ -117,9 +118,22 @@ class ImageMapper:
                     raise ValueError("Verification CSV missing blank YES/NO column.")
                 col_blank = cand[0]
 
-            vdf["main_id_norm"] = vdf[col_main].astype(str).str.strip()
-            vdf[col_blank] = vdf[col_blank].astype(str).str.strip().str.upper()
-            self.verify_map = dict(zip(vdf["main_id_norm"], vdf[col_blank]))
+            vdf["main_id_orig"] = vdf[col_main].astype(str).str.strip()
+            # Normalized key: remove spaces, collapse "_split_<n>" -> "_split<n>", lowercase
+            vdf["main_id_norm"] = (
+                vdf["main_id_orig"]
+                .str.replace(r"\s+", "", regex=True)
+                .str.replace(r"_split_(\d+)", r"_split\1", regex=True)
+                .str.lower()
+            )
+
+            blank_norm = vdf[col_blank].astype(str).str.strip().str.upper()
+
+            # lookup: normalized -> YES/NO
+            self.verify_map = dict(zip(vdf["main_id_norm"], blank_norm))
+            # mapping back to original-case CSV id for display
+            self.verify_norm2orig = dict(zip(vdf["main_id_norm"], vdf["main_id_orig"]))
+
 
         self._precompute_um_per_px()
 
@@ -378,17 +392,87 @@ class ImageMapper:
 
         logging.warning(f"No files found for {file_photoID} in {img_folder}")
         return None, "No", [], None
+    
+    def _resolve_verification(
+        self,
+        ba_str: str,
+        day_id: str,
+        well_id: str,
+        split_idx: int | None,
+        classification: str,
+        gen_main_id: str | None = None
+    ) -> dict:
+        """Return correct verification info (main_id, verdict, blank flag)."""
+        csv_key_prefix = f"{ba_str.replace(' ', '_')}_{day_id}_{well_id}"
+        prefix_norm = (f"{ba_str.replace(' ', '_')}_{day_id}_{well_id}"
+               .replace(" ", "").lower())
+        prefix_norm = re.sub(r"_split_(\d+)", r"_split\1", prefix_norm)  # tolerate both
+
+        pattern = re.compile(
+            rf"^{re.escape(prefix_norm)}_(split_?\d+|presplit|nosplit)_(stitched|nostitch)$"
+        )
+
+        keys = list((self.verify_map or {}).keys())
+        cand_keys = [k for k in keys if pattern.match(k)]
+
+        best_key = None
+        if cand_keys:
+            def key_score(k):
+                score = 0
+                if split_idx is not None and (f"_split{split_idx}_" in k or f"_split_{split_idx}_" in k):
+                    score += 100
+                elif split_idx is None:
+                    if "_presplit_" in k:
+                        score += 60
+                    elif "_nosplit_" in k:
+                        score += 50
+                if "_stitched" in k and "stitched" in classification.lower():
+                    score += 10
+                elif "_nostitch" in k and "stitched" not in classification.lower():
+                    score += 5
+                return score, len(k)
+            best_key = max(cand_keys, key=key_score)
+
+        if best_key:
+            # map normalized key -> original, then canonicalize to splitN
+            main_id_raw = self.verify_norm2orig.get(best_key, best_key)
+            main_id = re.sub(r"(?<=_split)_(?=\d)", "", main_id_raw)  # force splitN
+            verdict = self.verify_map[best_key]
+        else:
+            main_id = gen_main_id
+            verdict = None
+
+
+        is_blank = (verdict == "YES")
+
+        # flag mismatch if CSV disagrees
+        if gen_main_id and best_key and best_key != gen_main_id:
+            logging.warning(f"[verify] Mismatch: gen={gen_main_id} csv={best_key}")
+
+        return {
+            "main_id": main_id,           # from CSV or fallback
+            "gen_main_id": gen_main_id,   # always ours
+            "classification_verification": self.classification_label_for_verif(split_idx, classification),
+            "blank_verified": verdict,
+            "blank": is_blank
+        }
+
 
     @staticmethod
     def _build_main_id(ba_str: str, day_id: str, well_id: str,
-                       split_index: int | None, classification: str) -> str:
+                    split_index: int | None, classification: str,
+                    presplit_flag: bool = False) -> str:
         """
-        Construct the verification 'main id' string to match the CSV, e.g.:
-          BA1_96_1_Dy03_A1_nosplit_nostitch
-          BA2_96_1_Dy28_C7_split1_stitched
+        Construct the verification 'main id' string, e.g.:
+        BA1_96_1_Dy03_A1_nosplit_nostitch
+        BA2_96_1_Dy28_C7_split_1_stitched
+        BA2_96_1_Dy21_E1_presplit_nostitch
         """
-        ba_token = ba_str.replace(" ", "_")            # e.g., 'BA1_96_1'
-        split_token = f"split{int(split_index)}" if split_index is not None else "nosplit"
+        ba_token = ba_str.replace(" ", "_")
+        if split_index is not None:
+            split_token = f"split{int(split_index)}"
+        else:
+            split_token = "presplit" if presplit_flag else "nosplit"
         stitch_token = "stitched" if "stitched" in classification.lower() else "nostitch"
         return f"{ba_token}_{day_id}_{well_id}_{split_token}_{stitch_token}"
 
@@ -426,6 +510,45 @@ class ImageMapper:
         stitched_count = 0
         found_count = 0
         logging.info(f"Processing {total_groups} unique combinations")
+
+        # --- Detect presplit wells ---
+        presplit_wells = set()
+        # group keys: (day_id, batch_plate, well_id)
+        # convert dayIDs (e.g., 'Dy30') to int for comparison
+        # pass 1: collect days per well, and track which day(s) have splits
+        # prescan
+        by_well_days = defaultdict(list)
+        actual_split_wells = set()
+
+        for (dy, bp, w), _ in grouped:
+            dnum = OrganoidNormalizer.extract_day_number(dy)
+            by_well_days[(bp, w)].append(dnum)
+
+            parts = bp.split()
+            base_token = parts[0].upper()
+            img_sub = self.BA_FOLDER_MAP.get(base_token)
+            if isinstance(img_sub, list):
+                plate_suffix = parts[1] if len(parts) > 1 else ""
+                img_sub = next((s for s in img_sub if plate_suffix in s), img_sub[0])
+
+            img_folder = self.base_dir / img_sub / dy
+            has_split = False
+            if img_folder.exists():
+                well_re = re.compile(rf"\b{re.escape(w)}\b", re.IGNORECASE)
+                day_files = [f for f in img_folder.rglob("*.tif") if well_re.search(f.name)]
+                has_split = any(OrganoidNormalizer.extract_split_info(f.name)["is_split"] for f in day_files)
+            if has_split:
+                actual_split_wells.add((bp, w, dnum))
+
+        presplit_wells = set()
+        for (bp, w), days in by_well_days.items():
+            split_days = [d for (bp2, w2, d) in actual_split_wells if bp2 == bp and w2 == w]
+            if split_days:
+                first_split = min(split_days)
+                for d in sorted(days):
+                    if d < first_split:
+                        presplit_wells.add((f"Dy{d:02d}", bp, w))
+
 
         for (day_id, batch_plate, well_id), group_df in grouped:
             logging.info(f"Processing {batch_plate} {day_id} {well_id}")
@@ -516,15 +639,11 @@ class ImageMapper:
                     }
 
                     # ---- verification block (child) ----
-                    main_id = self._build_main_id(ba_str, day_id, well_id, int(child_idx), classification)
-                    verdict = self.verify_map.get(main_id) if self.verify_map else None
-                    is_blank = (verdict == "YES")
-                    entry["verification"] = {
-                        "main_id": main_id,
-                        "classification_verification": self.classification_label_for_verif(int(child_idx), classification),
-                        "blank_verified": verdict,
-                        "blank": is_blank
-                    }
+                    split_idx = int(child_idx)
+                    gen_main_id = self._build_main_id(ba_str, day_id, well_id, split_idx, classification)
+                    entry["verification"] = self._resolve_verification(
+                        ba_str, day_id, well_id, split_idx, classification, gen_main_id
+                    )
 
                     mapping[clean_child_key] = entry
 
@@ -562,17 +681,11 @@ class ImageMapper:
                     }
 
                     # ---- verification block (multiple-stitched) ----
-                    split_idx = None  # not a specific split child here
-                    classification = "Stitched"
-                    main_id = self._build_main_id(ba_str, day_id, well_id, split_idx, classification)
-                    verdict = self.verify_map.get(main_id) if self.verify_map else None
-                    is_blank = (verdict == "YES")
-                    entry["verification"] = {
-                        "main_id": main_id,
-                        "classification_verification": self.classification_label_for_verif(split_idx, classification),
-                        "blank_verified": verdict,
-                        "blank": is_blank
-                    }
+                    split_idx = None
+                    gen_main_id = self._build_main_id(ba_str, day_id, well_id, None, classification)
+                    entry["verification"] = self._resolve_verification(
+                        ba_str, day_id, well_id, None, classification, gen_main_id
+                    )
 
                     mapping[clean_stitched_id] = entry
                 continue  # done with this (day,ba,well)
@@ -610,19 +723,18 @@ class ImageMapper:
 
             # ---- verification block (single) ----
             split_idx = None
-            if "split" in classification.lower():
-                # single-case path with a 'Split*' classification: we keep nosplit for main_id label.
-                split_idx = None
-            main_id = self._build_main_id(ba_str, day_id, well_id, split_idx, classification)
-            verdict = self.verify_map.get(main_id) if self.verify_map else None
-            is_blank = (verdict == "YES")
-            entry["verification"] = {
-                "main_id": main_id,
-                "classification_verification": self.classification_label_for_verif(split_idx, classification),
-                "blank_verified": verdict,
-                "blank": is_blank
-            }
+            # after entry = {..., "wellID": well_id, ...}
+            is_presplit = (day_id, batch_plate, entry["wellID"]) in presplit_wells
+            gen_main_id = self._build_main_id(
+                ba_str, day_id, entry["wellID"], None, classification,
+                presplit_flag=is_presplit
+            )
 
+            entry["verification"] = self._resolve_verification(
+                ba_str, day_id, well_id, None, classification, gen_main_id
+            )
+
+            
             mapping[full_id] = entry
 
         # Final stats
