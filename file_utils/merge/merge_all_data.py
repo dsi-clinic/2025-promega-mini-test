@@ -2,6 +2,7 @@
 import json, re
 from pathlib import Path
 from tqdm import tqdm
+from file_utils.common.organoid_patterns import OrganoidNormalizer
 
 from config import (
     ORIGINAL_MAPPING,
@@ -19,9 +20,13 @@ def load_json(path: Path | str):
     with path.open("r") as f:
         return json.load(f)
 
-def parent_key(id_like: str) -> str:
-    """Strip split/stitched tags for parent-level lookups."""
-    return re.sub(r"\bsplit_\d+\b|\(stitched\)", "", id_like, flags=re.IGNORECASE).strip()
+def normalized_parent_key(id_like: str) -> str:
+    """Use OrganoidNormalizer to get consistent BA# 96_# Dy## A# format (no suffixes)."""
+    try:
+        return OrganoidNormalizer.normalize_key(id_like)
+    except ValueError:
+        # fallback: return a stripped clean version if parsing fails
+        return OrganoidNormalizer.clean_string(id_like).upper()
 
 # ---------- load sources ----------
 print(f"Loading base mapping: {ORIGINAL_MAPPING}")
@@ -42,9 +47,15 @@ for row in survey_json.values():
         ids += [ev["image_id"] for ev in row["evaluations"] if "image_id" in ev]
     if row.get("quality_scores"):
         ids += [qs["image_id"] for qs in row["quality_scores"] if "image_id" in qs]
+
     for iid in ids:
-        survey_map[iid] = row
-        survey_map[parent_key(iid)] = row
+        try:
+            norm_key = OrganoidNormalizer.normalize_key(iid)
+        except ValueError:
+            norm_key = OrganoidNormalizer.clean_string(iid).upper()
+        survey_map[norm_key] = row
+
+
 
 # ---------- load processed JSONs ----------
 processed_map = {}
@@ -59,25 +70,20 @@ combined = {}
 for raw_k, payload in tqdm(base_map.items(), desc="Merging"):
     entry = dict(payload)
 
-    # processed lookup
-    processed = processed_map.get(raw_k)
-    if not processed:
-        pk = parent_key(raw_k)
-        processed = processed_map.get(pk)
+    processed = processed_map.get(raw_k) or processed_map.get(normalized_parent_key(raw_k))
     if processed:
         entry["processed"] = processed
         entry["main_id"] = processed.get("main_id")
 
-    # survey lookup
-    pk_parent = parent_key(raw_k)
-    if pk_parent in survey_map:
-        entry["survey"] = survey_map[pk_parent]
+    norm_key_parent = normalized_parent_key(raw_k)
+    if norm_key_parent in survey_map:
+        entry["survey"] = survey_map[norm_key_parent]
 
-    # metabolite lookup
-    if pk_parent in metab_map:
-        entry["metabolites"] = metab_map[pk_parent]
+    if norm_key_parent in metab_map:
+        entry["metabolites"] = metab_map[norm_key_parent]
 
     combined[raw_k] = entry
+
 
 # ---------- write output ----------
 with open(OUTPUT_PATH, "w") as f:
