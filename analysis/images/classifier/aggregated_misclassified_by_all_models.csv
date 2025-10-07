@@ -1,0 +1,94 @@
+image,BA,wellid,dy,gt_label_str,gt_label,img_path
+BA1_96_1_Dy03_B12.png,BA1,B12,3.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_B12.png
+BA1_96_1_Dy03_C7.png,BA1,C7,3.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_C7.png
+BA2_96_1_Dy03_A12.png,BA2,A12,3.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_A12.png
+BA2_96_1_Dy03_D8.png,BA2,D8,3.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_D8.png
+BA2_96_1_Dy03_E9.png,BA2,E9,3.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_E9.png
+BA2_96_1_Dy03_F7.png,BA2,F7,3.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_F7.png
+BA2_96_2_Dy03_A6.png,BA2,A6,3.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy03/BA2_96_2_Dy03_A6.png
+BA2_96_2_Dy03_C3.png,BA2,C3,3.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy03/BA2_96_2_Dy03_C3.png
+BA2_96_2_Dy03_F7.png,BA2,F7,3.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy03/BA2_96_2_Dy03_F7.png
+BA4_96_1_Dy03_B3.png,BA4,B3,3.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy03/BA4_96_1_Dy03_B3.png
+BA1_96_1_Dy06_B12.png,BA1,B12,6.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy06/BA1_96_1_Dy06_B12.png
+BA2_96_1_Dy06_A12.png,BA2,A12,6.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy06/BA2_96_1_Dy06_A12.png
+BA2_96_1_Dy06_E9.png,BA2,E9,6.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy06/BA2_96_1_Dy06_E9.png
+BA4_96_1_Dy06_B10.png,BA4,B10,6.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy06/BA4_96_1_Dy06_B10.png
+BA4_96_1_Dy06_H12.png,BA4,H12,6.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy06/BA4_96_1_Dy06_H12.png
+BA1_96_1_Dy08_B12.png,BA1,B12,8.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy08/BA1_96_1_Dy08_B12.png
+BA2_96_1_Dy08_A12.png,BA2,A12,8.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_A12.png
+BA2_96_1_Dy08_D8.png,BA2,D8,8.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_D8.png
+BA2_96_1_Dy08_E9.png,BA2,E9,8.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_E9.png
+BA4_96_1_Dy08_B10.png,BA4,B10,8.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy08/BA4_96_1_Dy08_B10.png
+BA1_96_1_Dy10_B12.png,BA1,B12,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy10/BA1_96_1_Dy10_B12.png
+BA1_96_1_Dy10_D1.png,BA1,D1,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy10/BA1_96_1_Dy10_D1.png
+BA2_96_1_Dy10_A12.png,BA2,A12,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_A12.png
+BA2_96_1_Dy10_A5.png,BA2,A5,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_A5.png
+BA2_96_1_Dy10_B3.png,BA2,B3,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_B3.png
+BA2_96_1_Dy10_D8.png,BA2,D8,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_D8.png
+BA2_96_1_Dy10_E12.png,BA2,E12,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_E12.png
+BA2_96_1_Dy10_E3.png,BA2,E3,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_E3.png
+BA2_96_1_Dy10_F7.png,BA2,F7,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_F7.png
+BA2_96_1_Dy10_G4.png,BA2,G4,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_G4.png
+BA2_96_2_Dy10_A9.png,BA2,A9,10.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_A9.png
+BA2_96_2_Dy10_C2.png,BA2,C2,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_C2.png
+BA2_96_2_Dy10_C3.png,BA2,C3,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_C3.png
+BA2_96_2_Dy10_G4.png,BA2,G4,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_G4.png
+BA2_96_2_Dy10_G6.png,BA2,G6,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_G6.png
+BA2_96_2_Dy10_G7.png,BA2,G7,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_G7.png
+BA2_96_2_Dy10_G9.png,BA2,G9,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_G9.png
+BA4_96_1_Dy10_A12.png,BA4,A12,10.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy10/BA4_96_1_Dy10_A12.png
+BA4_96_1_Dy10_B10.png,BA4,B10,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy10/BA4_96_1_Dy10_B10.png
+BA4_96_1_Dy10_E4.png,BA4,E4,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy10/BA4_96_1_Dy10_E4.png
+BA4_96_1_Dy10_F9.png,BA4,F9,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy10/BA4_96_1_Dy10_F9.png
+BA4_96_1_Dy10_G6.png,BA4,G6,10.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy10/BA4_96_1_Dy10_G6.png
+BA1_96_1_Dy13_B12.png,BA1,B12,13.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy13/BA1_96_1_Dy13_B12.png
+BA2_96_1_Dy13_A12.png,BA2,A12,13.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy13/BA2_96_1_Dy13_A12.png
+BA2_96_1_Dy13_E9.png,BA2,E9,13.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy13/BA2_96_1_Dy13_E9.png
+BA2_96_1_Dy13_F7.png,BA2,F7,13.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy13/BA2_96_1_Dy13_F7.png
+BA2_96_2_Dy13_A6.png,BA2,A6,13.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy13/BA2_96_2_Dy13_A6.png
+BA2_96_2_Dy13_F7.png,BA2,F7,13.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy13/BA2_96_2_Dy13_F7.png
+BA4_96_1_Dy13_B10.png,BA4,B10,13.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy13/BA4_96_1_Dy13_B10.png
+BA4_96_1_Dy13_H12.png,BA4,H12,13.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy13/BA4_96_1_Dy13_H12.png
+BA4_96_1_Dy13_H5.png,BA4,H5,13.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy13/BA4_96_1_Dy13_H5.png
+BA1_96_1_Dy15_A8.png,BA1,A8,15.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy15/BA1_96_1_Dy15_A8.png
+BA1_96_1_Dy15_B12.png,BA1,B12,15.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy15/BA1_96_1_Dy15_B12.png
+BA1_96_1_Dy15_D1.png,BA1,D1,15.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy15/BA1_96_1_Dy15_D1.png
+BA2_96_1_Dy15_A12.png,BA2,A12,15.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy15/BA2_96_1_Dy15_A12.png
+BA2_96_1_Dy15_D8.png,BA2,D8,15.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy15/BA2_96_1_Dy15_D8.png
+BA2_96_1_Dy15_E9.png,BA2,E9,15.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy15/BA2_96_1_Dy15_E9.png
+BA2_96_1_Dy15_G5.png,BA2,G5,15.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy15/BA2_96_1_Dy15_G5.png
+BA2_96_2_Dy15_C6.png,BA2,C6,15.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy15/BA2_96_2_Dy15_C6.png
+BA4_96_1_Dy15_B10.png,BA4,B10,15.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy15/BA4_96_1_Dy15_B10.png
+BA4_96_1_Dy15_D5.png,BA4,D5,15.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy15/BA4_96_1_Dy15_D5.png
+BA4_96_1_Dy15_G5.png,BA4,G5,15.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy15/BA4_96_1_Dy15_G5.png
+BA4_96_1_Dy15_G8.png,BA4,G8,15.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy15/BA4_96_1_Dy15_G8.png
+BA1_96_1_Dy17_A8.png,BA1,A8,17.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy17/BA1_96_1_Dy17_A8.png
+BA1_96_1_Dy17_C7.png,BA1,C7,17.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy17/BA1_96_1_Dy17_C7.png
+BA2_96_1_Dy17_A12.png,BA2,A12,17.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy17/BA2_96_1_Dy17_A12.png
+BA2_96_1_Dy17_E9.png,BA2,E9,17.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy17/BA2_96_1_Dy17_E9.png
+BA2_96_2_Dy17_H3.png,BA2,H3,17.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy17/BA2_96_2_Dy17_H3.png
+BA4_96_1_Dy17_G5.png,BA4,G5,17.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy17/BA4_96_1_Dy17_G5.png
+BA2_96_1_Dy21_D8.png,BA2,D8,20.5,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy21/BA2_96_1_Dy21_D8.png
+BA2_96_1_Dy21_E9.png,BA2,E9,20.5,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy21/BA2_96_1_Dy21_E9.png
+BA2_96_2_Dy21_H3.png,BA2,H3,20.5,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy21/BA2_96_2_Dy21_H3.png
+BA1_96_1_Dy24_A8.png,BA1,A8,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_A8.png
+BA1_96_1_Dy24_B12.png,BA1,B12,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_B12.png
+BA1_96_1_Dy24_C7.png,BA1,C7,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_C7.png
+BA1_96_1_Dy24_G1.png,BA1,G1,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_G1.png
+BA2_96_1_Dy24_A12.png,BA2,A12,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_A12.png
+BA2_96_1_Dy24_A5.png,BA2,A5,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_A5.png
+BA2_96_1_Dy24_E9.png,BA2,E9,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_E9.png
+BA2_96_1_Dy24_G4.png,BA2,G4,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_G4.png
+BA2_96_2_Dy24_C6.png,BA2,C6,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy24/BA2_96_2_Dy24_C6.png
+BA2_96_2_Dy24_E12.png,BA2,E12,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy24/BA2_96_2_Dy24_E12.png
+BA2_96_2_Dy24_H2.png,BA2,H2,24.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy24/BA2_96_2_Dy24_H2.png
+BA4_96_1_Dy24_D10.png,BA4,D10,24.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy24/BA4_96_1_Dy24_D10.png
+BA4_96_1_Dy24_D5.png,BA4,D5,24.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy24/BA4_96_1_Dy24_D5.png
+BA2_96_1_Dy28_A12.png,BA2,A12,28.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_A12.png
+BA2_96_1_Dy28_A5.png,BA2,A5,28.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_A5.png
+BA2_96_1_Dy28_D8.png,BA2,D8,28.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_D8.png
+BA2_96_1_Dy28_F5.png,BA2,F5,28.0,Accepted,1,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_F5.png
+BA2_96_1_Dy28_G5.png,BA2,G5,28.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_G5.png
+BA2_96_1_Dy30_A12.png,BA2,A12,30.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_A12.png
+BA2_96_1_Dy30_D8.png,BA2,D8,30.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_D8.png
+BA2_96_2_Dy30_A6.png,BA2,A6,30.0,Not Accepted,0,/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy30/BA2_96_2_Dy30_A6.png

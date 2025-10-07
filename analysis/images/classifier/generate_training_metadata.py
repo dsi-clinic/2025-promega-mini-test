@@ -101,16 +101,41 @@ def count_good_bad(votes: List[str]) -> Tuple[int, int, int]:
     num  = max(0, min(5, int(num)))
     return good, bad, num
 
-# ---- day_num helpers ----
+import re
+
+_DAY_RE = re.compile(r'(?i)\bdy\s*([0-9]+(?:\.[0-9]+)?)\b')
+
 def extract_day_num(rec: Dict[str, Any]) -> Optional[float]:
+    """
+    Prefer `day_num` if present; otherwise parse numeric part from `dayID`
+    (e.g., 'Dy03' -> 3, 'Dy20.0' -> 20.0). Then merge 20/21 -> 20.5.
+    """
+    # 1) Prefer explicit day_num
     dn = rec.get("day_num", None)
-    try:
-        x = float(dn)
-    except (TypeError, ValueError):
-        return None
-    if math.isfinite(x) and (abs(x - 20.0) < 1e-9 or abs(x - 21.0) < 1e-9):
-        x = 20.5
-    return x if math.isfinite(x) else None
+    if dn is not None:
+        try:
+            x = float(dn)
+            if math.isfinite(x) and (abs(x - 20.0) < 1e-9 or abs(x - 21.0) < 1e-9):
+                x = 20.5
+            return x if math.isfinite(x) else None
+        except (TypeError, ValueError):
+            pass  # fall through
+
+    # 2) Fallback: parse from dayID like "Dy03", "dy3", "Dy 21", "Dy20.0"
+    day_id = rec.get("dayID")
+    if isinstance(day_id, str):
+        m = _DAY_RE.search(day_id.strip())
+        if m:
+            try:
+                x = float(m.group(1))
+                if math.isfinite(x) and (abs(x - 20.0) < 1e-9 or abs(x - 21.0) < 1e-9):
+                    x = 20.5
+                return x if math.isfinite(x) else None
+            except ValueError:
+                pass
+
+    return None
+
 
 def day_sort_key(day_str: str) -> Tuple[float, str]:
     try:
@@ -131,14 +156,27 @@ def day_to_file_token(day: float) -> str:
 VARIANTS = ("512x384", "256x192")
 
 def variant_payload(rec: Dict[str, Any], variant: str) -> Optional[Dict[str, Any]]:
-    block = rec.get(variant)
-    if not isinstance(block, dict):
+    """
+    Extract image and mask paths from the processed field for the given variant.
+    The processed field contains the full paths that we need to use directly.
+    """
+    processed = rec.get("processed")
+    if not isinstance(processed, dict):
         return None
-    img_path = s(block.get("img_path"))
-    mask_path = s(block.get("mask_path"))
+    
+    img_path = s(processed.get("img_path"))
+    mask_path = s(processed.get("mask_path"))
+    overlay_path = s(processed.get("overlay_path"))
+    
     if not img_path or not mask_path:
         return None
-    return {"img_path": img_path, "mask_path": mask_path}
+    
+    # Return the paths as-is since they're already the correct processed paths
+    return {
+        "img_path": img_path, 
+        "mask_path": mask_path,
+        "overlay_path": overlay_path
+    }
 
 # ------------- Stats Computation -------------
 
@@ -406,6 +444,10 @@ def main():
                 "mask_path": payload["mask_path"],
                 "Best Z Filename": best_zfn,
             }
+            
+            # Add overlay_path if available
+            if payload.get("overlay_path"):
+                base_record["overlay_path"] = payload["overlay_path"]
 
             if comp_label:
                 rec_c = dict(base_record)

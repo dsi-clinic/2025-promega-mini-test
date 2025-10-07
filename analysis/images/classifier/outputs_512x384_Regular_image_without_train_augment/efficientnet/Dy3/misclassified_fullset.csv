@@ -1,0 +1,13 @@
+img_path,true_label,pred_prob,pred_label
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_B12.png,0,0.9990139007568359,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_C7.png,0,0.8675518035888672,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_A12.png,0,0.6213253736495972,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_D8.png,0,0.9808254837989807,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_E9.png,0,0.9958036541938782,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_F7.png,0,0.9934881925582886,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy03/BA2_96_2_Dy03_A6.png,0,0.9532890319824219,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy03/BA2_96_2_Dy03_C3.png,0,0.965284526348114,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy03/BA2_96_2_Dy03_F7.png,0,0.9629582762718201,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy03/BA4_96_1_Dy03_B3.png,1,0.023945234715938568,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy03/BA4_96_1_Dy03_F9.png,0,0.6244441270828247,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy03/BA4_96_1_Dy03_H5.png,0,0.6265569925308228,1

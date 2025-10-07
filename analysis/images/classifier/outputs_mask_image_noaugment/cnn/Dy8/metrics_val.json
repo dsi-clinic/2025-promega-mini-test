@@ -1,0 +1,12 @@
+{
+  "day": "Dy8",
+  "split": "val",
+  "accuracy": 0.7241379310344828,
+  "f1": 0.8181818181818182,
+  "roc_auc": 0.7222222222222223,
+  "pr_auc": 0.853293546645874,
+  "n": 29,
+  "batch_size": 16,
+  "input_key": "img_path",
+  "use_mask": true
+}

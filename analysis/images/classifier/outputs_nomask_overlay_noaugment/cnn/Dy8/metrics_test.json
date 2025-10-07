@@ -1,0 +1,19 @@
+{
+  "day": "Dy8",
+  "day_no": 8,
+  "split": "test",
+  "accuracy": 0.7241379310344828,
+  "f1": 0.8333333333333334,
+  "roc_auc": 0.6369047619047619,
+  "pr_auc": 0.8665400829654464,
+  "val_accuracy_for_selection": 0.6896551724137931,
+  "val_n": 29,
+  "test_n": 29,
+  "actual_good": 21,
+  "predicted_good": 27,
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "backbone_key": "cnn",
+  "input_key": "overlay_path",
+  "use_mask": false
+}

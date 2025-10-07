@@ -1,0 +1,16 @@
+{
+  "day": "Dy13",
+  "split": "val",
+  "brier": 0.15683519840240479,
+  "rmse": 0.396024227142334,
+  "acc@0.5": 0.7777777777777778,
+  "f1@0.5": 0.8571428571428571,
+  "corr": 0.4302264153957367,
+  "roc_auc": 0.75,
+  "pr_auc": 0.8897137697881405,
+  "chosen_threshold": 0.391,
+  "threshold_method": "max_f1",
+  "min_precision": null,
+  "n": 27,
+  "batch_size": 16
+}
