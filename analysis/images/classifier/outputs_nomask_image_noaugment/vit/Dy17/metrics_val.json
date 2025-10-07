@@ -1,0 +1,12 @@
+{
+  "day": "Dy17",
+  "split": "val",
+  "accuracy": 0.7586206896551724,
+  "f1": 0.8292682926829268,
+  "roc_auc": 0.6166666666666667,
+  "pr_auc": 0.7338959676673368,
+  "n": 29,
+  "batch_size": 16,
+  "input_key": "img_path",
+  "use_mask": false
+}

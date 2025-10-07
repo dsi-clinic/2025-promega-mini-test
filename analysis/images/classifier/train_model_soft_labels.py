@@ -10,27 +10,25 @@ What this does:
   • Trains a single-logit model with BCEWithLogitsLoss against soft targets.
   • Optionally weights each sample by its number of votes (aleatoric trust).
   • Early-stops by *validation Brier score* (lower is better).
-  • Reports uncertainty-aware metrics: Brier, RMSE, Pearson r, plus thresholded accuracy/F1 (for reference).
+  • Reports uncertainty-aware metrics: Brier, RMSE, Pearson r, plus thresholded accuracy/F1
+    at 0.5 (for reference) and at a validation-chosen threshold t* (max F1 by default).
   • Saves curves and per-day summaries like your original script.
-
-If you point this at your old `majority/` folder, it will fall back to hard labels (Accepted/Not Accepted)
-and use y ∈ {0.0, 1.0}. Prefer `raw_votes/` for the full benefit.
 
 Example:
     python train_soft_labels.py \
         --data_dir analysis/images/classifier/data/preprocessed/512x384/raw_votes \
         --outdir   analysis/images/classifier/outputs_512x384_softlabels \
-        --batch-size 16 --val-batch-size 16 --min-votes 1 --weight-by-votes
+        --batch-size 16 --val-batch-size 16 --min-votes 1 --weight-by-votes \
+        --th-method max_f1
 """
 
-import os, json, argparse, re, math
+import os, json, argparse, re, math, csv
 from pathlib import Path
-from collections import defaultdict, Counter
+from collections import defaultdict
 
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 import torch
 import torch.nn as nn
@@ -38,7 +36,10 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import (
+    accuracy_score, f1_score, roc_auc_score, average_precision_score,
+    precision_recall_curve, roc_curve, balanced_accuracy_score
+)
 from scipy.stats import pearsonr
 
 import timm
@@ -46,12 +47,12 @@ from torchvision import transforms as T
 
 # -------- Config (defaults; can be overridden by CLI) --------
 BACKBONES = {
-    "vit": "vit_base_patch16_224",   # we will set img_size=(384,512)
+     "vit": "vit_base_patch16_224",   # we will set img_size=(384,512) if enabled
     "resnet": "resnet50",
-    "efficientnet": "efficientnet_b0"
+     "efficientnet": "efficientnet_b0"
 }
 DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/raw_votes/")
-OUT_ROOT = Path("analysis/images/classifier/outputs_512x384_softlabels")
+OUT_ROOT = Path("analysis/images/classifier/outputs_512x384_softlabels_with_train_augment")
 BATCH_SIZE = 16
 # IMPORTANT: torchvision Resize expects (H, W). We want 512x384 images => (H=384, W=512)
 TARGET_SIZE = (384, 512)
@@ -70,12 +71,15 @@ def set_seed(seed=SEED):
         torch.cuda.manual_seed_all(seed)
 
 def day_to_int(day_str: str) -> int:
-    # "Dy28" -> 28, fallback -1
+    """
+    Parse day tokens like "Dy28" or "Dy20_5" -> scaled int for sorting.
+    Example: "Dy20_5" -> 2050 (represents 20.5).
+    """
     m = re.search(r"[Dd][Yy](\d+(_\d+)?)", day_str)
-    if not m: return -1
+    if not m:
+        return -1
     token = m.group(1).replace("_", ".")
     try:
-        # scale by 100 to keep decimals sortable as ints (e.g., 20.5 -> 2050)
         return int(round(float(token) * 100))
     except Exception:
         return -1
@@ -109,6 +113,39 @@ def safe_pearsonr(a: np.ndarray, b: np.ndarray) -> float:
     except Exception:
         return float("nan")
 
+# ---------- Thresholding helpers ----------
+def pick_threshold(y_true_bin: np.ndarray, y_prob: np.ndarray, method="max_f1", min_precision=None) -> float:
+    """Choose a decision threshold on validation data."""
+    method = method or "max_f1"
+    if method == "max_bal_acc":
+        fpr, tpr, ts = roc_curve(y_true_bin, y_prob)
+        bal_acc = (tpr + (1 - fpr)) / 2
+        return float(ts[np.nanargmax(bal_acc)])
+    elif method == "prec_at_recall" and (min_precision is not None):
+        # maximize recall subject to precision >= min_precision
+        prec, rec, ts = precision_recall_curve(y_true_bin, y_prob)
+        # precision_recall_curve returns len(ts) == len(prec)-1
+        idx = np.where(prec[:-1] >= min_precision)[0]
+        if len(idx) == 0:
+            return 0.5
+        best = idx[np.nanargmax(rec[idx])]
+        return float(ts[best])
+    else:  # "max_f1" default via dense scan
+        ts = np.linspace(0.0, 1.0, 1001)
+        best_t, best_f1 = 0.5, -1.0
+        for t in ts:
+            pred = (y_prob >= t).astype(int)
+            f1 = f1_score(y_true_bin, pred)
+            if f1 > best_f1:
+                best_f1, best_t = f1, t
+        return float(best_t)
+
+def add_more_global_metrics(y_true_bin: np.ndarray, y_prob: np.ndarray) -> dict:
+    return {
+        "roc_auc": float(roc_auc_score(y_true_bin, y_prob)),
+        "pr_auc": float(average_precision_score(y_true_bin, y_prob)),
+    }
+
 # ---------- Data ----------
 def load_soft_records(day_json_path: Path, min_votes: int):
     """
@@ -123,7 +160,7 @@ def load_soft_records(day_json_path: Path, min_votes: int):
     imgs, y_soft, weights, ks, ns = [], [], [], [], []
     for r in records:
         img = r.get("img_path", "")
-        if not img: 
+        if not img:
             continue
 
         # Prefer raw vote fields if present
@@ -287,10 +324,23 @@ def stratify_bins(y_soft: np.ndarray, n_bins: int = 6):
     bins = np.clip(np.round(y_soft * 5).astype(int), 0, 5)
     return bins
 
-def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: str,
-                         train_bs: int, val_bs: int, test_frac: float, val_frac: float,
-                         min_votes: int, weight_by_votes: bool, lr1: float, lr2: float,
-                         patience1: int, patience2: int):
+def run_training_for_day(
+    day_json_path: Path,
+    backbone_key: str,
+    backbone_name: str,
+    train_bs: int,
+    val_bs: int,
+    test_frac: float,
+    val_frac: float,
+    min_votes: int,
+    weight_by_votes: bool,
+    lr1: float,
+    lr2: float,
+    patience1: int,
+    patience2: int,
+    th_method: str,
+    min_precision: float | None
+):
     """Train + validate; select by VAL Brier (lower is better), report on TEST."""
     imgs, y_soft, wts, k_votes, n_votes = load_soft_records(day_json_path, min_votes=min_votes)
     if len(imgs) == 0:
@@ -309,7 +359,7 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     )
 
     # loaders (configurable batch sizes; val/test use val_bs)
-    train_loader = make_loader(X_tr, y_tr, w_tr, augment=False,  batch_size=train_bs)
+    train_loader = make_loader(X_tr, y_tr, w_tr, augment=True,  batch_size=train_bs)
     val_loader   = make_loader(X_val, y_val, w_val, augment=False, batch_size=val_bs)
     test_loader  = make_loader(X_test, y_test, w_test, augment=False, batch_size=val_bs)
 
@@ -326,7 +376,9 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
 
     # Phase 1 — frozen backbone
     for epoch in range(100):
-        tl, tbrier, tRMSE, tacc, tf1, _, _ = epoch_loop(model, train_loader, opt, weight_by_votes=weight_by_votes, train=True)
+        tl, tbrier, tRMSE, tacc, tf1, _, _ = epoch_loop(
+            model, train_loader, opt, weight_by_votes=weight_by_votes, train=True
+        )
         vl_dict = evaluate_on_loader(model, val_loader)
         vl_brier = vl_dict["brier"]
         history["train_loss"].append(tl); history["val_brier"].append(vl_brier)
@@ -346,7 +398,9 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr2)
     es = EarlyStoppingMin(patience=patience2)
     for epoch in range(300):
-        tl, tbrier, tRMSE, tacc, tf1, _, _ = epoch_loop(model, train_loader, opt, weight_by_votes=weight_by_votes, train=True)
+        tl, tbrier, tRMSE, tacc, tf1, _, _ = epoch_loop(
+            model, train_loader, opt, weight_by_votes=weight_by_votes, train=True
+        )
         vl_dict = evaluate_on_loader(model, val_loader)
         vl_brier = vl_dict["brier"]
         history["train_loss"].append(tl); history["val_brier"].append(vl_brier)
@@ -373,8 +427,12 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     # ---- Evaluate with best VAL checkpoint
     model.load_state_dict(torch.load(model_path, map_location=DEVICE))
 
-    # Val metrics (record only; NOT used for final reporting)
+    # Validation metrics & pick threshold on VAL
     val_dict = evaluate_on_loader(model, val_loader)
+    val_true_bin = (val_dict["trues"] >= 0.5).astype(int)
+    t_star = pick_threshold(val_true_bin, val_dict["probs"], method=th_method, min_precision=min_precision)
+    val_more = add_more_global_metrics(val_true_bin, val_dict["probs"])
+
     val_metrics = {
         "day": day_json_path.stem,
         "split": "val",
@@ -383,6 +441,11 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
         "acc@0.5": float(val_dict["acc@0.5"]),
         "f1@0.5": float(val_dict["f1@0.5"]),
         "corr": float(val_dict["corr"]),
+        "roc_auc": val_more["roc_auc"],
+        "pr_auc": val_more["pr_auc"],
+        "chosen_threshold": float(t_star),
+        "threshold_method": th_method,
+        "min_precision": (None if min_precision is None else float(min_precision)),
         "n": int(len(val_dict["trues"])),
         "batch_size": int(val_bs),
     }
@@ -391,13 +454,21 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
 
     # Test metrics（final reporting）
     test_dict = evaluate_on_loader(model, test_loader)
+    test_true_bin = (test_dict["trues"] >= 0.5).astype(int)
+    test_pred_star = (test_dict["probs"] >= t_star).astype(int)
+
+    test_acc_star = float(accuracy_score(test_true_bin, test_pred_star))
+    test_f1_star  = float(f1_score(test_true_bin, test_pred_star))
+    test_balacc   = float(balanced_accuracy_score(test_true_bin, test_pred_star))
+    test_more     = add_more_global_metrics(test_true_bin, test_dict["probs"])
+
     day_no = day_to_int(day_json_path.stem)
     num_in_sample = int(len(test_dict["trues"]))
-    # For reporting similar to before:
+    # For reporting similar to before (hardening at 0.5):
     hard_true = (test_dict["trues"] >= 0.5).astype(int)
     hard_pred = (test_dict["probs"] >= 0.5).astype(int)
-    actual_good = int(hard_true.sum())
-    predicted_good = int(hard_pred.sum())
+    actual_good_05 = int(hard_true.sum())
+    predicted_good_05 = int(hard_pred.sum())
 
     test_metrics = {
         "day": day_json_path.stem,
@@ -408,11 +479,19 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
         "corr": float(test_dict["corr"]),
         "acc@0.5": float(test_dict["acc@0.5"]),
         "f1@0.5": float(test_dict["f1@0.5"]),
+        "actual_good@0.5": actual_good_05,
+        "predicted_good@0.5": predicted_good_05,
+        "acc@t*": test_acc_star,
+        "f1@t*": test_f1_star,
+        "bal_acc@t*": test_balacc,
+        "roc_auc": test_more["roc_auc"],
+        "pr_auc": test_more["pr_auc"],
+        "threshold_used": float(t_star),
+        "threshold_method": th_method,
+        "min_precision": (None if min_precision is None else float(min_precision)),
         "val_brier_for_selection": float(best_val_brier),
         "val_n": int(val_metrics["n"]),
         "test_n": num_in_sample,
-        "actual_good@0.5": actual_good,
-        "predicted_good@0.5": predicted_good,
         "batch_size_train": int(train_bs),
         "batch_size_valtest": int(val_bs),
         "backbone_key": backbone_key,
@@ -420,6 +499,8 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     with (model_dir / "metrics_test.json").open("w") as f:
         json.dump(test_metrics, f, indent=2)
     print(f"📝 Saved metrics → {model_dir/'metrics_val.json'} and {model_dir/'metrics_test.json'}")
+    print(f"⭐ Chosen threshold t*={t_star:.3f} via {th_method}"
+          + (f" (min_precision={min_precision:.2f})" if (th_method=='prec_at_recall' and min_precision is not None) else ""))
 
     # Return: choose by val (Brier), report test
     return {
@@ -432,10 +513,20 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
         "test_corr": float(test_dict["corr"]),
         "test_acc@0.5": float(test_dict["acc@0.5"]),
         "test_f1@0.5": float(test_dict["f1@0.5"]),
+        "test_acc@t*": test_acc_star,
+        "test_f1@t*": test_f1_star,
+        "test_bal_acc@t*": test_balacc,
+        "val_roc_auc": float(val_more["roc_auc"]),
+        "val_pr_auc": float(val_more["pr_auc"]),
+        "test_roc_auc": float(test_more["roc_auc"]),
+        "test_pr_auc": float(test_more["pr_auc"]),
         "val_num": int(val_metrics["n"]),
         "test_num": num_in_sample,
-        "test_actual_good@0.5": actual_good,
-        "test_pred_good@0.5": predicted_good,
+        "test_actual_good@0.5": actual_good_05,
+        "test_pred_good@0.5": predicted_good_05,
+        "chosen_threshold": float(t_star),
+        "threshold_method": th_method,
+        "min_precision": (None if min_precision is None else float(min_precision)),
     }
 
 # ---------- Orchestration ----------
@@ -455,6 +546,10 @@ def main():
     parser.add_argument("--lr2", type=float, default=1e-4, help="LR for unfrozen phase")
     parser.add_argument("--patience1", type=int, default=20, help="Early stopping patience (phase 1)")
     parser.add_argument("--patience2", type=int, default=30, help="Early stopping patience (phase 2)")
+    parser.add_argument("--th-method", choices=["max_f1","max_bal_acc","prec_at_recall"], default="max_f1",
+                        help="How to pick decision threshold on validation set")
+    parser.add_argument("--min-precision", type=float, default=None,
+                        help="Only used if --th-method=prec_at_recall: precision floor (e.g., 0.9)")
     args = parser.parse_args()
 
     out_dir = Path(args.outdir); out_dir.mkdir(parents=True, exist_ok=True)
@@ -475,6 +570,7 @@ def main():
 
     # Collect results: pick the best backbone per day by **validation Brier**
     per_day_best = {}
+    per_model_results = {bk: {} for bk in BACKBONES}
     files = sorted(data_dir.glob("Dy*.json"), key=lambda p: day_to_int(p.stem))
     if not files:
         print(f"❌ No Dy*.json files in {data_dir}")
@@ -490,18 +586,25 @@ def main():
                 min_votes=args.min_votes,
                 weight_by_votes=bool(args.weight_by_votes),
                 lr1=args.lr1, lr2=args.lr2,
-                patience1=args.patience1, patience2=args.patience2
+                patience1=args.patience1, patience2=args.patience2,
+                th_method=args.th_method,
+                min_precision=args.min_precision
             )
             if res is None:
                 continue
+            per_model_results[backbone_key][day] = res
             if (best is None) or (res["val_brier"] < best["val_brier"]):
                 best = res
         if best:
             per_day_best[day] = best
-            print(f"✅ Best for {day} (by VAL Brier): {best['backbone_key']} | "
-                  f"VAL brier={best['val_brier']:.4f} | TEST brier={best['test_brier']:.4f}, "
-                  f"rmse={best['test_rmse']:.3f}, corr={best['test_corr']:.3f}, "
-                  f"acc@0.5={best['test_acc@0.5']:.3f}, f1@0.5={best['test_f1@0.5']:.3f}")
+            print(
+                f"✅ Best for {day} (by VAL Brier): {best['backbone_key']} | "
+                f"VAL brier={best['val_brier']:.4f} | "
+                f"TEST brier={best['test_brier']:.4f}, rmse={best['test_rmse']:.3f}, corr={best['test_corr']:.3f}, "
+                f"acc@0.5={best['test_acc@0.5']:.3f}, f1@0.5={best['test_f1@0.5']:.3f}, "
+                f"acc@t*={best['test_acc@t*']:.3f}, f1@t*={best['test_f1@t*']:.3f}, bal_acc@t*={best['test_bal_acc@t*']:.3f} "
+                f"(t*={best['chosen_threshold']:.3f}, method={best['threshold_method']})"
+            )
         else:
             print(f"⚠ No valid result for {day}")
 
@@ -509,7 +612,7 @@ def main():
         print("❌ No days produced results; aborting summary.")
         return
 
-    # ---- Build 4-column table (keep similar to your original, but still based on @0.5 hardening)
+    # ---- Build 4-column table (keep similar to your original, based on @0.5 hardening)
     rows = []
     days_sorted = sorted(per_day_best.keys(), key=lambda d: day_to_int(d))
     for d in days_sorted:
@@ -522,7 +625,6 @@ def main():
         })
 
     # Save CSV table (exactly 4 columns)
-    import csv
     table_path = out_dir / "day_summary.csv"
     with table_path.open("w", newline="") as f:
         writer = csv.DictWriter(
@@ -532,39 +634,89 @@ def main():
         writer.writerows(rows)
     print(f"🧾 Saved table → {table_path}")
 
-    # ---- Single chart: VAL-Brier-selected TEST Brier vs day
-    xs = [per_day_best[d]["day_no"]/100.0 for d in days_sorted]
-    ys = [per_day_best[d]["test_brier"] for d in days_sorted]
+    # ---- Per-model charts (Brier / F1 / ROC AUC)
+    day_numbers = {}
+    for day_res in per_model_results.values():
+        for day, res in day_res.items():
+            day_numbers[day] = res["day_no"] / 100.0
 
-    plt.figure(figsize=(8, 4))
-    sns.lineplot(x=xs, y=ys, marker="o")
-    plt.xlabel("Day")
-    plt.ylabel("Brier score (test) ↓")
-    plt.title("Per-day Test Brier (Best Soft-Label Model per Day)")
-    plt.xticks(xs)
-    plt.ylim(0.0, max(0.5, max(ys) * 1.1))
-    chart_path = out_dir / "brier_by_day.png"
-    plt.tight_layout()
-    plt.savefig(chart_path)
-    plt.close()
-    print(f"📊 Saved Brier chart → {chart_path}")
+    if day_numbers:
+        unique_day_vals = sorted(set(day_numbers.values()))
 
-    # ---- Final TEST summary JSON
-    brier_by_day = {d: float(per_day_best[d]["test_brier"]) for d in days_sorted}
-    overall_best = min(per_day_best.values(), key=lambda r: r["test_brier"])
+        def plot_metric(metric_key, ylabel, title, filename, bounded=True):
+            plt.figure(figsize=(9, 4))
+            plotted = False
+            all_ys = []
+            for backbone_key, day_res in per_model_results.items():
+                if not day_res:
+                    continue
+                pairs = [
+                    (day_numbers[day], day_res[day].get(metric_key))
+                    for day in sorted(day_res.keys(), key=lambda d: day_numbers[d])
+                    if day_res[day].get(metric_key) is not None
+                ]
+                if not pairs:
+                    continue
+                xs, ys = zip(*pairs)
+                plt.plot(xs, ys, marker="o", label=backbone_key)
+                plotted = True
+                all_ys.extend(ys)
+            if plotted:
+                plt.xlabel("Day")
+                plt.ylabel(ylabel)
+                plt.title(title)
+                plt.xticks(unique_day_vals)
+                if bounded:
+                    plt.ylim(0.0, 1.0)
+                elif all_ys:
+                    y_min = min(all_ys)
+                    y_max = max(all_ys)
+                    if y_max == y_min:
+                        margin = max(0.05, y_max * 0.1 if y_max != 0 else 0.05)
+                        plt.ylim(y_min - margin, y_max + margin)
+                    else:
+                        margin = 0.05 * (y_max - y_min)
+                        plt.ylim(max(0.0, y_min - margin), y_max + margin)
+                plt.legend()
+                plt.tight_layout()
+                out_path = out_dir / filename
+                plt.savefig(out_path)
+                print(f"📊 Saved {title.lower()} → {out_path}")
+            plt.close()
+
+        plot_metric("test_brier", "Brier score (test) ↓", "Per-day Test Brier by Backbone", "brier_by_model.png", bounded=False)
+        plot_metric("test_f1@t*", "F1 score @t* (test)", "Per-day Test F1 by Backbone", "f1_by_model.png", bounded=True)
+        plot_metric("test_roc_auc", "ROC AUC (test)", "Per-day Test ROC AUC by Backbone", "rocauc_by_model.png", bounded=True)
+
+    # ---- Final TEST summary JSON (per model)
+    per_model_summary = {}
+    for backbone_key, day_res in per_model_results.items():
+        per_model_summary[backbone_key] = {
+            "per_day": {
+                day: {
+                    "day_no": float(day_numbers.get(day, res["day_no"]/100.0)),
+                    "test_brier": float(res["test_brier"]),
+                    "test_rmse": float(res["test_rmse"]),
+                    "test_corr": float(res["test_corr"]),
+                    "test_acc@0.5": float(res["test_acc@0.5"]),
+                    "test_f1@0.5": float(res["test_f1@0.5"]),
+                    "test_acc@t*": float(res["test_acc@t*"]),
+                    "test_f1@t*": float(res["test_f1@t*"]),
+                    "test_bal_acc@t*": float(res["test_bal_acc@t*"]),
+                    "test_roc_auc": (None if res.get("test_roc_auc") is None else float(res["test_roc_auc"])),
+                    "test_pr_auc": (None if res.get("test_pr_auc") is None else float(res["test_pr_auc"])),
+                    "val_roc_auc": (None if res.get("val_roc_auc") is None else float(res["val_roc_auc"])),
+                    "val_pr_auc": (None if res.get("val_pr_auc") is None else float(res["val_pr_auc"])),
+                    "val_brier": float(res["val_brier"]),
+                    "test_num": int(res["test_num"]),
+                    "chosen_threshold": float(res["chosen_threshold"]),
+                }
+                for day, res in day_res.items()
+            }
+        }
+
     summary = {
-        "per_day_test_brier": brier_by_day,
-        "overall_best": {
-            "day": overall_best["day"],
-            "day_no": overall_best["day_no"]/100.0,
-            "backbone_key": overall_best["backbone_key"],
-            "test_brier": float(overall_best["test_brier"]),
-            "test_rmse": float(overall_best["test_rmse"]),
-            "test_corr": float(overall_best["test_corr"]),
-            "acc@0.5": float(overall_best["test_acc@0.5"]),
-            "f1@0.5": float(overall_best["test_f1@0.5"]),
-            "selection_val_brier": float(overall_best["val_brier"]),
-        },
+        "per_model": per_model_summary,
         "batch_size_train": int(train_bs),
         "batch_size_valtest": int(val_bs),
         "split_fractions": {
@@ -579,6 +731,8 @@ def main():
             "lr2": float(args.lr2),
             "patience1": int(args.patience1),
             "patience2": int(args.patience2),
+            "threshold_method": args.th_method,
+            "min_precision": (None if args.min_precision is None else float(args.min_precision)),
         }
     }
     summary_path = out_dir / "final_test_summary.json"

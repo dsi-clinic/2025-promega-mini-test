@@ -1,0 +1,12 @@
+{
+  "day": "Dy20_5",
+  "split": "val",
+  "accuracy": 0.896551724137931,
+  "f1": 0.9333333333333333,
+  "roc_auc": 0.7678571428571428,
+  "pr_auc": 0.8242830709029774,
+  "n": 29,
+  "batch_size": 16,
+  "input_key": "overlay_path",
+  "use_mask": true
+}

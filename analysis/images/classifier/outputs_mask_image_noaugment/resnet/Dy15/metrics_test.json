@@ -1,0 +1,19 @@
+{
+  "day": "Dy15",
+  "day_no": 15,
+  "split": "test",
+  "accuracy": 0.6206896551724138,
+  "f1": 0.7555555555555555,
+  "roc_auc": 0.5357142857142857,
+  "pr_auc": 0.8118775139836107,
+  "val_accuracy_for_selection": 0.7241379310344828,
+  "val_n": 29,
+  "test_n": 29,
+  "actual_good": 21,
+  "predicted_good": 24,
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "backbone_key": "resnet",
+  "input_key": "img_path",
+  "use_mask": true
+}
