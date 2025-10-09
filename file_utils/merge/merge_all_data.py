@@ -105,11 +105,31 @@ for p in found_files:
     processed_map.update(raw)
 
 # ---------- merge ----------
+# ---------- merge ----------
 combined = {}
 manual_mask_count = 0
 
+# Add this helper function before the loop
+def extract_mdl_day(day_id: str) -> float:
+    """Extract numerical day from dayID (e.g., 'Dy17' -> 17.0, 'Dy20' or 'Dy21' -> 20.5)"""
+    if not day_id:
+        return None
+    # Extract numbers from dayID
+    match = re.search(r'(\d+(?:\.\d+)?)', day_id)
+    if match:
+        day_num = float(match.group(1))
+        # Handle day 20/21 -> 20.5 for consistency
+        if day_num in [20.0, 21.0]:
+            return 20.5
+        return day_num
+    return None
+
 for raw_k, payload in tqdm(base_map.items(), desc="Merging"):
     entry = dict(payload)
+    
+    # ADD THIS: Extract mdl_day from dayID
+    if 'dayID' in entry:
+        entry['mdl_day'] = extract_mdl_day(entry['dayID'])
 
     processed = processed_map.get(raw_k) or processed_map.get(normalized_parent_key(raw_k))
     if processed:
@@ -131,7 +151,6 @@ for raw_k, payload in tqdm(base_map.items(), desc="Merging"):
         manual_mask_count += 1
 
     combined[raw_k] = entry
-
 # ---------- sanitize and write output ----------
 print("\nSanitizing data for JSON...")
 combined_clean = sanitize_for_json(combined)
