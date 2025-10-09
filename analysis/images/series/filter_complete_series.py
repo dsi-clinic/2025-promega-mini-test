@@ -19,6 +19,14 @@ def save_json(p: Path, obj):
     with open(p, "w") as f:
         json.dump(obj, f, indent=2)
 
+def is_blank(entry):
+    """Check if an entry is a blank well"""
+    if 'verification' in entry:
+        blank = entry['verification'].get('blank', False)
+        if blank is True or blank == 'true':
+            return True
+    return False
+
 def parse_split_from_main_id(main_id):
     """
     Extract split status from main_id
@@ -88,7 +96,8 @@ def organize_by_genealogy(data):
             'entry': entry,
             'mdl_day': mdl_day,
             'split_type': split_type,
-            'main_id': entry['main_id']
+            'main_id': entry['main_id'],
+            'is_blank': is_blank(entry)
         })
     
     if skipped_no_mdl_day > 0:
@@ -109,6 +118,7 @@ def build_complete_series(genealogy):
     Returns list of complete series with their genealogy info
     """
     complete_series = []
+    complete_with_blanks = []
     incomplete_series = []
     
     for base_well_id, splits in tqdm(genealogy.items(), desc="Building series"):
@@ -123,6 +133,10 @@ def build_complete_series(genealogy):
             missing_days = set(EXPECTED_DAYS) - days_present
             is_complete = len(missing_days) == 0
             
+            # Check for blanks
+            has_blanks = any(item['is_blank'] for item in nosplit)
+            blank_days = [item['mdl_day'] for item in nosplit if item['is_blank']]
+            
             series_info = {
                 'organoid_id': f"{base_well_id}_nosplit",
                 'base_well_id': base_well_id,
@@ -131,11 +145,15 @@ def build_complete_series(genealogy):
                 'missing_days': sorted(list(missing_days)),
                 'n_days': len(days_present),
                 'is_complete': is_complete,
+                'has_blanks': has_blanks,
+                'blank_days': blank_days,
                 'series': nosplit
             }
             
-            if is_complete:
+            if is_complete and not has_blanks:
                 complete_series.append(series_info)
+            elif is_complete and has_blanks:
+                complete_with_blanks.append(series_info)
             else:
                 incomplete_series.append(series_info)
         
@@ -152,6 +170,10 @@ def build_complete_series(genealogy):
                 missing_days = set(EXPECTED_DAYS) - days_present
                 is_complete = len(missing_days) == 0
                 
+                # Check for blanks
+                has_blanks = any(item['is_blank'] for item in combined_series)
+                blank_days = [item['mdl_day'] for item in combined_series if item['is_blank']]
+                
                 series_info = {
                     'organoid_id': f"{base_well_id}_{daughter_name}",
                     'base_well_id': base_well_id,
@@ -160,19 +182,24 @@ def build_complete_series(genealogy):
                     'missing_days': sorted(list(missing_days)),
                     'n_days': len(days_present),
                     'is_complete': is_complete,
+                    'has_blanks': has_blanks,
+                    'blank_days': blank_days,
                     'series': combined_series,
                     'n_presplit': len(presplit),
                     'n_daughter': len(daughter_data)
                 }
                 
-                if is_complete:
+                if is_complete and not has_blanks:
                     complete_series.append(series_info)
+                elif is_complete and has_blanks:
+                    complete_with_blanks.append(series_info)
                 else:
                     incomplete_series.append(series_info)
         
         # Case 3: Only presplit (no daughters found) - incomplete by definition
         elif presplit and not split1 and not split2:
             days_present = set(item['mdl_day'] for item in presplit)
+            has_blanks = any(item['is_blank'] for item in presplit)
             incomplete_series.append({
                 'organoid_id': f"{base_well_id}_presplit_only",
                 'base_well_id': base_well_id,
@@ -181,6 +208,7 @@ def build_complete_series(genealogy):
                 'missing_days': sorted(list(set(EXPECTED_DAYS) - days_present)),
                 'n_days': len(days_present),
                 'is_complete': False,
+                'has_blanks': has_blanks,
                 'series': presplit
             })
         
@@ -190,6 +218,7 @@ def build_complete_series(genealogy):
                 if not daughter_data:
                     continue
                 days_present = set(item['mdl_day'] for item in daughter_data)
+                has_blanks = any(item['is_blank'] for item in daughter_data)
                 incomplete_series.append({
                     'organoid_id': f"{base_well_id}_{daughter_name}_no_presplit",
                     'base_well_id': base_well_id,
@@ -198,10 +227,11 @@ def build_complete_series(genealogy):
                     'missing_days': sorted(list(set(EXPECTED_DAYS) - days_present)),
                     'n_days': len(days_present),
                     'is_complete': False,
+                    'has_blanks': has_blanks,
                     'series': daughter_data
                 })
     
-    return complete_series, incomplete_series
+    return complete_series, complete_with_blanks, incomplete_series
 
 def sanity_check_splits(complete_series, data):
     """
@@ -254,7 +284,7 @@ def sanity_check_splits(complete_series, data):
         
         # Check 1: Same number of presplit entries
         if len(split1_presplit) != len(split2_presplit):
-            print(f" ERROR: Different presplit counts!")
+            print(f"   [ERROR] Different presplit counts!")
             all_good = False
             continue
         
@@ -263,7 +293,7 @@ def sanity_check_splits(complete_series, data):
         split2_presplit_days = sorted([item['mdl_day'] for item in split2_presplit])
         
         if split1_presplit_days != split2_presplit_days:
-            print(f" ERROR: Different presplit days!")
+            print(f"   [ERROR] Different presplit days!")
             print(f"      Split1 presplit: {split1_presplit_days}")
             print(f"      Split2 presplit: {split2_presplit_days}")
             all_good = False
@@ -274,7 +304,7 @@ def sanity_check_splits(complete_series, data):
         split2_presplit_keys = sorted([item['key'] for item in split2_presplit])
         
         if split1_presplit_keys != split2_presplit_keys:
-            print(f"ERROR: Different presplit entry keys!")
+            print(f"   [ERROR] Different presplit entry keys!")
             all_good = False
             continue
         
@@ -284,31 +314,29 @@ def sanity_check_splits(complete_series, data):
         
         overlap = set(split1_daughter_keys) & set(split2_daughter_keys)
         if overlap:
-            print(f"ERROR: Daughters share {len(overlap)} entries (should be 0)!")
+            print(f"   [ERROR] Daughters share {len(overlap)} entries (should be 0)!")
             all_good = False
             continue
         
         # All checks passed!
-        print(f"   ✓ Presplit days: {split1_presplit_days}")
+        print(f"   [OK] Presplit days: {split1_presplit_days}")
         split1_daughter_days = sorted([item['mdl_day'] for item in split1_daughter])
         split2_daughter_days = sorted([item['mdl_day'] for item in split2_daughter])
-        print(f"   ✓ Split1 daughter days: {split1_daughter_days}")
-        print(f"   ✓ Split2 daughter days: {split2_daughter_days}")
-        print(f"   ✓ PASSED all checks")
+        print(f"   [OK] Split1 daughter days: {split1_daughter_days}")
+        print(f"   [OK] Split2 daughter days: {split2_daughter_days}")
+        print(f"   [OK] PASSED all checks")
     
     print(f"\n{'='*70}")
     if all_good:
-        print("✓ All sanity checks PASSED!")
+        print("[PASSED] All sanity checks PASSED!")
     else:
-        print("Some sanity checks FAILED - review genealogy logic!")
+        print("[FAILED] Some sanity checks FAILED - review genealogy logic!")
     print(f"{'='*70}\n")
     
     return all_good
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--output-name', type=str, default='complete_series_data.json',
-                       help='Output filename for filtered data')
     parser.add_argument('--show-examples', action='store_true',
                        help='Show detailed examples of incomplete series')
     args = parser.parse_args()
@@ -337,7 +365,7 @@ def main():
     genealogy = organize_by_genealogy(data)
     
     print(f"\nBuilding complete series...")
-    complete_series, incomplete_series = build_complete_series(genealogy)
+    complete_series, complete_with_blanks, incomplete_series = build_complete_series(genealogy)
     
     # Sanity check splits
     sanity_check_splits(complete_series, data)
@@ -346,17 +374,32 @@ def main():
     print("SERIES COMPLETENESS ANALYSIS")
     print(f"{'='*70}")
     print(f"Total unique wells: {len(genealogy)}")
-    print(f"Complete series (all {len(EXPECTED_DAYS)} days): {len(complete_series)}")
+    print(f"Complete series (all {len(EXPECTED_DAYS)} days, NO BLANKS): {len(complete_series)}")
+    print(f"Complete series WITH BLANKS: {len(complete_with_blanks)}")
     print(f"Incomplete series: {len(incomplete_series)}")
     
-    # Analyze split patterns in complete series
+    # Analyze split patterns in complete series (no blanks)
     split_types = defaultdict(int)
     for series in complete_series:
         split_types[series['split_genealogy']] += 1
     
-    print("\nComplete series by type:")
+    print("\nComplete series (no blanks) by type:")
     for split_type in sorted(split_types.keys()):
         print(f"  {split_type}: {split_types[split_type]}")
+    
+    # Analyze complete with blanks
+    if complete_with_blanks:
+        print(f"\nComplete series WITH BLANKS by type:")
+        split_types_blanks = defaultdict(int)
+        for series in complete_with_blanks:
+            split_types_blanks[series['split_genealogy']] += 1
+        for split_type in sorted(split_types_blanks.keys()):
+            print(f"  {split_type}: {split_types_blanks[split_type]}")
+        
+        # Show examples
+        print("\nExample series with blanks (first 5):")
+        for series in complete_with_blanks[:5]:
+            print(f"  {series['organoid_id']}: blank on days {series['blank_days']}")
     
     # Show distribution of incomplete series
     if incomplete_series:
@@ -379,12 +422,13 @@ def main():
         if args.show_examples:
             print("\nExample incomplete series (first 10):")
             for series in incomplete_series[:10]:
-                print(f"  {series['organoid_id']}: {series['n_days']} days, missing {series['missing_days']}")
+                blank_str = f", has blanks on {series.get('blank_days', [])}" if series.get('has_blanks') else ""
+                print(f"  {series['organoid_id']}: {series['n_days']} days, missing {series['missing_days']}{blank_str}")
                 if 'n_presplit' in series:
                     print(f"    (presplit: {series['n_presplit']}, daughter: {series['n_daughter']})")
     
-    # Create filtered data with only complete series
-    print(f"\nCreating filtered dataset...")
+    # Create filtered data with only complete series (NO BLANKS)
+    print(f"\nCreating filtered dataset (NO BLANKS)...")
     filtered_data = {}
     series_metadata = {}
     
@@ -402,31 +446,32 @@ def main():
             'n_timepoints': len(series['series'])
         }
     
-    print(f"Filtered entries: {len(filtered_data)} (from {len(data)})")
-    print(f"Complete organoid series: {len(series_metadata)}")
+    print(f"Filtered entries (no blanks): {len(filtered_data)} (from {len(data)})")
+    print(f"Complete organoid series (no blanks): {len(series_metadata)}")
     print(f"Retention rate: {100*len(filtered_data)/len(data):.1f}%")
     
-    # Save filtered data
-    output_path = OUTPUT_FOLDER / args.output_name
+    # Save filtered data (NO BLANKS)
+    output_path = OUTPUT_FOLDER / 'complete_series_data_no_blanks.json'
     save_json(output_path, filtered_data)
-    print(f"\nFiltered data saved to: {output_path}")
+    print(f"\nFiltered data (NO BLANKS) saved to: {output_path}")
     
-    # Save series metadata (THIS IS IMPORTANT FOR LSTM TRAINING)
-    metadata_path = OUTPUT_FOLDER / 'complete_series_metadata.json'
+    # Save series metadata (NO BLANKS)
+    metadata_path = OUTPUT_FOLDER / 'complete_series_metadata_no_blanks.json'
     save_json(metadata_path, series_metadata)
-    print(f"Series metadata saved to: {metadata_path}")
+    print(f"Series metadata (NO BLANKS) saved to: {metadata_path}")
     print("Maps organoid_id to temporal sequence of entries")
     
     # Save analysis summary
     summary = {
         'total_wells': len(genealogy),
-        'complete_series': len(complete_series),
+        'complete_series_no_blanks': len(complete_series),
+        'complete_series_with_blanks': len(complete_with_blanks),
         'incomplete_series': len(incomplete_series),
         'complete_series_by_type': dict(split_types),
         'expected_days': EXPECTED_DAYS,
         'total_entries_original': len(data),
-        'total_entries_filtered': len(filtered_data),
-        'retention_rate': len(filtered_data)/len(data) if len(data) > 0 else 0
+        'total_entries_filtered_no_blanks': len(filtered_data),
+        'retention_rate_no_blanks': len(filtered_data)/len(data) if len(data) > 0 else 0
     }
     summary_path = OUTPUT_FOLDER / 'series_completeness_summary.json'
     save_json(summary_path, summary)
