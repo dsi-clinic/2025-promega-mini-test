@@ -27,7 +27,7 @@ flowchart TD
             C11[resize\nStandardize image size + pixel scale]
             C12[metrics/shape_metrics\nOrganoid shape features]
             C13[segmentation_mmseg\nMMSeg training & inference]
-            C14[classifier\nImage classifiers (ViT, CNNs)]
+            C14[classifier\nImage classifiers – ViT / CNN]
             C15[series/preprocess\nFilter complete time series + normalize masks]
         end
 
