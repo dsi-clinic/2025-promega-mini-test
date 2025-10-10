@@ -12,7 +12,8 @@ from config import (
     ALL_DATA_JSON,
 )
 
-OUTPUT_PATH = str(ALL_DATA_JSON)
+# Output locally in mini-test directory instead of remote cluster
+OUTPUT_PATH = "all_data.json"
 
 # ---------- helpers ----------
 def load_json(path: Path | str):

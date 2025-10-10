@@ -63,8 +63,8 @@ def has_mask_data(entry: dict) -> bool:
 
 
 def main():
-    from config import ALL_DATA_JSON
-    inp = out = ALL_DATA_JSON
+    # Use local all_data.json instead of remote path
+    inp = out = "all_data.json"
 
     data = load_json(inp)
 
