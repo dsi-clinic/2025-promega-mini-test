@@ -7,41 +7,41 @@ This repository contains a comprehensive system for analyzing organoid quality u
 ```mermaid
 flowchart TD
     %% ========= INPUT STAGE ========= %%
-    A1([Raw Images]):::input
-    A2([Metabolite Excels]):::input
-    A3([Survey Excels]):::input
-    A4([Config & Env Vars<br/>config.py / core_env.yaml]):::config
+    A1([Raw Images])
+    A2([Metabolite Excels])
+    A3([Survey Excels])
+    A4([Config & Env Vars<br/>config.py / core_env.yaml])
 
     %% ========= FILE_UTILS PROCESSING ========= %%
     subgraph B[file_utils - Data Mapping & Integration]
-        B1[file_utils/images/scripts<br/>image_mapper_main.py\nImage metadata → JSON]
-        B1b[file_utils/common/organoid_patterns.py\nPattern normalization helpers]
-        B2[file_utils/metabolites/metabolite_mapper.py\nMetabolite Excel → JSON]
-        B3[file_utils/surveys/surveys_mapper.py\nSurvey Excel → JSON]
-        B4[file_utils/merge/merge_all_data.py\nMerge image + metabolite + survey JSON → all_data.json]
+        B1[file_utils/images/scripts<br/>image_mapper_main.py<br/>Image metadata → JSON]
+        B1b[file_utils/common/organoid_patterns.py<br/>Pattern normalization helpers]
+        B2[file_utils/metabolites/metabolite_mapper.py<br/>Metabolite Excel → JSON]
+        B3[file_utils/surveys/surveys_mapper.py<br/>Survey Excel → JSON]
+        B4[file_utils/merge/merge_all_data.py<br/>Merge image + metabolite + survey JSON → all_data.json]
     end
 
     %% ========= ANALYSIS PIPELINE ========= %%
     subgraph C[analysis - Downstream Analysis & ML]
         subgraph C1[analysis/images]
-            C11[resize\nStandardize image size + pixel scale]
-            C12[metrics/shape_metrics\nOrganoid shape features]
-            C13[segmentation_mmseg\nMMSeg training & inference]
-            C14[classifier\nImage classifiers – ViT / CNN]
-            C15[series/preprocess\nFilter complete time series + normalize masks]
+            C11[resize<br/>Standardize image size + pixel scale]
+            C12[metrics/shape_metrics<br/>Organoid shape features]
+            C13[segmentation_mmseg<br/>MMSeg training & inference]
+            C14[classifier<br/>Image classifiers – ViT / CNN]
+            C15[series/preprocess<br/>Filter complete time series + normalize masks]
         end
 
         subgraph C2[analysis/metabolites]
-            C21[classifier\nMetabolite-based classifiers]
+            C21[classifier<br/>Metabolite-based classifiers]
         end
 
         subgraph C3[analysis/surveys]
-            C31[agreement_aggregations\nSurvey agreement analysis]
-            C32[classifier\nSurvey-based classifiers]
-            C33[simulations\nReliability simulations]
+            C31[agreement_aggregations<br/>Survey agreement analysis]
+            C32[classifier<br/>Survey-based classifiers]
+            C33[simulations<br/>Reliability simulations]
         end
 
-        C4[multimodal\nCNN fusion of image + metabolite + survey features]
+        C4[multimodal<br/>CNN fusion of image + metabolite + survey features]
     end
 
     %% ========= DATA FLOW ========= %%
