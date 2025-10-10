@@ -1,0 +1,17 @@
+{
+  "day": "Dy3",
+  "day_no": 3,
+  "split": "test",
+  "accuracy": 0.7407407407407407,
+  "f1": 0.8108108108108109,
+  "roc_auc": 0.7565789473684211,
+  "pr_auc": 0.8702719604321434,
+  "val_accuracy_for_selection": 0.8518518518518519,
+  "val_n": 27,
+  "test_n": 27,
+  "actual_good": 19,
+  "predicted_good": 18,
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "backbone_key": "vit"
+}

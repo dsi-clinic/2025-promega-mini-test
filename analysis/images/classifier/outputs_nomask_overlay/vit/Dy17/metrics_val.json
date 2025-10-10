@@ -1,0 +1,12 @@
+{
+  "day": "Dy17",
+  "split": "val",
+  "accuracy": 0.7586206896551724,
+  "f1": 0.8205128205128205,
+  "roc_auc": 0.6444444444444444,
+  "pr_auc": 0.7848326102046153,
+  "n": 29,
+  "batch_size": 16,
+  "input_key": "overlay_path",
+  "use_mask": false
+}

@@ -1,0 +1,10 @@
+{
+  "day": "Dy24",
+  "split": "val",
+  "accuracy": 1.0,
+  "f1": 1.0,
+  "roc_auc": 1.0,
+  "pr_auc": 1.0,
+  "n": 27,
+  "batch_size": 16
+}

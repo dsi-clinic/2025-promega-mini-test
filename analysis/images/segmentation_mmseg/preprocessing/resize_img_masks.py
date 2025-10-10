@@ -3,6 +3,7 @@ import json
 import argparse
 import sys
 from pathlib import Path
+from tqdm import tqdm
 
 import cv2
 import numpy as np
@@ -48,7 +49,7 @@ parser.add_argument(
 parser.add_argument(
     "--image-mapping",
     default=str(RAW_IMAGE_MAPPING_JSON),
-    help='Path to the raw image mapping JSON that contains "Blank" flags.',
+    help='Path to the raw image mapping JSON that contains "blank" flags.',
 )
 parser.add_argument(
     "--output",
@@ -75,22 +76,38 @@ for jm in args.mapping:
     master_map.update(json.loads(jm.read_text()))
 print(f"Loaded {len(master_map)} manual-mask entries from {len(args.mapping)} JSON(s)")
 
-# ======== (OPTIONAL) LOAD IMAGE MAPPING WITH BLANK FLAGS ========
+# ======== LOAD IMAGE MAPPING (with nested entries if _base_folder format) ========
 image_map = {}
 if args.image_mapping:
     imap_p = Path(args.image_mapping)
     if not imap_p.exists():
         raise FileNotFoundError(f"Image mapping JSON not found: {imap_p}")
-    image_map = json.loads(imap_p.read_text())
-    print(f"Loaded {len(image_map)} entries from raw image mapping (for blanks)")
+    
+    raw_data = json.loads(imap_p.read_text())
+    
+    # Handle new wrapped format with _base_folder
+    if isinstance(raw_data, dict) and "_base_folder" in raw_data and "entries" in raw_data:
+        base = Path(raw_data["_base_folder"])
+        entries = raw_data["entries"]
+        # Re-hydrate relative paths to absolute
+        for v in entries.values():
+            if "Best Z Filename" in v:
+                v["Best Z Filename"] = str(base / v["Best Z Filename"])
+        image_map = entries
+    else:
+        # Legacy flat format
+        image_map = raw_data
+    
+    print(f"Loaded {len(image_map)} entries from raw image mapping")
 
 # ======== PROCESS MANUAL MASKS FIRST ========
 new_map = {}
 proc = skip = 0
 
-for img_id, info in master_map.items():
-    img_raw  = info.get("Best Z Filename", "")  # source image
-    mask_raw = info.get("MT Mask Path", "")     # manual mask
+print("Processing manual masks...")
+for img_id, info in tqdm(master_map.items(), desc="Manual masks"):
+    img_raw  = info.get("Best Z Filename", "")
+    mask_raw = info.get("MT Mask Path", "")
     img_p = Path(img_raw)
     msk_p = Path(mask_raw)
 
@@ -104,7 +121,6 @@ for img_id, info in master_map.items():
         continue
 
     if not msk_p.exists():
-        # If there isn't a manual mask, skip it here; blanks may add it below.
         skip += 1
         continue
 
@@ -124,7 +140,6 @@ for img_id, info in master_map.items():
     cv2.imwrite(str(out_img), img_rs)
     cv2.imwrite(str(out_msk), msk_bin)
 
-    # record
     new_map[img_id] = {
         "img_path":  str(out_img.resolve()),
         "mask_path": str(out_msk.resolve()),
@@ -134,14 +149,16 @@ for img_id, info in master_map.items():
     }
     proc += 1
 
-# ======== SECOND PASS: ADD BLANKS FROM RAW IMAGE MAPPING ========
+# ======== SECOND PASS: ADD BLANKS ========
 blank_added = 0
 blank_skipped = 0
 
 if image_map:
-    for img_id, info in image_map.items():
-        # only add if flagged Blank == True and not already present (i.e., no manual mask processed)
-        if not info.get("Blank", False):
+    print("Processing blanks...")
+    for img_id, info in tqdm(image_map.items(), desc="Blanks"):
+        is_blank = info.get("verification", {}).get("blank", False)
+        
+        if not is_blank:
             continue
         if img_id in new_map:
             blank_skipped += 1
@@ -158,7 +175,7 @@ if image_map:
             blank_skipped += 1
             continue
 
-        # resize + make blank mask
+        # resize + make blank mask (all zeros)
         img_rs  = cv2.resize(img, TARGET_SIZE, interpolation=IMAGE_INTERP)
         msk_bin = np.zeros((TARGET_SIZE[1], TARGET_SIZE[0]), dtype=np.uint8)  # (H, W)
 
@@ -173,6 +190,7 @@ if image_map:
             "dayID":     info.get("dayID"),
             "BA":        info.get("BA"),
             "wellID":    info.get("wellID"),
+            "blank":     True,  # Flag this as a blank
         }
         blank_added += 1
 
@@ -185,4 +203,5 @@ with open(new_json, "w") as f:
 print(f"Processed (manual masks): {proc}, Skipped: {skip}")
 if image_map:
     print(f"Added blanks from image mapping: {blank_added}, Skipped blanks: {blank_skipped}")
+print(f"Total entries in output: {len(new_map)}")
 print(f"New mapping JSON: {new_json}")

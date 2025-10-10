@@ -1,0 +1,320 @@
+{
+  "per_model": {
+    "vit": {
+      "per_day": {
+        "Dy3": {
+          "day_no": 3,
+          "test_accuracy": 0.5862068965517241,
+          "test_f1": 0.7391304347826086,
+          "test_roc_auc": 0.5892857142857143,
+          "val_accuracy": 0.8275862068965517,
+          "val_roc_auc": 0.7611111111111111,
+          "test_num": 29
+        },
+        "Dy6": {
+          "day_no": 6,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.84,
+          "test_roc_auc": 0.8392857142857144,
+          "val_accuracy": 0.6896551724137931,
+          "val_roc_auc": 0.5611111111111111,
+          "test_num": 29
+        },
+        "Dy8": {
+          "day_no": 8,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.84,
+          "test_roc_auc": 0.6309523809523809,
+          "val_accuracy": 0.6896551724137931,
+          "val_roc_auc": 0.6166666666666667,
+          "test_num": 29
+        },
+        "Dy10": {
+          "day_no": 10,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.7894736842105263,
+          "test_roc_auc": 0.6904761904761905,
+          "val_accuracy": 0.7931034482758621,
+          "val_roc_auc": 0.7111111111111111,
+          "test_num": 29
+        },
+        "Dy13": {
+          "day_no": 13,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.84,
+          "test_roc_auc": 0.5297619047619048,
+          "val_accuracy": 0.6896551724137931,
+          "val_roc_auc": 0.3944444444444445,
+          "test_num": 29
+        },
+        "Dy15": {
+          "day_no": 15,
+          "test_accuracy": 0.6206896551724138,
+          "test_f1": 0.7317073170731707,
+          "test_roc_auc": 0.6904761904761905,
+          "val_accuracy": 0.7586206896551724,
+          "val_roc_auc": 0.5499999999999999,
+          "test_num": 29
+        },
+        "Dy17": {
+          "day_no": 17,
+          "test_accuracy": 0.6896551724137931,
+          "test_f1": 0.7906976744186046,
+          "test_roc_auc": 0.5595238095238095,
+          "val_accuracy": 0.7586206896551724,
+          "val_roc_auc": 0.6166666666666667,
+          "test_num": 29
+        },
+        "Dy20_5": {
+          "day_no": 20,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.8,
+          "test_roc_auc": 0.7261904761904762,
+          "val_accuracy": 0.896551724137931,
+          "val_roc_auc": 0.8928571428571428,
+          "test_num": 29
+        },
+        "Dy24": {
+          "day_no": 24,
+          "test_accuracy": 0.7931034482758621,
+          "test_f1": 0.85,
+          "test_roc_auc": 0.8111111111111112,
+          "val_accuracy": 0.9310344827586207,
+          "val_roc_auc": 0.9111111111111111,
+          "test_num": 29
+        },
+        "Dy28": {
+          "day_no": 28,
+          "test_accuracy": 0.7666666666666667,
+          "test_f1": 0.8571428571428571,
+          "test_roc_auc": 0.8994708994708995,
+          "val_accuracy": 0.9,
+          "val_roc_auc": 0.8148148148148149,
+          "test_num": 30
+        },
+        "Dy30": {
+          "day_no": 30,
+          "test_accuracy": 0.8333333333333334,
+          "test_f1": 0.8936170212765957,
+          "test_roc_auc": 0.962962962962963,
+          "val_accuracy": 0.9333333333333333,
+          "val_roc_auc": 0.8095238095238095,
+          "test_num": 30
+        }
+      }
+    },
+    "resnet": {
+      "per_day": {
+        "Dy3": {
+          "day_no": 3,
+          "test_accuracy": 0.7931034482758621,
+          "test_f1": 0.875,
+          "test_roc_auc": 0.6726190476190476,
+          "val_accuracy": 0.7241379310344828,
+          "val_roc_auc": 0.5055555555555555,
+          "test_num": 29
+        },
+        "Dy6": {
+          "day_no": 6,
+          "test_accuracy": 0.6896551724137931,
+          "test_f1": 0.7804878048780488,
+          "test_roc_auc": 0.7023809523809523,
+          "val_accuracy": 0.6896551724137931,
+          "val_roc_auc": 0.5888888888888889,
+          "test_num": 29
+        },
+        "Dy8": {
+          "day_no": 8,
+          "test_accuracy": 0.6896551724137931,
+          "test_f1": 0.8163265306122449,
+          "test_roc_auc": 0.6607142857142857,
+          "val_accuracy": 0.7931034482758621,
+          "val_roc_auc": 0.7777777777777778,
+          "test_num": 29
+        },
+        "Dy10": {
+          "day_no": 10,
+          "test_accuracy": 0.6206896551724138,
+          "test_f1": 0.7555555555555555,
+          "test_roc_auc": 0.5654761904761905,
+          "val_accuracy": 0.7241379310344828,
+          "val_roc_auc": 0.4888888888888889,
+          "test_num": 29
+        },
+        "Dy13": {
+          "day_no": 13,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.8260869565217391,
+          "test_roc_auc": 0.5654761904761905,
+          "val_accuracy": 0.7586206896551724,
+          "val_roc_auc": 0.5055555555555555,
+          "test_num": 29
+        },
+        "Dy15": {
+          "day_no": 15,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.84,
+          "test_roc_auc": 0.488095238095238,
+          "val_accuracy": 0.6896551724137931,
+          "val_roc_auc": 0.5555555555555556,
+          "test_num": 29
+        },
+        "Dy17": {
+          "day_no": 17,
+          "test_accuracy": 0.8275862068965517,
+          "test_f1": 0.8780487804878049,
+          "test_roc_auc": 0.7857142857142857,
+          "val_accuracy": 0.7241379310344828,
+          "val_roc_auc": 0.6666666666666666,
+          "test_num": 29
+        },
+        "Dy20_5": {
+          "day_no": 20,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.8260869565217391,
+          "test_roc_auc": 0.7857142857142857,
+          "val_accuracy": 0.896551724137931,
+          "val_roc_auc": 0.6904761904761905,
+          "test_num": 29
+        },
+        "Dy24": {
+          "day_no": 24,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.8095238095238095,
+          "test_roc_auc": 0.8222222222222223,
+          "val_accuracy": 0.8620689655172413,
+          "val_roc_auc": 0.9222222222222223,
+          "test_num": 29
+        },
+        "Dy28": {
+          "day_no": 28,
+          "test_accuracy": 0.7666666666666667,
+          "test_f1": 0.8571428571428571,
+          "test_roc_auc": 0.7936507936507937,
+          "val_accuracy": 0.8666666666666667,
+          "val_roc_auc": 0.7513227513227514,
+          "test_num": 30
+        },
+        "Dy30": {
+          "day_no": 30,
+          "test_accuracy": 0.8666666666666667,
+          "test_f1": 0.9090909090909091,
+          "test_roc_auc": 0.9365079365079365,
+          "val_accuracy": 0.8666666666666667,
+          "val_roc_auc": 0.8042328042328042,
+          "test_num": 30
+        }
+      }
+    },
+    "cnn": {
+      "per_day": {
+        "Dy3": {
+          "day_no": 3,
+          "test_accuracy": 0.6206896551724138,
+          "test_f1": 0.7317073170731707,
+          "test_roc_auc": 0.6726190476190476,
+          "val_accuracy": 0.7931034482758621,
+          "val_roc_auc": 0.7666666666666667,
+          "test_num": 29
+        },
+        "Dy6": {
+          "day_no": 6,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.8095238095238095,
+          "test_roc_auc": 0.6845238095238095,
+          "val_accuracy": 0.7241379310344828,
+          "val_roc_auc": 0.6666666666666667,
+          "test_num": 29
+        },
+        "Dy8": {
+          "day_no": 8,
+          "test_accuracy": 0.6896551724137931,
+          "test_f1": 0.7804878048780488,
+          "test_roc_auc": 0.7619047619047619,
+          "val_accuracy": 0.7241379310344828,
+          "val_roc_auc": 0.7722222222222223,
+          "test_num": 29
+        },
+        "Dy10": {
+          "day_no": 10,
+          "test_accuracy": 0.6551724137931034,
+          "test_f1": 0.75,
+          "test_roc_auc": 0.6488095238095237,
+          "val_accuracy": 0.8275862068965517,
+          "val_roc_auc": 0.7944444444444444,
+          "test_num": 29
+        },
+        "Dy13": {
+          "day_no": 13,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.8095238095238095,
+          "test_roc_auc": 0.6666666666666667,
+          "val_accuracy": 0.6551724137931034,
+          "val_roc_auc": 0.5222222222222223,
+          "test_num": 29
+        },
+        "Dy15": {
+          "day_no": 15,
+          "test_accuracy": 0.5862068965517241,
+          "test_f1": 0.7,
+          "test_roc_auc": 0.5833333333333333,
+          "val_accuracy": 0.7586206896551724,
+          "val_roc_auc": 0.5694444444444444,
+          "test_num": 29
+        },
+        "Dy17": {
+          "day_no": 17,
+          "test_accuracy": 0.7241379310344828,
+          "test_f1": 0.84,
+          "test_roc_auc": 0.6785714285714285,
+          "val_accuracy": 0.7586206896551724,
+          "val_roc_auc": 0.5666666666666667,
+          "test_num": 29
+        },
+        "Dy20_5": {
+          "day_no": 20,
+          "test_accuracy": 0.8275862068965517,
+          "test_f1": 0.8888888888888888,
+          "test_roc_auc": 0.7440476190476191,
+          "val_accuracy": 0.8275862068965517,
+          "val_roc_auc": 0.7142857142857143,
+          "test_num": 29
+        },
+        "Dy24": {
+          "day_no": 24,
+          "test_accuracy": 0.6551724137931034,
+          "test_f1": 0.75,
+          "test_roc_auc": 0.7611111111111111,
+          "val_accuracy": 0.896551724137931,
+          "val_roc_auc": 0.8666666666666667,
+          "test_num": 29
+        },
+        "Dy28": {
+          "day_no": 28,
+          "test_accuracy": 0.8333333333333334,
+          "test_f1": 0.8936170212765957,
+          "test_roc_auc": 0.8412698412698413,
+          "val_accuracy": 0.9,
+          "val_roc_auc": 0.8518518518518519,
+          "test_num": 30
+        },
+        "Dy30": {
+          "day_no": 30,
+          "test_accuracy": 0.8666666666666667,
+          "test_f1": 0.9130434782608695,
+          "test_roc_auc": 0.9365079365079365,
+          "val_accuracy": 0.9333333333333333,
+          "val_roc_auc": 0.8095238095238095,
+          "test_num": 30
+        }
+      }
+    }
+  },
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "split_fractions": {
+    "train": 0.8,
+    "val": 0.1,
+    "test": 0.1
+  }
+}

@@ -21,16 +21,16 @@ CONFIG_FILE_PATH     = getattr(ROOT, "CONFIG_FILE_PATH", None)
 CHECKPOINT_FILE_PATH = getattr(ROOT, "CHECKPOINT_FILE_PATH", None)
 
 # Suffix used by your plots directory convention
-BY_SUFFIX = f"{TARGET_WIDTH}by{TARGET_HEIGHT}"
+BY_SUFFIX = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
 
 # Model locations (prefer env overrides when provided)
 EARLY_MODEL = {
-    "config":     (CONFIG_FILE_PATH or PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/early/vis_data/config.py"),
-    "checkpoint": (CHECKPOINT_FILE_PATH or PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/early/iter_1000.pth"),
+    "config":     (CONFIG_FILE_PATH or PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/october_early/early/vis_data/config.py"),
+    "checkpoint": (CHECKPOINT_FILE_PATH or PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/october_early/iter_1000.pth"),
 }
 LATE_MODEL = {
-    "config":     PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/late/vis_data/config.py",
-    "checkpoint": PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/models/late/iter_1000.pth",
+    "config":     PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/october_late/late/vis_data/config.py",
+    "checkpoint": PLOTS_FOLDER / f"segformer_masks/{BY_SUFFIX}/october_late/iter_1000.pth",
 }
 
 # Where inference writes predicted masks

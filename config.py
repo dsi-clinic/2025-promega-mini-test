@@ -99,6 +99,9 @@ METABOLITE_SOURCE_XLSX  = optional_env_path("METABOLITE_SOURCE_XLSX") or (METABO
 METABOLITE_MAP_JSON     = optional_env_path("METABOLITE_MAP_JSON") or (METABOLITE_DATA_DIR / "metabolite_map.json")
 SURVEY_AGGREGATED_JSON  = optional_env_path("SURVEY_AGGREGATED_JSON") or (SURVEY_RESULTS / "organoid_surveys_aggregated.json")
 
+# ---- Data quality checks ----
+DATA_QUALITY_DIR = Path("/net/projects2/promega/data-analysis/data-quality-checks")
+# or wherever makes sense in your project structure
 
 # ---- Legacy aliases for backwards compatibility ----
 ORIGINAL_MAPPING = RAW_IMAGE_MAPPING_JSON

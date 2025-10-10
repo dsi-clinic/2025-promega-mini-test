@@ -8,6 +8,10 @@ custom_imports = dict(
 
 from day_datasets import Dy30Dataset
 
+# Dataset paths
+SPLIT_DIR = '/net/projects2/promega/data-analysis/output/train_resized_512x384/manual_mappings/processed_512x384/split'
+SPLIT_PREFIX = 'mapping_days1330'  # mapping_days0310 = early, mapping_days1330 = late models
+
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 # data_preprocessor = dict(
 #     type='ImgDataPreprocessor',
@@ -91,17 +95,16 @@ val_pipeline = [
 
 # mmseg config snippet
 
+
+
+# Then use them in dataloaders:
 train_dataloader = dict(
     batch_size=16,
     num_workers=1,
     drop_last=True,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path=(
-          '/net/projects2/promega/data-analysis/output/'
-          'processed_dataset_512x384/manual_mappings/'
-          'processed_512x384/split/mapping_days0310_train.json'
-        ),
+        json_mapping_path=f'{SPLIT_DIR}/{SPLIT_PREFIX}_train.json',
         day_filter=None,
         pipeline=train_pipeline,
         lazy_init=False
@@ -114,11 +117,7 @@ val_dataloader = dict(
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path=(
-          '/net/projects2/promega/data-analysis/output/'
-          'processed_dataset_512x384/manual_mappings/'
-          'processed_512x384/split/mapping_days0310_val.json'
-        ),
+        json_mapping_path=f'{SPLIT_DIR}/{SPLIT_PREFIX}_val.json',
         day_filter=None,
         pipeline=val_pipeline,
         lazy_init=False
@@ -126,16 +125,14 @@ val_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=False)
 )
 
+test_pipeline = val_pipeline
+
 test_dataloader = dict(
     batch_size=8,
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path=(
-          '/net/projects2/promega/data-analysis/output/'
-          'processed_dataset_512x384/manual_mappings/'
-          'processed_512x384/split/mapping_days0310_test.json'
-        ),
+        json_mapping_path=f'{SPLIT_DIR}/{SPLIT_PREFIX}_test.json',
         day_filter=None,
         pipeline=val_pipeline,
         lazy_init=False
