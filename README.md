@@ -63,12 +63,6 @@ flowchart TD
     B4 --> C21
     B4 --> C31
     B4 --> C4
-
-    %% ========= STYLES ========= %%
-    classDef input fill:#d9f7be,stroke:#333,stroke-width:1px;
-    classDef config fill:#ffd6e7,stroke:#333,stroke-width:1px;
-    classDef code fill:#e6f7ff,stroke:#333,stroke-width:0.5px;
-    class B1,B1b,B2,B3,B4,C11,C12,C13,C14,C15,C21,C31,C32,C33,C4 code;
 ```
 
 ## Quick Start
