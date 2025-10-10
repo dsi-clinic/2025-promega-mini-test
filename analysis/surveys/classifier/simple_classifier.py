@@ -25,23 +25,10 @@ else:
     print("TensorFlow is using the CPU.")
 
 # --- Constants ---
-PREPROCESSED_JSON_DIR = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
+ALL_DATA_JSON = 'all_data.json'  # Use the unified all_data.json file
+SURVEY_JSON = 'analysis/surveys/agreement_aggregations/organoid_surveys_aggregated.json'
 TARGET_SIZE = (224, 224) # Define target size as a constant
-TARGET_DAY = 0o6
-
-# --- Helper function to get mapping paths ---
-def get_mapping_paths(batch_number, day_number=30):
-    """Get zero-padded mapping JSON paths."""
-    day_str = f"{day_number:02d}"
-    if batch_number == 2:
-        return [
-            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_1_Dy{day_str}" / f"image_mapping_BA2_96_1_Dy{day_str}_processed.json",
-            Path(PREPROCESSED_JSON_DIR) / f"BA2_96_2_Dy{day_str}" / f"image_mapping_BA2_96_2_Dy{day_str}_processed.json"
-        ]
-    else:
-        return [
-            Path(PREPROCESSED_JSON_DIR) / f"BA{batch_number}_Dy{day_str}" / f"image_mapping_BA{batch_number}_Dy{day_str}_processed.json"
-        ]
+TARGET_DAY = 30  # Day to use for training (most labeled data is on Day 30)
 
 # --- Helper function to normalize keys for matching ---
 def normalize_key(key):
@@ -57,59 +44,103 @@ def normalize_key(key):
     key = key.upper().replace('DY', 'Dy')
     return key
 
-# --- 1. Load the labeled data for labels ---
+# --- 1. Load survey data to get image_id -> label mappings ---
 
-# FOR COMPLETE AGREEMENTS (more accurate): 'complete_agreement_organoids.json':
+# FOR COMPLETE AGREEMENTS (more accurate): 'analysis/surveys/agreement_aggregations/labeled_organoid_complete_agreement.json':
+# FOR STRONG AGREEMENTS (more data): 'analysis/surveys/agreement_aggregations/labeled_organoid_majority_agreement.json':
 
-# FOR STRONG AGREEMENTS (more data): 'labeled_organoid_strong_agreement.json':
+print(f"Loading survey data from {SURVEY_JSON}...")
+with open(SURVEY_JSON) as f:
+    survey_data = json.load(f)
 
-with open('labeled_organoid_strong_agreement.json') as f:
-    labeled_data = json.load(f)
+with open('analysis/surveys/agreement_aggregations/labeled_organoid_majority_agreement.json') as f:
+    labeled_organoids = json.load(f)
 
+# Build a mapping from image_id to label using the survey data
+# Each labeled organoid has evaluations that contain the image_id
+image_id_to_label = {}
+for organoid_key, organoid_data in labeled_organoids.items():
+    # Get the label for this organoid
+    label = organoid_data['label']
+    
+    # Find the corresponding entry in survey_data to get the image_id
+    if organoid_key in survey_data:
+        evaluations = survey_data[organoid_key].get('evaluations', [])
+        if evaluations:
+            # All evaluations for an organoid have the same image_id
+            image_id = evaluations[0].get('image_id')
+            if image_id:
+                image_id_to_label[image_id] = label
 
-modified_labeled_data = {}
-for key, data in labeled_data.items():
-    # Use regex to find and replace the day number (e.g., DyXX) in the key
-    new_key = OrganoidPatterns.DAY_EXTRACT.sub(f'Dy{TARGET_DAY:02d}', key)
-    modified_labeled_data[new_key] = data
+print(f"Found {len(image_id_to_label)} labeled images")
 
-labeled_data = modified_labeled_data # Overwrite with the modified data
+# --- 2. Load all_data.json and filter for labeled images ---
+print(f"Loading unified data from {ALL_DATA_JSON}...")
+try:
+    with open(ALL_DATA_JSON) as f:
+        all_data = json.load(f)
+except FileNotFoundError:
+    print(f"Error: {ALL_DATA_JSON} not found. Please run the data generation pipeline first:")
+    print("  1. python file_utils/merge/merge_all_data.py")
+    print("  2. python analysis/images/quality/mask_edge_fraction.py")
+    exit(1)
 
-
-# Create a dictionary to map normalized image keys to labels
-key_to_label = {normalize_key(key): data['label'] for key, data in labeled_data.items()}
-
-# --- 2. Load the new mapping data and combine with old labels ---
+# Match labeled images with all_data.json entries
 all_new_data = {}
+matched = 0
+day_filtered = 0
 
-for batch_num in [1, 2, 3]:
-    mapping_paths = get_mapping_paths(batch_num, TARGET_DAY)
-    for path in mapping_paths:
-        try:
-            with open(path) as f:
-                new_data = json.load(f)
-                # Process each entry in the new mapping
-                for key, value in new_data.items():
-                    # Normalize the new key for matching
-                    normalized_new_key = normalize_key(key)
-                    # Only keep entries that exist in the old labeled data
-                    if normalized_new_key in key_to_label:
-                        all_new_data[key] = {
-                            'img_path': value['img_path'],
-                            'seg_map_path': value['mask_path'],
-                            'label': key_to_label[normalized_new_key]
-                        }
-        except FileNotFoundError:
-            print(f"Warning: Mapping file not found: {path}")
+for img_id, record in all_data.items():
+    # Check if this image has a label
+    if img_id in image_id_to_label:
+        # Filter for TARGET_DAY if specified
+        if TARGET_DAY is not None:
+            day_match = re.search(r'Dy(\d+)', img_id)
+            if not day_match or int(day_match.group(1)) != TARGET_DAY:
+                day_filtered += 1
+                continue
+        
+        # Get the label
+        label = image_id_to_label[img_id]
+        
+        # Get image and mask paths - they may be at root level or in 'processed' field
+        img_path = record.get('img_path')
+        mask_path = record.get('mask_path')
+        
+        # If not at root level, check the 'processed' field
+        if img_path is None or mask_path is None:
+            processed = record.get('processed', {})
+            if isinstance(processed, dict):
+                img_path = img_path or processed.get('img_path')
+                mask_path = mask_path or processed.get('mask_path')
+        
+        # Validate that we have both paths
+        if img_path is None or mask_path is None:
+            # Skip entries without valid paths
             continue
-        except json.JSONDecodeError:
-            print(f"Warning: Could not decode JSON from: {path}")
-            continue
+        
+        # Add to dataset
+        all_new_data[img_id] = {
+            'img_path': img_path,
+            'seg_map_path': mask_path,
+            'label': label
+        }
+        matched += 1
 
 # Check if we have any data
 if not all_new_data:
-    print("Error: No matching data found between old and new mappings.")
-    exit()
+    print(f"Error: No matching data found between labeled images and all_data.json.")
+    print(f"Total entries in all_data.json: {len(all_data)}")
+    print(f"Total labeled images: {len(image_id_to_label)}")
+    print(f"Matched before day filter: {matched}")
+    print(f"Filtered out by day: {day_filtered}")
+    if TARGET_DAY:
+        print(f"Target day: {TARGET_DAY}")
+    exit(1)
+
+print(f"Found {len(all_new_data)} labeled images for analysis")
+if TARGET_DAY:
+    print(f"(filtered for Day {TARGET_DAY})")
 
 # --- 3. Prepare data for training ---
 image_paths = []

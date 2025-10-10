@@ -180,3 +180,15 @@ cython_debug/
 # All training data
 model.pth
 
+# Large data files (generated, not tracked)
+all_data.json
+all_data.json.bak
+*.json.bak
+
+# Output directories
+analysis/images/classifier/outputs*/
+analysis/images/classifier/organoid_classifier_*.h5
+*.png
+
+# Personal context files
+context.md
