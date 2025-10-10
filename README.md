@@ -4,42 +4,71 @@ This repository contains a comprehensive system for analyzing organoid quality u
 
 ## Project Structure
 
-```
-analysis/                               # All analysis code and experiments
-├── images/
-│   ├── resize/                        # Image resizing + updated pixel-scale metadata 
-│   ├── classifier/                    # Image classification models (e.g., ViT, CNNs)
-│   ├── metrics/                       # Image analysis tools
-│   │   ├── shape_metrics/             # Organoid shape features
-│   │   └── stitching/                 # Image stitching scripts
-│   └── segmentation_mmseg/            # MMSegmentation training and inference
-│       ├── datasets/                  # Dataset definitions for mmseg
-│       ├── preprocessing/             # Mask/image preprocessing tools
-│       └── utils/                     # Custom transforms and helpers
-├── metabolites/
-│   └── classifier/                    # Classifier using metabolite data
-├── multimodal/                        # CNN classifier using merged modalities
-└── surveys/
-    ├── agreement_aggregations/        # Processed survey agreement data
-    ├── classifier/                    # Survey-based classifiers
-    ├── notebooks/                     # Statistical exploration
-    └── simulations/                   # Survey reliability simulations
+```mermaid
+flowchart TD
+    %% ========= INPUT STAGE ========= %%
+    A1([Raw Images]):::input
+    A2([Metabolite Excels]):::input
+    A3([Survey Excels]):::input
+    A4([Config & Env Vars<br/>config.py / core_env.yaml]):::config
 
-file_utils/                            # Data processing and mapping utilities
-├── images/                            # Image-metadata mapping tools
-│   ├── scripts/                       # Core image mapping logic
-│   └── image_mapper_main.py           # Entry point for image mapping
-├── merge/                             # Merges all data sources
-│   └── merge_all_data.py              # Main merger script
-├── metabolites/                       # Metabolite-metadata mapping
-│   └── metabolite_mapper.py           # Processes Excel metabolite data
-└── surveys/                           # Survey-metadata mapping
-    └── surveys_mapper.py              # Processes Excel survey data
+    %% ========= FILE_UTILS PROCESSING ========= %%
+    subgraph B[file_utils - Data Mapping & Integration]
+        B1[file_utils/images/scripts<br/>image_mapper_main.py\nImage metadata → JSON]
+        B1b[file_utils/common/organoid_patterns.py\nPattern normalization helpers]
+        B2[file_utils/metabolites/metabolite_mapper.py\nMetabolite Excel → JSON]
+        B3[file_utils/surveys/surveys_mapper.py\nSurvey Excel → JSON]
+        B4[file_utils/merge/merge_all_data.py\nMerge image + metabolite + survey JSON → all_data.json]
+    end
 
-config.py                              # Centralized configuration (environment variables)
-all_data.json                          # Master merged data file (generated, not in repo)
-core_env.yaml                          # Conda environment specification
-CLAUDE.md                              # Code analysis and documentation
+    %% ========= ANALYSIS PIPELINE ========= %%
+    subgraph C[analysis - Downstream Analysis & ML]
+        subgraph C1[analysis/images]
+            C11[resize\nStandardize image size + pixel scale]
+            C12[metrics/shape_metrics\nOrganoid shape features]
+            C13[segmentation_mmseg\nMMSeg training & inference]
+            C14[classifier\nImage classifiers (ViT, CNNs)]
+            C15[series/preprocess\nFilter complete time series + normalize masks]
+        end
+
+        subgraph C2[analysis/metabolites]
+            C21[classifier\nMetabolite-based classifiers]
+        end
+
+        subgraph C3[analysis/surveys]
+            C31[agreement_aggregations\nSurvey agreement analysis]
+            C32[classifier\nSurvey-based classifiers]
+            C33[simulations\nReliability simulations]
+        end
+
+        C4[multimodal\nCNN fusion of image + metabolite + survey features]
+    end
+
+    %% ========= DATA FLOW ========= %%
+    A1 --> B1
+    B1b --> B1
+    A2 --> B2
+    A3 --> B3
+    B1 --> B4
+    B2 --> B4
+    B3 --> B4
+
+    %% From merged data to analyses
+    B4 --> C11
+    C11 --> C13
+    C13 --> C14
+    C14 --> C15
+    C15 --> C4
+
+    B4 --> C21
+    B4 --> C31
+    B4 --> C4
+
+    %% ========= STYLES ========= %%
+    classDef input fill:#d9f7be,stroke:#333,stroke-width:1px;
+    classDef config fill:#ffd6e7,stroke:#333,stroke-width:1px;
+    classDef code fill:#e6f7ff,stroke:#333,stroke-width:0.5px;
+    class B1,B1b,B2,B3,B4,C11,C12,C13,C14,C15,C21,C31,C32,C33,C4 code;
 ```
 
 ## Quick Start
