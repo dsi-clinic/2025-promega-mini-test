@@ -96,15 +96,21 @@ def main():
     parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
     parser.add_argument('--lstm-hidden', type=int, default=256, help='LSTM hidden size')
     parser.add_argument('--lstm-layers', type=int, default=2, help='Number of LSTM layers')
-    parser.add_argument('--output-dir', type=str, default='models', help='Output directory')
+    parser.add_argument('--output-dir', type=str, default=None, help='Output directory (default: OUTPUT_FOLDER/cnn_lstm)')
     args = parser.parse_args()
     
     # Setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(exist_ok=True)
+    # Set output directory
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        output_dir = OUTPUT_FOLDER / 'cnn_lstm'
+    
+    output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Saving outputs to: {output_dir}")
     
     # Load data
     print("\n" + "="*70)
