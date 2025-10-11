@@ -94,10 +94,37 @@ def analyze_target_dimension_distribution(data, target_um_per_px):
     
     return widths, heights
 
+def fill_black_boxes(image):
+    """
+    Fill pure black pixels (stitching artifacts) with background-like values
+    Uses inpainting to fill based on surrounding pixels
+    """
+    # Create mask of pure black pixels
+    if len(image.shape) == 3:
+        # RGB image - black is (0, 0, 0)
+        black_mask = np.all(image == 0, axis=-1).astype(np.uint8)
+    else:
+        # Grayscale - black is 0
+        black_mask = (image == 0).astype(np.uint8)
+    
+    # If no black pixels, return original
+    if not black_mask.any():
+        return image
+    
+    # Use OpenCV inpainting to fill black regions
+    # This intelligently fills based on surrounding pixels
+    if len(image.shape) == 3:
+        filled = cv2.inpaint(image, black_mask, inpaintRadius=5, flags=cv2.INPAINT_TELEA)
+    else:
+        filled = cv2.inpaint(image, black_mask, inpaintRadius=5, flags=cv2.INPAINT_TELEA)
+    
+    return filled
+
 def pad_to_square(image, target_size, is_mask=False):
     """
     Pad image to square dimensions, centering the content
-    Uses white (255) for images, black (0) for masks
+    Uses edge extrapolation for images (natural background)
+    Uses black (0) for masks
     """
     if len(image.shape) == 2:
         h, w = image.shape
@@ -105,10 +132,7 @@ def pad_to_square(image, target_size, is_mask=False):
     else:
         h, w, channels = image.shape
     
-    # Simple: white (255) for images, black (0) for masks
-    pad_value = 0 if is_mask else 255
-    
-    # Calculate padding
+    # Calculate padding amounts
     pad_h = max(0, target_size - h)
     pad_w = max(0, target_size - w)
     
@@ -117,14 +141,28 @@ def pad_to_square(image, target_size, is_mask=False):
     pad_left = pad_w // 2
     pad_right = pad_w - pad_left
     
-    if channels is None:
-        padded = np.pad(image, 
-                       ((pad_top, pad_bottom), (pad_left, pad_right)),
-                       mode='constant', constant_values=pad_value)
+    if is_mask:
+        # Masks: use constant black (0)
+        pad_value = 0
+        if channels is None:
+            padded = np.pad(image, 
+                           ((pad_top, pad_bottom), (pad_left, pad_right)),
+                           mode='constant', constant_values=pad_value)
+        else:
+            padded = np.pad(image,
+                           ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0)),
+                           mode='constant', constant_values=pad_value)
     else:
-        padded = np.pad(image,
-                       ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0)),
-                       mode='constant', constant_values=pad_value)
+        # Images: use edge extrapolation (repeats edge pixels)
+        # This creates natural-looking background extension
+        if channels is None:
+            padded = np.pad(image,
+                           ((pad_top, pad_bottom), (pad_left, pad_right)),
+                           mode='edge')
+        else:
+            padded = np.pad(image,
+                           ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0)),
+                           mode='edge')
     
     return padded
 
@@ -162,6 +200,12 @@ def resize_and_pad(image, target_width, target_height, target_size, is_mask=Fals
             padded = padded[:target_size, :target_size, :]
     
     return padded
+
+def is_stitched_image(entry):
+    """Check if this is a stitched image based on main_id"""
+    main_id = entry.get('main_id', '').lower()
+    # Check for 'stitch' but NOT 'nostitch'
+    return 'stitch' in main_id and 'nostitch' not in main_id
 
 def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, stats, save_debug=False):
     """
@@ -207,6 +251,11 @@ def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, 
         if raw_image is None or raw_image.size == 0:
             stats['errors'].append(f"{key}: Could not read raw image")
             return None
+
+        # FILL BLACK BOXES - ONLY for stitched images
+        if is_stitched_image(entry):
+            raw_image = fill_black_boxes(raw_image)
+            stats['stitched_processed'] = stats.get('stitched_processed', 0) + 1
         
         orig_height, orig_width = raw_image.shape[:2]
         
