@@ -5,45 +5,49 @@ This repository contains a comprehensive system for analyzing organoid quality u
 ## Project Structure
 
 ```mermaid
+%%{init: {"themeVariables": { "fontSize": "16px" }, "flowchart": { "rankSpacing": 50, "nodeSpacing": 45 }}}%%
 flowchart TD
     %% ========= INPUT STAGE ========= %%
     A1([Raw Images])
     A2([Metabolite Excels])
     A3([Survey Excels])
-    A4([Config & Env Vars<br/>config.py / core_env.yaml])
-
+    A4([Config and Env Vars<br/>config.py / core_env.yaml])
+    
     %% ========= FILE_UTILS PROCESSING ========= %%
-    subgraph B[file_utils - Data Mapping & Integration]
+    subgraph B[file_utils - Data Mapping and Integration]
         B1[file_utils/images/scripts<br/>image_mapper_main.py<br/>Image metadata → JSON]
         B1b[file_utils/common/organoid_patterns.py<br/>Pattern normalization helpers]
         B2[file_utils/metabolites/metabolite_mapper.py<br/>Metabolite Excel → JSON]
         B3[file_utils/surveys/surveys_mapper.py<br/>Survey Excel → JSON]
-        B4[file_utils/merge/merge_all_data.py<br/>Merge image + metabolite + survey JSON → all_data.json]
+        B4[file_utils/merge/merge_all_data.py<br/>Merge image, metabolite, and survey JSON<br/>→ all_data.json]
     end
-
+    
     %% ========= ANALYSIS PIPELINE ========= %%
-    subgraph C[analysis - Downstream Analysis & ML]
+    subgraph C[analysis - Downstream Analysis]
         subgraph C1[analysis/images]
-            C11[resize<br/>Standardize image size + pixel scale]
-            C12[metrics/shape_metrics<br/>Organoid shape features]
-            C13[segmentation_mmseg<br/>MMSeg training & inference]
-            C14[classifier<br/>Image classifiers – ViT / CNN]
-            C15[series/preprocess<br/>Filter complete time series + normalize masks]
+            C13[segmentation_mmseg<br/>MMSeg training and predictions]
+            C16[edge_fraction<br/>Post-prediction edge analysis<br/>Adds edge metrics to all_data.json]
+            C14[classifier<br/>ViT or CNN classifier<br/>Uses MMSeg-processed images]
+            C11[resize<br/>Scale to physical size and aspect ratio]
+            C12[metrics/shape_metrics<br/>Morphological feature analysis]
+            
+            subgraph C15[series - Time Series Analysis]
+                C15a[series/filter_complete_series.py<br/>Filter to complete series<br/>no blanks, no edge issues<br/>→ complete_series_data_no_blanks.json]
+                C15b[series/preprocess_for_lstm.py<br/>Resize to uniform scale 6.0 um/px<br/>Pad to 768×768, preserve aspect ratio<br/>Adds lstm_processed field to JSON<br/>→ lstm_ready/ images]
+                C15c[series/cnn_lstm/train_organoid_lstm.py<br/>CNN-LSTM model training<br/>Predict organoid quality from time series]
+            end
         end
-
+        
         subgraph C2[analysis/metabolites]
-            C21[classifier<br/>Metabolite-based classifiers]
+            C21[classifier<br/>Metabolite-based models<br/>Combined with image-derived data]
         end
-
+        
         subgraph C3[analysis/surveys]
-            C31[agreement_aggregations<br/>Survey agreement analysis]
-            C32[classifier<br/>Survey-based classifiers]
-            C33[simulations<br/>Reliability simulations]
+            C32[classifier<br/>Survey-based models<br/>Combined with image-derived data]
+            C33[agreement_aggregations<br/>Statistical analysis only<br/>Derived from all_data.json]
         end
-
-        C4[multimodal<br/>CNN fusion of image + metabolite + survey features]
     end
-
+    
     %% ========= DATA FLOW ========= %%
     A1 --> B1
     B1b --> B1
@@ -52,105 +56,55 @@ flowchart TD
     B1 --> B4
     B2 --> B4
     B3 --> B4
-
-    %% From merged data to analyses
-    B4 --> C11
-    C11 --> C13
-    C13 --> C14
-    C14 --> C15
-    C15 --> C4
-
+    
+    B4 --> C13
+    C13 --> C16
+    C16 --> B4
+    C16 --> C14
+    C16 --> C11
+    
+    %% LSTM Pipeline Flow
+    B4 --> C15a
+    C15a --> C15b
+    C15b --> C15c
+    
+    C11 --> C12
+    B4 --> C14
+    B4 --> C12
     B4 --> C21
-    B4 --> C31
-    B4 --> C4
+    B4 --> C32
+    B4 --> C33
+    
+    C14 --> C21
+    C14 --> C32
+    C12 --> C21
+    C12 --> C32
+    C15c --> C21
+    C15c --> C32
 ```
 
 ## Quick Start
 
 ### 1. Environment Setup
 ```bash
-# The conda environment is located at:
-/net/projects2/promega
+# Activate the required conda environment
+conda activate /net/projects2/promega
 
-# You don't need to activate it manually - the SLURM scripts will use it
+# Ensure your .env file is configured with required paths
 ```
 
 ### 2. Generate Master Data File
 ```bash
-# From the project root directory, run:
-cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY  # Replace with your actual path
-/net/projects2/promega/bin/python file_utils/merge/merge_all_data.py
-
-# This generates all_data.json with 5,168+ merged records
-# Output: /net/projects2/promega/data-analysis/output/all_data.json
+# From the root directory, generate all_data.json
+python file_utils/merge/merge_all_data.py
 ```
 
-### ⚠️ IMPORTANT: Update Paths Before Running Analysis
-
-**Before submitting any jobs**, you must update the hardcoded paths in the SLURM scripts to match your setup:
-
-Replace `/home/tonyluo/minitest` with `/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY` in:
-
-1. **`analysis/images/classifier/run_accuracy.s`**
-   - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
-
-2. **`analysis/surveys/classifier/run_survey_classifier.s`**
-   - Line 12: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
-
-Example:
+### 3. Run Analysis
 ```bash
-# If your username is jsmith and you cloned to /home/jsmith/promega-analysis
-# Change: PROJ_ROOT=/home/tonyluo/minitest
-# To:     PROJ_ROOT=/home/jsmith/promega-analysis
+# All analysis runs from root directory
+python analysis/images/classifier/train_model_accuracy.py
+python analysis/surveys/classifier/simple_classifier.py
 ```
-
-### 3. Run Analysis on GPU Computation Nodes
-
-**Important**: Analysis must be run on computation nodes (not login nodes) using SLURM job submission.
-
-#### 3a. Image Classifier (GPU Required)
-```bash
-# Navigate to classifier directory
-cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/images/classifier
-
-# Submit the training job to SLURM
-sbatch run_accuracy.s
-
-# Monitor job status
-squeue -u $USER
-
-# Check logs
-tail -f logs/soft-label_<JOBID>.out
-```
-
-The image classifier will train models for each day (Dy3, Dy6, Dy8, etc.) sequentially.
-Results are saved in `outputs_512x384_Regular_image_with_train_augment_with_auroc/vit/DyXX/`
-
-#### 3b. Survey Classifier (GPU Required)
-```bash
-# Navigate to survey classifier directory  
-cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/surveys/classifier
-
-# Submit the survey classifier job
-sbatch run_survey_classifier.s
-
-# Check completion
-squeue -u $USER
-cat logs/survey_<JOBID>.out
-```
-
-The survey classifier trains a ResNet50V2+CNN dual-input model on Day 30 organoids using survey evaluation labels.
-Results include trained model (`.h5`), training curves, and confusion matrix.
-
-**Recent Updates** (Oct 2025):
-- Now uses `all_data.json` as single data source (no separate mapping files needed)
-- Computes labels directly from survey evaluations in `all_data.json`
-- GPU-compatible metrics (AUC, Precision, Recall)
-- See `analysis/surveys/classifier/CHANGES.md` for detailed changes
-
-**Note**: Before submitting jobs, update the SLURM scripts:
-- `analysis/images/classifier/run_accuracy.s` - Update `PROJ_ROOT` variable (line 13)
-- `analysis/surveys/classifier/run_survey_classifier.s` - Update `PROJ_ROOT` variable (line 13)
 
 ## Configuration System
 
@@ -174,13 +128,7 @@ Create a `.env` file in the project root with these variables set to your local 
 2. **Master Merger**: Combines all data sources
    - `file_utils/merge/merge_all_data.py` - Creates unified `all_data.json`
 
-3. **Reproducible Data Splits**: Creates train/validation splits for ML models
-   - `split_data_reproducible.py` - Splits data by organoid (prevents data leakage) and extracts metabolite features
-   - Extracts both `concentration_uM` and `initial_concentration` for each metabolite (e.g., `GlucoseGlo_concentration_uM`, `GlucoseGlo_initial_concentration`)
-   - Outputs saved to `data_splits/` directory
-   - Usage: `python3 split_data_reproducible.py --mode base`
-
-4. **Analysis**: Uses `all_data.json` as single source of truth
+3. **Analysis**: Uses `all_data.json` as single source of truth
    - All analysis code in `analysis/` directory
    - No direct access to raw data files
    - Standardized organoid key format: `"BA1 96_1 Dy30 A1"`

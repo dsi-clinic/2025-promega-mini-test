@@ -180,35 +180,3 @@ cython_debug/
 # All training data
 model.pth
 
-
-# SLURM job logs
-*/logs/
-*.out
-*.err
-
-# Training outputs and model checkpoints  
-outputs_*/
-**/outputs_*/
-
-# Backup files
-*.bak
-
-# Personal instruction files
-analysis_instruction.txt
-
-# Training curves and metrics (generated during training)
-training_curves.png
-metrics_*.json
-
-# Temporary training files
-train_model_accuracy_mini.py
-
-# Trained model files (large binary files)
-*.h5
-*.keras
-
-# Training output images
-training_*.png
-
-# Test files
-test_gpu.py

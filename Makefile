@@ -22,7 +22,7 @@ EXTRA        ?=
         analysis-images-predict-mapping \
         analysis-images-overlays \
         train-images-segmentation \
-        train-classifier train-survey-classifier
+        train-classifier
 
 # -------- Help --------
 help:
@@ -33,7 +33,6 @@ help:
 	@echo "  analysis-images-overlays          - build overlays from predictions"
 	@echo "  train-images-segmentation         - train mmseg model (mmcv_env)"
 	@echo "  train-classifier                  - train image classifier (core_env)"
-	@echo "  train-survey-classifier           - train survey classifier (core_env)"
 	@echo
 	@echo "Examples:"
 	@echo "  make analysis-images-resize BATCHES=1,2 DAYS=03 OVERWRITE=1"
@@ -41,7 +40,6 @@ help:
 	@echo "  make analysis-images-overlays OVERWRITE=1 STRICT=1"
 	@echo "  make train-images-segmentation PHASE=late MODEL_CONFIG=segformer_mitb0.py DATE=20250815"
 	@echo "  make train-classifier"
-	@echo "  make train-survey-classifier"
 
 # =========================
 # 1) Mappers (core_env)
@@ -115,10 +113,6 @@ train-images-segmentation:
 train-classifier:
 	PYTHONPATH=. conda run -p /net/projects2/promega \
 	  python analysis/images/classifier/train_model_accuracy.py
-
-train-survey-classifier:
-	PYTHONPATH=. conda run -p /net/projects2/promega \
-	  python analysis/surveys/classifier/simple_classifier.py
 
 # -------- Clean (stub) --------
 clean:

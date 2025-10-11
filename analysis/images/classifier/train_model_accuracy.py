@@ -256,7 +256,7 @@ def epoch_loop(model, loader, optimizer, class_weights, train=True, use_mask=Fal
 
     preds_bin = (np.array(preds) > 0.5).astype(int)
     acc = accuracy_score(trues, preds_bin)
-    return np.mean(losses), acc, preds_bin, np.array(trues), np.array(preds) 
+    return np.mean(losses), acc, preds_bin, np.array(trues)
 
 def evaluate_on_loader(model, loader, use_mask=False):
     """Run inference (no grad) and compute accuracy & F1. Return preds_bin, trues, acc, f1, probs."""
@@ -414,25 +414,15 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
 
     # Phase 1 — frozen
     for epoch in range(100):
-        tl, tacc, _, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask)
-        vl, vacc, vpreds_bin, vtrues, vprobs = epoch_loop(model, val_loader, opt, class_weights, train=False, use_mask=use_mask)
-
+        tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask)
+        vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=use_mask)
         history["train_loss"].append(tl); history["val_loss"].append(vl)
         history["train_acc"].append(tacc); history["val_acc"].append(vacc)
         print(f"[{day_json_path.stem}][{backbone_key}][P1][{epoch:02d}][bs={train_bs}/{val_bs}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
-
-        # compute alt metrics
-        try: v_auroc = float(roc_auc_score(vtrues, vprobs))
-        except: v_auroc = -np.inf
-        v_f1 = float(f1_score(vtrues, vpreds_bin))
-
-        # select metric
-        v_score = {"acc": vacc, "auroc": v_auroc, "f1": v_f1}[select_metric]
-
-        if v_score > best_acc:
-            best_acc = v_score
+        if vacc > best_acc:
+            best_acc = vacc
             torch.save(model.state_dict(), model_path)
-        if es.step(v_score):
+        if es.step(vacc):
             break
 
     # Phase 2 — unfreeze partial backbone
@@ -440,25 +430,15 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
     es = EarlyStopping(patience=30)
     for epoch in range(300):
-        tl, tacc, _, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask)
-        vl, vacc, vpreds_bin, vtrues, vprobs = epoch_loop(model, val_loader, opt, class_weights, train=False, use_mask=use_mask)
-
+        tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask)
+        vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=use_mask)
         history["train_loss"].append(tl); history["val_loss"].append(vl)
         history["train_acc"].append(tacc); history["val_acc"].append(vacc)
         print(f"[{day_json_path.stem}][{backbone_key}][P2][{epoch:03d}][bs={train_bs}/{val_bs}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
-
-        # compute alt metrics
-        try: v_auroc = float(roc_auc_score(vtrues, vprobs))
-        except: v_auroc = -np.inf
-        v_f1 = float(f1_score(vtrues, vpreds_bin))
-
-        # select metric
-        v_score = {"acc": vacc, "auroc": v_auroc, "f1": v_f1}[select_metric]
-
-        if v_score > best_acc:
-            best_acc = v_score
+        if vacc > best_acc:
+            best_acc = vacc
             torch.save(model.state_dict(), model_path)
-        if es.step(v_score):
+        if es.step(vacc):
             break
 
     # Save per-day training curves
@@ -570,14 +550,7 @@ def main():
         default="img_path",
         help="Which JSON field to use as the primary image input",
     )
-    parser.add_argument(
-    "--select-metric",
-    choices=["acc", "auroc", "f1"],
-    default="acc",
-    help="Validation metric used for checkpointing & early stopping (default: acc)",
-    )   
     args = parser.parse_args()
-    select_metric = str(args.select_metric)
 
     out_dir = Path(args.outdir); out_dir.mkdir(parents=True, exist_ok=True)
     data_dir = Path(args.data_dir)

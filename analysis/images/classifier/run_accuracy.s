@@ -3,14 +3,14 @@
 #SBATCH --partition=general
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=32G
-#SBATCH --time=02:00:00
+#SBATCH --time=12:00:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 
 set -euo pipefail
 
 # ====== adjust these paths ======
-PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY
+PROJ_ROOT=/net/scratch/jiaweizhang/2025-promega-mini-test
 PY=${PROJ_ROOT}/analysis/images/classifier/train_model_accuracy.py
 DATA_DIR=${PROJ_ROOT}/analysis/images/classifier/data/preprocessed/512x384/majority
 CONDA_PREFIX=/net/projects2/promega                           # conda env path (same you used before)
@@ -30,14 +30,10 @@ echo "Running train_model_accuracy.py"
 echo "DATA_DIR=${DATA_DIR}"
 
 # Run the script (uses simple defaults from the python file)
-cd "${PROJ_ROOT}"
-echo "Current directory: $(pwd)"
-echo "Python script: ${PY}"
-echo "Data dir: ${DATA_DIR}"
-ls -la "${PY}"
-
-# Use python directly from conda environment
-export PYTHONPATH=.
-"${CONDA_PREFIX}/bin/python" -u "${PY}" --data_dir "${DATA_DIR}" --batch-size 16 --val-frac 0.10 --test-frac 0.10
+PYTHONPATH=. conda run -p "${CONDA_PREFIX}" python "${PY}" \
+  --data_dir "${DATA_DIR}" \
+  --batch-size 16 \
+  --val-frac 0.10 \
+  --test-frac 0.10
 
 echo "Done."
