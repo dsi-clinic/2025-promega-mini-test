@@ -1,0 +1,48 @@
+{
+  "per_day_test_brier": {
+    "Dy3": 0.26108697056770325,
+    "Dy6": 0.18510180711746216,
+    "Dy8": 0.26096808910369873,
+    "Dy10": 0.28529247641563416,
+    "Dy13": 0.3058212995529175,
+    "Dy15": 0.18459413945674896,
+    "Dy17": 0.11114423722028732,
+    "Dy20_5": 0.10530132800340652,
+    "Dy24": 0.10853609442710876,
+    "Dy28": 0.09232644736766815,
+    "Dy30": 0.17830075323581696
+  },
+  "overall_best": {
+    "day": "Dy28",
+    "day_no": 28.0,
+    "backbone_key": "resnet",
+    "test_brier": 0.09232644736766815,
+    "test_rmse": 0.3038526773452759,
+    "test_corr": 0.7669569253921509,
+    "acc@0.5": 0.8888888888888888,
+    "f1@0.5": 0.9230769230769231,
+    "acc@t*": 0.8888888888888888,
+    "f1@t*": 0.9230769230769231,
+    "bal_acc@t*": 0.8486842105263157,
+    "selection_val_brier": 0.0070869275368750095,
+    "threshold_method": "max_f1",
+    "chosen_threshold": 0.434
+  },
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "split_fractions": {
+    "train": 0.8,
+    "val": 0.1,
+    "test": 0.1
+  },
+  "settings": {
+    "min_votes": 1,
+    "weight_by_votes": false,
+    "lr1": 0.001,
+    "lr2": 0.0001,
+    "patience1": 20,
+    "patience2": 30,
+    "threshold_method": "max_f1",
+    "min_precision": null
+  }
+}

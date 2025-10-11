@@ -1,0 +1,19 @@
+{
+  "day": "Dy10",
+  "day_no": 10,
+  "split": "test",
+  "accuracy": 0.6206896551724138,
+  "f1": 0.7441860465116279,
+  "roc_auc": 0.5892857142857143,
+  "pr_auc": 0.8130227546014297,
+  "val_accuracy_for_selection": 0.7931034482758621,
+  "val_n": 29,
+  "test_n": 29,
+  "actual_good": 21,
+  "predicted_good": 22,
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "backbone_key": "resnet",
+  "input_key": "overlay_path",
+  "use_mask": true
+}

@@ -1,0 +1,67 @@
+{
+  "per_day_test_accuracy": {
+    "Dy3": 0.7586206896551724,
+    "Dy6": 0.7586206896551724,
+    "Dy8": 0.6206896551724138,
+    "Dy10": 0.7857142857142857,
+    "Dy13": 0.7241379310344828,
+    "Dy15": 0.6206896551724138,
+    "Dy17": 0.7586206896551724,
+    "Dy20_5": 0.7931034482758621,
+    "Dy24": 0.6206896551724138,
+    "Dy28": 0.8275862068965517,
+    "Dy30": 0.896551724137931
+  },
+  "overall_best": {
+    "day": "Dy30",
+    "day_no": 30,
+    "backbone_key": "vit",
+    "test_accuracy": 0.896551724137931,
+    "test_f1": 0.9333333333333333,
+    "selection_val_accuracy": 0.896551724137931
+  },
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "split_fractions": {
+    "train": 0.8,
+    "val": 0.1,
+    "test": 0.1
+  },
+  "augment_level": "geom_photo",
+  "duplicate_train_hflip": true,
+  "geom_cfg": {
+    "rotation_degrees": 15.0,
+    "rrc_scale": [
+      0.9,
+      1.1
+    ],
+    "rrc_ratio": [
+      1.3333333333333333,
+      1.3333333333333333
+    ],
+    "affine_degrees": 5.0,
+    "affine_translate": [
+      0.02,
+      0.02
+    ],
+    "affine_scale": [
+      0.98,
+      1.02
+    ]
+  },
+  "photo_cfg": {
+    "gaussian_noise_std": 0.01
+  },
+  "norm_mean": [
+    0.5,
+    0.5,
+    0.5
+  ],
+  "norm_std": [
+    0.5,
+    0.5,
+    0.5
+  ],
+  "data_dir": "/net/scratch/jiaweizhang/2025-promega-mini-test/analysis/images/classifier/data/preprocessed/512x384/majority",
+  "out_root": "/net/scratch/jiaweizhang/2025-promega-mini-test/analysis/images/classifier/organoid_cls/v1_geom_photo_dup"
+}
