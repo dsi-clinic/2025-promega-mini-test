@@ -1,9 +1,10 @@
 """
-Dataset class for loading organoid time series data
+Dataset class for loading organoid time series data WITH MASKS
 """
 import sys
 from pathlib import Path
 
+# Add project root to path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
@@ -13,28 +14,29 @@ from torch.utils.data import Dataset
 from skimage.io import imread
 import numpy as np
 
-
 class OrganoidTimeSeriesDataset(Dataset):
     """
-    Loads organoid image sequences and labels for CNN-LSTM training
+    Loads organoid image sequences WITH MASKS for CNN-LSTM training
     
     Each sample is:
-    - Input: Sequence of 11 images (Days 3, 6, 8, 10, 13, 15, 17, 20.5, 24, 28, 30)
+    - Input: Sequence of 11 images (Days 3-30), each with 4 channels (RGB + Mask)
     - Label: Binary (1=Good/Acceptable, 0=Bad/Not Acceptable)
     """
     
-    def __init__(self, organoid_ids, series_metadata, data, transform=None):
+    def __init__(self, organoid_ids, series_metadata, data, transform=None, use_masks=True):
         """
         Args:
             organoid_ids: List of organoid IDs to include in this dataset
             series_metadata: Dict mapping organoid_id -> temporal info
-            data: Dict with all entry data (complete_series_data_no_blanks.json)
+            data: Dict with all entry data
             transform: Optional image transformations
+            use_masks: Whether to load and use masks (4 channels) or just RGB (3 channels)
         """
         self.organoid_ids = organoid_ids
         self.series_metadata = series_metadata
         self.data = data
         self.transform = transform
+        self.use_masks = use_masks
     
     def __len__(self):
         return len(self.organoid_ids)
@@ -63,10 +65,10 @@ class OrganoidTimeSeriesDataset(Dataset):
     
     def __getitem__(self, idx):
         """
-        Load one organoid sequence
+        Load one organoid sequence WITH MASKS
         
         Returns:
-            images: Tensor of shape (11, 3, H, W) - 11 timepoints, RGB, Height, Width
+            images: Tensor of shape (11, 4, H, W) - 11 timepoints, RGBM (4 channels), Height, Width
             label: Tensor with single value (0 or 1)
         """
         organoid_id = self.organoid_ids[idx]
@@ -74,7 +76,7 @@ class OrganoidTimeSeriesDataset(Dataset):
         # Get all entry keys for this organoid (in temporal order)
         entry_keys = self.series_metadata[organoid_id]['entry_keys']
         
-        # Load all images in the sequence
+        # Load all images and masks in the sequence
         images = []
         for key in entry_keys:
             entry = self.data[key]
@@ -89,6 +91,25 @@ class OrganoidTimeSeriesDataset(Dataset):
             if len(img.shape) == 2:
                 img = np.stack([img]*3, axis=-1)
             
+            if self.use_masks:
+                # Load mask
+                mask_path = entry['lstm_processed'].get('mask_path')
+                if mask_path and Path(mask_path).exists():
+                    mask = imread(mask_path)
+                    
+                    # Ensure mask is 2D
+                    if len(mask.shape) == 3:
+                        mask = mask[:, :, 0]  # Take first channel if RGB
+                    
+                    # Add channel dimension
+                    mask = mask[:, :, np.newaxis]  # (H, W, 1)
+                else:
+                    # No mask available, use zeros
+                    mask = np.zeros((img.shape[0], img.shape[1], 1), dtype=img.dtype)
+                
+                # Concatenate RGB + Mask = 4 channels
+                img = np.concatenate([img, mask], axis=-1)  # (H, W, 4)
+            
             # Normalize to [0, 1]
             img = img.astype(np.float32) / 255.0
             
@@ -99,8 +120,8 @@ class OrganoidTimeSeriesDataset(Dataset):
             images.append(img)
         
         # Stack into sequence: (T, H, W, C) -> (T, C, H, W)
-        sequence = np.stack(images)  # (11, H, W, 3)
-        sequence = np.transpose(sequence, (0, 3, 1, 2))  # (11, 3, H, W)
+        sequence = np.stack(images)  # (11, H, W, 4) or (11, H, W, 3)
+        sequence = np.transpose(sequence, (0, 3, 1, 2))  # (11, 4, H, W) or (11, 3, H, W)
         
         # Get label from final timepoint (Day 30)
         final_entry = self.data[entry_keys[-1]]
