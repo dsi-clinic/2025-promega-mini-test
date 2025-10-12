@@ -94,37 +94,11 @@ def analyze_target_dimension_distribution(data, target_um_per_px):
     
     return widths, heights
 
-def fill_black_boxes(image):
-    """
-    Fill pure black pixels (stitching artifacts) with background-like values
-    Uses inpainting to fill based on surrounding pixels
-    """
-    # Create mask of pure black pixels
-    if len(image.shape) == 3:
-        # RGB image - black is (0, 0, 0)
-        black_mask = np.all(image == 0, axis=-1).astype(np.uint8)
-    else:
-        # Grayscale - black is 0
-        black_mask = (image == 0).astype(np.uint8)
-    
-    # If no black pixels, return original
-    if not black_mask.any():
-        return image
-    
-    # Use OpenCV inpainting to fill black regions
-    # This intelligently fills based on surrounding pixels
-    if len(image.shape) == 3:
-        filled = cv2.inpaint(image, black_mask, inpaintRadius=5, flags=cv2.INPAINT_TELEA)
-    else:
-        filled = cv2.inpaint(image, black_mask, inpaintRadius=5, flags=cv2.INPAINT_TELEA)
-    
-    return filled
+
 
 def pad_to_square(image, target_size, is_mask=False):
     """
-    Pad image to square dimensions, centering the content
-    Uses edge extrapolation for images (natural background)
-    Uses black (0) for masks
+    Pad image to square dimensions with smoothed edge extrapolation
     """
     if len(image.shape) == 2:
         h, w = image.shape
@@ -132,7 +106,6 @@ def pad_to_square(image, target_size, is_mask=False):
     else:
         h, w, channels = image.shape
     
-    # Calculate padding amounts
     pad_h = max(0, target_size - h)
     pad_w = max(0, target_size - w)
     
@@ -142,30 +115,55 @@ def pad_to_square(image, target_size, is_mask=False):
     pad_right = pad_w - pad_left
     
     if is_mask:
-        # Masks: use constant black (0)
-        pad_value = 0
+        # Masks: black padding
         if channels is None:
             padded = np.pad(image, 
                            ((pad_top, pad_bottom), (pad_left, pad_right)),
-                           mode='constant', constant_values=pad_value)
+                           mode='constant', constant_values=0)
         else:
             padded = np.pad(image,
                            ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0)),
-                           mode='constant', constant_values=pad_value)
+                           mode='constant', constant_values=0)
     else:
-        # Images: use edge extrapolation (repeats edge pixels)
-        # This creates natural-looking background extension
+        # Images: Stronger smoothing on edges before padding
+        smoothed = image.copy()
+        
+        # Increased blur width and kernel size
+        blur_width = min(20, h // 4, w // 4)  # Increased from 10 to 20
+        kernel_size = 51  # Increased from 5 to 11 (must be odd)
+        
+        if blur_width > 0:
+            # Top edge - stronger blur
+            smoothed[:blur_width, :] = cv2.GaussianBlur(
+                smoothed[:blur_width, :], (kernel_size, kernel_size), sigmaX=15, sigmaY=15
+            )
+            # Bottom edge
+            smoothed[-blur_width:, :] = cv2.GaussianBlur(
+                smoothed[-blur_width:, :], (kernel_size, kernel_size), sigmaX=15, sigmaY=15
+            )
+            # Left edge
+            smoothed[:, :blur_width] = cv2.GaussianBlur(
+                smoothed[:, :blur_width], (kernel_size, kernel_size), sigmaX=15, sigmaY=15
+            )
+            # Right edge
+            smoothed[:, -blur_width:] = cv2.GaussianBlur(
+                smoothed[:, -blur_width:], (kernel_size, kernel_size), sigmaX=15, sigmaY=15
+            )
+        
+        # Pad with edge mode
         if channels is None:
-            padded = np.pad(image,
+            padded = np.pad(smoothed,
                            ((pad_top, pad_bottom), (pad_left, pad_right)),
                            mode='edge')
         else:
-            padded = np.pad(image,
+            padded = np.pad(smoothed,
                            ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0)),
                            mode='edge')
     
     return padded
 
+
+    
 def resize_and_pad(image, target_width, target_height, target_size, is_mask=False):
     """
     Resize image to target dimensions and pad to square
@@ -207,10 +205,120 @@ def is_stitched_image(entry):
     # Check for 'stitch' but NOT 'nostitch'
     return 'stitch' in main_id and 'nostitch' not in main_id
 
+def fill_black_boxes(image, verbose=False):
+    """
+    Fill black pixels (stitching artifacts) with background-like values
+    """
+    # Convert uint16 to uint8 if needed
+    if image.dtype == np.uint16:
+        image_8bit = (image / 65535.0 * 255.0).astype(np.uint8)
+        was_uint16 = True
+    else:
+        image_8bit = image.astype(np.uint8)
+        was_uint16 = False
+    
+    # Create mask for black/near-black pixels
+    if len(image_8bit.shape) == 3:
+        black_mask = np.all(image_8bit < 5, axis=-1).astype(np.uint8)
+    else:
+        black_mask = (image_8bit < 5).astype(np.uint8)
+    
+    black_pixel_count = np.sum(black_mask > 0)
+    
+    if verbose:
+        print(f"  Black pixels found: {black_pixel_count}")
+    
+    # If no black pixels, return original
+    if black_pixel_count == 0:
+        return image, False
+    
+    # Morphological cleanup
+    kernel = np.ones((3, 3), np.uint8)
+    black_mask = cv2.morphologyEx(black_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+    
+    # Find connected components
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(black_mask, connectivity=8)
+    
+    if num_labels > 1:
+        max_area = np.max(stats[1:, cv2.CC_STAT_AREA])
+        inpaint_radius = int(min(50, max(5, np.sqrt(max_area))))
+        if verbose:
+            print(f"  Largest black region: {max_area} pixels, inpaint radius: {inpaint_radius}")
+    else:
+        inpaint_radius = 5
+    
+    # Inpaint
+    if len(image_8bit.shape) == 3:
+        filled_8bit = cv2.inpaint(image_8bit, black_mask, 
+                                  inpaintRadius=inpaint_radius, 
+                                  flags=cv2.INPAINT_TELEA)
+    else:
+        filled_8bit = cv2.inpaint(image_8bit, black_mask, 
+                                  inpaintRadius=inpaint_radius, 
+                                  flags=cv2.INPAINT_TELEA)
+    
+    # Convert back
+    if was_uint16:
+        filled = (filled_8bit.astype(np.float32) / 255.0 * 65535.0).astype(np.uint16)
+    else:
+        filled = filled_8bit
+    
+    return filled, True
+
+
+def remove_scale_bar(image, verbose=False):
+    """
+    Detect and remove red scale bars
+    """
+    if len(image.shape) != 3:
+        return image, False  # Grayscale, no scale bars
+    
+    # Convert to uint8 if needed
+    if image.dtype == np.uint16:
+        image_8bit = (image / 65535.0 * 255.0).astype(np.uint8)
+        was_uint16 = True
+    else:
+        image_8bit = image.astype(np.uint8)
+        was_uint16 = False
+    
+    hsv = cv2.cvtColor(image_8bit, cv2.COLOR_RGB2HSV)
+    
+    # Detect red
+    lower_red1 = np.array([0, 100, 100])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 100, 100])
+    upper_red2 = np.array([180, 255, 255])
+    
+    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    red_mask = cv2.bitwise_or(mask1, mask2)
+    
+    red_pixel_count = np.sum(red_mask > 0)
+    
+    if verbose:
+        print(f"  Red pixels found: {red_pixel_count}")
+    
+    if red_pixel_count == 0:
+        return image, False
+    
+    # Dilate to catch full scale bar
+    kernel = np.ones((3, 3), np.uint8)
+    red_mask = cv2.dilate(red_mask, kernel, iterations=2)
+    
+    # Inpaint
+    if was_uint16:
+        # Inpaint on 8bit then convert back
+        filled_8bit = cv2.inpaint(image_8bit, red_mask, inpaintRadius=7, flags=cv2.INPAINT_TELEA)
+        filled = (filled_8bit.astype(np.float32) / 255.0 * 65535.0).astype(np.uint16)
+    else:
+        filled = cv2.inpaint(image_8bit, red_mask, inpaintRadius=7, flags=cv2.INPAINT_TELEA)
+    
+    return filled, True
+
+
 def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, stats, save_debug=False):
     """
-    Process a single entry: load raw image and mask, resize, pad, save
-    Returns lstm_processed metadata to add to entry
+    Process with verbose debugging for first few entries
     """
     try:
         # Get metadata
@@ -247,15 +355,29 @@ def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, 
                 mask_path = None
         
         # Load raw image
+                # Load raw image
         raw_image = imread(str(raw_image_path))
         if raw_image is None or raw_image.size == 0:
             stats['errors'].append(f"{key}: Could not read raw image")
             return None
 
-        # FILL BLACK BOXES - ONLY for stitched images
-        if is_stitched_image(entry):
-            raw_image = fill_black_boxes(raw_image)
-            stats['stitched_processed'] = stats.get('stitched_processed', 0) + 1
+        verbose = stats['processed'] < 5  # Verbose for first 5
+
+        # STEP 1: Fill black boxes - ONLY for stitched
+        is_stitched = is_stitched_image(entry)
+        if verbose:
+            print(f"\n{key}:")
+            print(f"  Is stitched: {is_stitched}")
+        
+        if is_stitched:
+            raw_image, filled = fill_black_boxes(raw_image, verbose=verbose)
+            if filled:
+                stats['stitched_processed'] = stats.get('stitched_processed', 0) + 1
+        
+        # STEP 2: Remove scale bars
+        raw_image, removed = remove_scale_bar(raw_image, verbose=verbose)
+        if removed:
+            stats['scale_bars_removed'] = stats.get('scale_bars_removed', 0) + 1
         
         orig_height, orig_width = raw_image.shape[:2]
         
@@ -368,12 +490,23 @@ def main():
     TARGET_UM_PER_PX = args.target_um_per_px
     TARGET_SIZE = args.target_size
     
+    # INITIALIZE STATS EARLY - BEFORE ANY ERRORS CAN OCCUR
+    stats = {
+        'processed': 0,
+        'errors': [],
+        'warnings': [],
+        'stitched_processed': 0,
+        'scale_bars_processed': 0,
+        'black_pixels_filled': 0
+    }
+    
     print(f"\n{'='*70}")
     print("LSTM IMAGE PREPROCESSING")
     print(f"{'='*70}")
     print(f"Target physical scale: {TARGET_UM_PER_PX} um/px")
     print(f"Target dimensions: {TARGET_SIZE}×{TARGET_SIZE} px")
-    print(f"Padding: WHITE (255) for images, BLACK (0) for masks")
+    print(f"Padding: Edge extrapolation with smoothing for images, BLACK (0) for masks")
+    
     
     # Load data
     data_path = OUTPUT_FOLDER / 'complete_series_data_no_blanks.json'
@@ -480,9 +613,9 @@ def main():
     print("PROCESSING SUMMARY")
     print(f"{'='*70}")
     print(f"Successfully processed: {stats['processed']} / {len(data)}")
+    print(f"  Stitched images with black boxes filled: {stats.get('stitched_processed', 0)}")
+    print(f"  Images with scale bars removed: {stats.get('scale_bars_removed', 0)}")
     print(f"Errors: {len(stats['errors'])}")
-    print(f"Warnings: {len(stats['warnings'])}")
-    
     if stats['errors']:
         print(f"\nFirst 10 errors:")
         for error in stats['errors'][:10]:
