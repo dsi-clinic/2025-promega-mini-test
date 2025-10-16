@@ -73,15 +73,21 @@ def compute_global_mean_from_ids(organoid_ids, series_metadata, data):
 
 
 class OrganoidTimeSeriesDataset(Dataset):
+    """
+    Loads organoid image sequences WITH MEAN-FILL MASK for CNN-LSTM training.
+    """
+
     def __init__(self, organoid_ids, series_metadata, data, 
                  transform=None, use_clipping_mask=True, 
-                 global_mean=None):
+                 global_mean=None,
+                 max_day=None):
         self.organoid_ids = organoid_ids
         self.series_metadata = series_metadata
         self.data = data
         self.transform = transform
         self.use_clipping_mask = use_clipping_mask
         self.global_mean = global_mean
+        self.max_day = max_day
         
     def __len__(self):
         return len(self.organoid_ids)
@@ -113,7 +119,7 @@ class OrganoidTimeSeriesDataset(Dataset):
         
         # Use global mean if provided, otherwise per-image mean
         if self.global_mean is not None:
-            mean_rgb = (self.global_mean * 255.0)[None, None, :]  # ← FIX: Scale to [0, 255]!
+            mean_rgb = (self.global_mean * 255.0)[None, None, :]
         else:
             mean_rgb = img.reshape(-1, 3).mean(axis=0)[None, None, :]
         
@@ -122,9 +128,14 @@ class OrganoidTimeSeriesDataset(Dataset):
     def __getitem__(self, idx):
         organoid_id = self.organoid_ids[idx]
         entry_keys = self.series_metadata[organoid_id]['entry_keys']
+        days = self.series_metadata[organoid_id]['days']
         images = []
 
-        for key in entry_keys:
+        for i, key in enumerate(entry_keys):
+            # Filter by max_day if specified
+            if self.max_day is not None and days[i] >= (self.max_day + 1):
+                break
+            
             entry = self.data[key]
             img_path = entry['lstm_processed']['image_path']
             img = imread(img_path)
