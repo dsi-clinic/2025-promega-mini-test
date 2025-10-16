@@ -9,7 +9,7 @@
 set -euo pipefail
 
 # ====== adjust these paths ======
-PROJ_ROOT=/home/tonyluo/minitest
+PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY
 PY=${PROJ_ROOT}/analysis/surveys/classifier/simple_classifier.py
 CONDA_PREFIX=/net/projects2/promega
 # ================================
@@ -23,6 +23,6 @@ echo "Date: $(date)"
 
 # Run the survey classifier
 export PYTHONPATH=.
-"${CONDA_PREFIX}/bin/python" "${PY}"
+"${CONDA_PREFIX}/bin/python" -u "${PY}"
 
 echo "Survey classifier completed successfully"

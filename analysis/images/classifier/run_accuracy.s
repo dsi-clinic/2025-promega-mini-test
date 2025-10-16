@@ -10,7 +10,7 @@
 set -euo pipefail
 
 # ====== adjust these paths ======
-PROJ_ROOT=/home/tonyluo/minitest
+PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY
 PY=${PROJ_ROOT}/analysis/images/classifier/train_model_accuracy.py
 DATA_DIR=${PROJ_ROOT}/analysis/images/classifier/data/preprocessed/512x384/majority
 CONDA_PREFIX=/net/projects2/promega                           # conda env path (same you used before)
@@ -38,6 +38,6 @@ ls -la "${PY}"
 
 # Use python directly from conda environment
 export PYTHONPATH=.
-"${CONDA_PREFIX}/bin/python" "${PY}" --data_dir "${DATA_DIR}" --batch-size 16 --val-frac 0.10 --test-frac 0.10
+"${CONDA_PREFIX}/bin/python" -u "${PY}" --data_dir "${DATA_DIR}" --batch-size 16 --val-frac 0.10 --test-frac 0.10
 
 echo "Done."
