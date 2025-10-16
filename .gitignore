@@ -202,3 +202,13 @@ metrics_*.json
 
 # Temporary training files
 train_model_accuracy_mini.py
+
+# Trained model files (large binary files)
+*.h5
+*.keras
+
+# Training output images
+training_*.png
+
+# Test files
+test_gpu.py

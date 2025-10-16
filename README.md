@@ -126,7 +126,7 @@ tail -f logs/soft-label_<JOBID>.out
 The image classifier will train models for each day (Dy3, Dy6, Dy8, etc.) sequentially.
 Results are saved in `outputs_512x384_Regular_image_with_train_augment_with_auroc/vit/DyXX/`
 
-#### 3b. Survey Classifier
+#### 3b. Survey Classifier (GPU Required)
 ```bash
 # Navigate to survey classifier directory  
 cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/surveys/classifier
@@ -139,9 +139,18 @@ squeue -u $USER
 cat logs/survey_<JOBID>.out
 ```
 
-**Note**: If you need to customize paths for your setup, edit the SLURM scripts:
-- `analysis/images/classifier/run_accuracy.s` - Update `PROJ_ROOT` variable
-- `analysis/surveys/classifier/run_survey_classifier.s` - Update `PROJ_ROOT` variable
+The survey classifier trains a ResNet50V2+CNN dual-input model on Day 30 organoids using survey evaluation labels.
+Results include trained model (`.h5`), training curves, and confusion matrix.
+
+**Recent Updates** (Oct 2025):
+- Now uses `all_data.json` as single data source (no separate mapping files needed)
+- Computes labels directly from survey evaluations in `all_data.json`
+- GPU-compatible metrics (AUC, Precision, Recall)
+- See `analysis/surveys/classifier/CHANGES.md` for detailed changes
+
+**Note**: Before submitting jobs, update the SLURM scripts:
+- `analysis/images/classifier/run_accuracy.s` - Update `PROJ_ROOT` variable (line 13)
+- `analysis/surveys/classifier/run_survey_classifier.s` - Update `PROJ_ROOT` variable (line 13)
 
 ## Configuration System
 

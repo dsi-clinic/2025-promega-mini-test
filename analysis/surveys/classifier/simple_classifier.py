@@ -58,62 +58,91 @@ def normalize_key(key):
     key = key.upper().replace('DY', 'Dy')
     return key
 
-# --- 1. Load the labeled data for labels ---
+# --- 1. Load all_data.json (unified data source) ---
+print("\n--- Loading data from all_data.json ---")
+with open(ALL_DATA_JSON) as f:
+    all_data = json.load(f)
 
-# FOR COMPLETE AGREEMENTS (more accurate): 'complete_agreement_organoids.json':
+# --- 2. Helper function to compute majority label from evaluations ---
+def compute_majority_label(evaluations, min_votes=4):
+    """Compute majority label from survey evaluations."""
+    if not evaluations or len(evaluations) != 5:
+        return None
+    
+    votes = {}
+    for eval_data in evaluations:
+        evaluation = eval_data.get('evaluation', '')
+        if evaluation:
+            votes[evaluation] = votes.get(evaluation, 0) + 1
+    
+    acceptable = votes.get('Acceptable', 0)
+    not_acceptable = votes.get('Not Acceptable', 0)
+    
+    # Use majority threshold (at least 4 out of 5)
+    if acceptable >= min_votes:
+        return 'Acceptable'
+    elif not_acceptable >= min_votes:
+        return 'Not Acceptable'
+    else:
+        return None  # Skip ambiguous cases
 
-# FOR STRONG AGREEMENTS (more data): 'labeled_organoid_strong_agreement.json':
-
-with open('analysis/surveys/agreement_aggregations/labeled_organoid_majority_agreement.json') as f:
-    labeled_data = json.load(f)
-
-
-modified_labeled_data = {}
-for key, data in labeled_data.items():
-    # Use regex to find and replace the day number (e.g., DyXX) in the key
-    new_key = OrganoidPatterns.DAY_EXTRACT.sub(TARGET_DAY, key)
-    modified_labeled_data[new_key] = data
-
-labeled_data = modified_labeled_data # Overwrite with the modified data
-
-
-# Create a dictionary to map normalized image keys to labels
-key_to_label = {normalize_key(key): data['label'] for key, data in labeled_data.items()}
-
-# --- 2. Load the new mapping data and combine with old labels ---
+# --- 3. Extract Dy30 data with survey from all_data.json ---
 all_new_data = {}
+matched_count = 0
+missing_processed = 0
+ambiguous_labels = 0
+no_evaluation = 0
 
-# Extract day number from TARGET_DAY (e.g., 'Dy30' -> 30)
-target_day_num = int(TARGET_DAY.replace('Dy', ''))
+for key, value in all_data.items():
+    # Filter for Dy30 records with survey data
+    if value.get('dayID') != TARGET_DAY:
+        continue
+    
+    if 'survey' not in value:
+        continue
+    
+    # Check if processed image data exists
+    if 'processed' not in value:
+        missing_processed += 1
+        continue
+    
+    # Get evaluations from survey data
+    evaluations = value['survey'].get('evaluations', [])
+    if not evaluations:
+        no_evaluation += 1
+        continue
+    
+    # Compute label from evaluations
+    label = compute_majority_label(evaluations, min_votes=4)
+    if label is None:
+        ambiguous_labels += 1
+        continue
+    
+    # Add to dataset
+    all_new_data[key] = {
+        'img_path': value['processed']['img_path'],
+        'seg_map_path': value['processed']['mask_path'],
+        'label': label
+    }
+    matched_count += 1
 
-for batch_num in [1, 2, 3]:
-    mapping_paths = get_mapping_paths(batch_num, target_day_num)
-    for path in mapping_paths:
-        try:
-            with open(path) as f:
-                new_data = json.load(f)
-                # Process each entry in the new mapping
-                for key, value in new_data.items():
-                    # Normalize the new key for matching
-                    normalized_new_key = normalize_key(key)
-                    # Only keep entries that exist in the old labeled data
-                    if normalized_new_key in key_to_label:
-                        all_new_data[key] = {
-                            'img_path': value['img_path'],
-                            'seg_map_path': value['mask_path'],
-                            'label': key_to_label[normalized_new_key]
-                        }
-        except FileNotFoundError:
-            print(f"Warning: Mapping file not found: {path}")
-            continue
-        except json.JSONDecodeError:
-            print(f"Warning: Could not decode JSON from: {path}")
-            continue
+print(f"✓ Loaded {len(all_data)} total records from all_data.json")
+print(f"✓ Found {matched_count} Dy30 records with clear majority labels (4+ votes)")
+if missing_processed > 0:
+    print(f"⚠ Skipped {missing_processed} records without processed image paths")
+if ambiguous_labels > 0:
+    print(f"⚠ Skipped {ambiguous_labels} records with ambiguous labels (no clear majority)")
+if no_evaluation > 0:
+    print(f"⚠ Skipped {no_evaluation} records without evaluation data")
 
 # Check if we have any data
 if not all_new_data:
-    print("Error: No matching data found between old and new mappings.")
+    print("\n❌ Error: No matching data found.")
+    print("   - Check that all_data.json has survey data for Dy30")
+    print("   - Check that evaluations have clear majority votes")
     exit()
+
+print(f"✓ Successfully prepared {len(all_new_data)} organoids for training")
 
 # --- 3. Prepare data for training ---
 image_paths = []
@@ -366,8 +395,17 @@ output_layer = Dense(1, activation='sigmoid')(dropout_layer)
 # Create the final model with two inputs and one output
 model = keras.Model(inputs=[input_image, input_mask], outputs=output_layer)
 
-# Compile the model
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[weighted_f1_score_keras])
+# Compile the model with GPU-compatible metrics
+model.compile(
+    optimizer='adam', 
+    loss='binary_crossentropy', 
+    metrics=[
+        'accuracy',
+        tf.keras.metrics.AUC(name='auc'),
+        tf.keras.metrics.Precision(name='precision'),
+        tf.keras.metrics.Recall(name='recall')
+    ]
+)
 
 print("\n--- Initial Model Summary (Base Frozen) ---")
 model.summary()
@@ -375,7 +413,7 @@ print("------------------------------------------")
 
 # --- 8. Define Early Stopping Callback ---
 early_stopping = EarlyStopping(
-    monitor='val_weighted_f1_score_keras',
+    monitor='val_auc',
     patience=20, # Increased patience a bit
     verbose=1,
     mode='max',
@@ -407,7 +445,12 @@ for layer in base_model.layers[-10:]: # Unfreeze last 10 layers, for example
 model.compile(
     optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
     loss='binary_crossentropy',
-    metrics=[weighted_f1_score_keras]
+    metrics=[
+        'accuracy',
+        tf.keras.metrics.AUC(name='auc'),
+        tf.keras.metrics.Precision(name='precision'),
+        tf.keras.metrics.Recall(name='recall')
+    ]
 )
 
 print("\n--- Model Summary (Base Unfrozen, Fine-tuning LR) ---")
@@ -417,7 +460,7 @@ print("----------------------------------------------------")
 epochs_phase2 = 150 # More epochs for fine-tuning, total epochs will be epochs_phase1 + epochs_phase2
 # Reset early stopping for the second phase to allow more training
 early_stopping_fine_tune = EarlyStopping(
-    monitor='val_weighted_f1_score_keras',
+    monitor='val_auc',
     patience=30, # Increased patience for fine-tuning
     verbose=1,
     mode='max',
@@ -433,7 +476,7 @@ history_fine_tune = model.fit(
 )
 print("----------------------------------------------------------")
 
-metrics_to_combine = ['loss', 'val_loss', 'weighted_f1_score_keras', 'val_weighted_f1_score_keras']
+metrics_to_combine = ['loss', 'val_loss', 'accuracy', 'val_accuracy', 'auc', 'val_auc', 'precision', 'val_precision', 'recall', 'val_recall']
 
 # Combine histories for plotting
 for key in metrics_to_combine:
@@ -445,9 +488,13 @@ for key in metrics_to_combine:
 # --- 11. Evaluate the model ---
 # To evaluate with the dataset, we need to convert it to a format model.evaluate expects.
 # We'll use the validation dataset directly.
-loss, f1 = model.evaluate(val_dataset, verbose=0)
-print(f"\nValidation Loss (Final Model): {loss:.4f}")
-print(f"Validation F1 Score (Final Model): {f1:.4f}")
+results = model.evaluate(val_dataset, verbose=0)
+print(f"\nValidation Results (Final Model):")
+print(f"  Loss: {results[0]:.4f}")
+print(f"  Accuracy: {results[1]:.4f}")
+print(f"  AUC: {results[2]:.4f}")
+print(f"  Precision: {results[3]:.4f}")
+print(f"  Recall: {results[4]:.4f}")
 
 # Save the trained model ---
 model.save('organoid_classifier_final_model_with_augmentation.h5')
@@ -457,13 +504,13 @@ print("\nFinal model classifier saved as 'organoid_classifier_final_model_with_a
 plt.figure(figsize=(12, 4))
 
 plt.subplot(1, 2, 1)
-plt.plot(history.history['weighted_f1_score_keras'], label='Train Weighted F1 Score')
-plt.plot(history.history['val_weighted_f1_score_keras'], label='Validation Weighted F1 Score')
+plt.plot(history.history.get('auc', []), label='Train AUC')
+plt.plot(history.history.get('val_auc', []), label='Validation AUC')
 plt.xlabel('Epoch')
-plt.ylabel('F1 Score')
+plt.ylabel('AUC Score')
 plt.legend()
-plt.title('Training and Validation F1 Score')
-plt.savefig('training_f1_score_final_model_with_augmentation.png')
+plt.title('Training and Validation AUC')
+plt.savefig('training_auc_final_model_with_augmentation.png')
 
 plt.subplot(1, 2, 2)
 plt.plot(history.history['loss'], label='Train Loss')
@@ -474,7 +521,7 @@ plt.legend()
 plt.title('Training and Validation Loss')
 plt.savefig('training_loss_final_model_with_augmentation.png')
 
-print("\nTraining history plots saved as 'training_f1_score_final_model_with_augmentation.png' and 'training_loss_final_model_with_augmentation.png'")
+print("\nTraining history plots saved as 'training_auc_final_model_with_augmentation.png' and 'training_loss_final_model_with_augmentation.png'")
 
 # --- 13. Print Confusion Matrix ---
 print("\n--- Generating Confusion Matrix ---")
