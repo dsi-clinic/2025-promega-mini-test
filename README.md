@@ -69,24 +69,79 @@ flowchart TD
 
 ### 1. Environment Setup
 ```bash
-# Activate the required conda environment
-conda activate /net/projects2/promega
+# The conda environment is located at:
+/net/projects2/promega
 
-# Ensure your .env file is configured with required paths
+# You don't need to activate it manually - the SLURM scripts will use it
 ```
 
 ### 2. Generate Master Data File
 ```bash
-# From the root directory, generate all_data.json
-python file_utils/merge/merge_all_data.py
+# From the project root directory, run:
+cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY  # Replace with your actual path
+/net/projects2/promega/bin/python file_utils/merge/merge_all_data.py
+
+# This generates all_data.json with 5,168+ merged records
+# Output: /net/projects2/promega/data-analysis/output/all_data.json
 ```
 
-### 3. Run Analysis
+### ⚠️ IMPORTANT: Update Paths Before Running Analysis
+
+**Before submitting any jobs**, you must update the hardcoded paths in the SLURM scripts to match your setup:
+
+Replace `/home/tonyluo/minitest` with `/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY` in:
+
+1. **`analysis/images/classifier/run_accuracy.s`**
+   - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
+
+2. **`analysis/surveys/classifier/run_survey_classifier.s`**
+   - Line 12: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
+
+Example:
 ```bash
-# All analysis runs from root directory
-python analysis/images/classifier/train_model_accuracy.py
-python analysis/surveys/classifier/simple_classifier.py
+# If your username is jsmith and you cloned to /home/jsmith/promega-analysis
+# Change: PROJ_ROOT=/home/tonyluo/minitest
+# To:     PROJ_ROOT=/home/jsmith/promega-analysis
 ```
+
+### 3. Run Analysis on GPU Computation Nodes
+
+**Important**: Analysis must be run on computation nodes (not login nodes) using SLURM job submission.
+
+#### 3a. Image Classifier (GPU Required)
+```bash
+# Navigate to classifier directory
+cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/images/classifier
+
+# Submit the training job to SLURM
+sbatch run_accuracy.s
+
+# Monitor job status
+squeue -u $USER
+
+# Check logs
+tail -f logs/soft-label_<JOBID>.out
+```
+
+The image classifier will train models for each day (Dy3, Dy6, Dy8, etc.) sequentially.
+Results are saved in `outputs_512x384_Regular_image_with_train_augment_with_auroc/vit/DyXX/`
+
+#### 3b. Survey Classifier
+```bash
+# Navigate to survey classifier directory  
+cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/surveys/classifier
+
+# Submit the survey classifier job
+sbatch run_survey_classifier.s
+
+# Check completion
+squeue -u $USER
+cat logs/survey_<JOBID>.out
+```
+
+**Note**: If you need to customize paths for your setup, edit the SLURM scripts:
+- `analysis/images/classifier/run_accuracy.s` - Update `PROJ_ROOT` variable
+- `analysis/surveys/classifier/run_survey_classifier.s` - Update `PROJ_ROOT` variable
 
 ## Configuration System
 

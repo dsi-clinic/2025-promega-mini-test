@@ -25,9 +25,10 @@ else:
     print("TensorFlow is using the CPU.")
 
 # --- Constants ---
-PREPROCESSED_JSON_DIR = '/net/projects2/promega/data-analysis/output/processed_dataset_256x192'
+ALL_DATA_JSON = 'all_data.json'
 TARGET_SIZE = (224, 224) # Define target size as a constant
-TARGET_DAY = 0o6
+TARGET_DAY = 'Dy30'  # Focus on day 30 which has survey data
+PREPROCESSED_JSON_DIR = '/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed'
 
 # --- Helper function to get mapping paths ---
 def get_mapping_paths(batch_number, day_number=30):
@@ -63,14 +64,14 @@ def normalize_key(key):
 
 # FOR STRONG AGREEMENTS (more data): 'labeled_organoid_strong_agreement.json':
 
-with open('labeled_organoid_strong_agreement.json') as f:
+with open('analysis/surveys/agreement_aggregations/labeled_organoid_majority_agreement.json') as f:
     labeled_data = json.load(f)
 
 
 modified_labeled_data = {}
 for key, data in labeled_data.items():
     # Use regex to find and replace the day number (e.g., DyXX) in the key
-    new_key = OrganoidPatterns.DAY_EXTRACT.sub(f'Dy{TARGET_DAY:02d}', key)
+    new_key = OrganoidPatterns.DAY_EXTRACT.sub(TARGET_DAY, key)
     modified_labeled_data[new_key] = data
 
 labeled_data = modified_labeled_data # Overwrite with the modified data
@@ -82,8 +83,11 @@ key_to_label = {normalize_key(key): data['label'] for key, data in labeled_data.
 # --- 2. Load the new mapping data and combine with old labels ---
 all_new_data = {}
 
+# Extract day number from TARGET_DAY (e.g., 'Dy30' -> 30)
+target_day_num = int(TARGET_DAY.replace('Dy', ''))
+
 for batch_num in [1, 2, 3]:
-    mapping_paths = get_mapping_paths(batch_num, TARGET_DAY)
+    mapping_paths = get_mapping_paths(batch_num, target_day_num)
     for path in mapping_paths:
         try:
             with open(path) as f:
