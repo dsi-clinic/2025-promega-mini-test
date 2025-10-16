@@ -127,9 +127,24 @@ def extract_mdl_day(day_id: str) -> float:
 for raw_k, payload in tqdm(base_map.items(), desc="Merging"):
     entry = dict(payload)
     
-    # ADD THIS: Extract mdl_day from dayID
+    # Add common_key for key consistency (from old structure)
+    entry['common_key'] = raw_k
+    
+    # Extract day_num and mdl_day from dayID (from old structure)
     if 'dayID' in entry:
-        entry['mdl_day'] = extract_mdl_day(entry['dayID'])
+        day_id = entry['dayID']
+        # Extract day_num (integer day)
+        day_match = re.search(r'(\d+)', day_id)
+        if day_match:
+            entry['day_num'] = int(day_match.group(1))
+        else:
+            entry['day_num'] = None
+        # Extract mdl_day (float day with special handling)
+        entry['mdl_day'] = extract_mdl_day(day_id)
+    
+    # Debug: Check if fields are being added (only for first entry)
+    if raw_k == list(base_map.keys())[0]:
+        print(f"DEBUG: First entry fields after adding: {sorted(entry.keys())}")
 
     processed = processed_map.get(raw_k) or processed_map.get(normalized_parent_key(raw_k))
     if processed:
@@ -151,9 +166,17 @@ for raw_k, payload in tqdm(base_map.items(), desc="Merging"):
         manual_mask_count += 1
 
     combined[raw_k] = entry
+    
+    # Debug: Check final entry for first record
+    if raw_k == list(base_map.keys())[0]:
+        print(f"DEBUG: Final entry fields before sanitization: {sorted(entry.keys())}")
 # ---------- sanitize and write output ----------
 print("\nSanitizing data for JSON...")
 combined_clean = sanitize_for_json(combined)
+
+# Debug: Check first entry after sanitization
+first_key = list(combined_clean.keys())[0]
+print(f"DEBUG: First entry fields after sanitization: {sorted(combined_clean[first_key].keys())}")
 
 with open(OUTPUT_PATH, "w") as f:
     json.dump(combined_clean, f, indent=2)
