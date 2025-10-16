@@ -18,22 +18,71 @@ import numpy as np
 import cv2
 
 
-class OrganoidTimeSeriesDataset(Dataset):
-    """
-    Loads organoid image sequences WITH MEAN-FILL MASK for CNN-LSTM training.
-    Each sample is:
-      - Input: Sequence of 11 images (Days 3–30), RGB only (3 channels)
-      - Background is replaced with mean color instead of darkened or zeroed.
-      - Label: Binary (1=Good/Acceptable, 0=Bad/Not Acceptable)
-    """
+def compute_global_mean(series_metadata, data):
+    """Compute mean RGB across entire dataset"""
+    print("Computing global dataset mean...")
+    all_means = []
+    
+    for org_id in series_metadata.keys():
+        entry_keys = series_metadata[org_id]['entry_keys']
+        for key in entry_keys:
+            img_path = data[key]['lstm_processed']['image_path']
+            img = imread(img_path)
+            if img.ndim == 2:
+                img = np.stack([img] * 3, axis=-1)
+            
+            # Get mean of foreground pixels only (use mask if available)
+            mask_path = data[key]['lstm_processed'].get('mask_path')
+            if mask_path and Path(mask_path).exists():
+                mask = imread(mask_path)
+                if mask.ndim == 3:
+                    mask = mask[:, :, 0]
+                mask = (mask > 127).astype(bool)  # Binary mask
+                
+                # Mean of only foreground pixels
+                foreground = img[mask]
+                if len(foreground) > 0:
+                    all_means.append(foreground.mean(axis=0))
+    
+    global_mean = np.mean(all_means, axis=0)
+    print(f"Global mean RGB: {global_mean}")
+    return global_mean
 
-    def __init__(self, organoid_ids, series_metadata, data, transform=None, use_clipping_mask=True):
+def compute_global_mean_from_ids(organoid_ids, series_metadata, data):
+    """Compute mean RGB across all pixels in training images (simple!)"""
+    print(f"Computing global mean from {len(organoid_ids)} organoids...")
+    all_means = []
+    
+    for org_id in organoid_ids:
+        entry_keys = series_metadata[org_id]['entry_keys']
+        for key in entry_keys:
+            img_path = data[key]['lstm_processed']['image_path']
+            img = imread(img_path)
+            
+            if img.ndim == 2:
+                img = np.stack([img] * 3, axis=-1)
+            
+            # Just get mean of ENTIRE image (all pixels)
+            img_mean = img.reshape(-1, 3).mean(axis=0)
+            all_means.append(img_mean)
+    
+    # Average across all images
+    global_mean = np.mean(all_means, axis=0) / 255.0  # Normalize to [0,1]
+    print(f"Global mean RGB: {global_mean}")
+    return global_mean
+
+
+class OrganoidTimeSeriesDataset(Dataset):
+    def __init__(self, organoid_ids, series_metadata, data, 
+                 transform=None, use_clipping_mask=True, 
+                 global_mean=None):
         self.organoid_ids = organoid_ids
         self.series_metadata = series_metadata
         self.data = data
         self.transform = transform
         self.use_clipping_mask = use_clipping_mask
-
+        self.global_mean = global_mean
+        
     def __len__(self):
         return len(self.organoid_ids)
 
@@ -57,11 +106,17 @@ class OrganoidTimeSeriesDataset(Dataset):
         else:
             return None  # Tie
 
-    def apply_mean_fill(self, img, mask, blur_kernel=(5, 5)):
-        """Applies mean-fill masking with optional Gaussian blur to smooth edges."""
+    def apply_mean_fill(self, img, mask, blur_kernel=(7, 7)):
+        """Applies mean-fill masking with Gaussian blur."""
         if blur_kernel is not None:
             mask = cv2.GaussianBlur(mask, blur_kernel, 0)
-        mean_rgb = img.reshape(-1, 3).mean(axis=0)[None, None, :]
+        
+        # Use global mean if provided, otherwise per-image mean
+        if self.global_mean is not None:
+            mean_rgb = (self.global_mean * 255.0)[None, None, :]  # ← FIX: Scale to [0, 255]!
+        else:
+            mean_rgb = img.reshape(-1, 3).mean(axis=0)[None, None, :]
+        
         return img * mask[:, :, None] + mean_rgb * (1.0 - mask[:, :, None])
 
     def __getitem__(self, idx):

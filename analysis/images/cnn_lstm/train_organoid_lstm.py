@@ -20,7 +20,11 @@ import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 
 from config import OUTPUT_FOLDER
-from analysis.images.cnn_lstm.organoid_dataset import OrganoidTimeSeriesDataset, load_data_and_create_splits
+from analysis.images.cnn_lstm.organoid_dataset import (
+    OrganoidTimeSeriesDataset, 
+    load_data_and_create_splits,
+    compute_global_mean_from_ids
+)
 from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 
 # Rest of the file stays the same...
@@ -120,20 +124,39 @@ def main():
     series_metadata_path = OUTPUT_FOLDER / 'complete_series_metadata_no_blanks.json'
     data_path = OUTPUT_FOLDER / 'complete_series_data_no_blanks.json'
     
+    # After load_data_and_create_splits:
     train_ids, val_ids, test_ids, series_metadata, data = load_data_and_create_splits(
         series_metadata_path, data_path
     )
-    
-    # Create datasets
-    train_dataset = OrganoidTimeSeriesDataset(train_ids, series_metadata, data)
-    val_dataset = OrganoidTimeSeriesDataset(val_ids, series_metadata, data)
-    test_dataset = OrganoidTimeSeriesDataset(test_ids, series_metadata, data)
-    
-    # Create dataloaders
+
+    # Compute global mean from training set
+    print("\nComputing global mean from training set...")
+    global_mean = compute_global_mean_from_ids(train_ids, series_metadata, data)
+
+    # Save
+    np.save(output_dir / 'global_mean.npy', global_mean)
+    print(f"Saved global mean to {output_dir / 'global_mean.npy'}")
+
+    # Create datasets with the saved global_mean
+    train_dataset = OrganoidTimeSeriesDataset(
+        train_ids, series_metadata, data, 
+        global_mean=global_mean
+    )
+
+    val_dataset = OrganoidTimeSeriesDataset(
+        val_ids, series_metadata, data,
+        global_mean=global_mean
+    )
+
+    test_dataset = OrganoidTimeSeriesDataset(
+        test_ids, series_metadata, data,
+        global_mean=global_mean
+    )
+
+    # Create dataloaders (no changes)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
-    
     # Calculate class weights for imbalanced data
     # Count labels in training set
     train_labels = []
