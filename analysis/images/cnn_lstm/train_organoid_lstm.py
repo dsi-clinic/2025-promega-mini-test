@@ -198,64 +198,148 @@ def main():
     
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss(weight=class_weights)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=3, factor=0.5)
-    
-    # Training loop
-    print("\n" + "="*70)
-    print("TRAINING")
-    print("="*70)
-    
-    best_val_loss = float('inf')
-    best_val_acc = 0
-    train_history = []
-    
-    for epoch in range(args.epochs):
-        print(f"\nEpoch {epoch+1}/{args.epochs}")
-        print("-" * 70)
+
+    # ========== TWO-PHASE TRAINING FUNCTION ==========
+    def train_two_phase(model, train_loader, val_loader, criterion, device, output_dir):
+        """Two-phase training with freeze/unfreeze"""
         
-        # Train
-        train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, device)
+        # PHASE 1: Frozen CNN
+        print("\n" + "="*70)
+        print("PHASE 1: Training LSTM Only (CNN Frozen)")
+        print("="*70)
         
-        # Validate
-        val_loss, val_acc, val_precision, val_recall, val_f1, _, _ = evaluate(
-            model, val_loader, criterion, device
+        for param in model.cnn.parameters():
+            param.requires_grad = False
+        
+        optimizer_phase1 = optim.Adam(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=1e-3
+        )
+        scheduler_phase1 = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer_phase1, mode='min', patience=5, factor=0.5
         )
         
-        # Learning rate scheduling
-        scheduler.step(val_loss)
-        current_lr = optimizer.param_groups[0]['lr']
+        best_val_acc = 0
+        best_val_loss = float('inf')
+        patience_counter = 0
+        phase1_history = []
         
-        # Print metrics
-        print(f"\nTrain Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}")
-        print(f"Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.4f}")
-        print(f"Val Precision: {val_precision:.4f} | Val Recall: {val_recall:.4f} | Val F1: {val_f1:.4f}")
-        print(f"Learning Rate: {current_lr:.6f}")
-        
-        # Save history
-        train_history.append({
-            'epoch': epoch + 1,
-            'train_loss': train_loss,
-            'train_acc': train_acc,
-            'val_loss': val_loss,
-            'val_acc': val_acc,
-            'val_precision': val_precision,
-            'val_recall': val_recall,
-            'val_f1': val_f1
-        })
-        
-        # Save best model
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            best_val_loss = val_loss
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'val_acc': val_acc,
+        for epoch in range(50):
+            train_loss, train_acc = train_one_epoch(
+                model, train_loader, criterion, optimizer_phase1, device
+            )
+            val_loss, val_acc, val_prec, val_rec, val_f1, _, _ = evaluate(
+                model, val_loader, criterion, device
+            )
+            
+            scheduler_phase1.step(val_loss)
+            current_lr = optimizer_phase1.param_groups[0]['lr']
+            
+            print(f"[P1] Epoch {epoch+1:2d}: Train {train_acc:.3f} | Val {val_acc:.3f} | F1 {val_f1:.3f} | LR {current_lr:.6f}")
+            
+            phase1_history.append({
+                'epoch': epoch + 1,
+                'phase': 1,
+                'train_loss': train_loss,
+                'train_acc': train_acc,
                 'val_loss': val_loss,
-            }, output_dir / 'best_model.pth')
-            print(f"*** Saved best model (Val Acc: {val_acc:.4f}) ***")
+                'val_acc': val_acc,
+                'val_f1': val_f1
+            })
+            
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+                best_val_loss = val_loss
+                patience_counter = 0
+                torch.save({
+                    'epoch': epoch,
+                    'phase': 1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer_phase1.state_dict(),
+                    'val_acc': val_acc,
+                    'val_loss': val_loss,
+                }, output_dir / 'phase1_best.pth')
+                print(f"  *** Phase 1 Best: {val_acc:.4f}")
+            else:
+                patience_counter += 1
+                if patience_counter >= 10:
+                    print(f"  Early stopping Phase 1 at epoch {epoch+1}")
+                    break
+        
+        # Load best phase 1
+        print(f"\nLoading best Phase 1 model (Val Acc: {best_val_acc:.4f})")
+        checkpoint = torch.load(output_dir / 'phase1_best.pth')
+        model.load_state_dict(checkpoint['model_state_dict'])
+        
+        # PHASE 2: Unfreeze CNN
+        print("\n" + "="*70)
+        print("PHASE 2: Fine-Tuning Entire Network (CNN Unfrozen)")
+        print("="*70)
+        
+        for param in model.cnn.parameters():
+            param.requires_grad = True
+        
+        optimizer_phase2 = optim.Adam(model.parameters(), lr=1e-4)
+        scheduler_phase2 = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer_phase2, mode='min', patience=7, factor=0.5
+        )
+        
+        best_val_acc = 0
+        best_val_loss = float('inf')
+        patience_counter = 0
+        phase2_history = []
+        
+        for epoch in range(100):
+            train_loss, train_acc = train_one_epoch(
+                model, train_loader, criterion, optimizer_phase2, device
+            )
+            val_loss, val_acc, val_prec, val_rec, val_f1, _, _ = evaluate(
+                model, val_loader, criterion, device
+            )
+            
+            scheduler_phase2.step(val_loss)
+            current_lr = optimizer_phase2.param_groups[0]['lr']
+            
+            print(f"[P2] Epoch {epoch+1:3d}: Train {train_acc:.3f} | Val {val_acc:.3f} | F1 {val_f1:.3f} | LR {current_lr:.6f}")
+            
+            phase2_history.append({
+                'epoch': epoch + 1,
+                'phase': 2,
+                'train_loss': train_loss,
+                'train_acc': train_acc,
+                'val_loss': val_loss,
+                'val_acc': val_acc,
+                'val_f1': val_f1
+            })
+            
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+                best_val_loss = val_loss
+                patience_counter = 0
+                torch.save({
+                    'epoch': epoch,
+                    'phase': 2,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer_phase2.state_dict(),
+                    'val_acc': val_acc,
+                    'val_loss': val_loss,
+                }, output_dir / 'best_model.pth')
+                print(f"  *** Phase 2 Best: {val_acc:.4f}")
+            else:
+                patience_counter += 1
+                if patience_counter >= 15:
+                    print(f"  Early stopping Phase 2 at epoch {epoch+1}")
+                    break
+        
+        print(f"\n✅ Training Complete! Final Best Val Acc: {best_val_acc:.4f}")
+        
+        return phase1_history + phase2_history, best_val_acc, best_val_loss
+    
+    # ========== CALL THE FUNCTION ==========
+    train_history, best_val_acc, best_val_loss = train_two_phase(
+        model, train_loader, val_loader, criterion, device, output_dir
+    )
+    # =======================================
     
     # Final evaluation on test set
     print("\n" + "="*70)

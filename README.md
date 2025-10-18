@@ -32,9 +32,9 @@ flowchart TD
             C12[metrics/shape_metrics<br/>Morphological feature analysis]
             
             subgraph C15[series - Time Series Analysis]
-                C15a[series/filter_complete_series.py<br/>Filter to complete series<br/>no blanks, no edge issues<br/>→ complete_series_data_no_blanks.json]
-                C15b[series/preprocess_for_lstm.py<br/>Resize to uniform scale 6.0 um/px<br/>Pad to 768×768, preserve aspect ratio<br/>Adds lstm_processed field to JSON<br/>→ lstm_ready/ images]
-                C15c[series/cnn_lstm/train_organoid_lstm.py<br/>CNN-LSTM model training<br/>Predict organoid quality from time series]
+                C15a[series/filter_complete_series.py<br/>Filter to complete, valid series<br/>→ complete_series_data_no_blanks.json]
+                C15b[series/preprocess_for_lstm.py<br/>Reprocess filtered data<br/>Adds lstm_processed field<br/>→ lstm_ready/ images]
+                C15c[series/cnn_lstm/train_organoid_lstm.py<br/>CNN-LSTM training<br/>Predict organoid quality from time series]
             end
         end
         
@@ -44,7 +44,7 @@ flowchart TD
         
         subgraph C3[analysis/surveys]
             C32[classifier<br/>Survey-based models<br/>Combined with image-derived data]
-            C33[agreement_aggregations<br/>Statistical analysis only<br/>Derived from all_data.json]
+            C33[agreement_aggregations<br/>Statistical agreement analysis<br/>From all_data.json]
         end
     end
     

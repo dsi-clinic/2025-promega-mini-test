@@ -13,6 +13,7 @@ import json
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torchvision import transforms
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
@@ -28,6 +29,13 @@ from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 # Import training functions from existing script
 from analysis.images.cnn_lstm.train_organoid_lstm import train_one_epoch, evaluate
 
+# Define augmentation for training
+train_transform = transforms.Compose([
+    transforms.RandomRotation(degrees=15),
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomVerticalFlip(p=0.5),
+])
+
 # Define day ranges to test
 DAY_RANGES = [
     8,      # Early (3 timepoints)
@@ -40,39 +48,62 @@ DAY_RANGES = [
     30,     # Full baseline (11 timepoints)
 ]
 
-
 def train_for_day_range(max_day, train_ids, val_ids, test_ids, 
                         series_metadata, data, global_mean, device,
                         output_dir):
-    """Train a model using only days up to max_day"""
+    """Train a model using only days up to max_day with simple end-to-end training"""
     
     print(f"\n{'='*70}")
     print(f"TRAINING WITH DAYS 3-{max_day}")
     print(f"{'='*70}")
     
-    # Create datasets with max_day filter
+    # Create datasets with max_day filter 
     train_dataset = OrganoidTimeSeriesDataset(
         train_ids, series_metadata, data,
         global_mean=global_mean,
-        max_day=max_day  # ← Filters to only use days ≤ max_day
+        max_day=max_day,
+        transform=train_transform
     )
-    
+
     val_dataset = OrganoidTimeSeriesDataset(
         val_ids, series_metadata, data,
         global_mean=global_mean,
-        max_day=max_day
+        max_day=max_day,
+        transform=None
     )
-    
+
     test_dataset = OrganoidTimeSeriesDataset(
         test_ids, series_metadata, data,
         global_mean=global_mean,
-        max_day=max_day
+        max_day=max_day,
+        transform=None
     )
     
     # Create dataloaders
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False, num_workers=2)
-    test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False, num_workers=2)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=0)
+    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False, num_workers=0)
+    
+    # Calculate class weights for imbalanced data
+    train_labels = []
+    for org_id in train_ids:
+        entry_keys = series_metadata[org_id]['entry_keys']
+        final_entry = data[entry_keys[-1]]
+        survey = final_entry.get('survey', {})
+        if 'evaluations' in survey:
+            votes = [ev.get('evaluation') for ev in survey['evaluations']]
+            if votes.count('Acceptable') > votes.count('Not Acceptable'):
+                train_labels.append(1)
+            else:
+                train_labels.append(0)
+    
+    n_good = sum(train_labels)
+    n_bad = len(train_labels) - n_good
+    weight_for_0 = len(train_labels) / (2 * n_bad)
+    weight_for_1 = len(train_labels) / (2 * n_good)
+    class_weights = torch.FloatTensor([weight_for_0, weight_for_1]).to(device)
+    
+    print(f"Class weights: Bad={weight_for_0:.3f}, Good={weight_for_1:.3f}")
     
     # Create model
     model = OrganoidCNN_LSTM(
@@ -81,17 +112,45 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         lstm_layers=2
     ).to(device)
     
-    # Training setup
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=2, factor=0.5)
+    # ========== SIMPLE END-TO-END TRAINING ==========
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
+    optimizer = optim.Adam(model.parameters(), lr=7e-4)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', patience=5, factor=0.5
+    )
     
     best_val_acc = 0
     best_model_state = None
+    patience_counter = 0
     
-    # Train for 15 epochs (enough to see convergence)
-    for epoch in range(15):
-        train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, device)
+    for epoch in range(100):
+        # Training with gradient clipping
+        model.train()
+        train_loss = 0
+        train_correct = 0
+        train_total = 0
+        
+        for sequences, labels in tqdm(train_loader, desc="Training"):
+            sequences, labels = sequences.to(device), labels.to(device)
+            
+            optimizer.zero_grad()
+            outputs = model(sequences)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            
+            # Clip gradients!
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
+            optimizer.step()
+            
+            train_loss += loss.item()
+            _, predicted = outputs.max(1)
+            train_total += labels.size(0)
+            train_correct += predicted.eq(labels).sum().item()
+        
+        train_acc = train_correct / train_total
+        
+        # Validation
         val_loss, val_acc, val_prec, val_rec, val_f1, _, _ = evaluate(
             model, val_loader, criterion, device
         )
@@ -103,12 +162,19 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_model_state = model.state_dict().copy()
-            print(f"  *** New best: {val_acc:.3f}")
+            patience_counter = 0
+            print(f"  *** New best!")
+        else:
+            patience_counter += 1
+            if patience_counter >= 12:
+                print(f"  Early stopping at epoch {epoch+1}")
+                break
+    # ================================================
     
-    # Load best model for final test evaluation
+    print(f"✅ Best val acc: {best_val_acc:.3f}")
+    
+    # Load best model and evaluate on test
     model.load_state_dict(best_model_state)
-    
-    # Evaluate on test set
     test_loss, test_acc, test_prec, test_rec, test_f1, _, _ = evaluate(
         model, test_loader, criterion, device
     )
@@ -119,7 +185,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     print(f"   Recall:    {test_rec:.3f}")
     print(f"   F1 Score:  {test_f1:.3f}")
     
-    # Save the best model
+    # Save model
     model_path = output_dir / f'model_days_3-{max_day}.pth'
     torch.save({
         'model_state_dict': best_model_state,
@@ -132,6 +198,16 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     }, model_path)
     print(f"✅ Saved model to {model_path}")
     
+    # Clear GPU memory before next run
+    del model
+    del train_loader
+    del val_loader
+    del test_loader
+    del train_dataset
+    del val_dataset
+    del test_dataset
+    torch.cuda.empty_cache()
+
     return {
         'max_day': max_day,
         'best_val_acc': best_val_acc,
@@ -148,7 +224,7 @@ def main():
     print(f"Using device: {device}")
     
     # Create output directory
-    output_dir = OUTPUT_FOLDER / 'cnn_lstm' / 'temporal_ablation'
+    output_dir = OUTPUT_FOLDER / 'cnn_lstm' / 'temporal_ablation_efnet_simple'
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving outputs to: {output_dir}")
     
@@ -177,7 +253,7 @@ def main():
     
     # Run ablation study for each day range
     print("\n" + "="*70)
-    print("STARTING TEMPORAL ABLATION STUDY")
+    print("STARTING TEMPORAL ABLATION STUDY (SIMPLE TRAINING)")
     print("="*70)
     
     results = []
@@ -224,7 +300,7 @@ def main():
         direction = "↑" if gain > 0 else "↓"
         print(f"    - Adding up to Day {day}: {direction} {abs(gain):.1%}")
     
-    print(f"\n✅ Results saved to {results_path}")
+    print(f"\nResults saved to {results_path}")
     print("="*70)
 
 

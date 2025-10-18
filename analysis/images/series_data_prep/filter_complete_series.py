@@ -34,6 +34,49 @@ def has_edge_issue(entry, threshold=0.09):
         edge_fraction = 0.0
     return edge_fraction >= threshold
 
+def get_agreement_info(final_entry):
+    """Extract agreement information from survey evaluations"""
+    survey = final_entry.get('survey', {})
+    
+    if 'evaluations' not in survey or not survey['evaluations']:
+        return None
+    
+    evaluations = survey['evaluations']
+    votes = [ev.get('evaluation') for ev in evaluations]
+    
+    n_good = votes.count('Acceptable')
+    n_total = len(votes)
+    
+    if n_total == 0:
+        return None
+    
+    return {
+        'label': 'Good' if n_good >= 4 else 'Bad',
+        'agreement': f"{n_good}/{n_total}",
+        'n_votes_good': n_good,
+        'n_votes_total': n_total,
+        'unanimous': (n_good == n_total) or (n_good == 0),
+        'agreement_level': categorize_agreement(n_good, n_total)
+    }
+
+def categorize_agreement(n_good, n_total):
+    """Categorize agreement level"""
+    if n_total != 5:
+        return f'other_{n_good}/{n_total}'
+    
+    if n_good == 5:
+        return 'unanimous_good'
+    elif n_good == 4:
+        return 'strong_majority_good'
+    elif n_good == 3:
+        return 'split'
+    elif n_good == 2:
+        return 'weak_majority_bad'
+    elif n_good == 1:
+        return 'strong_majority_bad'
+    else:  # n_good == 0
+        return 'unanimous_bad'
+
 def parse_split_from_main_id(main_id):
     """
     Extract split status from main_id
@@ -345,8 +388,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--show-examples', action='store_true',
                        help='Show detailed examples of incomplete series')
-    parser.add_argument('--edge-threshold', type=float, default=0.09,
-                       help='Edge fraction threshold (default: 0.09)')
+    parser.add_argument('--edge-threshold', type=float, default=0.05,
+                       help='Edge fraction threshold (default: 0.05)')
     args = parser.parse_args()
     
     print(f"Loading data from {ALL_DATA_JSON}")
@@ -464,7 +507,13 @@ def main():
         for item in series['series']:
             filtered_data[item['key']] = item['entry']
         
-        series_metadata[series['organoid_id']] = {
+        # Get agreement info from final entry (Day 30)
+        final_entry_key = series['series'][-1]['key']
+        final_entry = data[final_entry_key]
+        agreement_info = get_agreement_info(final_entry)
+        
+        # Build series metadata
+        metadata = {
             'organoid_id': series['organoid_id'],
             'base_well_id': series['base_well_id'],
             'split_genealogy': series['split_genealogy'],
@@ -472,6 +521,12 @@ def main():
             'entry_keys': [item['key'] for item in series['series']],
             'n_timepoints': len(series['series'])
         }
+        
+        # Add agreement info if available
+        if agreement_info:
+            metadata.update(agreement_info)
+        
+        series_metadata[series['organoid_id']] = metadata
     
     print(f"Filtered entries (no issues): {len(filtered_data)} (from {len(data)})")
     print(f"Complete organoid series (no issues): {len(series_metadata)}")
@@ -498,6 +553,42 @@ def main():
         'total_entries_filtered_no_issues': len(filtered_data),
         'retention_rate_no_issues': len(filtered_data)/len(data) if len(data) > 0 else 0
     }
+
+    # Add agreement statistics
+    n_with_labels = sum(1 for m in series_metadata.values() if 'label' in m)
+    if n_with_labels > 0:
+        agreement_dist = {}
+        for m in series_metadata.values():
+            if 'agreement' in m:
+                agreement_dist[m['agreement']] = agreement_dist.get(m['agreement'], 0) + 1
+        
+        label_dist = {}
+        for m in series_metadata.values():
+            if 'label' in m:
+                label_dist[m['label']] = label_dist.get(m['label'], 0) + 1
+        
+        summary['agreement_statistics'] = {
+            'n_with_survey_data': n_with_labels,
+            'agreement_distribution': agreement_dist,
+            'label_distribution': label_dist
+        }
+        
+        print(f"\n{'='*70}")
+        print("AGREEMENT STATISTICS")
+        print(f"{'='*70}")
+        print(f"Organoids with survey data: {n_with_labels} / {len(series_metadata)}")
+        print("\nAgreement distribution:")
+        for level in sorted(agreement_dist.keys()):
+            count = agreement_dist[level]
+            pct = count / n_with_labels * 100
+            print(f"  {level}: {count:3d} ({pct:5.1f}%)")
+        print("\nLabel distribution:")
+        for label in sorted(label_dist.keys()):
+            count = label_dist[label]
+            pct = count / n_with_labels * 100
+            print(f"  {label}: {count:3d} ({pct:5.1f}%)")
+    # ==============================
+    
     summary_path = OUTPUT_FOLDER / 'series_completeness_summary.json'
     save_json(summary_path, summary)
     print(f"Summary saved to: {summary_path}")

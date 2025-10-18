@@ -1,94 +1,68 @@
 """
 CNN-LSTM model for organoid time series classification
-STANDARD 3-CHANNEL INPUT (RGB)
+Uses EfficientNet-B0 for feature extraction
 """
 import torch
 import torch.nn as nn
 from torchvision import models
 
+
 class OrganoidCNN_LSTM(nn.Module):
-    """
-    CNN-LSTM for organoid quality prediction
-    
-    Architecture:
-    1. CNN (ResNet50) extracts features from each timepoint independently
-    2. LSTM processes the sequence of features over time
-    3. Final linear layer outputs binary classification
-    """
-    
-    def __init__(self, num_classes=2, lstm_hidden=256, lstm_layers=2, dropout=0.5):
-        """
-        Args:
-            num_classes: Number of output classes (2 for binary)
-            lstm_hidden: Hidden size of LSTM
-            lstm_layers: Number of LSTM layers
-            dropout: Dropout probability
-        """
-        super(OrganoidCNN_LSTM, self).__init__()
+    def __init__(self, num_classes=2, lstm_hidden=256, lstm_layers=2):
+        super().__init__()
         
-        # CNN Feature Extractor - Use pretrained ResNet50
-        resnet = models.resnet50(pretrained=True)
+        # Load pretrained EfficientNet-B0
+        efficientnet = models.efficientnet_b0(pretrained=True)
         
-        # Remove final classification layer - we just want features
-        # ResNet50 outputs 2048 features
-        self.cnn = nn.Sequential(*list(resnet.children())[:-1])
+        # Remove the final classification layer
+        efficientnet.classifier = nn.Identity()
+        self.cnn = efficientnet
         
-        # Freeze early CNN layers (optional - speeds up training)
-        # We'll fine-tune only later layers
-        for param in list(self.cnn.parameters())[:-20]:
-            param.requires_grad = False
+        # EfficientNet-B0 outputs 1280 features
+        cnn_out_features = 1280
         
-        cnn_feature_size = 2048
-        
-        # LSTM to process temporal sequence
+        # LSTM for temporal modeling
         self.lstm = nn.LSTM(
-            input_size=cnn_feature_size,
+            input_size=cnn_out_features,
             hidden_size=lstm_hidden,
             num_layers=lstm_layers,
             batch_first=True,
-            dropout=dropout if lstm_layers > 1 else 0
+            dropout=0.3 if lstm_layers > 1 else 0
         )
         
         # Final classifier
-        self.dropout = nn.Dropout(dropout)
-        self.fc = nn.Linear(lstm_hidden, num_classes)
+        self.classifier = nn.Sequential(
+            nn.Linear(lstm_hidden, 128),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(128, num_classes)
+        )
     
     def forward(self, x):
-        """
-        Forward pass
+        # x shape: (batch, time, channels, height, width)
+        batch_size, timesteps, C, H, W = x.size()
         
-        Args:
-            x: Input tensor of shape (batch_size, num_timepoints, channels, height, width)
-               e.g., (32, 11, 3, 768, 768)
-        
-        Returns:
-            logits: Tensor of shape (batch_size, num_classes)
-        """
-        batch_size, num_timepoints, C, H, W = x.size()
-        
-        # Process each timepoint through CNN
-        cnn_features = []
-        for t in range(num_timepoints):
-            # Get image at time t
-            img_t = x[:, t, :, :, :]  # (batch_size, 3, 768, 768)
+        # Process each frame through CNN
+        cnn_out = []
+        for t in range(timesteps):
+            features = self.cnn(x[:, t, :, :, :])
             
-            # Extract features
-            feat_t = self.cnn(img_t)  # (batch_size, 2048, 1, 1)
-            feat_t = feat_t.view(batch_size, -1)  # (batch_size, 2048)
+            # Flatten if needed (EfficientNet returns (batch, 1280))
+            if len(features.shape) > 2:
+                features = features.view(features.size(0), -1)
             
-            cnn_features.append(feat_t)
+            cnn_out.append(features)
         
-        # Stack features into sequence
-        cnn_features = torch.stack(cnn_features, dim=1)  # (batch_size, 11, 2048)
+        # Stack into sequence
+        cnn_out = torch.stack(cnn_out, dim=1)  # (batch, time, 1280)
         
-        # Process sequence through LSTM
-        lstm_out, (h_n, c_n) = self.lstm(cnn_features)
+        # LSTM
+        lstm_out, (h_n, c_n) = self.lstm(cnn_out)
         
-        # Use final hidden state for prediction
-        final_hidden = h_n[-1]  # (batch_size, lstm_hidden)
+        # Use final hidden state
+        final_hidden = lstm_out[:, -1, :]  # (batch, lstm_hidden)
         
-        # Dropout and classification
-        x = self.dropout(final_hidden)
-        logits = self.fc(x)  # (batch_size, num_classes)
+        # Classification
+        output = self.classifier(final_hidden)
         
-        return logits
+        return output

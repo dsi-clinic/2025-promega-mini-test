@@ -124,6 +124,41 @@ class OrganoidTimeSeriesDataset(Dataset):
             mean_rgb = img.reshape(-1, 3).mean(axis=0)[None, None, :]
         
         return img * mask[:, :, None] + mean_rgb * (1.0 - mask[:, :, None])
+    def apply_mean_fill(self, img, mask, blur_kernel=(15, 15), dilate_iterations=5):
+        """
+        Applies mean-fill masking with dilation and feathering for more lenient masking
+        
+        Args:
+            img: Input image
+            mask: Binary mask (0-255)
+            blur_kernel: Gaussian blur kernel size for feathering
+            dilate_iterations: Number of dilation iterations to expand mask
+        """
+        import cv2
+        
+        # STEP 1: Dilate mask to expand it slightly
+        # This gives us a safety margin around the organoid
+        if dilate_iterations > 0:
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            mask = cv2.dilate(mask, kernel, iterations=dilate_iterations)
+        
+        # STEP 2: Gaussian blur for soft feathering
+        # This creates a gradual transition at edges instead of hard cutoff
+        if blur_kernel is not None:
+            mask = cv2.GaussianBlur(mask, blur_kernel, 0)
+        
+        # Normalize mask to [0, 1]
+        mask = mask.astype(np.float32) / 255.0
+        
+        # STEP 3: Apply mean-fill
+        # Use global mean if provided, otherwise per-image mean
+        if self.global_mean is not None:
+            mean_rgb = (self.global_mean * 255.0)[None, None, :]
+        else:
+            mean_rgb = img.reshape(-1, 3).mean(axis=0)[None, None, :]
+        
+        # Blend: mask region keeps original pixels, background gets mean
+        return img * mask[:, :, None] + mean_rgb * (1.0 - mask[:, :, None])
 
     def __getitem__(self, idx):
         organoid_id = self.organoid_ids[idx]
@@ -156,8 +191,14 @@ class OrganoidTimeSeriesDataset(Dataset):
 
             img = np.clip(img / 255.0, 0, 1)
 
+            # Apply transforms if provided (for augmentation)
             if self.transform:
-                img = self.transform(img)
+                # Convert to PIL Image for torchvision transforms
+                from PIL import Image
+                img_pil = Image.fromarray((img * 255).astype(np.uint8))
+                img_pil = self.transform(img_pil)
+                # Convert back to numpy [0, 1]
+                img = np.array(img_pil).astype(np.float32) / 255.0
 
             images.append(img)
 
