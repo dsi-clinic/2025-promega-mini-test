@@ -22,13 +22,8 @@ def load_json(path: Path | str):
         return json.load(f)
 
 def sanitize_for_json(obj):
-    """
-    Recursively sanitize data to be JSON-safe.
-    - Converts NaN, inf, -inf to None
-    - Handles nested dicts and lists
-    """
+    """Recursively sanitize data to be JSON-safe."""
     import math
-    
     if isinstance(obj, dict):
         return {k: sanitize_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -40,13 +35,11 @@ def sanitize_for_json(obj):
     elif obj is None or isinstance(obj, (str, int, bool)):
         return obj
     else:
-        # Handle pandas NA, numpy nan, etc.
         try:
             if hasattr(obj, 'isna') and obj.isna():
                 return None
         except (TypeError, ValueError):
             pass
-        # Try to convert to string as fallback
         return str(obj)
 
 def normalized_parent_key(id_like: str) -> str:
@@ -54,8 +47,19 @@ def normalized_parent_key(id_like: str) -> str:
     try:
         return OrganoidNormalizer.normalize_key(id_like)
     except ValueError:
-        # fallback: return a stripped clean version if parsing fails
         return OrganoidNormalizer.clean_string(id_like).upper()
+
+def extract_mdl_day(day_id: str) -> float:
+    """Extract numerical day from dayID (e.g., 'Dy17' -> 17.0, 'Dy20'/'Dy21' -> 20.5)."""
+    if not day_id:
+        return None
+    match = re.search(r'(\d+(?:\.\d+)?)', day_id)
+    if match:
+        day_num = float(match.group(1))
+        if day_num in [20.0, 21.0]:
+            return 20.5
+        return day_num
+    return None
 
 # ---------- load sources ----------
 print(f"Loading base mapping: {ORIGINAL_MAPPING}")
@@ -71,23 +75,27 @@ survey_json = load_json(SURVEY_AGGREGATED_JSON)
 print(f"Loading manual threshold mapping: {MANUAL_THRESHOLD_MAPPING}")
 manual_mask_map = load_json(MANUAL_THRESHOLD_MAPPING)
 
-# Build survey map keyed by image_id or parent
+# ---------- build survey map ----------
+print("Building survey map by (main_id, split_index)...")
 survey_map = {}
+
 for row in survey_json.values():
-    ids = []
-    if row.get("evaluations"):
-        ids += [ev["image_id"] for ev in row["evaluations"] if "image_id" in ev]
-    if row.get("quality_scores"):
-        ids += [qs["image_id"] for qs in row["quality_scores"] if "image_id" in qs]
+    for category in ["evaluations", "quality_scores"]:
+        if row.get(category):
+            for item in row[category]:
+                main_id = item.get("main_id")
+                split_index = item.get("split_index")
+                if not main_id:
+                    continue
+                main_id_norm = main_id.replace(" ", "_").upper()
+                key = (main_id_norm, split_index)
+                if key not in survey_map:
+                    survey_map[key] = {"evaluations": [], "quality_scores": []}
+                survey_map[key][category].append(item)
 
-    for iid in ids:
-        try:
-            norm_key = OrganoidNormalizer.normalize_key(iid)
-        except ValueError:
-            norm_key = OrganoidNormalizer.clean_string(iid).upper()
-        survey_map[norm_key] = row
+print(f"Built survey map with {len(survey_map)} unique (main_id, split_index) pairs")
 
-# Build manual mask map with normalized keys
+# ---------- manual mask normalization ----------
 manual_mask_normalized = {}
 for raw_key, manual_data in manual_mask_map.items():
     try:
@@ -96,90 +104,67 @@ for raw_key, manual_data in manual_mask_map.items():
         norm_key = OrganoidNormalizer.clean_string(raw_key).upper()
     manual_mask_normalized[norm_key] = manual_data
 
-# ---------- load processed JSONs ----------
+# ---------- load processed image mappings ----------
 processed_map = {}
 found_files = list(Path(INFER_RESIZED_DIR).rglob("image_mapping*_processed.json"))
-
 for p in found_files:
     raw = load_json(p)
     processed_map.update(raw)
 
 # ---------- merge ----------
-# ---------- merge ----------
 combined = {}
 manual_mask_count = 0
-
-# Add this helper function before the loop
-def extract_mdl_day(day_id: str) -> float:
-    """Extract numerical day from dayID (e.g., 'Dy17' -> 17.0, 'Dy20' or 'Dy21' -> 20.5)"""
-    if not day_id:
-        return None
-    # Extract numbers from dayID
-    match = re.search(r'(\d+(?:\.\d+)?)', day_id)
-    if match:
-        day_num = float(match.group(1))
-        # Handle day 20/21 -> 20.5 for consistency
-        if day_num in [20.0, 21.0]:
-            return 20.5
-        return day_num
-    return None
+survey_matched_count = 0
+survey_not_matched_count = 0
 
 for raw_k, payload in tqdm(base_map.items(), desc="Merging"):
     entry = dict(payload)
-    
-    # Add common_key for key consistency (from old structure)
-    entry['common_key'] = raw_k
-    
-    # Extract day_num and mdl_day from dayID (from old structure)
-    if 'dayID' in entry:
-        day_id = entry['dayID']
-        # Extract day_num (integer day)
-        day_match = re.search(r'(\d+)', day_id)
-        if day_match:
-            entry['day_num'] = int(day_match.group(1))
-        else:
-            entry['day_num'] = None
-        # Extract mdl_day (float day with special handling)
-        entry['mdl_day'] = extract_mdl_day(day_id)
-    
-    # Debug: Check if fields are being added (only for first entry)
-    if raw_k == list(base_map.keys())[0]:
-        print(f"DEBUG: First entry fields after adding: {sorted(entry.keys())}")
 
+    # Extract mdl_day
+    if 'dayID' in entry:
+        entry['mdl_day'] = extract_mdl_day(entry['dayID'])
+
+    # Match processed info
     processed = processed_map.get(raw_k) or processed_map.get(normalized_parent_key(raw_k))
     if processed:
         entry["processed"] = processed
         entry["main_id"] = processed.get("main_id")
 
     norm_key_parent = normalized_parent_key(raw_k)
-    
-    if norm_key_parent in survey_map:
-        entry["survey"] = survey_map[norm_key_parent]
 
+    # ----- FIXED SURVEY MERGE LOGIC -----
+    main_id = entry.get("main_id", "")
+    split_index = entry.get("split_index", payload.get("split_index"))
+    if main_id:
+        main_id_norm = main_id.replace(" ", "_").upper()
+        key = (main_id_norm, split_index)
+        if key in survey_map:
+            entry["survey"] = survey_map[key]
+            survey_matched_count += 1
+        else:
+            survey_not_matched_count += 1
+    # ------------------------------------
+
+    # Add metabolites
     if norm_key_parent in metab_map:
         entry["metabolites"] = metab_map[norm_key_parent]
 
-    # Add manual mask path if available
+    # Add manual mask path
     if norm_key_parent in manual_mask_normalized:
         manual_data = manual_mask_normalized[norm_key_parent]
         entry["manual_mask_path"] = manual_data.get("MT Mask Path")
         manual_mask_count += 1
 
     combined[raw_k] = entry
-    
-    # Debug: Check final entry for first record
-    if raw_k == list(base_map.keys())[0]:
-        print(f"DEBUG: Final entry fields before sanitization: {sorted(entry.keys())}")
-# ---------- sanitize and write output ----------
+
+# ---------- sanitize + write output ----------
 print("\nSanitizing data for JSON...")
 combined_clean = sanitize_for_json(combined)
-
-# Debug: Check first entry after sanitization
-first_key = list(combined_clean.keys())[0]
-print(f"DEBUG: First entry fields after sanitization: {sorted(combined_clean[first_key].keys())}")
 
 with open(OUTPUT_PATH, "w") as f:
     json.dump(combined_clean, f, indent=2)
 
 print(f"\nWrote {len(combined_clean):,} merged records → {OUTPUT_PATH}")
+print(f"Survey matches: {survey_matched_count:,}")
+print(f"Survey not matched: {survey_not_matched_count:,}")
 print(f"Found {manual_mask_count:,} manual masks")
