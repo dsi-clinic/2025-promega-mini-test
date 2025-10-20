@@ -78,7 +78,7 @@ class OrganoidTimeSeriesDataset(Dataset):
     """
 
     def __init__(self, organoid_ids, series_metadata, data, 
-                 transform=None, use_clipping_mask=True, 
+                 transform=None, use_clipping_mask=False, 
                  global_mean=None,
                  max_day=None):
         self.organoid_ids = organoid_ids
@@ -112,18 +112,7 @@ class OrganoidTimeSeriesDataset(Dataset):
         else:
             return None  # Tie
 
-    def apply_mean_fill(self, img, mask, blur_kernel=(7, 7)):
-        """Applies mean-fill masking with Gaussian blur."""
-        if blur_kernel is not None:
-            mask = cv2.GaussianBlur(mask, blur_kernel, 0)
-        
-        # Use global mean if provided, otherwise per-image mean
-        if self.global_mean is not None:
-            mean_rgb = (self.global_mean * 255.0)[None, None, :]
-        else:
-            mean_rgb = img.reshape(-1, 3).mean(axis=0)[None, None, :]
-        
-        return img * mask[:, :, None] + mean_rgb * (1.0 - mask[:, :, None])
+
     def apply_mean_fill(self, img, mask, blur_kernel=(15, 15), dilate_iterations=5):
         """
         Applies mean-fill masking with dilation and feathering for more lenient masking
@@ -164,18 +153,21 @@ class OrganoidTimeSeriesDataset(Dataset):
         organoid_id = self.organoid_ids[idx]
         entry_keys = self.series_metadata[organoid_id]['entry_keys']
         days = self.series_metadata[organoid_id]['days']
+        # --- build frames + keep matched days ---
         images = []
+        days_used = []   # <— track the days that produced frames
 
         for i, key in enumerate(entry_keys):
-            # Filter by max_day if specified
-            if self.max_day is not None and days[i] >= (self.max_day + 1):
+            # stop at max_day if set
+            if self.max_day is not None and days[i] > self.max_day:
                 break
-            
+
             entry = self.data[key]
-            img_path = entry['lstm_processed']['image_path']
+            img_path = entry['lstm_processed'].get('clipped_image_path',
+                                       entry['lstm_processed']['image_path'])
+
             img = imread(img_path)
 
-            # Convert grayscale → RGB
             if img.ndim == 2:
                 img = np.stack([img] * 3, axis=-1)
             img = img.astype(np.float32)
@@ -184,77 +176,177 @@ class OrganoidTimeSeriesDataset(Dataset):
                 mask_path = entry['lstm_processed'].get('mask_path')
                 if mask_path and Path(mask_path).exists():
                     mask = imread(mask_path)
-                    if mask.ndim == 3:
-                        mask = mask[:, :, 0]
-                    mask = mask.astype(np.float32) / 255.0
+                    if mask.ndim == 3: mask = mask[:, :, 0]
                     img = self.apply_mean_fill(img, mask)
 
-            img = np.clip(img / 255.0, 0, 1)
+            #img = np.clip(img / 255.0, 0, 1)
 
-            # Apply transforms if provided (for augmentation)
             if self.transform:
-                # Convert to PIL Image for torchvision transforms
                 from PIL import Image
                 img_pil = Image.fromarray((img * 255).astype(np.uint8))
                 img_pil = self.transform(img_pil)
-                # Convert back to numpy [0, 1]
                 img = np.array(img_pil).astype(np.float32) / 255.0
 
             images.append(img)
+            days_used.append(days[i])  # <— keep exactly the day for this frame
 
-        sequence = np.stack(images)  # (T, H, W, C)
-        sequence = np.transpose(sequence, (0, 3, 1, 2))  # (T, C, H, W)
+        # stack to tensor (T,C,H,W)
+        sequence = np.stack(images)
+        sequence = np.transpose(sequence, (0, 3, 1, 2))
+        seq = torch.from_numpy(sequence).float()
 
-        final_entry = self.data[entry_keys[-1]]
-        label = self.get_label_from_survey(final_entry)
+        # ImageNet normalize per frame
+        imagenet_mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(1,3,1,1)
+        imagenet_std  = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).view(1,3,1,1)
+        seq = (seq - imagenet_mean) / imagenet_std
 
-        return torch.FloatTensor(sequence), torch.LongTensor([label])[0]
+        # label from metadata
+        meta_entry = self.series_metadata[organoid_id]
+        s = str(meta_entry.get("label", "")).strip().lower()
+        label = 1 if s in ("good", "acceptable", "accepted") else 0
 
+        # per-sequence day normalization
+        days_arr = np.array(days_used, dtype=np.float32)
+        dmin = days_arr.min()
+        drng = max(days_arr.max() - dmin, 1e-8)
+        days_norm = (days_arr - dmin) / drng
+        days_norm = torch.from_numpy(days_norm).float()   # (T,)
+
+        # ----- agreement-based weight (0.6/0.8/1.0 as example) -----
+        n_good  = meta_entry.get("n_votes_good", None)
+        n_total = meta_entry.get("n_votes_total", None)
+        if n_good is not None and n_total and n_total > 0:
+            frac = n_good / n_total
+            if frac >= 0.9 or frac <= 0.1:
+                weight = 1.0       # unanimous
+            elif frac >= 0.7 or frac <= 0.3:
+                weight = 0.8       # strong majority
+            else:
+                weight = 0.6       # weak majority / tie
+        else:
+            weight = 1.0
+
+        return (
+            seq, 
+            days_norm, 
+            torch.tensor(label, dtype=torch.float32), 
+            torch.tensor(weight, dtype=torch.float32), 
+            organoid_id,   # keep the raw string id for FP/FN logs
+        )
+
+
+
+
+from collections import defaultdict
+import numpy as np
+import json
 
 def load_data_and_create_splits(series_metadata_path, data_path,
                                 train_ratio=0.7, val_ratio=0.15, test_ratio=0.15,
-                                random_seed=42):
-    """Same splitting logic as before."""
+                                random_seed=42,
+                                min_good_votes=4,   # keep only confident labels
+                                min_total_votes=5):
     with open(series_metadata_path) as f:
         series_metadata = json.load(f)
     with open(data_path) as f:
         data = json.load(f)
+        
+    # ---- filter to only nosplit organoids ----
+    nosplit_series_metadata = {}
+    for oid, meta in series_metadata.items():
+        # Only keep those explicitly marked as nosplit or missing split_genealogy
+        sg = str(meta.get("split_genealogy", "")).lower()
+        if sg == "nosplit" or sg == "" or sg == "none":
+            nosplit_series_metadata[oid] = meta
 
-    def get_label(organoid_id):
-        entry_keys = series_metadata[organoid_id]['entry_keys']
-        final_entry = data[entry_keys[-1]]
-        if 'survey' not in final_entry or not final_entry['survey']:
-            return None
-        survey = final_entry['survey']
-        if 'evaluations' not in survey or not survey['evaluations']:
-            return None
-        votes = [ev.get('evaluation') for ev in survey['evaluations']]
-        acceptable = votes.count('Acceptable')
-        not_acceptable = votes.count('Not Acceptable')
-        if acceptable > not_acceptable:
-            return 1
-        elif not_acceptable > acceptable:
-            return 0
-        else:
-            return None
+    print(f"Filtered to {len(nosplit_series_metadata)} nosplit organoids out of {len(series_metadata)} total")
+    series_metadata = nosplit_series_metadata
 
-    labeled_ids, labels = [], []
+
+    # ---- 1) keep only confidently labeled organoids (optional but recommended) ----
+    def hard_label(oid):
+        meta = series_metadata[oid]
+        s = str(meta.get("label","")).strip().lower()
+        # prefer vote counts if present
+        ng = int(meta.get("n_votes_good", -1))
+        nt = int(meta.get("n_votes_total", -1))
+        if nt >= min_total_votes and ng >= 0:
+            if ng >= min_good_votes: return 1
+            if (nt - ng) >= min_good_votes: return 0
+        # fallback to coarse label
+        if s in ("good","acceptable","accepted"): return 1
+        if s in ("bad","not acceptable","rejected","not_good"): return 0
+        return None
+
+    labeled = []
+    labels  = {}
     for oid in series_metadata.keys():
-        label = get_label(oid)
-        if label is not None:
-            labeled_ids.append(oid)
-            labels.append(label)
+        y = hard_label(oid)
+        if y is not None:
+            labeled.append(oid)
+            labels[oid] = y
 
-    np.random.seed(random_seed)
-    idxs = np.random.permutation(len(labeled_ids))
-    n_train = int(len(labeled_ids) * train_ratio)
-    n_val = int(len(labeled_ids) * val_ratio)
+    # ---- 2) group organoids by base_well_id (parent + all splits) ----
+    groups = defaultdict(list)
+    for oid in labeled:
+        gid = series_metadata[oid].get("base_well_id", oid)
+        groups[gid].append(oid)
 
-    train_ids = [labeled_ids[i] for i in idxs[:n_train]]
-    val_ids = [labeled_ids[i] for i in idxs[n_train:n_train + n_val]]
-    test_ids = [labeled_ids[i] for i in idxs[n_train + n_val:]]
+    # ---- 3) give each group a "group label" for stratification (majority of its members) ----
+    group_ids = list(groups.keys())
+    group_labels = []
+    for gid in group_ids:
+        ys = [labels[oid] for oid in groups[gid] if oid in labels]
+        # if mixed, use majority; if tie, just pick 0 to be conservative
+        if len(ys) == 0:
+            group_labels.append(None)
+        else:
+            maj = int(np.round(np.mean(ys)))  # >=0.5 → 1
+            group_labels.append(maj)
 
-    print(f"Total labeled: {len(labeled_ids)} | Train: {len(train_ids)}, Val: {len(val_ids)}, Test: {len(test_ids)}")
-    print(f"Good: {sum(labels)} ({100*sum(labels)/len(labels):.1f}%) | Bad: {len(labels)-sum(labels)}")
+    # keep only groups that have at least one labeled member
+    kept = [(g, y) for g, y in zip(group_ids, group_labels) if y is not None]
+    group_ids, group_labels = zip(*kept) if kept else ([], [])
+
+    # ---- 4) stratified shuffle split on groups ----
+    rng = np.random.RandomState(random_seed)
+    idx = np.arange(len(group_ids))
+    # stratify by label: shuffle positives and negatives separately, then interleave
+    pos_idx = idx[np.array(group_labels) == 1]
+    neg_idx = idx[np.array(group_labels) == 0]
+    rng.shuffle(pos_idx); rng.shuffle(neg_idx)
+    mixed = np.concatenate([pos_idx, neg_idx])
+    # simple shuffle that approximately preserves class balance
+    rng.shuffle(mixed)
+
+    n = len(mixed)
+    n_train = int(n * train_ratio)
+    n_val   = int(n * val_ratio)
+    train_g = [group_ids[i] for i in mixed[:n_train]]
+    val_g   = [group_ids[i] for i in mixed[n_train:n_train+n_val]]
+    test_g  = [group_ids[i] for i in mixed[n_train+n_val:]]
+
+    # ---- 5) expand group → organoid ids for each split ----
+    train_ids = [oid for g in train_g for oid in groups[g]]
+    val_ids   = [oid for g in val_g   for oid in groups[g]]
+    test_ids  = [oid for g in test_g  for oid in groups[g]]
+
+    # sanity: no leakage
+    assert set(train_ids).isdisjoint(val_ids)
+    assert set(train_ids).isdisjoint(test_ids)
+    assert set(val_ids).isdisjoint(test_ids)
+
+    # quick stats
+    def split_stats(ids):
+        ys = [labels[i] for i in ids if i in labels]
+        if len(ys)==0: return (0,0,0.0)
+        return (sum(ys), len(ys)-sum(ys), sum(ys)/len(ys))
+    gtr, btr, prtr = split_stats(train_ids)
+    gva, bva, prva = split_stats(val_ids)
+    gte, bte, prte = split_stats(test_ids)
+    print(f"Groups: {len(group_ids)}  | Train groups {len(train_g)}, Val {len(val_g)}, Test {len(test_g)}")
+    print(f"Train: {len(train_ids)} ids (good {gtr}, bad {btr}, pos {prtr:.2f})")
+    print(f"Val:   {len(val_ids)} ids (good {gva}, bad {bva}, pos {prva:.2f})")
+    print(f"Test:  {len(test_ids)} ids (good {gte}, bad {bte}, pos {prte:.2f})")
 
     return train_ids, val_ids, test_ids, series_metadata, data

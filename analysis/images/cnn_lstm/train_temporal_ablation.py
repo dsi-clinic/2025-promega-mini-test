@@ -1,308 +1,400 @@
 """
-Temporal ablation study - train models with different day ranges
-RUN FROM PROJECT ROOT: python analysis/images/cnn_lstm/train_temporal_ablation.py
+Temporal ablation with EfficientNet features + Temporal Attention (BCE)
+Run: python analysis/images/cnn_lstm/train_temporal_ablation_attn.py
 """
-import sys
+
+import sys, json, math
 from pathlib import Path
 
-# Add project root to path
+# ----- Repo root on sys.path -----
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-import json
+import numpy as np
+from tqdm import tqdm
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision import transforms
 from torch.utils.data import DataLoader
-from tqdm import tqdm
-import numpy as np
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from torchvision import models, transforms
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+from sklearn.metrics import precision_recall_fscore_support
 
 from config import OUTPUT_FOLDER
 from analysis.images.cnn_lstm.organoid_dataset import (
-    OrganoidTimeSeriesDataset, 
-    load_data_and_create_splits
+    OrganoidTimeSeriesDataset,
+    load_data_and_create_splits,
 )
-from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 
-# Import training functions from existing script
-from analysis.images.cnn_lstm.train_organoid_lstm import train_one_epoch, evaluate
-
-# Define augmentation for training
-train_transform = transforms.Compose([
-    transforms.RandomRotation(degrees=15),
-    transforms.RandomHorizontalFlip(p=0.5),
-    transforms.RandomVerticalFlip(p=0.5),
-])
-
-# Define day ranges to test
+# ---------------- Config ----------------
 DAY_RANGES = [
-    8,      # Early (3 timepoints)
-    10,     # Early-mid (4 timepoints)
-    13,     # Mid (5 timepoints)
-    15,     # Mid-late WITH THE DIP (6 timepoints)
-    17,     # Post-dip (7 timepoints)
-    20.5,   # Late (8 timepoints)
-    24,     # Later (9 timepoints)
-    30,     # Full baseline (11 timepoints)
+    8, 10, 13, 15, 17, 20.5, 24, 30
 ]
+BATCH_SIZE = 16
+NUM_WORKERS = 0
+MAX_EPOCHS = 60
+WARMUP_EPOCHS = 12          # freeze CNN during warmup
+LR_HEAD = 7e-4              # LSTM/attention/head LR
+LR_CNN_UNFREEZE = 3e-5      # small LR after unfreezing last blocks
+GRAD_CLIP = 1.0
+PATIENCE = 20               # early stop on val accuracy
+ATTN_DROPOUT = 0.4
+SEED = 42
 
-def train_for_day_range(max_day, train_ids, val_ids, test_ids, 
-                        series_metadata, data, global_mean, device,
-                        output_dir):
-    """Train a model using only days up to max_day with simple end-to-end training"""
-    
-    print(f"\n{'='*70}")
-    print(f"TRAINING WITH DAYS 3-{max_day}")
-    print(f"{'='*70}")
-    
-    # Create datasets with max_day filter 
+# -------------- Repro --------------
+def set_seed(seed=SEED):
+    import random
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+# -------------- Model --------------
+class TemporalAttentionPool(nn.Module):
+    def __init__(self, d):
+        super().__init__()
+        self.attn = nn.Sequential(
+            nn.LayerNorm(d),
+            nn.Linear(d, d // 2),
+            nn.Tanh(),
+            nn.Linear(d // 2, 1),
+        )
+    def forward(self, feats):  # feats: (B, T, D)
+        # weights over time
+        w = self.attn(feats).squeeze(-1)         # (B, T)
+        a = torch.softmax(w, dim=1).unsqueeze(-1)  # (B, T, 1)
+        pooled = (a * feats).sum(dim=1)          # (B, D)
+        return pooled, a.squeeze(-1)             # (B, D), (B, T)
+
+class OrganoidCNN_TAtt(nn.Module):
+    def __init__(self, d_cnn=1280, attn_dropout=0.4):
+        super().__init__()
+        eff = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
+        eff.classifier = nn.Identity()
+        self.cnn = eff
+        
+        # start frozen
+        for p in self.cnn.parameters():
+            p.requires_grad = False
+
+        # map scalar day → feature shift
+        self.time_proj = nn.Sequential(
+        nn.Linear(1, d_cnn // 2),
+        nn.ReLU(),
+        nn.Dropout(0.25),
+        nn.Linear(d_cnn // 2, d_cnn),
+        nn.LayerNorm(d_cnn)
+        )
+
+        self.temporal = TemporalAttentionPool(d_cnn)
+        self.head = nn.Sequential(
+            nn.Dropout(attn_dropout),
+            nn.Linear(d_cnn, 128),
+            nn.ReLU(),
+            nn.Dropout(attn_dropout),
+            nn.Linear(128, 1)  # logits for BCEWithLogits
+        )
+
+    def unfreeze_last_blocks(self):
+        for name, p in self.cnn.named_parameters():
+            if "features.6" in name or "features.7" in name:
+                p.requires_grad = True
+
+    def forward(self, x, days_norm):  # x: (B,T,C,H,W), days_norm: (B,T)
+        B, T, C, H, W = x.shape
+        feats = []
+        for t in range(T):
+            f = self.cnn(x[:, t])                    # (B, d_cnn)
+            dt = days_norm[:, t].unsqueeze(1)
+            dt = dt.to(f.device)                     # ensure same device   
+            f = f + self.time_proj(dt)            # inject absolute time
+            feats.append(f)
+        feats = torch.stack(feats, dim=1)            # (B, T, d_cnn)
+        pooled, attn = self.temporal(feats)
+        logit = self.head(pooled).squeeze(1)         # (B,)
+        return logit, attn
+
+
+# -------------- Metrics --------------
+@torch.no_grad()
+def evaluate_binary(model, loader, criterion, device):
+    model.eval()
+    all_probs, all_labels, losses = [], [], []
+    false_pos, false_neg = [], []
+
+    for seqs, days, labels, weights, ids in loader:
+        seqs   = seqs.to(device)
+        days   = days.to(device).float()
+        labels = labels.float().to(device)
+
+        logits, _ = model(seqs, days)
+        # criterion has reduction='none' → average for reporting
+        loss_raw = criterion(logits, labels)   # (B,)
+        losses.append(loss_raw.mean().item())
+
+        probs = torch.sigmoid(logits)
+        preds = (probs > 0.5).int().cpu()
+        labels_cpu = labels.int().cpu()
+
+        # FP/FN with organoid ids
+        for oid, pred, true in zip(ids, preds, labels_cpu):
+            if pred == 1 and true == 0:
+                false_pos.append(oid)
+            elif pred == 0 and true == 1:
+                false_neg.append(oid)
+
+        all_probs.append(probs.cpu())
+        all_labels.append(labels_cpu)
+
+    if len(all_probs) == 0:
+        return 0.0, 0.0, 0.0, 0.0, 0.0, false_pos, false_neg
+
+    probs  = torch.cat(all_probs)
+    labels = torch.cat(all_labels)
+    preds  = (probs > 0.5).int()
+
+    acc = (preds == labels.int()).float().mean().item()
+    prec, rec, f1, _ = precision_recall_fscore_support(
+        labels.numpy(), preds.numpy(), average="binary", zero_division=0
+    )
+    return float(np.mean(losses)), acc, float(prec), float(rec), float(f1), false_pos, false_neg
+
+
+# -------------- Training (one day range) --------------
+def train_for_day_range(max_day, train_ids, val_ids, test_ids,
+                        series_metadata, data, global_mean, device, output_dir):
+    print(f"\n{'='*70}\nTRAINING WITH DAYS 3–{max_day}\n{'='*70}")
+
+    # ---- ADD/REPLACE THIS SECTION ----
+    from torchvision.transforms import InterpolationMode
+    BILINEAR = InterpolationMode.BILINEAR
+
+    train_tf = transforms.Compose([
+        transforms.Resize((384, 384), interpolation=BILINEAR),
+        # transforms.RandomRotation(degrees=15, fill=(128, 128, 128)),
+        transforms.RandomRotation(degrees=15, fill=128),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.5),
+    ])
+
+    eval_tf = transforms.Compose([
+        transforms.Resize((384, 384), interpolation=BILINEAR),
+    ])
+
     train_dataset = OrganoidTimeSeriesDataset(
         train_ids, series_metadata, data,
-        global_mean=global_mean,
-        max_day=max_day,
-        transform=train_transform
+        global_mean=global_mean, max_day=max_day, transform=train_tf
     )
-
     val_dataset = OrganoidTimeSeriesDataset(
         val_ids, series_metadata, data,
-        global_mean=global_mean,
-        max_day=max_day,
-        transform=None
+        global_mean=global_mean, max_day=max_day, transform=eval_tf
     )
-
     test_dataset = OrganoidTimeSeriesDataset(
         test_ids, series_metadata, data,
-        global_mean=global_mean,
-        max_day=max_day,
-        transform=None
+        global_mean=global_mean, max_day=max_day, transform=eval_tf
     )
-    
-    # Create dataloaders
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=0)
-    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False, num_workers=0)
-    
-    # Calculate class weights for imbalanced data
+
+    pin = (device.type == "cuda")
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
+                              num_workers=NUM_WORKERS, pin_memory=pin)
+    val_loader   = DataLoader(val_dataset,   batch_size=BATCH_SIZE, shuffle=False,
+                              num_workers=NUM_WORKERS, pin_memory=pin)
+    test_loader  = DataLoader(test_dataset,  batch_size=BATCH_SIZE, shuffle=False,
+                              num_workers=NUM_WORKERS, pin_memory=pin)
+    # ---- END OF INSERT ----
+
+    # class balance from train IDs (sequence-level)
     train_labels = []
     for org_id in train_ids:
-        entry_keys = series_metadata[org_id]['entry_keys']
-        final_entry = data[entry_keys[-1]]
-        survey = final_entry.get('survey', {})
-        if 'evaluations' in survey:
-            votes = [ev.get('evaluation') for ev in survey['evaluations']]
-            if votes.count('Acceptable') > votes.count('Not Acceptable'):
-                train_labels.append(1)
-            else:
-                train_labels.append(0)
+        s = str(series_metadata[org_id].get("label","")).strip().lower()
+        lab = 1 if s in ("good","acceptable","accepted") else 0
+        train_labels.append(lab)
+
+    n_good = int(np.sum(train_labels))
+    n_bad  = int(len(train_labels) - n_good)
+    # avoid div-by-zero
+    if n_good == 0: n_good = 1
+    if n_bad  == 0: n_bad  = 1
+    pos_weight = torch.tensor([n_bad / n_good], device=device, dtype=torch.float32)
+    print(f"class balance (train): good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}")
+
+    model = OrganoidCNN_TAtt(attn_dropout=ATTN_DROPOUT).to(device)
+
+    # two phase optimizer setup (we'll swap LR when unfreezing)
+    def make_optimizer(lr_cnn, lr_head):
+        params_cnn = [p for n,p in model.cnn.named_parameters() if p.requires_grad]
+        params_head = [p for n,p in model.named_parameters()
+                       if not n.startswith("cnn.") and p.requires_grad]
+        groups = []
+        if len(params_cnn) > 0:
+            groups.append({"params": params_cnn, "lr": lr_cnn})
+        if len(params_head) > 0:
+            groups.append({"params": params_head, "lr": lr_head})
+        return optim.Adam(groups)
+
+    # warmup: CNN frozen → only head gets LR
+    optimizer = make_optimizer(lr_cnn=0.0, lr_head=LR_HEAD)
+    # replace your criterion with reduction='none' and no pos_weight
+    criterion = nn.BCEWithLogitsLoss(reduction='none')
+
+    # before training loop (you already computed these counts)
+    w_pos = n_bad / n_good       # ~0.87
+    w_neg = n_good / n_bad       # ~1.15  <-- upweight negatives slightly
     
-    n_good = sum(train_labels)
-    n_bad = len(train_labels) - n_good
-    weight_for_0 = len(train_labels) / (2 * n_bad)
-    weight_for_1 = len(train_labels) / (2 * n_good)
-    class_weights = torch.FloatTensor([weight_for_0, weight_for_1]).to(device)
-    
-    print(f"Class weights: Bad={weight_for_0:.3f}, Good={weight_for_1:.3f}")
-    
-    # Create model
-    model = OrganoidCNN_LSTM(
-        num_classes=2,
-        lstm_hidden=256,
-        lstm_layers=2
-    ).to(device)
-    
-    # ========== SIMPLE END-TO-END TRAINING ==========
-    criterion = nn.CrossEntropyLoss(weight=class_weights)
-    optimizer = optim.Adam(model.parameters(), lr=7e-4)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', patience=5, factor=0.5
-    )
-    
-    best_val_acc = 0
-    best_model_state = None
-    patience_counter = 0
-    
-    for epoch in range(100):
-        # Training with gradient clipping
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
+
+    best_val_acc = -1.0
+    best_state = None
+    bad_epochs = 0
+
+    for epoch in range(1, MAX_EPOCHS + 1):
+        # unfreeze last blocks after warmup
+        if epoch == WARMUP_EPOCHS + 1:
+            model.unfreeze_last_blocks()
+            optimizer = make_optimizer(lr_cnn=LR_CNN_UNFREEZE, lr_head=LR_HEAD)
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
+            print("→ Unfroze last CNN blocks; using small LR for CNN.")
+
         model.train()
-        train_loss = 0
-        train_correct = 0
-        train_total = 0
-        
-        for sequences, labels in tqdm(train_loader, desc="Training"):
-            sequences, labels = sequences.to(device), labels.to(device)
-            
+        running_loss, correct, total = 0.0, 0, 0
+        for seqs, days, labels, weights, ids in tqdm(train_loader, desc=f"Epoch {epoch:02d}", leave=False):
+            seqs   = seqs.to(device)
+            days   = days.to(device).float()
+            labels = labels.float().to(device)
+            weights = weights.to(device).float()
+
             optimizer.zero_grad()
-            outputs = model(sequences)
-            loss = criterion(outputs, labels)
+            logits, _ = model(seqs, days)
+
+            # combine class weights and agreement weights
+            loss_raw = criterion(logits, labels)  # (B,)
+            cls_w = labels * w_pos + (1 - labels) * w_neg  # (B,)
+            loss = (loss_raw * weights * cls_w).mean()
+
             loss.backward()
-            
-            # Clip gradients!
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            
+            torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
             optimizer.step()
-            
-            train_loss += loss.item()
-            _, predicted = outputs.max(1)
-            train_total += labels.size(0)
-            train_correct += predicted.eq(labels).sum().item()
-        
-        train_acc = train_correct / train_total
-        
-        # Validation
-        val_loss, val_acc, val_prec, val_rec, val_f1, _, _ = evaluate(
-            model, val_loader, criterion, device
-        )
-        
+
+            running_loss += loss.item() * labels.size(0)
+            preds = (torch.sigmoid(logits).view(-1) > 0.5).long()
+            correct += (preds == labels.long()).sum().item()
+            total += labels.size(0)
+
+
+        train_loss = running_loss / max(1, total)
+        train_acc = correct / max(1, total)
+
+        val_loss, val_acc, val_prec, val_rec, val_f1, val_fp, val_fn = evaluate_binary(model, val_loader, criterion, device)
+
         scheduler.step(val_loss)
-        
-        print(f"Epoch {epoch+1:2d}: Train {train_acc:.3f} | Val {val_acc:.3f} | F1 {val_f1:.3f}")
-        
-        if val_acc > best_val_acc:
+
+        print(f"Epoch {epoch:02d} | Train {train_acc:.3f} / {train_loss:.4f} "
+              f"| Val {val_acc:.3f} / {val_loss:.4f} (P {val_prec:.3f} R {val_rec:.3f} F1 {val_f1:.3f})")
+
+        if val_acc > best_val_acc + 1e-4:
             best_val_acc = val_acc
-            best_model_state = model.state_dict().copy()
-            patience_counter = 0
-            print(f"  *** New best!")
+            best_state = {k: v.cpu() for k, v in model.state_dict().items()}
+            bad_epochs = 0
+            print("  * new best on val acc")
         else:
-            patience_counter += 1
-            if patience_counter >= 12:
-                print(f"  Early stopping at epoch {epoch+1}")
+            bad_epochs += 1
+            if bad_epochs >= PATIENCE:
+                print(f"  early stopping at epoch {epoch}")
                 break
-    # ================================================
-    
-    print(f"✅ Best val acc: {best_val_acc:.3f}")
-    
-    # Load best model and evaluate on test
-    model.load_state_dict(best_model_state)
-    test_loss, test_acc, test_prec, test_rec, test_f1, _, _ = evaluate(
-        model, test_loader, criterion, device
-    )
-    
-    print(f"\n📊 FINAL TEST RESULTS:")
-    print(f"   Accuracy:  {test_acc:.3f}")
-    print(f"   Precision: {test_prec:.3f}")
-    print(f"   Recall:    {test_rec:.3f}")
-    print(f"   F1 Score:  {test_f1:.3f}")
-    
-    # Save model
-    model_path = output_dir / f'model_days_3-{max_day}.pth'
-    torch.save({
-        'model_state_dict': best_model_state,
-        'max_day': max_day,
-        'best_val_acc': best_val_acc,
-        'test_acc': test_acc,
-        'test_precision': test_prec,
-        'test_recall': test_rec,
-        'test_f1': test_f1,
-    }, model_path)
-    print(f"✅ Saved model to {model_path}")
-    
-    # Clear GPU memory before next run
-    del model
-    del train_loader
-    del val_loader
-    del test_loader
-    del train_dataset
-    del val_dataset
-    del test_dataset
+
+    if best_state is None:
+        best_state = {k: v.cpu() for k, v in model.state_dict().items()}
+
+    # test with best
+    model.load_state_dict(best_state, strict=True)
+    test_loss, test_acc, test_prec, test_rec, test_f1, test_fp, test_fn = evaluate_binary(model, test_loader, criterion, device)
+
+    model_dir = output_dir
+    model_dir.mkdir(parents=True, exist_ok=True)
+    model_path = model_dir / f"model_days_3-{max_day}.pth"
+    torch.save({"state_dict": best_state, "max_day": max_day, "best_val_acc": best_val_acc}, model_path)
+
+    print("\nFinal (best-val checkpoint) on TEST")
+    print(f"Acc {test_acc:.3f} | F1 {test_f1:.3f} | P {test_prec:.3f} | R {test_rec:.3f} | loss {test_loss:.4f}")
+    print(f"Saved → {model_path}")
+
+    del model, train_loader, val_loader, test_loader, train_dataset, val_dataset, test_dataset
     torch.cuda.empty_cache()
 
     return {
-        'max_day': max_day,
-        'best_val_acc': best_val_acc,
-        'test_acc': test_acc,
-        'test_precision': test_prec,
-        'test_recall': test_rec,
-        'test_f1': test_f1,
-        'model_path': str(model_path)
+        "max_day": max_day,
+        "best_val_acc": float(best_val_acc),
+        "test_acc": float(test_acc),
+        "test_precision": float(test_prec),
+        "test_recall": float(test_rec),
+        "test_f1": float(test_f1),
+        "model_path": str(model_path),
+        "val_false_positives": val_fp,
+        "val_false_negatives": val_fn,
+        "test_false_positives": test_fp,
+        "test_false_negatives": test_fn,
     }
 
-
+# -------------- Orchestrator --------------
 def main():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    set_seed(SEED)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-    
-    # Create output directory
-    output_dir = OUTPUT_FOLDER / 'cnn_lstm' / 'temporal_ablation_efnet_simple'
-    output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Saving outputs to: {output_dir}")
-    
-    # Load data
+
+    out_dir = OUTPUT_FOLDER / "cnn_lstm" / "temporal_ablation_attn"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Saving outputs to: {out_dir}")
+
     print("\n" + "="*70)
     print("LOADING DATA")
     print("="*70)
-    
-    series_metadata_path = OUTPUT_FOLDER / 'complete_series_metadata_no_blanks.json'
-    data_path = OUTPUT_FOLDER / 'complete_series_data_no_blanks.json'
-    
+
+    series_metadata_path = OUTPUT_FOLDER / "complete_series_metadata_no_blanks.json"
+    data_path = OUTPUT_FOLDER / "complete_series_data_no_blanks.json"
+
     train_ids, val_ids, test_ids, series_metadata, data = load_data_and_create_splits(
-        series_metadata_path, data_path, random_seed=42
+        series_metadata_path, data_path, random_seed=SEED
     )
-    
-    # Load global mean (already computed during main training)
-    global_mean_path = OUTPUT_FOLDER / 'cnn_lstm' / 'global_mean.npy'
+
+    global_mean_path = OUTPUT_FOLDER / "cnn_lstm" / "global_mean.npy"
     if not global_mean_path.exists():
         raise FileNotFoundError(
             f"Global mean not found at {global_mean_path}. "
-            "Please run train_organoid_lstm.py first!"
+            "Run your main training to create it or compute it separately."
         )
-    
     global_mean = np.load(global_mean_path)
-    print(f"✅ Loaded global mean: {global_mean}")
-    
-    # Run ablation study for each day range
+    print(f"Loaded global mean: {global_mean}")
+
     print("\n" + "="*70)
-    print("STARTING TEMPORAL ABLATION STUDY (SIMPLE TRAINING)")
+    print("STARTING TEMPORAL ABLATION (ATTENTION POOL)")
     print("="*70)
-    
+
     results = []
-    
     for max_day in DAY_RANGES:
-        result = train_for_day_range(
+        res = train_for_day_range(
             max_day, train_ids, val_ids, test_ids,
             series_metadata, data, global_mean, device,
-            output_dir
+            out_dir / f"days_3-{max_day}"
         )
-        results.append(result)
-    
-    # Save summary results
-    results_path = output_dir / 'temporal_ablation_results.json'
-    with open(results_path, 'w') as f:
+        results.append(res)
+
+    results_path = out_dir / "temporal_ablation_results.json"
+    with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
-    
-    # Print summary table
+
     print("\n" + "="*70)
     print("TEMPORAL ABLATION SUMMARY")
     print("="*70)
     print(f"{'Day Range':<15} {'Val Acc':<12} {'Test Acc':<12} {'Test F1':<12}")
     print("-"*70)
-    
     for r in results:
-        print(f"Days 3-{r['max_day']:<7} {r['best_val_acc']:<12.3f} {r['test_acc']:<12.3f} {r['test_f1']:<12.3f}")
-    
-    print("\n" + "="*70)
-    print("KEY FINDINGS:")
-    
-    # Find best performing range
-    best = max(results, key=lambda x: x['test_acc'])
-    print(f"  • Best performance: Days 3-{best['max_day']} ({best['test_acc']:.1%} test accuracy)")
-    
-    # Check if adding more days helps
-    sorted_results = sorted(results, key=lambda x: x['max_day'])
-    improvements = []
-    for i in range(1, len(sorted_results)):
-        diff = sorted_results[i]['test_acc'] - sorted_results[i-1]['test_acc']
-        improvements.append((sorted_results[i]['max_day'], diff))
-    
-    print(f"  • Accuracy gains by adding days:")
-    for day, gain in improvements:
-        direction = "↑" if gain > 0 else "↓"
-        print(f"    - Adding up to Day {day}: {direction} {abs(gain):.1%}")
-    
-    print(f"\nResults saved to {results_path}")
-    print("="*70)
+        print(f"3–{str(r['max_day']):<12} {r['best_val_acc']:<12.3f} {r['test_acc']:<12.3f} {r['test_f1']:<12.3f}")
 
+    best = max(results, key=lambda x: x["test_acc"])
+    print("\nBest on test:", best)
+    print(f"Results saved → {results_path}")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
