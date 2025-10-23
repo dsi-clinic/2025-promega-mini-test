@@ -105,8 +105,8 @@ def build_survey_map(survey_json):
             survey_map[norm_key] = row
     return survey_map
 
-def normalize_manual_mask_map(manual_mask_map):
-    """Normalize keys for storage of manual mask data."""
+def normalize_manual_mask_map(manual_mask_map, in_dir):
+    """Normalize keys for storage of manual mask data and update path to data files."""
     manual_mask_normalized = {}
     for raw_key, manual_data in manual_mask_map.items():
         try:
@@ -114,14 +114,45 @@ def normalize_manual_mask_map(manual_mask_map):
         except ValueError:
             norm_key = OrganoidNormalizer.clean_string(raw_key).upper()
         manual_mask_normalized[norm_key] = manual_data
+
+        best_z = ("images", "raw_images") + Path(manual_data["Best Z Filename"]).parts[6:]
+        manual_data["Best Z Filename"] = in_dir.joinpath(*best_z)
+        check_existence(manual_data["Best Z Filename"])
+
+        mt_mask = ("masks",) + Path(manual_data["MT Mask Path"]).parts[6:]
+        manual_data["MT Mask Path"] = in_dir.joinpath(*mt_mask)
+        check_existence(manual_data["Best Z Filename"])
+
     return manual_mask_normalized
 
-def build_processed_files_map(found_files):
-    """Build and return a dictionary of processed file JSON data."""
+def check_existence(file_path):
+    """Check existence of file and raise an error if it does not exist."""
+    if not file_path.exists():
+        raise RuntimeError(f"Required file does not exist: {file_path}")
+
+def build_processed_files_map(found_files, in_dir):
+    """Build and return a dictionary of processed file JSON data.
+
+    Also update hardcoded paths to point to input files on the file system.
+    """
     processed_map = {}
     for p in found_files:
         raw = load_json(p)
+        for batch_data in raw.values():
+            img_path = ("images", INFER_RESIZED_DIR) + Path(batch_data["img_path"]).parts[7:]
+            batch_data["img_path"] = in_dir.joinpath(*img_path)
+            check_existence(batch_data["img_path"])
+
+            mask_path = ("predictions",) + Path(batch_data["mask_path"]).parts[6:]
+            batch_data["mask_path"] = in_dir.joinpath(*mask_path)
+            check_existence(batch_data["mask_path"])
+
+            overlay_path = ("predictions",) + Path(batch_data["overlay_path"]).parts[6:]
+            batch_data["overlay_path"] = in_dir.joinpath(*overlay_path)
+            check_existence(batch_data["overlay_path"])
+
         processed_map.update(raw)
+
     return processed_map
 
 def merge_data_sources(base_map, survey_map, metab_map, manual_mask_normalized,
@@ -240,11 +271,11 @@ def main():
 
     # Build manual mask map with normalized keys
     print("Normalizing keys for manual mask map...")
-    manual_mask_normalized = normalize_manual_mask_map(sources.manual_mask_map)
+    manual_mask_normalized = normalize_manual_mask_map(sources.manual_mask_map, in_dir)
 
     # Load processed JSONs
     print("Loading processed files JSON data...")
-    processed_map = build_processed_files_map(sources.found_files)
+    processed_map = build_processed_files_map(sources.found_files, in_dir)
 
     # ---------- merge ----------
     print("Merging data sources...")
