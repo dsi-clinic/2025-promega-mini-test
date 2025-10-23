@@ -50,28 +50,33 @@ def repo_root() -> Path:
         p = p.parent
     return Path.cwd()
 
+# # ---- Validation ----
+# def validate_config():
+#     """Validate configuration and create necessary directories"""
+#     try:
+#         # Create essential directories
+#         OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
+#         PLOTS_FOLDER.mkdir(parents=True, exist_ok=True)
+#         LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
+
+#         # Validate size parameters
+#         assert TARGET_WIDTH > 0 and TARGET_HEIGHT > 0, "Invalid target dimensions"
+
+#         # Validate critical paths
+#         if not BASE_PATH.exists():
+#             raise RuntimeError(f"BASE_PATH does not exist: {BASE_PATH}")
+
+#         return True
+#     except Exception as e:
+#         raise RuntimeError(f"Configuration validation failed: {e}")
+
+# # Legacy function name for backwards compatibility
+# def sanity_check():
+#     """Legacy alias for validate_config()"""
+#     return validate_config()
+
+
 ROOT = repo_root()
-
-# ---- Canonical base paths ----
-BASE_PATH         = require_env_path("BASE_PATH")
-RAW_IMAGE_DATA    = require_env_path("RAW_IMAGE_DATA")
-IMAGE_VERIFICATION_FORM = require_env_path("IMAGE_VERIFICATION_FORM")
-OUTPUT_FOLDER     = require_env_path("OUTPUT_FOLDER")
-PLOTS_FOLDER      = require_env_path("PLOTS_FOLDER")
-LOGS_FOLDER       = require_env_path("LOGS_FOLDER")
-NPY_OUTPUTS       = require_env_path("NPY_OUTPUTS")
-PREDICTIONS_DIR   = require_env_path("PREDICTIONS_DIR")
-SURVEY_RESULTS    = require_env_path("SURVEY_RESULTS")
-MANUAL_MASKS_DIR  = require_env_path("MANUAL_MASKS_DIR")
-META_FILE         = require_env_path("META_FILE")
-ALL_DATA_JSON     = OUTPUT_FOLDER / "all_data.json"
-
-# The raw, first-stage image mapping JSON
-RAW_IMAGE_MAPPING_JSON = require_env_path("RAW_IMAGE_MAPPING_JSON")
-
-# Optional model config/checkpoint from env (used by mmseg; can be None)
-CONFIG_FILE_PATH    = optional_env_path("CONFIG_FILE_PATH")
-CHECKPOINT_FILE_PATH= optional_env_path("CHECKPOINT_FILE_PATH")
 
 # ---- Sizes ----
 TARGET_WIDTH   = require_env_int("TARGET_WIDTH")
@@ -79,54 +84,60 @@ TARGET_HEIGHT  = require_env_int("TARGET_HEIGHT")
 TARGET_SIZE    = (TARGET_WIDTH, TARGET_HEIGHT)
 TARGET_SUFFIX  = f"{TARGET_WIDTH}x{TARGET_HEIGHT}"
 
+# ---- Default file and directory names ----
+ALL_DATA_JSON = "all_data.json"
+INFER_RESIZED_DIR = f"infer_resized_{TARGET_WIDTH}x{TARGET_HEIGHT}"
+MANUAL_THRESHOLD_MAPPING_JSON = "image_mapping_thresholded_and_manual.json"
+METABOLITE_MAP_JSON = "metabolite_map.json"
+ORIGINAL_MAPPING_JSON = "image_mapping.json"
+SURVEY_AGGREGATED_JSON = "organoid_surveys_aggregated.json"
+
+# ---- Canonical base paths ----
+# BASE_PATH         = require_env_path("BASE_PATH")
+# RAW_IMAGE_DATA    = require_env_path("RAW_IMAGE_DATA")
+# IMAGE_VERIFICATION_FORM = require_env_path("IMAGE_VERIFICATION_FORM")
+# OUTPUT_FOLDER     = require_env_path("OUTPUT_FOLDER")
+# PLOTS_FOLDER      = require_env_path("PLOTS_FOLDER")
+# LOGS_FOLDER       = require_env_path("LOGS_FOLDER")
+# NPY_OUTPUTS       = require_env_path("NPY_OUTPUTS")
+# PREDICTIONS_DIR   = require_env_path("PREDICTIONS_DIR")
+# SURVEY_RESULTS    = require_env_path("SURVEY_RESULTS")
+# MANUAL_MASKS_DIR  = require_env_path("MANUAL_MASKS_DIR")
+# META_FILE         = require_env_path("META_FILE")
+# ALL_DATA_JSON     = OUTPUT_FOLDER / "all_data.json"
+
+# The raw, first-stage image mapping JSON
+# RAW_IMAGE_MAPPING_JSON = require_env_path("RAW_IMAGE_MAPPING_JSON")
+
+# Optional model config/checkpoint from env (used by mmseg; can be None)
+# CONFIG_FILE_PATH    = optional_env_path("CONFIG_FILE_PATH")
+# CHECKPOINT_FILE_PATH= optional_env_path("CHECKPOINT_FILE_PATH")
+
+
+
 # ---- Training layout ----
-TRAIN_RESIZED_DIR          = require_env_path("TRAIN_RESIZED_DIR")
-TRAIN_MANUAL_MAPPING_DIR   = require_env_path("TRAIN_MANUAL_MAPPING_DIR")
-TRAIN_MANUAL_PROCESSED_DIR = require_env_path("TRAIN_MANUAL_PROCESSED_DIR")
-TRAIN_SPLITS_DIR           = require_env_path("TRAIN_SPLITS_DIR")
+# TRAIN_RESIZED_DIR          = require_env_path("TRAIN_RESIZED_DIR")
+# TRAIN_MANUAL_MAPPING_DIR   = require_env_path("TRAIN_MANUAL_MAPPING_DIR")
+# TRAIN_MANUAL_PROCESSED_DIR = require_env_path("TRAIN_MANUAL_PROCESSED_DIR")
+# TRAIN_SPLITS_DIR           = require_env_path("TRAIN_SPLITS_DIR")
 
 # ---- Inference layout ----
-INFER_RESIZED_DIR        = require_env_path("INFER_RESIZED_DIR")
-INFER_MAPPING_TOTAL_JSON = require_env_path("INFER_MAPPING_TOTAL_JSON")
-INFER_AUTO_PROCESSED_DIR = INFER_RESIZED_DIR / "auto_processed"
+# INFER_RESIZED_DIR        = require_env_path("INFER_RESIZED_DIR")
+# INFER_MAPPING_TOTAL_JSON = require_env_path("INFER_MAPPING_TOTAL_JSON")
+# INFER_AUTO_PROCESSED_DIR = INFER_RESIZED_DIR / "auto_processed"
 
 # ---- Shared artifacts (centralized file names) ----
-MANUAL_THRESHOLD_MAPPING = require_env_path("MANUAL_THRESHOLD_MAPPING")
+# MANUAL_THRESHOLD_MAPPING = require_env_path("MANUAL_THRESHOLD_MAPPING")
 
 # ---- Surveys & metabolites (with sensible defaults) ----
-METABOLITE_DATA_DIR     = optional_env_path("METABOLITE_DATA_DIR") or (BASE_PATH / "metabolite_data")
-METABOLITE_SOURCE_XLSX  = optional_env_path("METABOLITE_SOURCE_XLSX") or (METABOLITE_DATA_DIR / "metabolite_data_07_23_25.xlsx")
-METABOLITE_MAP_JSON     = optional_env_path("METABOLITE_MAP_JSON") or (METABOLITE_DATA_DIR / "metabolite_map.json")
-SURVEY_AGGREGATED_JSON  = optional_env_path("SURVEY_AGGREGATED_JSON") or (SURVEY_RESULTS / "organoid_surveys_aggregated.json")
+# METABOLITE_DATA_DIR     = optional_env_path("METABOLITE_DATA_DIR") or (BASE_PATH / "metabolite_data")
+# METABOLITE_SOURCE_XLSX  = optional_env_path("METABOLITE_SOURCE_XLSX") or (METABOLITE_DATA_DIR / "metabolite_data_07_23_25.xlsx")
+# METABOLITE_MAP_JSON     = optional_env_path("METABOLITE_MAP_JSON") or (METABOLITE_DATA_DIR / "metabolite_map.json")
+# SURVEY_AGGREGATED_JSON  = optional_env_path("SURVEY_AGGREGATED_JSON") or (SURVEY_RESULTS / "organoid_surveys_aggregated.json")
 
 # ---- Data quality checks ----
-DATA_QUALITY_DIR = Path("/net/projects2/promega/data-analysis/data-quality-checks")
+# DATA_QUALITY_DIR = Path("/net/projects2/promega/data-analysis/data-quality-checks")
 # or wherever makes sense in your project structure
 
 # ---- Legacy aliases for backwards compatibility ----
-ORIGINAL_MAPPING = RAW_IMAGE_MAPPING_JSON
-
-# ---- Validation ----
-def validate_config():
-    """Validate configuration and create necessary directories"""
-    try:
-        # Create essential directories
-        OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
-        PLOTS_FOLDER.mkdir(parents=True, exist_ok=True)
-        LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
-        
-        # Validate size parameters
-        assert TARGET_WIDTH > 0 and TARGET_HEIGHT > 0, "Invalid target dimensions"
-        
-        # Validate critical paths
-        if not BASE_PATH.exists():
-            raise RuntimeError(f"BASE_PATH does not exist: {BASE_PATH}")
-            
-        return True
-    except Exception as e:
-        raise RuntimeError(f"Configuration validation failed: {e}")
-
-# Legacy function name for backwards compatibility
-def sanity_check():
-    """Legacy alias for validate_config()"""
-    return validate_config()
+# ORIGINAL_MAPPING = RAW_IMAGE_MAPPING_JSON
