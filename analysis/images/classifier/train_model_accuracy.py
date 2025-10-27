@@ -25,14 +25,17 @@ BACKBONES = {
     "resnet": "resnet50",
     "cnn": "cnn",
 }
-DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/majority/")
-OUT_ROOT = Path("analysis/images/classifier/outputs_512x384_Regular_image_with_train_augment_with_auroc")
 BATCH_SIZE = 16
-# IMPORTANT: torchvision Resize expects (H, W). We want 512x384 images => (H=384, W=512)
-TARGET_SIZE = (384, 512)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+EPOCH1 = 100
+EPOCH2 = 300
 NUM_WORKERS = 0
 SEED = 1
+TARGET_HEIGHT = 512
+TARGET_WIDTH = 384
+TEST_FRAC = 0.1
+VAL_FRAC = 0.1
+
 # -------------------------------------------------------------
 
 # ---------- Utils ----------
@@ -43,6 +46,92 @@ def set_seed(seed=SEED):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+def create_args():
+    """Create and return argparser with arguments."""
+    arg_parser = argparse.ArgumentParser(description="Run image classifier on organoid images")
+    arg_parser.add_argument("-i",
+                            "--in-dir",
+                            type=Path,
+                            help="Path to input directory on the file system")
+    arg_parser.add_argument("-o",
+                            "--out-dir",
+                            type=Path,
+                            help="Path to input directory on the file system")
+    arg_parser.add_argument("-e",
+                            "--epoch1",
+                            type=int,
+                            default="EPOCH1",
+                            help="How many interations to train for phase 1 (frozen backone)")
+    arg_parser.add_argument("-p",
+                            "--epoch2",
+                            type=int,
+                            default="EPOCH2",
+                            help="How many interations to train for phase 2 (unfrozen backone)")
+    arg_parser.add_argument("-b",
+                            "--batch-size",
+                            type=int,
+                            default=BATCH_SIZE,
+                            help="Train batch size")
+    arg_parser.add_argument("-v",
+                            "--val-batch-size",
+                            type=int,
+                            default=None,
+                            help="Val/Test batch size (defaults to train batch size)")
+    arg_parser.add_argument("-t",
+                            "--test-frac",
+                            type=float,
+                            default=TEST_FRAC,
+                            help="Fraction for test split (e.g., 0.10)")
+    arg_parser.add_argument("-f",
+                            "--val-frac",
+                              type=float,
+                              default=VAL_FRAC,
+                              help="Overall fraction for validation split (e.g., 0.10)")
+    arg_parser.add_argument("-u",
+                            "--use-mask",
+                            action="store_true",
+                            help="Include mask_path tensors and a mask branch in the classifier",
+    )
+    arg_parser.add_argument("-k",
+                            "--input-path-key",
+                            choices=["img_path", "overlay_path"],
+                            default="img_path",
+                            help="Which JSON field to use as the primary image input",
+    )
+    arg_parser.add_argument("-w",
+                            "--target-width",
+                            type=int,
+                            default=TARGET_WIDTH,
+                            help="Target width of input image",
+    )
+    arg_parser.add_argument("-ht",
+                            "--target-height",
+                            type=int,
+                            default=TARGET_HEIGHT,
+                            help="Target height of input image",
+    )
+    arg_parser.add_argument("-n",
+                            "--num-workers",
+                            type=int,
+                            default=NUM_WORKERS,
+                            help="How many subprocesses used to load data",
+    )
+    arg_parser.add_argument("-s",
+                            "--seed",
+                            type=int,
+                            default=SEED,
+                            help="Seed for random operations",
+    )
+    return arg_parser
+
+def get_args():
+    """Retrieve and return command line arguments"""
+    arg_parser = create_args()
+    args = arg_parser.parse_args()
+    for key,val in vars(args).items():
+        print(f"{key}: {val}")
+    return args
 
 def day_to_int(day_str: str) -> int:
     # "Dy28" -> 28, fallback -1
@@ -67,13 +156,13 @@ class EarlyStopping:
 class OrganoidDataset(Dataset):
     """Dataset that can optionally return mask tensors alongside images."""
 
-    def __init__(self, img_paths, labels, mask_paths=None, augment=False, use_mask=False):
+    def __init__(self, img_paths, labels, target_size, mask_paths=None, augment=False, use_mask=False):
         self.img_paths = img_paths
         self.labels = labels
         self.mask_paths = mask_paths
         self.augment = augment
         self.use_mask = use_mask
-        t = [T.Resize(TARGET_SIZE)]
+        t = [T.Resize(target_size)]
         if augment:
             t += [
                 T.RandomHorizontalFlip(0.5),
@@ -86,7 +175,7 @@ class OrganoidDataset(Dataset):
             if self.mask_paths is None:
                 raise ValueError("mask_paths must be provided when use_mask=True")
             self.t_mask = T.Compose([
-                T.Resize(TARGET_SIZE, interpolation=T.InterpolationMode.NEAREST),
+                T.Resize(target_size, interpolation=T.InterpolationMode.NEAREST),
                 T.ToTensor(),
             ])
 
@@ -222,8 +311,8 @@ class ImageOnlyClassifier(nn.Module):
         return self.classifier(f).squeeze(1)
 
 
-def make_loader(imgs, labels, augment, batch_size, mask_paths=None, use_mask=False):
-    ds = OrganoidDataset(imgs, labels, mask_paths=mask_paths, augment=augment, use_mask=use_mask)
+def make_loader(imgs, labels, augment, batch_size, target_size, mask_paths=None, use_mask=False):
+    ds = OrganoidDataset(imgs, labels, target_size=target_size, mask_paths=mask_paths, augment=augment, use_mask=use_mask)
     return DataLoader(ds, batch_size=batch_size, shuffle=augment, num_workers=NUM_WORKERS)
 
 # ---------- Train/Eval ----------
@@ -283,7 +372,8 @@ def evaluate_on_loader(model, loader, use_mask=False):
 
 def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: str,
                          train_bs: int, val_bs: int, test_frac: float, val_frac: float,
-                         out_root: Path, input_key: str, use_mask: bool):
+                         out_root: Path, input_key: str, use_mask: bool,
+                         target_size: tuple, epoch_one: int, epoch_two: int):
     """Train + validate with small val/test; select by VAL acc, report on TEST."""
     records = json.loads(day_json_path.read_text())
     if not records:
@@ -382,6 +472,7 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
         mask_paths=M_tr if use_mask else None,
         augment=False,
         batch_size=train_bs,
+        target_size=target_size,
         use_mask=use_mask,
     )
     val_loader = make_loader(
@@ -390,6 +481,7 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
         mask_paths=M_val if use_mask else None,
         augment=False,
         batch_size=val_bs,
+        target_size=target_size,
         use_mask=use_mask,
     )
     test_loader = make_loader(
@@ -398,11 +490,12 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
         mask_paths=M_test if use_mask else None,
         augment=False,
         batch_size=val_bs,
+        target_size=target_size,
         use_mask=use_mask,
     )
 
     # model/opt
-    model = ImageOnlyClassifier(backbone_key, backbone_name, TARGET_SIZE, use_mask=use_mask).to(DEVICE)
+    model = ImageOnlyClassifier(backbone_key, backbone_name, target_size, use_mask=use_mask).to(DEVICE)
     model_dir = out_root / backbone_key / day_json_path.stem
     model_dir.mkdir(parents=True, exist_ok=True)
     model_path = model_dir / "model.pth"
@@ -413,7 +506,7 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     best_acc = -np.inf
 
     # Phase 1 — frozen
-    for epoch in range(100):
+    for epoch in range(epoch_one):
         tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask)
         vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=use_mask)
         history["train_loss"].append(tl); history["val_loss"].append(vl)
@@ -429,7 +522,7 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     model.unfreeze_backbone()
     opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
     es = EarlyStopping(patience=30)
-    for epoch in range(300):
+    for epoch in range(epoch_two):
         tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask)
         vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=use_mask)
         history["train_loss"].append(tl); history["val_loss"].append(vl)
@@ -530,56 +623,36 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
 
 # ---------- Orchestration ----------
 def main():
+    # Set up for model training
     set_seed()
+    args = get_args()
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    val_bs = int(args.val_batch_size) if args.val_batch_size is not None else args.batch_size
+    target_size = (args.target_width, args.target_height)
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--outdir", default=OUT_ROOT, help="Where to save outputs")
-    parser.add_argument("--data_dir", default=DATA_DIR, help="Directory with per-day JSONs")
-    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="Train batch size")
-    parser.add_argument("--val-batch-size", type=int, default=None, help="Val/Test batch size (defaults to train batch size)")
-    parser.add_argument("--test-frac", type=float, default=0.10, help="Fraction for test split (e.g., 0.10)")
-    parser.add_argument("--val-frac",  type=float, default=0.10, help="Overall fraction for validation split (e.g., 0.10)")
-    parser.add_argument(
-        "--use-mask",
-        action="store_true",
-        help="Include mask_path tensors and a mask branch in the classifier",
-    )
-    parser.add_argument(
-        "--input-path-key",
-        choices=["img_path", "overlay_path"],
-        default="img_path",
-        help="Which JSON field to use as the primary image input",
-    )
-    args = parser.parse_args()
-
-    out_dir = Path(args.outdir); out_dir.mkdir(parents=True, exist_ok=True)
-    data_dir = Path(args.data_dir)
-
-    train_bs = int(args.batch_size)
-    val_bs = int(args.val_batch_size) if args.val_batch_size is not None else train_bs
-    test_frac = float(args.test_frac)
-    val_frac = float(args.val_frac)
-    use_mask = bool(args.use_mask)
-    input_key = str(args.input_path_key)
-
-    assert 0.0 < test_frac < 0.5, "test-frac must be in (0, 0.5)"
-    assert 0.0 < val_frac  < 0.5, "val-frac must be in (0, 0.5)"
-    assert val_frac + test_frac < 0.9, "Sum of val-frac and test-frac too large."
-    print(f"🧪 Using batch sizes — train: {train_bs}, val/test: {val_bs}")
-    print(f"🔀 Split fractions — train: {1.0 - test_frac - val_frac:.2f}, val: {val_frac:.2f}, test: {test_frac:.2f}")
-    print(f"🖼️ Target size (HxW): {TARGET_SIZE}")
-    print(f"🗂️ Input field: {input_key}; masks enabled: {use_mask}")
+    assert 0.0 < args.test_frac < 0.5, "test-frac must be in (0, 0.5)"
+    assert 0.0 < args.val_frac  < 0.5, "val-frac must be in (0, 0.5)"
+    assert args.val_frac + args.test_frac < 0.9, "Sum of val-frac and test-frac too large."
+    print(f"🧪 Using batch sizes — train: {args.batch_size}, val/test: {val_bs}")
+    print(f"🔀 Split fractions — train: {1.0 - args.test_frac - args.val_frac:.2f}, val: {args.val_frac:.2f}, test: {args.test_frac:.2f}")
+    print(f"🖼️ Target size (HxW): {target_size}")
+    print(f"🗂️ Input field: {args.input_path_key}; masks enabled: {args.use_mask}")
 
     # Collect results: pick the best backbone per day by **validation accuracy**
     per_day_best = {}
     per_model_results = {bk: {} for bk in BACKBONES}
-    for json_file in sorted(data_dir.glob("Dy*.json"), key=lambda p: day_to_int(p.stem)):
+    for json_file in sorted(args.in_dir.glob("Dy*.json"), key=lambda p: day_to_int(p.stem)):
         day = json_file.stem
         best = None
         for backbone_key, backbone_name in BACKBONES.items():
             res = run_training_for_day(json_file, backbone_key, backbone_name,
-                                       train_bs, val_bs, test_frac, val_frac,
-                                       out_dir, input_key=input_key, use_mask=use_mask)
+                                       args.batch_size, val_bs, args.test_frac,
+                                        args.val_frac, args.out_dir,
+                                        input_key=args.input_path_key,
+                                        use_mask=args.use_mask,
+                                        target_size=target_size,
+                                        epoch_one=args.epoch1,
+                                        epoch_two=args.epoch2)
             if res is None:
                 continue
             per_model_results[backbone_key][day] = res
@@ -608,7 +681,7 @@ def main():
         })
 
     # Save CSV table (exactly 4 columns)
-    table_path = out_dir / "day_summary.csv"
+    table_path = args.out_dir / "day_summary.csv"
     with table_path.open("w", newline="") as f:
         writer = csv.DictWriter(
             f, fieldnames=["Day No", "Num in Sample", "Actual Good", "Predicted Good"]
@@ -650,7 +723,7 @@ def main():
                 plt.ylim(0.0, 1.0)
                 plt.legend()
                 plt.tight_layout()
-                out_path = out_dir / filename
+                out_path = args.out_dir / filename
                 plt.savefig(out_path)
                 print(f"📊 Saved {title.lower()} → {out_path}")
             plt.close()
@@ -679,15 +752,15 @@ def main():
 
     summary = {
         "per_model": per_model_summary,
-        "batch_size_train": int(train_bs),
+        "batch_size_train": int(args.batch_size),
         "batch_size_valtest": int(val_bs),
         "split_fractions": {
-            "train": float(1.0 - test_frac - val_frac),
-            "val": float(val_frac),
-            "test": float(test_frac),
+            "train": float(1.0 - args.test_frac - args.val_frac),
+            "val": float(args.val_frac),
+            "test": float(args.test_frac),
         }
     }
-    summary_path = out_dir / "final_test_summary.json"
+    summary_path = args.out_dir / "final_test_summary.json"
     with summary_path.open("w") as f:
         json.dump(summary, f, indent=2)
     print(f"✅ Saved final test summary → {summary_path}")
