@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
-
-import os, json, argparse, re, csv, dataclasses
-from pathlib import Path
+# Standard imports
+import argparse
+import csv
+import dataclasses
+import datetime
+import json
+import random
+import re
 from collections import defaultdict
+from pathlib import Path
 
-import numpy as np
-from PIL import Image
+# Third party imports
 import matplotlib.pyplot as plt
-
+import numpy as np
+import timm
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
-
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score
-import timm
+from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms as T
 
 # -------- Config defaults --------
@@ -92,7 +97,6 @@ class Config:
 
 # ---------- Utils ----------
 def set_seed(seed):
-    import random
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
