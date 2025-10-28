@@ -58,26 +58,21 @@ def normalize_key(key):
     key = key.upper().replace('DY', 'Dy')
     return key
 
-# --- 1. Load all_data.json (unified data source) ---
-print("\n--- Loading data from all_data.json ---")
-with open(ALL_DATA_JSON) as f:
-    all_data = json.load(f)
-
 # --- 2. Helper function to compute majority label from evaluations ---
 def compute_majority_label(evaluations, min_votes=4):
     """Compute majority label from survey evaluations."""
     if not evaluations or len(evaluations) != 5:
         return None
-    
+
     votes = {}
     for eval_data in evaluations:
         evaluation = eval_data.get('evaluation', '')
         if evaluation:
             votes[evaluation] = votes.get(evaluation, 0) + 1
-    
+
     acceptable = votes.get('Acceptable', 0)
     not_acceptable = votes.get('Not Acceptable', 0)
-    
+
     # Use majority threshold (at least 4 out of 5)
     if acceptable >= min_votes:
         return 'Acceptable'
@@ -85,107 +80,6 @@ def compute_majority_label(evaluations, min_votes=4):
         return 'Not Acceptable'
     else:
         return None  # Skip ambiguous cases
-
-# --- 3. Extract Dy30 data with survey from all_data.json ---
-all_new_data = {}
-matched_count = 0
-missing_processed = 0
-ambiguous_labels = 0
-no_evaluation = 0
-
-for key, value in all_data.items():
-    # Filter for Dy30 records with survey data
-    if value.get('dayID') != TARGET_DAY:
-        continue
-    
-    if 'survey' not in value:
-        continue
-    
-    # Check if processed image data exists
-    if 'processed' not in value:
-        missing_processed += 1
-        continue
-    
-    # Get evaluations from survey data
-    evaluations = value['survey'].get('evaluations', [])
-    if not evaluations:
-        no_evaluation += 1
-        continue
-    
-    # Compute label from evaluations
-    label = compute_majority_label(evaluations, min_votes=4)
-    if label is None:
-        ambiguous_labels += 1
-        continue
-    
-    # Add to dataset
-    all_new_data[key] = {
-        'img_path': value['processed']['img_path'],
-        'seg_map_path': value['processed']['mask_path'],
-        'label': label
-    }
-    matched_count += 1
-
-print(f"✓ Loaded {len(all_data)} total records from all_data.json")
-print(f"✓ Found {matched_count} Dy30 records with clear majority labels (4+ votes)")
-if missing_processed > 0:
-    print(f"⚠ Skipped {missing_processed} records without processed image paths")
-if ambiguous_labels > 0:
-    print(f"⚠ Skipped {ambiguous_labels} records with ambiguous labels (no clear majority)")
-if no_evaluation > 0:
-    print(f"⚠ Skipped {no_evaluation} records without evaluation data")
-
-# Check if we have any data
-if not all_new_data:
-    print("\n❌ Error: No matching data found.")
-    print("   - Check that all_data.json has survey data for Dy30")
-    print("   - Check that evaluations have clear majority votes")
-    exit()
-
-print(f"✓ Successfully prepared {len(all_new_data)} organoids for training")
-
-# --- 3. Prepare data for training ---
-image_paths = []
-mask_paths = []
-labels = []
-
-for item in all_new_data.values():
-    image_paths.append(item['img_path'])
-    mask_paths.append(item['seg_map_path'])
-    labels.append(item['label'])
-
-unique_labels = sorted(list(set(labels)))
-label_to_index = {"Not Acceptable": 0, "Acceptable": 1}  # Explicitly map to 0 and 1
-indexed_labels = np.array([label_to_index[label] for label in labels])
-num_classes = 1  # Binary classification uses 1 output unit with sigmoid
-
-# --- Calculate and Print Class Distribution ---
-print("\n--- Class Distribution (Before Split) ---")
-class_counts = Counter(indexed_labels)
-for class_idx, count in sorted(class_counts.items()):
-    label_name = [name for name, idx in label_to_index.items() if idx == class_idx][0]
-    print(f"Class {class_idx} ('{label_name}'): {count} samples")
-print("------------------------------------------")
-
-# --- 4. Split data into training and validation sets ---
-# We split paths and labels first, then load images on demand in the TF Dataset.
-X_img_path_train, X_img_path_val, X_mask_path_train, X_mask_path_val, y_train, y_val = train_test_split(
-    image_paths, mask_paths, indexed_labels, test_size=0.2, stratify=indexed_labels
-)
-
-# --- Calculate and Apply Class Weights ---
-print("\n--- Calculating Class Weights ---")
-# Flatten y_train for class_weight.compute_class_weight as it expects 1D array
-class_weights_array = class_weight.compute_class_weight(
-    class_weight='balanced',
-    classes=np.unique(y_train.flatten()),
-    y=y_train.flatten()
-)
-class_weights = {i: weight for i, weight in enumerate(class_weights_array)}
-print(f"Class Weights: {class_weights}")
-print("-------------------------------")
-
-# --- 5. Data Loading and Augmentation with tf.data.Dataset ---
 
 def load_and_preprocess_tf(img_path_tensor, mask_path_tensor, label_tensor, target_size=TARGET_SIZE):
     # Decode string tensors to actual strings
@@ -290,18 +184,6 @@ def create_dataset(img_paths, mask_paths, labels, batch_size, augment=False, shu
     dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
     return dataset
 
-batch_size = 8
-train_dataset = create_dataset(X_img_path_train, X_mask_path_train, y_train, batch_size, augment=True, shuffle=True)
-val_dataset = create_dataset(X_img_path_val, X_mask_path_val, y_val, batch_size, augment=False, shuffle=False)
-
-# Get shapes from the first batch to define model input shapes
-# The shapes should now be well-defined due to tf.ensure_shape
-for (img_batch, mask_batch), _ in train_dataset.take(1):
-    IMG_SHAPE = img_batch.shape[1:]
-    MASK_SHAPE = mask_batch.shape[1:]
-print(f"Determined IMG_SHAPE: {IMG_SHAPE}")
-print(f"Determined MASK_SHAPE: {MASK_SHAPE}")
-
 # --- 6. Define F1 Score Metric for Keras ---
 def weighted_f1_score_keras(y_true, y_pred):
     # Round predictions to binary (0 or 1)
@@ -363,181 +245,302 @@ def macro_f1_score_keras(y_true, y_pred):
     macro_f1.set_shape([])
     return macro_f1
 
-# --- 7. Define a CNN model with a pre-trained base ---
-# Load a pre-trained model (e.g., ResNet50V2) without the top (classification) layer
-base_model = ResNet50V2(include_top=False, weights='imagenet', input_shape=IMG_SHAPE)
-base_model.trainable = False # Freeze the base model's weights initially
+def main():
+    # --- 1. Load all_data.json (unified data source) ---
+    print("\n--- Loading data from all_data.json ---")
+    with open(ALL_DATA_JSON) as f:
+        all_data = json.load(f)
 
-# Create separate input layers for the image and the mask
-input_image = keras.Input(shape=IMG_SHAPE)
-input_mask = keras.Input(shape=MASK_SHAPE)
+    # --- 3. Extract Dy30 data with survey from all_data.json ---
+    all_new_data = {}
+    matched_count = 0
+    missing_processed = 0
+    ambiguous_labels = 0
+    no_evaluation = 0
 
-# Pass the image input through the pre-trained base model
-base_output = base_model(input_image)
-pooled_output = GlobalAveragePooling2D()(base_output) # Reduce spatial dimensions
+    for key, value in all_data.items():
+        # Filter for Dy30 records with survey data
+        if value.get('dayID') != TARGET_DAY:
+            continue
 
-# Process the mask input with a smaller CNN
-mask_features = Conv2D(32, (3, 3), activation='relu', padding='same')(input_mask)
-mask_features = MaxPooling2D((2, 2))(mask_features)
-mask_features = Conv2D(64, (3, 3), activation='relu', padding='same')(mask_features)
-mask_features = MaxPooling2D((2, 2))(mask_features)
-mask_features = Flatten()(mask_features)
-mask_features = Dense(64, activation='relu')(mask_features)
+        if 'survey' not in value:
+            continue
 
-# Combine the features from the pre-trained model and the mask processing CNN
-merged = keras.layers.concatenate([pooled_output, mask_features])
+        # Check if processed image data exists
+        if 'processed' not in value:
+            missing_processed += 1
+            continue
 
-# Add a classification head
-dense_layer = Dense(128, activation='relu')(merged)
-dropout_layer = Dropout(0.5)(dense_layer)
-output_layer = Dense(1, activation='sigmoid')(dropout_layer)
+        # Get evaluations from survey data
+        evaluations = value['survey'].get('evaluations', [])
+        if not evaluations:
+            no_evaluation += 1
+            continue
 
-# Create the final model with two inputs and one output
-model = keras.Model(inputs=[input_image, input_mask], outputs=output_layer)
+        # Compute label from evaluations
+        label = compute_majority_label(evaluations, min_votes=4)
+        if label is None:
+            ambiguous_labels += 1
+            continue
 
-# Compile the model with GPU-compatible metrics
-model.compile(
-    optimizer='adam', 
-    loss='binary_crossentropy', 
-    metrics=[
-        'accuracy',
-        tf.keras.metrics.AUC(name='auc'),
-        tf.keras.metrics.Precision(name='precision'),
-        tf.keras.metrics.Recall(name='recall')
-    ]
-)
+        # Add to dataset
+        all_new_data[key] = {
+            'img_path': value['processed']['img_path'],
+            'seg_map_path': value['processed']['mask_path'],
+            'label': label
+        }
+        matched_count += 1
 
-print("\n--- Initial Model Summary (Base Frozen) ---")
-model.summary()
-print("------------------------------------------")
+    print(f"✓ Loaded {len(all_data)} total records from all_data.json")
+    print(f"✓ Found {matched_count} Dy30 records with clear majority labels (4+ votes)")
+    if missing_processed > 0:
+        print(f"⚠ Skipped {missing_processed} records without processed image paths")
+    if ambiguous_labels > 0:
+        print(f"⚠ Skipped {ambiguous_labels} records with ambiguous labels (no clear majority)")
+    if no_evaluation > 0:
+        print(f"⚠ Skipped {no_evaluation} records without evaluation data")
 
-# --- 8. Define Early Stopping Callback ---
-early_stopping = EarlyStopping(
-    monitor='val_auc',
-    patience=20, # Increased patience a bit
-    verbose=1,
-    mode='max',
-    restore_best_weights=True
-)
+    # Check if we have any data
+    if not all_new_data:
+        print("\n❌ Error: No matching data found.")
+        print("   - Check that all_data.json has survey data for Dy30")
+        print("   - Check that evaluations have clear majority votes")
+        exit()
 
-# --- 9. Train the model (Phase 1: Frozen Base with Data Augmentation) ---
-epochs_phase1 = 50 # Train for fewer epochs initially with frozen base
+    print(f"✓ Successfully prepared {len(all_new_data)} organoids for training")
 
-print(f"\n--- Training Phase 1: Frozen Base Model with Augmentation ({epochs_phase1} epochs) ---")
-history = model.fit(
-    train_dataset, # Use the TF Dataset here
-    epochs=epochs_phase1,
-    validation_data=val_dataset, # Use the TF Dataset here
-    callbacks=[early_stopping],
-    class_weight=class_weights # Apply class weights here
-)
-print("----------------------------------------------------------")
+    # --- 3. Prepare data for training ---
+    image_paths = []
+    mask_paths = []
+    labels = []
 
-# --- 10. Unfreeze and Fine-tune (Phase 2 with Data Augmentation) ---
-print("\n--- Training Phase 2: Unfreezing and Fine-tuning Base Model with Augmentation ---")
-# Unfreeze a portion of the base model
-base_model.trainable = True
-for layer in base_model.layers[-10:]: # Unfreeze last 10 layers, for example
-    layer.trainable = True
+    for item in all_new_data.values():
+        image_paths.append(item['img_path'])
+        mask_paths.append(item['seg_map_path'])
+        labels.append(item['label'])
 
-# It's crucial to re-compile the model after unfreezing layers for the changes to take effect.
-# Use a small learning rate for fine-tuning.
-model.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
-    loss='binary_crossentropy',
-    metrics=[
-        'accuracy',
-        tf.keras.metrics.AUC(name='auc'),
-        tf.keras.metrics.Precision(name='precision'),
-        tf.keras.metrics.Recall(name='recall')
-    ]
-)
+    unique_labels = sorted(list(set(labels)))
+    label_to_index = {"Not Acceptable": 0, "Acceptable": 1}  # Explicitly map to 0 and 1
+    indexed_labels = np.array([label_to_index[label] for label in labels])
+    num_classes = 1  # Binary classification uses 1 output unit with sigmoid
 
-print("\n--- Model Summary (Base Unfrozen, Fine-tuning LR) ---")
-model.summary()
-print("----------------------------------------------------")
+    # --- Calculate and Print Class Distribution ---
+    print("\n--- Class Distribution (Before Split) ---")
+    class_counts = Counter(indexed_labels)
+    for class_idx, count in sorted(class_counts.items()):
+        label_name = [name for name, idx in label_to_index.items() if idx == class_idx][0]
+        print(f"Class {class_idx} ('{label_name}'): {count} samples")
+    print("------------------------------------------")
 
-epochs_phase2 = 150 # More epochs for fine-tuning, total epochs will be epochs_phase1 + epochs_phase2
-# Reset early stopping for the second phase to allow more training
-early_stopping_fine_tune = EarlyStopping(
-    monitor='val_auc',
-    patience=30, # Increased patience for fine-tuning
-    verbose=1,
-    mode='max',
-    restore_best_weights=True
-)
+    # --- 4. Split data into training and validation sets ---
+    # We split paths and labels first, then load images on demand in the TF Dataset.
+    X_img_path_train, X_img_path_val, X_mask_path_train, X_mask_path_val, y_train, y_val = train_test_split(
+        image_paths, mask_paths, indexed_labels, test_size=0.2, stratify=indexed_labels
+    )
 
-history_fine_tune = model.fit(
-    train_dataset, # Use the TF Dataset here
-    epochs=epochs_phase2,
-    validation_data=val_dataset, # Use the TF Dataset here
-    callbacks=[early_stopping_fine_tune],
-    class_weight=class_weights # Apply class weights here as well
-)
-print("----------------------------------------------------------")
+    # --- Calculate and Apply Class Weights ---
+    print("\n--- Calculating Class Weights ---")
+    # Flatten y_train for class_weight.compute_class_weight as it expects 1D array
+    class_weights_array = class_weight.compute_class_weight(
+        class_weight='balanced',
+        classes=np.unique(y_train.flatten()),
+        y=y_train.flatten()
+    )
+    class_weights = {i: weight for i, weight in enumerate(class_weights_array)}
+    print(f"Class Weights: {class_weights}")
+    print("-------------------------------")
 
-metrics_to_combine = ['loss', 'val_loss', 'accuracy', 'val_accuracy', 'auc', 'val_auc', 'precision', 'val_precision', 'recall', 'val_recall']
+    # --- 5. Data Loading and Augmentation with tf.data.Dataset ---
+    batch_size = 8
+    train_dataset = create_dataset(X_img_path_train, X_mask_path_train, y_train, batch_size, augment=True, shuffle=True)
+    val_dataset = create_dataset(X_img_path_val, X_mask_path_val, y_val, batch_size, augment=False, shuffle=False)
 
-# Combine histories for plotting
-for key in metrics_to_combine:
-    if key in history.history and key in history_fine_tune.history:
-        history.history[key].extend(history_fine_tune.history[key])
-    elif key in history_fine_tune.history: # In case a metric was only added in phase 2 (unlikely here, but good practice)
-        history.history[key] = history_fine_tune.history[key]
+    # Get shapes from the first batch to define model input shapes
+    # The shapes should now be well-defined due to tf.ensure_shape
+    for (img_batch, mask_batch), _ in train_dataset.take(1):
+        IMG_SHAPE = img_batch.shape[1:]
+        MASK_SHAPE = mask_batch.shape[1:]
+    print(f"Determined IMG_SHAPE: {IMG_SHAPE}")
+    print(f"Determined MASK_SHAPE: {MASK_SHAPE}")
 
-# --- 11. Evaluate the model ---
-# To evaluate with the dataset, we need to convert it to a format model.evaluate expects.
-# We'll use the validation dataset directly.
-results = model.evaluate(val_dataset, verbose=0)
-print(f"\nValidation Results (Final Model):")
-print(f"  Loss: {results[0]:.4f}")
-print(f"  Accuracy: {results[1]:.4f}")
-print(f"  AUC: {results[2]:.4f}")
-print(f"  Precision: {results[3]:.4f}")
-print(f"  Recall: {results[4]:.4f}")
+    # --- 7. Define a CNN model with a pre-trained base ---
+    # Load a pre-trained model (e.g., ResNet50V2) without the top (classification) layer
+    base_model = ResNet50V2(include_top=False, weights='imagenet', input_shape=IMG_SHAPE)
+    base_model.trainable = False # Freeze the base model's weights initially
 
-# Save the trained model ---
-model.save('organoid_classifier_final_model_with_augmentation.h5')
-print("\nFinal model classifier saved as 'organoid_classifier_final_model_with_augmentation.h5'")
+    # Create separate input layers for the image and the mask
+    input_image = keras.Input(shape=IMG_SHAPE)
+    input_mask = keras.Input(shape=MASK_SHAPE)
 
-# --- 12. Visualize training history ---
-plt.figure(figsize=(12, 4))
+    # Pass the image input through the pre-trained base model
+    base_output = base_model(input_image)
+    pooled_output = GlobalAveragePooling2D()(base_output) # Reduce spatial dimensions
 
-plt.subplot(1, 2, 1)
-plt.plot(history.history.get('auc', []), label='Train AUC')
-plt.plot(history.history.get('val_auc', []), label='Validation AUC')
-plt.xlabel('Epoch')
-plt.ylabel('AUC Score')
-plt.legend()
-plt.title('Training and Validation AUC')
-plt.savefig('training_auc_final_model_with_augmentation.png')
+    # Process the mask input with a smaller CNN
+    mask_features = Conv2D(32, (3, 3), activation='relu', padding='same')(input_mask)
+    mask_features = MaxPooling2D((2, 2))(mask_features)
+    mask_features = Conv2D(64, (3, 3), activation='relu', padding='same')(mask_features)
+    mask_features = MaxPooling2D((2, 2))(mask_features)
+    mask_features = Flatten()(mask_features)
+    mask_features = Dense(64, activation='relu')(mask_features)
 
-plt.subplot(1, 2, 2)
-plt.plot(history.history['loss'], label='Train Loss')
-plt.plot(history.history['val_loss'], label='Validation Loss')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.legend()
-plt.title('Training and Validation Loss')
-plt.savefig('training_loss_final_model_with_augmentation.png')
+    # Combine the features from the pre-trained model and the mask processing CNN
+    merged = keras.layers.concatenate([pooled_output, mask_features])
 
-print("\nTraining history plots saved as 'training_auc_final_model_with_augmentation.png' and 'training_loss_final_model_with_augmentation.png'")
+    # Add a classification head
+    dense_layer = Dense(128, activation='relu')(merged)
+    dropout_layer = Dropout(0.5)(dense_layer)
+    output_layer = Dense(1, activation='sigmoid')(dropout_layer)
 
-# --- 13. Print Confusion Matrix ---
-print("\n--- Generating Confusion Matrix ---")
-# To get predictions for the confusion matrix, iterate through the validation dataset
-y_true_all = []
-y_pred_proba_all = []
+    # Create the final model with two inputs and one output
+    model = keras.Model(inputs=[input_image, input_mask], outputs=output_layer)
 
-for (images_batch, masks_batch), labels_batch in val_dataset:
-    y_true_all.extend(labels_batch.numpy().flatten())
-    y_pred_proba_all.extend(model.predict([images_batch, masks_batch]).flatten())
+    # Compile the model with GPU-compatible metrics
+    model.compile(
+        optimizer='adam',
+        loss='binary_crossentropy',
+        metrics=[
+            'accuracy',
+            tf.keras.metrics.AUC(name='auc'),
+            tf.keras.metrics.Precision(name='precision'),
+            tf.keras.metrics.Recall(name='recall')
+        ]
+    )
 
-y_true_all = np.array(y_true_all)
-y_pred_proba_all = np.array(y_pred_proba_all)
+    print("\n--- Initial Model Summary (Base Frozen) ---")
+    model.summary()
+    print("------------------------------------------")
 
-y_pred = (y_pred_proba_all > 0.5).astype(int) # Convert probabilities to binary predictions
+    # --- 8. Define Early Stopping Callback ---
+    early_stopping = EarlyStopping(
+        monitor='val_auc',
+        patience=20, # Increased patience a bit
+        verbose=1,
+        mode='max',
+        restore_best_weights=True
+    )
 
-cm = confusion_matrix(y_true_all, y_pred)
-print("Confusion Matrix:")
-print(cm)
+    # --- 9. Train the model (Phase 1: Frozen Base with Data Augmentation) ---
+    epochs_phase1 = 50 # Train for fewer epochs initially with frozen base
+
+    print(f"\n--- Training Phase 1: Frozen Base Model with Augmentation ({epochs_phase1} epochs) ---")
+    history = model.fit(
+        train_dataset, # Use the TF Dataset here
+        epochs=epochs_phase1,
+        validation_data=val_dataset, # Use the TF Dataset here
+        callbacks=[early_stopping],
+        class_weight=class_weights # Apply class weights here
+    )
+    print("----------------------------------------------------------")
+
+    # --- 10. Unfreeze and Fine-tune (Phase 2 with Data Augmentation) ---
+    print("\n--- Training Phase 2: Unfreezing and Fine-tuning Base Model with Augmentation ---")
+    # Unfreeze a portion of the base model
+    base_model.trainable = True
+    for layer in base_model.layers[-10:]: # Unfreeze last 10 layers, for example
+        layer.trainable = True
+
+    # It's crucial to re-compile the model after unfreezing layers for the changes to take effect.
+    # Use a small learning rate for fine-tuning.
+    model.compile(
+        optimizer=keras.optimizers.Adam(learning_rate=1e-3),
+        loss='binary_crossentropy',
+        metrics=[
+            'accuracy',
+            tf.keras.metrics.AUC(name='auc'),
+            tf.keras.metrics.Precision(name='precision'),
+            tf.keras.metrics.Recall(name='recall')
+        ]
+    )
+
+    print("\n--- Model Summary (Base Unfrozen, Fine-tuning LR) ---")
+    model.summary()
+    print("----------------------------------------------------")
+
+    epochs_phase2 = 150 # More epochs for fine-tuning, total epochs will be epochs_phase1 + epochs_phase2
+    # Reset early stopping for the second phase to allow more training
+    early_stopping_fine_tune = EarlyStopping(
+        monitor='val_auc',
+        patience=30, # Increased patience for fine-tuning
+        verbose=1,
+        mode='max',
+        restore_best_weights=True
+    )
+
+    history_fine_tune = model.fit(
+        train_dataset, # Use the TF Dataset here
+        epochs=epochs_phase2,
+        validation_data=val_dataset, # Use the TF Dataset here
+        callbacks=[early_stopping_fine_tune],
+        class_weight=class_weights # Apply class weights here as well
+    )
+    print("----------------------------------------------------------")
+
+    metrics_to_combine = ['loss', 'val_loss', 'accuracy', 'val_accuracy', 'auc', 'val_auc', 'precision', 'val_precision', 'recall', 'val_recall']
+
+    # Combine histories for plotting
+    for key in metrics_to_combine:
+        if key in history.history and key in history_fine_tune.history:
+            history.history[key].extend(history_fine_tune.history[key])
+        elif key in history_fine_tune.history: # In case a metric was only added in phase 2 (unlikely here, but good practice)
+            history.history[key] = history_fine_tune.history[key]
+
+    # --- 11. Evaluate the model ---
+    # To evaluate with the dataset, we need to convert it to a format model.evaluate expects.
+    # We'll use the validation dataset directly.
+    results = model.evaluate(val_dataset, verbose=0)
+    print(f"\nValidation Results (Final Model):")
+    print(f"  Loss: {results[0]:.4f}")
+    print(f"  Accuracy: {results[1]:.4f}")
+    print(f"  AUC: {results[2]:.4f}")
+    print(f"  Precision: {results[3]:.4f}")
+    print(f"  Recall: {results[4]:.4f}")
+
+    # Save the trained model ---
+    model.save('organoid_classifier_final_model_with_augmentation.h5')
+    print("\nFinal model classifier saved as 'organoid_classifier_final_model_with_augmentation.h5'")
+
+    # --- 12. Visualize training history ---
+    plt.figure(figsize=(12, 4))
+
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history.get('auc', []), label='Train AUC')
+    plt.plot(history.history.get('val_auc', []), label='Validation AUC')
+    plt.xlabel('Epoch')
+    plt.ylabel('AUC Score')
+    plt.legend()
+    plt.title('Training and Validation AUC')
+    plt.savefig('training_auc_final_model_with_augmentation.png')
+
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'], label='Train Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.title('Training and Validation Loss')
+    plt.savefig('training_loss_final_model_with_augmentation.png')
+
+    print("\nTraining history plots saved as 'training_auc_final_model_with_augmentation.png' and 'training_loss_final_model_with_augmentation.png'")
+
+    # --- 13. Print Confusion Matrix ---
+    print("\n--- Generating Confusion Matrix ---")
+    # To get predictions for the confusion matrix, iterate through the validation dataset
+    y_true_all = []
+    y_pred_proba_all = []
+
+    for (images_batch, masks_batch), labels_batch in val_dataset:
+        y_true_all.extend(labels_batch.numpy().flatten())
+        y_pred_proba_all.extend(model.predict([images_batch, masks_batch]).flatten())
+
+    y_true_all = np.array(y_true_all)
+    y_pred_proba_all = np.array(y_pred_proba_all)
+
+    y_pred = (y_pred_proba_all > 0.5).astype(int) # Convert probabilities to binary predictions
+
+    cm = confusion_matrix(y_true_all, y_pred)
+    print("Confusion Matrix:")
+    print(cm)
+
+if __name__ == "__main__":
+    main()
