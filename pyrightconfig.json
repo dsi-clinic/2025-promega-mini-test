@@ -1,0 +1,19 @@
+{
+  "exclude": [
+    "**/data/**",
+    "**/outputs_*/**",
+    "**/logs/**",
+    "**/__pycache__/**",
+    "**/.git/**",
+    "**/node_modules/**",
+    "tony_image_classifier/result/**",
+    "analysis/images/classifier/data/**",
+    "analysis/images/classifier/outputs_*/**",
+    "analysis/images/classifier/misclassified*/**",
+    "analysis/images/classifier/organoid_cls/**"
+  ],
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "pythonVersion": "3.10"
+}
+
