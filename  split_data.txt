@@ -1,0 +1,17 @@
+I want to make sure in the future we can compare any metabolite-based and image-based model.
+
+To do this, I want to make sure two groups will train on the same set and vlidate on the same set from all data json
+I need you to write a sript such that every time anyone uses this sctipt it splits data
+into a fixed group, which mean you might need to use random seed or stuff, such that every time
+this is run triang will walsy be same data and validation will always be the same data. 
+
+Accodint to your analysis above, the basic model will grab and split only the first 2 batches.
+Make sure all the samples you grab have both image and full metabolite data, otherwise not grab. 
+
+Variations: 
+1. a switch that image could grab the additional data from BA1 and BA2.
+2. a switch that metabolite and image can grab to BA3 and BA4, but only those samples with both
+metabolite and image data. 
+3. a switch that image can grab all data avalibile from 4 batches and train/validate. 
+
+All the vairations should follow the fixed split rule. 
