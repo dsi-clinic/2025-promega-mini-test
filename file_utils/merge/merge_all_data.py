@@ -1,25 +1,48 @@
 #!/usr/bin/env python3
+# Standard
 import argparse
+import dataclasses
 import json
 import math
-from pathlib import Path
 import re
+import typing
+from pathlib import Path
 from tqdm import tqdm
-from typing import NamedTuple
 
+# Application
 from file_utils.common.organoid_patterns import OrganoidNormalizer
 
-from config import (
-    ORIGINAL_MAPPING_JSON,
-    INFER_RESIZED_DIR,
-    METABOLITE_MAP_JSON,
-    SURVEY_AGGREGATED_JSON,
-    MANUAL_THRESHOLD_MAPPING_JSON,
-    ALL_DATA_JSON,
-)
-
 # ---------- helpers ----------
-class DataSources(NamedTuple):
+@dataclasses.dataclass
+class Config:
+    in_dir: Path = dataclasses.field(metadata={
+        "help": "Path to input directory containing organoid images"
+    })
+    out_dir: Path = dataclasses.field(metadata={
+        "help": "Path to output directory where results will be saved"
+    })
+    target_width: int = dataclasses.field(default=512, metadata={
+        "help": "Target input image width (pixels)"
+    })
+    target_height: int = dataclasses.field(default=384, metadata={
+        "help": "Target input image height (pixels)"
+    })
+
+    ORIGINAL_MAPPING_JSON: typing.ClassVar[str] = "image_mapping.json"
+    MANUAL_THRESHOLD_MAPPING_JSON: typing.ClassVar[str] = "image_mapping_thresholded_and_manual.json"
+    METABOLITE_MAP_JSON: typing.ClassVar[str] = "metabolite_map.json"
+    SURVEY_AGGREGATED_JSON: typing.ClassVar[str] = "organoid_surveys_aggregated.json"
+    ALL_DATA_JSON: typing.ClassVar[str] = "all_data.json"
+
+    def __post_init__(self):
+        # Basic validation / normalization
+        if not self.in_dir.exists():
+            raise RuntimeError(f"{self.in_dir} does not exist")
+        # Set up
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.infer_resized_dir = f"infer_resized_{self.target_width}x{self.target_height}"
+
+class DataSources(typing.NamedTuple):
     """Class to capture input data sources."""
     base_map: dict
     metab_map: dict
@@ -30,45 +53,52 @@ class DataSources(NamedTuple):
 def get_args():
     arg_parser = create_args()
     args = arg_parser.parse_args()
-    in_dir = args.indir
-    out_dir = args.outdir
     for key,val in vars(args).items():
         print(f"{key}: {val}")
-    return in_dir, out_dir
+    cfg = Config(**vars(args))
+    return cfg
 
-def create_args():
-    """Create and return argparser with arguments."""
-    arg_parser = argparse.ArgumentParser(description="Create a main file to aggregate all data sources")
-    arg_parser.add_argument("-i",
-                            "--indir",
-                            type=Path,
-                            help="Path to input directory on the file system")
-    arg_parser.add_argument("-o",
-                            "--outdir",
-                            type=Path,
-                            help="Path to input directory on the file system")
-    return arg_parser
+def create_args() -> argparse.ArgumentParser:
+    """Create an ArgumentParser from the Config dataclass."""
+    parser = argparse.ArgumentParser(description="Run image classifier on organoid images")
 
-def load_data_sources(in_dir):
+    for field in dataclasses.fields(Config):
+        # Build argument flag and help message
+        flags = [f"--{field.name.replace('_', '-')}"]
+        kwargs = {
+            "help": field.metadata.get("help", ""),
+            "default": field.default
+        }
+
+        # Determine argument type
+        if field.type == bool:
+            kwargs["action"] = "store_true" if field.default is False else "store_false"
+        else:
+            kwargs["type"] = field.type
+        parser.add_argument(*flags, **kwargs)
+
+    return parser
+
+def load_data_sources(cfg):
     """Load data sources and return NamedTuple with source data in memory."""
-    original_mapping = in_dir.joinpath("json", ORIGINAL_MAPPING_JSON)
+    original_mapping = cfg.in_dir.joinpath("json", cfg.ORIGINAL_MAPPING_JSON)
     print(f"Loading base mapping: {original_mapping}")
     base_json = load_json(original_mapping)
     base_map = base_json.get("entries", {})
 
-    metabolite_map = in_dir.joinpath("json", METABOLITE_MAP_JSON)
+    metabolite_map = cfg.in_dir.joinpath("json", cfg.METABOLITE_MAP_JSON)
     print(f"Loading metabolite map: {metabolite_map}")
     metab_map = load_json(metabolite_map)
 
-    survey_aggregated = in_dir.joinpath("json", SURVEY_AGGREGATED_JSON)
+    survey_aggregated = cfg.in_dir.joinpath("json", cfg.SURVEY_AGGREGATED_JSON)
     print(f"Loading survey data: {survey_aggregated}")
     survey_json = load_json(survey_aggregated)
 
-    manual_threshold = in_dir.joinpath("json", MANUAL_THRESHOLD_MAPPING_JSON)
+    manual_threshold = cfg.in_dir.joinpath("json", cfg.MANUAL_THRESHOLD_MAPPING_JSON)
     print(f"Loading manual threshold mapping: {manual_threshold}")
     manual_mask_map = load_json(manual_threshold)
 
-    infer_resized_dir = in_dir.joinpath("images", INFER_RESIZED_DIR)
+    infer_resized_dir = cfg.in_dir.joinpath("images", cfg.infer_resized_dir)
     found_files = list(infer_resized_dir.rglob("image_mapping*_processed.json"))
     print(f"Located {len(found_files)} files in {infer_resized_dir}")
 
@@ -130,7 +160,7 @@ def check_existence(file_path):
     if not file_path.exists():
         raise RuntimeError(f"Required file does not exist: {file_path}")
 
-def build_processed_files_map(found_files, in_dir):
+def build_processed_files_map(found_files, in_dir, infer_resized_dir):
     """Build and return a dictionary of processed file JSON data.
 
     Also update hardcoded paths to point to input files on the file system.
@@ -139,7 +169,7 @@ def build_processed_files_map(found_files, in_dir):
     for p in found_files:
         raw = load_json(p)
         for batch_data in raw.values():
-            img_path = ("images", INFER_RESIZED_DIR) + Path(batch_data["img_path"]).parts[7:]
+            img_path = ("images", infer_resized_dir) + Path(batch_data["img_path"]).parts[7:]
             batch_data["img_path"] = in_dir.joinpath(*img_path)
             check_existence(batch_data["img_path"])
 
@@ -251,10 +281,10 @@ def sanitize_for_json(obj):
 
 def main():
     # ---------- command line arguments ----------
-    in_dir, out_dir = get_args()
+    cfg = get_args()
 
     # ---------- load sources ----------
-    sources = load_data_sources(in_dir)
+    sources = load_data_sources(cfg)
 
     # Build survey map keyed by image_id or parent
     print("Building survey map by (main_id, split_index)...")
@@ -263,11 +293,11 @@ def main():
 
     # Build manual mask map with normalized keys
     print("Normalizing keys for manual mask map...")
-    manual_mask_normalized = normalize_manual_mask_map(sources.manual_mask_map, in_dir)
+    manual_mask_normalized = normalize_manual_mask_map(sources.manual_mask_map, cfg.in_dir)
 
     # Load processed JSONs
     print("Loading processed files JSON data...")
-    processed_map = build_processed_files_map(sources.found_files, in_dir)
+    processed_map = build_processed_files_map(sources.found_files, cfg.in_dir, cfg.infer_resized_dir)
 
     # ---------- merge ----------
     print("Merging data sources...")
@@ -280,7 +310,7 @@ def main():
     print("\nSanitizing data for JSON...")
     combined_clean = sanitize_for_json(combined)
 
-    out_file = out_dir.joinpath("json", ALL_DATA_JSON)
+    out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
     with open(out_file, "w") as f:
         json.dump(combined_clean, f, indent=2)
 
