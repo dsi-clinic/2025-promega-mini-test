@@ -1,6 +1,6 @@
 import json
 import pandas as pd
-from collections import defaultdict
+from collections import defaultdict, Counter
 from pathlib import Path
 import re
 from typing import Dict
@@ -35,8 +35,12 @@ def summary_template() -> Dict[str, int]:
         "Metabolite Data Available": 0,
         "Number stitched": 0,
         "Number split": 0,
-        "Survey Acceptable votes": 0,
-        "Survey Not Acceptable votes": 0,
+        "Survey 5-0": 0,
+        "Survey 4-1": 0,
+        "Survey 3-2": 0,
+        "Survey 2-3": 0,
+        "Survey 1-4": 0,
+        "Survey 0-5": 0,
     }
 
 
@@ -91,13 +95,23 @@ def generate_summary_table(input_path: Path, output_path: Path) -> pd.DataFrame:
         if "stitch" in cls or "stitched" in cls:
             summary[day]["Number stitched"] += 1
 
-        # --- Survey evaluations ---
-        for e in entry.get("survey", {}).get("evaluations", []):
-            eval_result = e.get("evaluation", "").lower()
-            if "not acceptable" in eval_result:
-                summary[day]["Survey Not Acceptable votes"] += 1
-            elif "acceptable" in eval_result:
-                summary[day]["Survey Acceptable votes"] += 1
+        # --- Survey evaluations (aggregate as 5-0, 4-1, etc.) ---
+        evaluations = entry.get("survey", {}).get("evaluations", [])
+        if evaluations:
+            votes = Counter({"Acceptable": 0, "Not Acceptable": 0})
+            for e in evaluations:
+                eval_result = e.get("evaluation", "").lower()
+                if "not acceptable" in eval_result:
+                    votes["Not Acceptable"] += 1
+                elif "acceptable" in eval_result:
+                    votes["Acceptable"] += 1
+
+            a, n = votes["Acceptable"], votes["Not Acceptable"]
+            label = f"Survey {a}-{n}"
+            if label in summary[day]:
+                summary[day][label] += 1
+            else:
+                summary[day][label] = 1  # in case of unexpected combos (like 6-0)
 
     # --- Step 4: Convert to DataFrame ---
     df = pd.DataFrame(summary).T
@@ -111,8 +125,12 @@ def generate_summary_table(input_path: Path, output_path: Path) -> pd.DataFrame:
         "Metabolite Data Available",
         "Number stitched",
         "Number split",
-        "Survey Acceptable votes",
-        "Survey Not Acceptable votes",
+        "Survey 5-0",
+        "Survey 4-1",
+        "Survey 3-2",
+        "Survey 2-3",
+        "Survey 1-4",
+        "Survey 0-5",
     ]
     df = df.reindex(columns=regular_cols)
     df = df.sort_index()
