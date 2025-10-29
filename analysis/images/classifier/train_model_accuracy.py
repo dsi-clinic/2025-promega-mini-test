@@ -67,10 +67,10 @@ class Config:
     input_path_key: str = dataclasses.field(default="img_path", metadata={
         "help": "Which JSON dataclasses.field to use as the primary image input ('img_path' or 'overlay_path')"
     })
-    target_width: int = dataclasses.field(default=384, metadata={
+    target_width: int = dataclasses.field(default=512, metadata={
         "help": "Target input image width (pixels)"
     })
-    target_height: int = dataclasses.field(default=512, metadata={
+    target_height: int = dataclasses.field(default=384, metadata={
         "help": "Target input image height (pixels)"
     })
     num_workers: int = dataclasses.field(default=0, metadata={
