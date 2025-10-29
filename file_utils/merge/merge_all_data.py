@@ -1,25 +1,258 @@
 #!/usr/bin/env python3
-import json, re
+# Standard
+import argparse
+import dataclasses
+import json
+import math
+import re
+import typing
 from pathlib import Path
 from tqdm import tqdm
+
+# Application
 from file_utils.common.organoid_patterns import OrganoidNormalizer
 
-from config import (
-    ORIGINAL_MAPPING,
-    INFER_RESIZED_DIR,
-    METABOLITE_MAP_JSON,
-    SURVEY_AGGREGATED_JSON,
-    MANUAL_THRESHOLD_MAPPING,
-    ALL_DATA_JSON,
-)
-
-OUTPUT_PATH = str(ALL_DATA_JSON)
-
 # ---------- helpers ----------
+@dataclasses.dataclass
+class Config:
+    in_dir: Path = dataclasses.field(metadata={
+        "help": "Path to input directory containing organoid images"
+    })
+    out_dir: Path = dataclasses.field(metadata={
+        "help": "Path to output directory where results will be saved"
+    })
+    target_width: int = dataclasses.field(default=512, metadata={
+        "help": "Target input image width (pixels)"
+    })
+    target_height: int = dataclasses.field(default=384, metadata={
+        "help": "Target input image height (pixels)"
+    })
+
+    ORIGINAL_MAPPING_JSON: typing.ClassVar[str] = "image_mapping.json"
+    MANUAL_THRESHOLD_MAPPING_JSON: typing.ClassVar[str] = "image_mapping_thresholded_and_manual.json"
+    METABOLITE_MAP_JSON: typing.ClassVar[str] = "metabolite_map.json"
+    SURVEY_AGGREGATED_JSON: typing.ClassVar[str] = "organoid_surveys_aggregated.json"
+    ALL_DATA_JSON: typing.ClassVar[str] = "all_data.json"
+
+    def __post_init__(self):
+        # Basic validation / normalization
+        if not self.in_dir.exists():
+            raise RuntimeError(f"{self.in_dir} does not exist")
+        # Set up
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.infer_resized_dir = f"infer_resized_{self.target_width}x{self.target_height}"
+
+class DataSources(typing.NamedTuple):
+    """Class to capture input data sources."""
+    base_map: dict
+    metab_map: dict
+    survey_json: dict
+    manual_mask_map: dict
+    found_files: list
+
+def get_args():
+    arg_parser = create_args()
+    args = arg_parser.parse_args()
+    for key,val in vars(args).items():
+        print(f"{key}: {val}")
+    cfg = Config(**vars(args))
+    return cfg
+
+def create_args() -> argparse.ArgumentParser:
+    """Create an ArgumentParser from the Config dataclass."""
+    parser = argparse.ArgumentParser(description="Run image classifier on organoid images")
+
+    for field in dataclasses.fields(Config):
+        # Build argument flag and help message
+        flags = [f"--{field.name.replace('_', '-')}"]
+        kwargs = {
+            "help": field.metadata.get("help", ""),
+            "default": field.default
+        }
+
+        # Determine argument type
+        if field.type == bool:
+            kwargs["action"] = "store_true" if field.default is False else "store_false"
+        else:
+            kwargs["type"] = field.type
+        parser.add_argument(*flags, **kwargs)
+
+    return parser
+
+def load_data_sources(cfg):
+    """Load data sources and return NamedTuple with source data in memory."""
+    original_mapping = cfg.in_dir.joinpath("json", cfg.ORIGINAL_MAPPING_JSON)
+    print(f"Loading base mapping: {original_mapping}")
+    base_json = load_json(original_mapping)
+    base_map = base_json.get("entries", {})
+
+    metabolite_map = cfg.in_dir.joinpath("json", cfg.METABOLITE_MAP_JSON)
+    print(f"Loading metabolite map: {metabolite_map}")
+    metab_map = load_json(metabolite_map)
+
+    survey_aggregated = cfg.in_dir.joinpath("json", cfg.SURVEY_AGGREGATED_JSON)
+    print(f"Loading survey data: {survey_aggregated}")
+    survey_json = load_json(survey_aggregated)
+
+    manual_threshold = cfg.in_dir.joinpath("json", cfg.MANUAL_THRESHOLD_MAPPING_JSON)
+    print(f"Loading manual threshold mapping: {manual_threshold}")
+    manual_mask_map = load_json(manual_threshold)
+
+    infer_resized_dir = cfg.in_dir.joinpath("images", cfg.infer_resized_dir)
+    found_files = list(infer_resized_dir.rglob("image_mapping*_processed.json"))
+    print(f"Located {len(found_files)} files in {infer_resized_dir}")
+
+    return DataSources(
+        base_map=base_map,
+        metab_map=metab_map,
+        survey_json=survey_json,
+        manual_mask_map=manual_mask_map,
+        found_files=found_files,
+    )
+
 def load_json(path: Path | str):
     path = Path(path)
+    if not path.exists():
+        raise RuntimeError(f"Required JSON file does not exist: {path}")
     with path.open("r") as f:
         return json.load(f)
+
+def build_survey_map(survey_json):
+    """Build and return dictionary of survey data."""
+    survey_map = {}
+    for row in survey_json.values():
+        for category in ["evaluations", "quality_scores"]:
+            if row.get(category):
+                for item in row[category]:
+                    main_id = item.get("main_id")
+                    split_index = item.get("split_index")
+                    if not main_id:
+                        continue
+                    main_id_norm = main_id.replace(" ", "_").upper()
+                    key = (main_id_norm, split_index)
+                    if key not in survey_map:
+                        survey_map[key] = {"evaluations": [], "quality_scores": []}
+                    survey_map[key][category].append(item)
+    return survey_map
+
+def normalize_manual_mask_map(manual_mask_map, in_dir):
+    """Normalize keys for storage of manual mask data and update path to data files."""
+    manual_mask_normalized = {}
+    for raw_key, manual_data in manual_mask_map.items():
+        try:
+            norm_key = OrganoidNormalizer.normalize_key(raw_key)
+        except ValueError:
+            norm_key = OrganoidNormalizer.clean_string(raw_key).upper()
+        manual_mask_normalized[norm_key] = manual_data
+
+        best_z = ("images", "raw_images") + Path(manual_data["Best Z Filename"]).parts[6:]
+        manual_data["Best Z Filename"] = in_dir.joinpath(*best_z)
+        check_existence(manual_data["Best Z Filename"])
+
+        mt_mask = ("masks",) + Path(manual_data["MT Mask Path"]).parts[6:]
+        manual_data["MT Mask Path"] = in_dir.joinpath(*mt_mask)
+        check_existence(manual_data["Best Z Filename"])
+
+    return manual_mask_normalized
+
+def check_existence(file_path):
+    """Check existence of file and raise an error if it does not exist."""
+    if not file_path.exists():
+        raise RuntimeError(f"Required file does not exist: {file_path}")
+
+def build_processed_files_map(found_files, in_dir, infer_resized_dir):
+    """Build and return a dictionary of processed file JSON data.
+
+    Also update hardcoded paths to point to input files on the file system.
+    """
+    processed_map = {}
+    for p in found_files:
+        raw = load_json(p)
+        for batch_data in raw.values():
+            img_path = ("images", infer_resized_dir) + Path(batch_data["img_path"]).parts[7:]
+            batch_data["img_path"] = in_dir.joinpath(*img_path)
+            check_existence(batch_data["img_path"])
+
+            mask_path = ("predictions",) + Path(batch_data["mask_path"]).parts[6:]
+            batch_data["mask_path"] = in_dir.joinpath(*mask_path)
+            check_existence(batch_data["mask_path"])
+
+            overlay_path = ("predictions",) + Path(batch_data["overlay_path"]).parts[6:]
+            batch_data["overlay_path"] = in_dir.joinpath(*overlay_path)
+            check_existence(batch_data["overlay_path"])
+
+        processed_map.update(raw)
+
+    return processed_map
+
+def merge_data_sources(base_map, survey_map, metab_map, manual_mask_normalized,
+                       processed_map):
+    """Merge and return dictionary of all data sources plus number of masks."""
+    combined = {}
+    manual_mask_count = 0
+    survey_matched_count = 0
+    survey_not_matched_count = 0
+
+    for raw_k, payload in tqdm(base_map.items(), desc="Merging"):
+        entry = dict(payload)
+
+        # Extract mdl_day
+        if 'dayID' in entry:
+            entry['mdl_day'] = extract_mdl_day(entry['dayID'])
+
+        # Match processed info
+        processed = processed_map.get(raw_k) or processed_map.get(normalized_parent_key(raw_k))
+        if processed:
+            entry["processed"] = processed
+            entry["main_id"] = processed.get("main_id")
+
+        norm_key_parent = normalized_parent_key(raw_k)
+
+        # ----- FIXED SURVEY MERGE LOGIC -----
+        main_id = entry.get("main_id", "")
+        split_index = entry.get("split_index", payload.get("split_index"))
+        if main_id:
+            main_id_norm = main_id.replace(" ", "_").upper()
+            key = (main_id_norm, split_index)
+            if key in survey_map:
+                entry["survey"] = survey_map[key]
+                survey_matched_count += 1
+            else:
+                survey_not_matched_count += 1
+        # ------------------------------------
+
+        # Add metabolites
+        if norm_key_parent in metab_map:
+            entry["metabolites"] = metab_map[norm_key_parent]
+
+        # Add manual mask path
+        if norm_key_parent in manual_mask_normalized:
+            manual_data = manual_mask_normalized[norm_key_parent]
+            entry["manual_mask_path"] = manual_data.get("MT Mask Path")
+            manual_mask_count += 1
+
+        combined[raw_k] = entry
+
+    return combined, survey_matched_count, survey_not_matched_count, manual_mask_count
+
+def normalized_parent_key(id_like: str) -> str:
+    """Use OrganoidNormalizer to get consistent BA# 96_# Dy## A# format (no suffixes)."""
+    try:
+        return OrganoidNormalizer.normalize_key(id_like)
+    except ValueError:
+        return OrganoidNormalizer.clean_string(id_like).upper()
+
+def extract_mdl_day(day_id: str) -> float:
+    """Extract numerical day from dayID (e.g., 'Dy17' -> 17.0, 'Dy20' or 'Dy21' -> 20.5)"""
+    if not day_id:
+        return None
+    match = re.search(r'(\d+(?:\.\d+)?)', day_id)
+    if match:
+        day_num = float(match.group(1))
+        if day_num in [20.0, 21.0]:
+            return 20.5
+        return day_num
+    return None
 
 def sanitize_for_json(obj):
     """
@@ -27,8 +260,7 @@ def sanitize_for_json(obj):
     - Converts NaN, inf, -inf to None
     - Handles nested dicts and lists
     """
-    import math
-    
+
     if isinstance(obj, dict):
         return {k: sanitize_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -40,146 +272,52 @@ def sanitize_for_json(obj):
     elif obj is None or isinstance(obj, (str, int, bool)):
         return obj
     else:
-        # Handle pandas NA, numpy nan, etc.
         try:
             if hasattr(obj, 'isna') and obj.isna():
                 return None
         except (TypeError, ValueError):
             pass
-        # Try to convert to string as fallback
         return str(obj)
 
-def normalized_parent_key(id_like: str) -> str:
-    """Use OrganoidNormalizer to get consistent BA# 96_# Dy## A# format (no suffixes)."""
-    try:
-        return OrganoidNormalizer.normalize_key(id_like)
-    except ValueError:
-        # fallback: return a stripped clean version if parsing fails
-        return OrganoidNormalizer.clean_string(id_like).upper()
+def main():
+    # ---------- command line arguments ----------
+    cfg = get_args()
 
-# ---------- load sources ----------
-print(f"Loading base mapping: {ORIGINAL_MAPPING}")
-base_json = load_json(ORIGINAL_MAPPING)
-base_map = base_json.get("entries", {})
+    # ---------- load sources ----------
+    sources = load_data_sources(cfg)
 
-print(f"Loading metabolite map: {METABOLITE_MAP_JSON}")
-metab_map = load_json(METABOLITE_MAP_JSON)
+    # Build survey map keyed by image_id or parent
+    print("Building survey map by (main_id, split_index)...")
+    survey_map = build_survey_map(sources.survey_json)
+    print(f"Built survey map with {len(survey_map)} unique (main_id, split_index) pairs")
 
-print(f"Loading survey data: {SURVEY_AGGREGATED_JSON}")
-survey_json = load_json(SURVEY_AGGREGATED_JSON)
+    # Build manual mask map with normalized keys
+    print("Normalizing keys for manual mask map...")
+    manual_mask_normalized = normalize_manual_mask_map(sources.manual_mask_map, cfg.in_dir)
 
-print(f"Loading manual threshold mapping: {MANUAL_THRESHOLD_MAPPING}")
-manual_mask_map = load_json(MANUAL_THRESHOLD_MAPPING)
+    # Load processed JSONs
+    print("Loading processed files JSON data...")
+    processed_map = build_processed_files_map(sources.found_files, cfg.in_dir, cfg.infer_resized_dir)
 
-# Build survey map keyed by image_id or parent
-survey_map = {}
-for row in survey_json.values():
-    ids = []
-    if row.get("evaluations"):
-        ids += [ev["image_id"] for ev in row["evaluations"] if "image_id" in ev]
-    if row.get("quality_scores"):
-        ids += [qs["image_id"] for qs in row["quality_scores"] if "image_id" in qs]
+    # ---------- merge ----------
+    print("Merging data sources...")
+    combined, survey_matched_count, survey_not_matched_count, manual_mask_count = merge_data_sources(
+        sources.base_map, survey_map, sources.metab_map, manual_mask_normalized,
+        processed_map
+    )
 
-    for iid in ids:
-        try:
-            norm_key = OrganoidNormalizer.normalize_key(iid)
-        except ValueError:
-            norm_key = OrganoidNormalizer.clean_string(iid).upper()
-        survey_map[norm_key] = row
+    # ---------- sanitize and write output ----------
+    print("\nSanitizing data for JSON...")
+    combined_clean = sanitize_for_json(combined)
 
-# Build manual mask map with normalized keys
-manual_mask_normalized = {}
-for raw_key, manual_data in manual_mask_map.items():
-    try:
-        norm_key = OrganoidNormalizer.normalize_key(raw_key)
-    except ValueError:
-        norm_key = OrganoidNormalizer.clean_string(raw_key).upper()
-    manual_mask_normalized[norm_key] = manual_data
+    out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
+    with open(out_file, "w") as f:
+        json.dump(combined_clean, f, indent=2)
 
-# ---------- load processed JSONs ----------
-processed_map = {}
-found_files = list(Path(INFER_RESIZED_DIR).rglob("image_mapping*_processed.json"))
+    print(f"\nWrote {len(combined_clean):,} merged records → {out_file}")
+    print(f"Survey matches: {survey_matched_count:,}")
+    print(f"Survey not matched: {survey_not_matched_count:,}")
+    print(f"Found {manual_mask_count:,} manual masks")
 
-for p in found_files:
-    raw = load_json(p)
-    processed_map.update(raw)
-
-# ---------- merge ----------
-# ---------- merge ----------
-combined = {}
-manual_mask_count = 0
-
-# Add this helper function before the loop
-def extract_mdl_day(day_id: str) -> float:
-    """Extract numerical day from dayID (e.g., 'Dy17' -> 17.0, 'Dy20' or 'Dy21' -> 20.5)"""
-    if not day_id:
-        return None
-    # Extract numbers from dayID
-    match = re.search(r'(\d+(?:\.\d+)?)', day_id)
-    if match:
-        day_num = float(match.group(1))
-        # Handle day 20/21 -> 20.5 for consistency
-        if day_num in [20.0, 21.0]:
-            return 20.5
-        return day_num
-    return None
-
-for raw_k, payload in tqdm(base_map.items(), desc="Merging"):
-    entry = dict(payload)
-    
-    # Add common_key for key consistency (from old structure)
-    entry['common_key'] = raw_k
-    
-    # Extract day_num and mdl_day from dayID (from old structure)
-    if 'dayID' in entry:
-        day_id = entry['dayID']
-        # Extract day_num (integer day)
-        day_match = re.search(r'(\d+)', day_id)
-        if day_match:
-            entry['day_num'] = int(day_match.group(1))
-        else:
-            entry['day_num'] = None
-        # Extract mdl_day (float day with special handling)
-        entry['mdl_day'] = extract_mdl_day(day_id)
-    
-    # Debug: Check if fields are being added (only for first entry)
-    if raw_k == list(base_map.keys())[0]:
-        print(f"DEBUG: First entry fields after adding: {sorted(entry.keys())}")
-
-    processed = processed_map.get(raw_k) or processed_map.get(normalized_parent_key(raw_k))
-    if processed:
-        entry["processed"] = processed
-        entry["main_id"] = processed.get("main_id")
-
-    norm_key_parent = normalized_parent_key(raw_k)
-    
-    if norm_key_parent in survey_map:
-        entry["survey"] = survey_map[norm_key_parent]
-
-    if norm_key_parent in metab_map:
-        entry["metabolites"] = metab_map[norm_key_parent]
-
-    # Add manual mask path if available
-    if norm_key_parent in manual_mask_normalized:
-        manual_data = manual_mask_normalized[norm_key_parent]
-        entry["manual_mask_path"] = manual_data.get("MT Mask Path")
-        manual_mask_count += 1
-
-    combined[raw_k] = entry
-    
-    # Debug: Check final entry for first record
-    if raw_k == list(base_map.keys())[0]:
-        print(f"DEBUG: Final entry fields before sanitization: {sorted(entry.keys())}")
-# ---------- sanitize and write output ----------
-print("\nSanitizing data for JSON...")
-combined_clean = sanitize_for_json(combined)
-
-# Debug: Check first entry after sanitization
-first_key = list(combined_clean.keys())[0]
-print(f"DEBUG: First entry fields after sanitization: {sorted(combined_clean[first_key].keys())}")
-
-with open(OUTPUT_PATH, "w") as f:
-    json.dump(combined_clean, f, indent=2)
-
-print(f"\nWrote {len(combined_clean):,} merged records → {OUTPUT_PATH}")
-print(f"Found {manual_mask_count:,} manual masks")
+if __name__ == "__main__":
+    main()

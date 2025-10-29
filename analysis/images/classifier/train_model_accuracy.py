@@ -1,53 +1,101 @@
 #!/usr/bin/env python3
-
-import os, json, argparse, re, csv
-from pathlib import Path
+# Standard imports
+import argparse
+import csv
+import dataclasses
+import datetime
+import json
+import random
+import re
 from collections import defaultdict
+from pathlib import Path
 
-import numpy as np
-from PIL import Image
+# Third party imports
 import matplotlib.pyplot as plt
-
+import numpy as np
+import timm
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
-
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score
-import timm
+from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms as T
 
-# -------- Config (defaults; can be overridden by CLI) --------
+# -------- Config defaults --------
 BACKBONES = {
     "vit": "vit_base_patch16_224",   # we will set img_size=(384,512) at create_model
     "resnet": "resnet50",
     "cnn": "cnn",
 }
-DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/majority/")
-OUT_ROOT = Path("analysis/images/classifier/outputs_512x384_Regular_image_with_train_augment_with_auroc")
-BATCH_SIZE = 16
-# IMPORTANT: torchvision Resize expects (H, W). We want 512x384 images => (H=384, W=512)
-TARGET_SIZE = (384, 512)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-NUM_WORKERS = 0
-SEED = 1
+
 # -------------------------------------------------------------
 
-# ---------- Utils ----------
-def set_seed(seed=SEED):
-    import random
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+# ---------- Classes ----------
+@dataclasses.dataclass
+class Config:
+    in_dir: Path = dataclasses.field(metadata={
+        "help": "Path to input directory containing organoid images"
+    })
+    out_dir: Path = dataclasses.field(metadata={
+        "help": "Path to output directory where results will be saved"
+    })
+    epoch1: int = dataclasses.field(default=100, metadata={
+        "help": "Number of training epochs for phase 1 (frozen backbone)"
+    })
+    epoch2: int = dataclasses.field(default=300, metadata={
+        "help": "Number of training epochs for phase 2 (unfrozen backbone)"
+    })
+    batch_size: int = dataclasses.field(default=16, metadata={
+        "help": "Training batch size"
+    })
+    val_batch_size: int = dataclasses.field(default=None, metadata={
+        "help": "Validation/Test batch size (defaults to training batch size)"
+    })
+    test_frac: float = dataclasses.field(default=0.1, metadata={
+        "help": "Fraction of data used for testing"
+    })
+    val_frac: float = dataclasses.field(default=0.1, metadata={
+        "help": "Fraction of data used for validation"
+    })
+    use_mask: bool = dataclasses.field(default=False, metadata={
+        "help": "Include mask tensors and a mask branch in the classifier"
+    })
+    input_path_key: str = dataclasses.field(default="img_path", metadata={
+        "help": "Which JSON dataclasses.field to use as the primary image input ('img_path' or 'overlay_path')"
+    })
+    target_width: int = dataclasses.field(default=512, metadata={
+        "help": "Target input image width (pixels)"
+    })
+    target_height: int = dataclasses.field(default=384, metadata={
+        "help": "Target input image height (pixels)"
+    })
+    num_workers: int = dataclasses.field(default=0, metadata={
+        "help": "Number of subprocesses for data loading (0 = main process)"
+    })
+    seed: int = dataclasses.field(default=1, metadata={
+        "help": "Random seed for reproducibility"
+    })
 
-def day_to_int(day_str: str) -> int:
-    # "Dy28" -> 28, fallback -1
-    m = re.search(r"[Dd][Yy](\d+)", day_str)
-    return int(m.group(1)) if m else -1
+    def __post_init__(self):
+        # Basic validation / normalization
+        if not self.in_dir.exists():
+            raise RuntimeError(f"{self.in_dir} does not exist")
+        if not (0.0 < self.test_frac < 0.5):
+            raise ValueError("test-frac must be in (0, 0.5)")
+        if not (0.0 < self.val_frac < 0.5):
+            raise ValueError("val-frac must be in (0, 0.5)")
+        if not (self.val_frac + self.test_frac < 0.9):
+            raise ValueError("Sum of val-frac and test-frac too large.")
+        if self.batch_size <= 0:
+            raise ValueError("train_bs must be > 0")
+        # Set up
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.val_batch_size = int(self.val_batch_size) if self.val_batch_size is not None else self.batch_size
+        self.target_size: tuple = (self.target_width, self.target_height)
 
 class EarlyStopping:
     def __init__(self, patience=20, min_delta=1e-4):
@@ -63,17 +111,16 @@ class EarlyStopping:
         self.bad += 1
         return self.bad >= self.patience
 
-# ---------- Data ----------
 class OrganoidDataset(Dataset):
     """Dataset that can optionally return mask tensors alongside images."""
 
-    def __init__(self, img_paths, labels, mask_paths=None, augment=False, use_mask=False):
+    def __init__(self, img_paths, labels, target_size, mask_paths=None, augment=False, use_mask=False):
         self.img_paths = img_paths
         self.labels = labels
         self.mask_paths = mask_paths
         self.augment = augment
         self.use_mask = use_mask
-        t = [T.Resize(TARGET_SIZE)]
+        t = [T.Resize(target_size)]
         if augment:
             t += [
                 T.RandomHorizontalFlip(0.5),
@@ -86,7 +133,7 @@ class OrganoidDataset(Dataset):
             if self.mask_paths is None:
                 raise ValueError("mask_paths must be provided when use_mask=True")
             self.t_mask = T.Compose([
-                T.Resize(TARGET_SIZE, interpolation=T.InterpolationMode.NEAREST),
+                T.Resize(target_size, interpolation=T.InterpolationMode.NEAREST),
                 T.ToTensor(),
             ])
 
@@ -221,12 +268,286 @@ class ImageOnlyClassifier(nn.Module):
             f = torch.cat([f, f_mask], dim=1)
         return self.classifier(f).squeeze(1)
 
+# ---------- Utils ----------
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
-def make_loader(imgs, labels, augment, batch_size, mask_paths=None, use_mask=False):
-    ds = OrganoidDataset(imgs, labels, mask_paths=mask_paths, augment=augment, use_mask=use_mask)
-    return DataLoader(ds, batch_size=batch_size, shuffle=augment, num_workers=NUM_WORKERS)
+def print_config_stats(cfg):
+    """Print information about configuration data."""
+    print(f"🧪 Using batch sizes — train: {cfg.batch_size}, val/test: {cfg.val_batch_size}")
+    print(f"🔀 Split fractions — train: {1.0 - cfg.test_frac - cfg.val_frac:.2f}, val: {cfg.val_frac:.2f}, test: {cfg.test_frac:.2f}")
+    print(f"🖼️ Target size (HxW): {cfg.target_size}")
+    print(f"🗂️ Input field: {cfg.input_path_key}; masks enabled: {cfg.use_mask}")
+
+def create_args() -> argparse.ArgumentParser:
+    """Create an ArgumentParser from the Config dataclass."""
+    parser = argparse.ArgumentParser(description="Run image classifier on organoid images")
+
+    for field in dataclasses.fields(Config):
+        # Build argument flag and help message
+        flags = [f"--{field.name.replace('_', '-')}"]
+
+        kwargs = {
+            "help": field.metadata.get("help", ""),
+            "default": field.default
+        }
+
+        # Determine argument type
+        if field.type == bool:
+            kwargs["action"] = "store_true" if field.default is False else "store_false"
+        else:
+            kwargs["type"] = field.type
+
+        parser.add_argument(*flags, **kwargs)
+
+    return parser
+
+def get_args():
+    """Retrieve and return command line arguments via the Config class"""
+    arg_parser = create_args()
+    args = arg_parser.parse_args()
+    for key,val in vars(args).items():
+        print(f"{key}: {val}")
+    cfg = Config(**vars(args))
+    return cfg
+
+def day_to_int(day_str: str) -> int:
+    # "Dy28" -> 28, fallback -1
+    m = re.search(r"[Dd][Yy](\d+)", day_str)
+    return int(m.group(1)) if m else -1
 
 # ---------- Train/Eval ----------
+def collect_results(cfg):
+    # Collect results: pick the best backbone per day by **validation accuracy**
+    per_day_best = {}
+    per_model_results = {bk: {} for bk in BACKBONES}
+    for json_file in sorted(cfg.in_dir.glob("Dy*.json"), key=lambda p: day_to_int(p.stem)):
+        day = json_file.stem
+        best = None
+        for backbone_key, backbone_name in BACKBONES.items():
+            res = run_training_for_day(json_file, backbone_key, backbone_name, cfg=cfg)
+            if res is None:
+                continue
+            per_model_results[backbone_key][day] = res
+            if (best is None) or (res["val_accuracy"] > best["val_accuracy"]):
+                best = res
+        if best:
+            per_day_best[day] = best
+            print(f"✅ Best for {day} (by VAL): {best['backbone_key']} | val acc={best['val_accuracy']:.3f} | TEST acc={best['test_accuracy']:.3f}, f1={best['test_f1']:.3f}")
+        else:
+            print(f"⚠ No valid result for {day}")
+
+    if not per_day_best:
+        print("❌ No days produced results; aborting summary.")
+        return None
+
+    return per_day_best, per_model_results
+
+def run_training_for_day(day_json_path: Path, backbone_key: str,
+                         backbone_name: str, cfg:Config):
+    """Train + validate with small val/test; select by VAL acc, report on TEST."""
+    records = json.loads(day_json_path.read_text())
+    if not records:
+        print(f"⚠ Skipping {day_json_path.name} — no records")
+        return None
+
+    labels, imgs, masks = get_labels_images_masks(records, day_json_path, cfg)
+
+    # Filter out entries with missing files (and record details)
+    labels, imgs, masks = filter_labels_images_masks(labels, imgs, masks,
+                                                     backbone_key, day_json_path,
+                                                     cfg)
+
+    # ---- Split: first cut TEST (test_frac), then VAL to reach overall val_frac
+    if cfg.use_mask:
+        X_tmp, X_test, M_tmp, M_test, y_tmp, y_test = train_test_split(
+            imgs, masks, labels, test_size=cfg.test_frac, stratify=labels, random_state=cfg.seed
+        )
+    else:
+        X_tmp, X_test, y_tmp, y_test = train_test_split(
+            imgs, labels, test_size=cfg.test_frac, stratify=labels, random_state=cfg.seed
+        )
+    val_frac_cond = cfg.val_frac / (1.0 - cfg.test_frac)  # conditional fraction from remaining
+    if cfg.use_mask:
+        X_tr, X_val, M_tr, M_val, y_tr, y_val = train_test_split(
+            X_tmp, M_tmp, y_tmp, test_size=val_frac_cond, stratify=y_tmp, random_state=cfg.seed
+        )
+    else:
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            X_tmp, y_tmp, test_size=val_frac_cond, stratify=y_tmp, random_state=cfg.seed
+        )
+
+    # Class weights (train only)
+    weights = compute_class_weight("balanced", classes=np.unique(y_tr), y=y_tr)
+    class_weights = {int(k): float(w) for k, w in zip(np.unique(y_tr), weights)}
+
+    # Loaders (configurable batch sizes; val/test use validation_batch_size)
+    mask_path = M_tr if cfg.use_mask else None
+    train_loader = make_loader(X_tr, y_tr, mask_paths=mask_path, augment=False,
+                               batch_size=cfg.batch_size, cfg=cfg
+    )
+    val_loader = make_loader(X_val, y_val, mask_paths=mask_path, augment=False,
+                             batch_size=cfg.val_batch_size, cfg=cfg
+    )
+    test_loader = make_loader(X_test, y_test, mask_paths=mask_path, augment=False,
+                              batch_size=cfg.val_batch_size, cfg=cfg
+    )
+
+    # Define model
+    model = ImageOnlyClassifier(backbone_key, backbone_name, cfg.target_size, use_mask=cfg.use_mask).to(DEVICE)
+    model_dir = cfg.out_dir / backbone_key / day_json_path.stem
+    model_dir.mkdir(parents=True, exist_ok=True)
+    model_path = model_dir / "model.pth"
+
+    # Run training
+    history, best_acc = run_phases(model, model_path, backbone_key, backbone_name,
+                                   day_json_path, train_loader, val_loader,
+                                   class_weights, cfg)
+
+    # Save per-day training curves
+    plot_training_curver(history, model_dir)
+
+    # ---- Evaluate with best VAL checkpoint
+    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+
+    # Val metrics (record only; NOT used for final reporting)
+    val_metrics = get_validation_metrics(model, y_val, model_dir, val_loader,
+                                         day_json_path, cfg)
+
+    # Test metrics（final reporting）
+    test_metrics = get_test_metrics(model, y_val, model_dir, test_loader,
+                                    day_json_path, best_acc, backbone_key, cfg)
+
+    # Return: choose by val, report test
+    return {
+        "day": day_json_path.stem,
+        "day_no": test_metrics["day_no"],
+        "backbone_key": backbone_key,
+        "val_accuracy": float(best_acc),     # selection metric
+        "test_accuracy": test_metrics["accuracy"],    # reporting metric
+        "test_f1": test_metrics["f1"],
+        "val_roc_auc": val_metrics["roc_auc"],
+        "test_roc_auc": test_metrics["roc_auc"],
+        "val_num": int(len(y_val)),
+        "test_num": test_metrics["test_n"],
+        "test_actual_good": test_metrics["actual_good"],
+        "test_pred_good": test_metrics["predicted_good"],
+    }
+
+def get_labels_images_masks(records, day_json_path, cfg):
+    """Retrieve labels, images, and masks from records."""
+    # labels
+    label_map = {"Accepted": 1, "Not Accepted": 0}
+    try:
+        labels = np.array([label_map[r["label"]] for r in records], dtype=int)
+    except KeyError:
+        print(f"⚠ Skipping {day_json_path.name} — missing 'label' field")
+        return None
+
+    try:
+        imgs = [r[cfg.input_path_key] for r in records]
+    except KeyError:
+        print(f"⚠ Skipping {day_json_path.name} — missing '{cfg.input_path_key}' field")
+        return None
+
+    if cfg.use_mask:
+        try:
+            masks = [r["mask_path"] for r in records]
+        except KeyError:
+            print(f"⚠ Skipping {day_json_path.name} — missing 'mask_path' required by --use-mask")
+            return None
+    else:
+        masks = None
+    return labels, imgs, masks
+
+def filter_labels_images_masks(labels, imgs, masks, backbone_key, day_json_path, cfg):
+    """Filter entries with missing files (and record dteails)."""
+    filtered_imgs, filtered_labels = [], []
+    filtered_masks = [] if cfg.use_mask else None
+    missing_records = []
+    for idx, img_path in enumerate(imgs):
+        img_path = Path(str(img_path))
+        mask_path = Path(str(masks[idx])) if (cfg.use_mask and masks is not None) else None
+        if not img_path.exists():
+            missing_records.append({"img_path": str(img_path),"mask_path": str(mask_path) if mask_path is not None else "","reason": "missing_image"})
+            continue
+        if cfg.use_mask and (mask_path is None or not mask_path.exists()):
+            missing_records.append({"img_path": str(img_path),"mask_path": str(mask_path) if mask_path is not None else "","reason": "missing_mask"})
+            continue
+        filtered_imgs.append(str(img_path))
+        filtered_labels.append(labels[idx])
+        if cfg.use_mask:
+            filtered_masks.append(str(mask_path))
+
+    if missing_records:
+        log_dir = cfg.out_dir / backbone_key / day_json_path.stem
+        log_dir.mkdir(parents=True, exist_ok=True)
+        missing_csv = log_dir / "missing_files.csv"
+        with missing_csv.open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["img_path", "mask_path", "reason"])
+            writer.writeheader()
+            writer.writerows(missing_records)
+        print(f"⚠ {day_json_path.name}: skipped {len(missing_records)} entries due to missing files (details → {missing_csv})")
+
+    if not filtered_labels:
+        print(f"⚠ Skipping {day_json_path.name} — no valid samples after filtering missing files")
+        return None
+
+    imgs = np.array(filtered_imgs)
+    labels = np.array(filtered_labels)
+    if cfg.use_mask:
+        masks = np.array(filtered_masks)
+    else:
+        masks = None
+    return filtered_labels, filtered_imgs, filtered_masks
+
+def make_loader(imgs, labels, augment, batch_size, cfg, mask_paths=None):
+    ds = OrganoidDataset(imgs, labels, target_size=cfg.target_size, mask_paths=mask_paths, augment=augment, use_mask=cfg.use_mask)
+    return DataLoader(ds, batch_size=batch_size, shuffle=augment, num_workers=cfg.num_workers)
+
+def run_phases(model, model_path, backbone_key, backbone_name, day_json_path,
+               train_loader, val_loader, class_weights, cfg):
+    """Run epochs for each phase to train the data."""
+    # Optimizer
+    opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-3)
+    es = EarlyStopping(patience=20)
+    history = defaultdict(list)
+    best_acc = -np.inf
+
+    # Phase 1 — frozen
+    for epoch in range(cfg.epoch1):
+        tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=cfg.use_mask)
+        vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=cfg.use_mask)
+        history["train_loss"].append(tl); history["val_loss"].append(vl)
+        history["train_acc"].append(tacc); history["val_acc"].append(vacc)
+        print(f"[{day_json_path.stem}][{backbone_key}][P1][{epoch:02d}][bs={cfg.batch_size}/{cfg.val_batch_size}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
+        if vacc > best_acc:
+            best_acc = vacc
+            torch.save(model.state_dict(), model_path)
+        if es.step(vacc):
+            break
+
+    # Phase 2 — unfreeze partial backbone
+    model.unfreeze_backbone()
+    opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
+    es = EarlyStopping(patience=30)
+    for epoch in range(cfg.epoch2):
+        tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=cfg.use_mask)
+        vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=cfg.use_mask)
+        history["train_loss"].append(tl); history["val_loss"].append(vl)
+        history["train_acc"].append(tacc); history["val_acc"].append(vacc)
+        print(f"[{day_json_path.stem}][{backbone_key}][P2][{epoch:03d}][bs={cfg.batch_size}/{cfg.val_batch_size}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
+        if vacc > best_acc:
+            best_acc = vacc
+            torch.save(model.state_dict(), model_path)
+        if es.step(vacc):
+            break
+    return history, best_acc
+
 def epoch_loop(model, loader, optimizer, class_weights, train=True, use_mask=False):
     model.train() if train else model.eval()
     bce = nn.BCEWithLogitsLoss(reduction="none")
@@ -258,190 +579,8 @@ def epoch_loop(model, loader, optimizer, class_weights, train=True, use_mask=Fal
     acc = accuracy_score(trues, preds_bin)
     return np.mean(losses), acc, preds_bin, np.array(trues)
 
-def evaluate_on_loader(model, loader, use_mask=False):
-    """Run inference (no grad) and compute accuracy & F1. Return preds_bin, trues, acc, f1, probs."""
-    model.eval()
-    preds_bin, trues, probs = [], [], []
-    with torch.no_grad():
-        for batch in loader:
-            if use_mask:
-                img, mask, lbl = batch
-                img = img.to(DEVICE)
-                mask = mask.to(DEVICE)
-                prob = torch.sigmoid(model(img, mask)).cpu().numpy()
-            else:
-                img, lbl = batch
-                img = img.to(DEVICE)
-                prob = torch.sigmoid(model(img)).cpu().numpy()
-            probs.extend(prob)
-            preds_bin.extend((prob > 0.5).astype(int))
-            trues.extend(lbl.numpy())
-    preds_bin = np.array(preds_bin); trues = np.array(trues); probs = np.array(probs)
-    acc = accuracy_score(trues, preds_bin)
-    f1 = f1_score(trues, preds_bin)
-    return preds_bin, trues, float(acc), float(f1), probs
-
-def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: str,
-                         train_bs: int, val_bs: int, test_frac: float, val_frac: float,
-                         out_root: Path, input_key: str, use_mask: bool):
-    """Train + validate with small val/test; select by VAL acc, report on TEST."""
-    records = json.loads(day_json_path.read_text())
-    if not records:
-        print(f"⚠ Skipping {day_json_path.name} — no records")
-        return None
-
-    # labels
-    label_map = {"Accepted": 1, "Not Accepted": 0}
-    try:
-        labels = np.array([label_map[r["label"]] for r in records], dtype=int)
-    except KeyError:
-        print(f"⚠ Skipping {day_json_path.name} — missing 'label' field")
-        return None
-
-    try:
-        imgs = [r[input_key] for r in records]
-    except KeyError:
-        print(f"⚠ Skipping {day_json_path.name} — missing '{input_key}' field")
-        return None
-
-    if use_mask:
-        try:
-            masks = [r["mask_path"] for r in records]
-        except KeyError:
-            print(f"⚠ Skipping {day_json_path.name} — missing 'mask_path' required by --use-mask")
-            return None
-    else:
-        masks = None
-
-    # Filter out entries with missing files (and record details)
-    filtered_imgs, filtered_labels = [], []
-    filtered_masks = [] if use_mask else None
-    missing_records = []
-    for idx, img_path in enumerate(imgs):
-        img_path = Path(str(img_path))
-        mask_path = Path(str(masks[idx])) if (use_mask and masks is not None) else None
-        if not img_path.exists():
-            missing_records.append({"img_path": str(img_path),"mask_path": str(mask_path) if mask_path is not None else "","reason": "missing_image"})
-            continue
-        if use_mask and (mask_path is None or not mask_path.exists()):
-            missing_records.append({"img_path": str(img_path),"mask_path": str(mask_path) if mask_path is not None else "","reason": "missing_mask"})
-            continue
-        filtered_imgs.append(str(img_path))
-        filtered_labels.append(labels[idx])
-        if use_mask:
-            filtered_masks.append(str(mask_path))
-
-    if missing_records:
-        log_dir = out_root / backbone_key / day_json_path.stem
-        log_dir.mkdir(parents=True, exist_ok=True)
-        missing_csv = log_dir / "missing_files.csv"
-        with missing_csv.open("w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["img_path", "mask_path", "reason"])
-            writer.writeheader()
-            writer.writerows(missing_records)
-        print(f"⚠ {day_json_path.name}: skipped {len(missing_records)} entries due to missing files (details → {missing_csv})")
-
-    if not filtered_labels:
-        print(f"⚠ Skipping {day_json_path.name} — no valid samples after filtering missing files")
-        return None
-
-    imgs = np.array(filtered_imgs)
-    labels = np.array(filtered_labels)
-    if use_mask:
-        masks = np.array(filtered_masks)
-    else:
-        masks = None
-
-    # ---- Split: first cut TEST (test_frac), then VAL to reach overall val_frac
-    if use_mask:
-        X_tmp, X_test, M_tmp, M_test, y_tmp, y_test = train_test_split(
-            imgs, masks, labels, test_size=test_frac, stratify=labels, random_state=SEED
-        )
-    else:
-        X_tmp, X_test, y_tmp, y_test = train_test_split(
-            imgs, labels, test_size=test_frac, stratify=labels, random_state=SEED
-        )
-    val_frac_cond = val_frac / (1.0 - test_frac)  # conditional fraction from remaining
-    if use_mask:
-        X_tr, X_val, M_tr, M_val, y_tr, y_val = train_test_split(
-            X_tmp, M_tmp, y_tmp, test_size=val_frac_cond, stratify=y_tmp, random_state=SEED
-        )
-    else:
-        X_tr, X_val, y_tr, y_val = train_test_split(
-            X_tmp, y_tmp, test_size=val_frac_cond, stratify=y_tmp, random_state=SEED
-        )
-
-    # class weights (train only)
-    weights = compute_class_weight("balanced", classes=np.unique(y_tr), y=y_tr)
-    class_weights = {int(k): float(w) for k, w in zip(np.unique(y_tr), weights)}
-
-    # loaders (configurable batch sizes; val/test use val_bs)
-    train_loader = make_loader(
-        X_tr,
-        y_tr,
-        mask_paths=M_tr if use_mask else None,
-        augment=False,
-        batch_size=train_bs,
-        use_mask=use_mask,
-    )
-    val_loader = make_loader(
-        X_val,
-        y_val,
-        mask_paths=M_val if use_mask else None,
-        augment=False,
-        batch_size=val_bs,
-        use_mask=use_mask,
-    )
-    test_loader = make_loader(
-        X_test,
-        y_test,
-        mask_paths=M_test if use_mask else None,
-        augment=False,
-        batch_size=val_bs,
-        use_mask=use_mask,
-    )
-
-    # model/opt
-    model = ImageOnlyClassifier(backbone_key, backbone_name, TARGET_SIZE, use_mask=use_mask).to(DEVICE)
-    model_dir = out_root / backbone_key / day_json_path.stem
-    model_dir.mkdir(parents=True, exist_ok=True)
-    model_path = model_dir / "model.pth"
-
-    opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-3)
-    es = EarlyStopping(patience=20)
-    history = defaultdict(list)
-    best_acc = -np.inf
-
-    # Phase 1 — frozen
-    for epoch in range(100):
-        tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask)
-        vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=use_mask)
-        history["train_loss"].append(tl); history["val_loss"].append(vl)
-        history["train_acc"].append(tacc); history["val_acc"].append(vacc)
-        print(f"[{day_json_path.stem}][{backbone_key}][P1][{epoch:02d}][bs={train_bs}/{val_bs}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
-        if vacc > best_acc:
-            best_acc = vacc
-            torch.save(model.state_dict(), model_path)
-        if es.step(vacc):
-            break
-
-    # Phase 2 — unfreeze partial backbone
-    model.unfreeze_backbone()
-    opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
-    es = EarlyStopping(patience=30)
-    for epoch in range(300):
-        tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask)
-        vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=use_mask)
-        history["train_loss"].append(tl); history["val_loss"].append(vl)
-        history["train_acc"].append(tacc); history["val_acc"].append(vacc)
-        print(f"[{day_json_path.stem}][{backbone_key}][P2][{epoch:03d}][bs={train_bs}/{val_bs}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
-        if vacc > best_acc:
-            best_acc = vacc
-            torch.save(model.state_dict(), model_path)
-        if es.step(vacc):
-            break
-
-    # Save per-day training curves
+def plot_training_curver(history, model_dir):
+    """Plot model training curves and save to output directory."""
     plt.figure(figsize=(12, 4))
     plt.subplot(1, 2, 1); plt.plot(history["train_acc"], label="Train"); plt.plot(history["val_acc"], label="Val"); plt.title("Accuracy"); plt.legend()
     plt.subplot(1, 2, 2); plt.plot(history["train_loss"], label="Train"); plt.plot(history["val_loss"], label="Val"); plt.title("Loss"); plt.legend()
@@ -450,11 +589,9 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
     plt.close()
     print(f"📈 Saved curves → {model_dir/'training_curves.png'}")
 
-    # ---- Evaluate with best VAL checkpoint
-    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
-
-    # Val metrics (record only; NOT used for final reporting)
-    _, val_trues, val_acc, val_f1, val_probs = evaluate_on_loader(model, val_loader, use_mask=use_mask)
+def get_validation_metrics(model, y_val, model_dir, val_loader, day_json_path, cfg):
+    """Calculate and return valiation metrics."""
+    _, val_trues, val_acc, val_f1, val_probs = evaluate_on_loader(model, val_loader, use_mask=cfg.use_mask)
     # Safely compute ROC AUC (may be undefined if only one class present)
     try:
         val_roc_auc = float(roc_auc_score(val_trues, val_probs))
@@ -469,15 +606,17 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
         "roc_auc": val_roc_auc,
         "pr_auc": val_pr_auc,
         "n": int(len(y_val)),
-        "batch_size": int(val_bs),
-        "input_key": input_key,
-        "use_mask": use_mask,
+        "batch_size": int(cfg.val_batch_size),
+        "input_key": cfg.input_path_key,
+        "use_mask": cfg.use_mask,
     }
     with (model_dir / "metrics_val.json").open("w") as f:
         json.dump(val_metrics, f, indent=2)
+    return val_metrics
 
-    # Test metrics（final reporting）
-    preds_bin, trues, test_acc, test_f1, test_probs = evaluate_on_loader(model, test_loader, use_mask=use_mask)
+def get_test_metrics(model, y_val, model_dir, test_loader, day_json_path, best_acc, backbone_key, cfg):
+    """Calcualte and return test metrics."""
+    preds_bin, trues, test_acc, test_f1, test_probs = evaluate_on_loader(model, test_loader, use_mask=cfg.use_mask)
     # Safely compute test ROC AUC
     try:
         test_roc_auc = float(roc_auc_score(trues, test_probs))
@@ -502,100 +641,43 @@ def run_training_for_day(day_json_path: Path, backbone_key: str, backbone_name: 
         "test_n": num_in_sample,
         "actual_good": actual_good,
         "predicted_good": predicted_good,
-        "batch_size_train": int(train_bs),
-        "batch_size_valtest": int(val_bs),
+        "batch_size_train": int(cfg.batch_size),
+        "batch_size_valtest": int(cfg.val_batch_size),
         "backbone_key": backbone_key,
-        "input_key": input_key,
-        "use_mask": use_mask,
+        "input_key": cfg.input_path_key,
+        "use_mask": cfg.use_mask,
     }
     with (model_dir / "metrics_test.json").open("w") as f:
         json.dump(test_metrics, f, indent=2)
     print(f"📝 Saved metrics → {model_dir/'metrics_val.json'} and {model_dir/'metrics_test.json'}")
 
-    # Return: choose by val, report test
-    return {
-        "day": day_json_path.stem,
-        "day_no": day_no,
-        "backbone_key": backbone_key,
-        "val_accuracy": float(best_acc),     # selection metric
-        "test_accuracy": float(test_acc),    # reporting metric
-        "test_f1": float(test_f1),
-        "val_roc_auc": val_roc_auc,
-        "test_roc_auc": test_roc_auc,
-        "val_num": int(len(y_val)),
-        "test_num": num_in_sample,
-        "test_actual_good": actual_good,
-        "test_pred_good": predicted_good,
-    }
+    return test_metrics
 
-# ---------- Orchestration ----------
-def main():
-    set_seed()
+def evaluate_on_loader(model, loader, use_mask=False):
+    """Run inference (no grad) and compute accuracy & F1. Return preds_bin, trues, acc, f1, probs."""
+    model.eval()
+    preds_bin, trues, probs = [], [], []
+    with torch.no_grad():
+        for batch in loader:
+            if use_mask:
+                img, mask, lbl = batch
+                img = img.to(DEVICE)
+                mask = mask.to(DEVICE)
+                prob = torch.sigmoid(model(img, mask)).cpu().numpy()
+            else:
+                img, lbl = batch
+                img = img.to(DEVICE)
+                prob = torch.sigmoid(model(img)).cpu().numpy()
+            probs.extend(prob)
+            preds_bin.extend((prob > 0.5).astype(int))
+            trues.extend(lbl.numpy())
+    preds_bin = np.array(preds_bin); trues = np.array(trues); probs = np.array(probs)
+    acc = accuracy_score(trues, preds_bin)
+    f1 = f1_score(trues, preds_bin)
+    return preds_bin, trues, float(acc), float(f1), probs
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--outdir", default=OUT_ROOT, help="Where to save outputs")
-    parser.add_argument("--data_dir", default=DATA_DIR, help="Directory with per-day JSONs")
-    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="Train batch size")
-    parser.add_argument("--val-batch-size", type=int, default=None, help="Val/Test batch size (defaults to train batch size)")
-    parser.add_argument("--test-frac", type=float, default=0.10, help="Fraction for test split (e.g., 0.10)")
-    parser.add_argument("--val-frac",  type=float, default=0.10, help="Overall fraction for validation split (e.g., 0.10)")
-    parser.add_argument(
-        "--use-mask",
-        action="store_true",
-        help="Include mask_path tensors and a mask branch in the classifier",
-    )
-    parser.add_argument(
-        "--input-path-key",
-        choices=["img_path", "overlay_path"],
-        default="img_path",
-        help="Which JSON field to use as the primary image input",
-    )
-    args = parser.parse_args()
-
-    out_dir = Path(args.outdir); out_dir.mkdir(parents=True, exist_ok=True)
-    data_dir = Path(args.data_dir)
-
-    train_bs = int(args.batch_size)
-    val_bs = int(args.val_batch_size) if args.val_batch_size is not None else train_bs
-    test_frac = float(args.test_frac)
-    val_frac = float(args.val_frac)
-    use_mask = bool(args.use_mask)
-    input_key = str(args.input_path_key)
-
-    assert 0.0 < test_frac < 0.5, "test-frac must be in (0, 0.5)"
-    assert 0.0 < val_frac  < 0.5, "val-frac must be in (0, 0.5)"
-    assert val_frac + test_frac < 0.9, "Sum of val-frac and test-frac too large."
-    print(f"🧪 Using batch sizes — train: {train_bs}, val/test: {val_bs}")
-    print(f"🔀 Split fractions — train: {1.0 - test_frac - val_frac:.2f}, val: {val_frac:.2f}, test: {test_frac:.2f}")
-    print(f"🖼️ Target size (HxW): {TARGET_SIZE}")
-    print(f"🗂️ Input field: {input_key}; masks enabled: {use_mask}")
-
-    # Collect results: pick the best backbone per day by **validation accuracy**
-    per_day_best = {}
-    per_model_results = {bk: {} for bk in BACKBONES}
-    for json_file in sorted(data_dir.glob("Dy*.json"), key=lambda p: day_to_int(p.stem)):
-        day = json_file.stem
-        best = None
-        for backbone_key, backbone_name in BACKBONES.items():
-            res = run_training_for_day(json_file, backbone_key, backbone_name,
-                                       train_bs, val_bs, test_frac, val_frac,
-                                       out_dir, input_key=input_key, use_mask=use_mask)
-            if res is None:
-                continue
-            per_model_results[backbone_key][day] = res
-            if (best is None) or (res["val_accuracy"] > best["val_accuracy"]):
-                best = res
-        if best:
-            per_day_best[day] = best
-            print(f"✅ Best for {day} (by VAL): {best['backbone_key']} | val acc={best['val_accuracy']:.3f} | TEST acc={best['test_accuracy']:.3f}, f1={best['test_f1']:.3f}")
-        else:
-            print(f"⚠ No valid result for {day}")
-
-    if not per_day_best:
-        print("❌ No days produced results; aborting summary.")
-        return
-
-    # ---- Build 4-column table (based on TEST)
+def build_results_table(per_day_best, cfg):
+    """Build and save a table of results."""
     rows = []
     days_sorted = sorted(per_day_best.keys(), key=day_to_int)
     for d in days_sorted:
@@ -608,7 +690,7 @@ def main():
         })
 
     # Save CSV table (exactly 4 columns)
-    table_path = out_dir / "day_summary.csv"
+    table_path = cfg.out_dir / "day_summary.csv"
     with table_path.open("w", newline="") as f:
         writer = csv.DictWriter(
             f, fieldnames=["Day No", "Num in Sample", "Actual Good", "Predicted Good"]
@@ -616,8 +698,10 @@ def main():
         writer.writeheader()
         writer.writerows(rows)
     print(f"🧾 Saved table → {table_path}")
+    return rows
 
-    # ---- Per-model charts and summary (no overall-best aggregation)
+def create_summmary(per_model_results, rows, cfg):
+    """Create a summary of results and produce plots and save JSON."""
     day_numbers = {}
     for day_res in per_model_results.values():
         for day, res in day_res.items():
@@ -625,8 +709,58 @@ def main():
 
     if day_numbers:
         unique_day_nos = sorted(set(day_numbers.values()))
+        plot_metric("test_accuracy", "Accuracy (test)",
+                    "Per-day Test Accuracy by Backbone", "accuracy_by_model.png",
+                      per_model_results, day_numbers, unique_day_nos, cfg.out_dir)
+        plot_metric("test_f1", "F1 score (test)", "Per-day Test F1 by Backbone",
+                     "f1_by_model.png", per_model_results, day_numbers,
+                     unique_day_nos, cfg.out_dir)
+        plot_metric("test_roc_auc", "ROC AUC (test)", "Per-day Test ROC AUC by Backbone",
+                    "rocauc_by_model.png", per_model_results, day_numbers,
+                    unique_day_nos, cfg.out_dir)
 
-        def plot_metric(metric_key, ylabel, title, filename):
+    # ---- Final TEST summary JSON (per model)
+    per_model_summary = {}
+    for backbone_key, day_res in per_model_results.items():
+        per_model_summary[backbone_key] = {
+            "per_day": {
+                day: {
+                    "day_no": int(day_numbers.get(day, res["day_no"])),
+                    "test_accuracy": float(res["test_accuracy"]),
+                    "test_f1": float(res["test_f1"]),
+                    "test_roc_auc": (None if res["test_roc_auc"] is None else float(res["test_roc_auc"])),
+                    "val_accuracy": float(res["val_accuracy"]),
+                    "val_roc_auc": (None if res["val_roc_auc"] is None else float(res["val_roc_auc"])),
+                    "test_num": int(res["test_num"]),
+                }
+                for day, res in day_res.items()
+            }
+        }
+
+    summary = {
+        "per_model": per_model_summary,
+        "batch_size_train": int(cfg.batch_size),
+        "batch_size_valtest": int(cfg.val_batch_size),
+        "split_fractions": {
+            "train": float(1.0 - cfg.test_frac - cfg.val_frac),
+            "val": float(cfg.val_frac),
+            "test": float(cfg.test_frac),
+        }
+    }
+    summary_path = cfg.out_dir / "final_test_summary.json"
+    with summary_path.open("w") as f:
+        json.dump(summary, f, indent=2)
+    print(f"✅ Saved final test summary → {summary_path}")
+
+    # ---- Also print the 4-column table to stdout
+    print("\n=== Summary Table (TEST) ===")
+    print(f"{'Day No':>6} | {'Num in Sample':>13} | {'Actual Good':>11} | {'Predicted Good':>14}")
+    print("-" * 54)
+    for row in rows:
+        print(f"{row['Day No']:>6} | {row['Num in Sample']:>13} | {row['Actual Good']:>11} | {row['Predicted Good']:>14}")
+
+def plot_metric(metric_key, ylabel, title, filename, per_model_results,
+                day_numbers, unique_day_nos, out_dir):
             plt.figure(figsize=(9, 4))
             plotted_any = False
             for backbone_key, day_res in per_model_results.items():
@@ -655,49 +789,25 @@ def main():
                 print(f"📊 Saved {title.lower()} → {out_path}")
             plt.close()
 
-        plot_metric("test_accuracy", "Accuracy (test)", "Per-day Test Accuracy by Backbone", "accuracy_by_model.png")
-        plot_metric("test_f1", "F1 score (test)", "Per-day Test F1 by Backbone", "f1_by_model.png")
-        plot_metric("test_roc_auc", "ROC AUC (test)", "Per-day Test ROC AUC by Backbone", "rocauc_by_model.png")
+# ---------- Orchestration ----------
+def main():
+    start = datetime.datetime.now()
+    # Set up for model training
+    cfg = get_args()
+    set_seed(cfg.seed)
+    print_config_stats(cfg)
 
-    # ---- Final TEST summary JSON (per model)
-    per_model_summary = {}
-    for backbone_key, day_res in per_model_results.items():
-        per_model_summary[backbone_key] = {
-            "per_day": {
-                day: {
-                    "day_no": int(day_numbers.get(day, res["day_no"])),
-                    "test_accuracy": float(res["test_accuracy"]),
-                    "test_f1": float(res["test_f1"]),
-                    "test_roc_auc": (None if res["test_roc_auc"] is None else float(res["test_roc_auc"])),
-                    "val_accuracy": float(res["val_accuracy"]),
-                    "val_roc_auc": (None if res["val_roc_auc"] is None else float(res["val_roc_auc"])),
-                    "test_num": int(res["test_num"]),
-                }
-                for day, res in day_res.items()
-            }
-        }
+    # Collect results: pick the best backbone per day by **validation accuracy**
+    per_day_best, per_model_results = collect_results(cfg)
 
-    summary = {
-        "per_model": per_model_summary,
-        "batch_size_train": int(train_bs),
-        "batch_size_valtest": int(val_bs),
-        "split_fractions": {
-            "train": float(1.0 - test_frac - val_frac),
-            "val": float(val_frac),
-            "test": float(test_frac),
-        }
-    }
-    summary_path = out_dir / "final_test_summary.json"
-    with summary_path.open("w") as f:
-        json.dump(summary, f, indent=2)
-    print(f"✅ Saved final test summary → {summary_path}")
+    # ---- Build 4-column table (based on TEST)
+    rows = build_results_table(per_day_best, cfg)
 
-    # ---- Also print the 4-column table to stdout
-    print("\n=== Summary Table (TEST) ===")
-    print(f"{'Day No':>6} | {'Num in Sample':>13} | {'Actual Good':>11} | {'Predicted Good':>14}")
-    print("-" * 54)
-    for row in rows:
-        print(f"{row['Day No']:>6} | {row['Num in Sample']:>13} | {row['Actual Good']:>11} | {row['Predicted Good']:>14}")
+    # ---- Per-model charts and summary (no overall-best aggregation)
+    create_summmary(per_model_results, rows, cfg)
+
+    end = datetime.datetime.now()
+    print(f"Execution time: {end - start}")
 
 if __name__ == "__main__":
     main()
