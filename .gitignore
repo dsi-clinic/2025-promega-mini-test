@@ -203,9 +203,6 @@ metrics_*.json
 # Temporary training files
 train_model_accuracy_mini.py
 
-# Test files
-test_gpu.py
-
 # Trained model files (large binary files)
 *.h5
 *.keras
@@ -213,7 +210,5 @@ test_gpu.py
 # Training output images
 training_*.png
 
-# Large output directories (results saved to promega)
-outputs_*tony*/
-outputs_*dinov2*/
-
+# Test files
+test_gpu.py
