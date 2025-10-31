@@ -18,7 +18,7 @@ Creates reproducible train/validation splits for comparing image and metabolite 
 
 ### Base Mode (default)
 ```bash
-python3 split_data_reproducible.py --mode base
+/net/projects2/promega/bin/python3 split_data_reproducible.py --mode base
 ```
 - Only BA1+BA2 batches
 - Only organoids with BOTH image and complete metabolite data
@@ -26,7 +26,7 @@ python3 split_data_reproducible.py --mode base
 
 ### Switch 1: Extra Image Samples
 ```bash
-python3 split_data_reproducible.py --mode switch1
+/net/projects2/promega/bin/python3 split_data_reproducible.py --mode switch1
 ```
 - Image model gets all BA1+BA2 organoids (with or without metabolites)
 - Metabolite model still uses base mode intersection
@@ -34,7 +34,7 @@ python3 split_data_reproducible.py --mode switch1
 
 ### Switch 2: Include BA3+BA4
 ```bash
-python3 split_data_reproducible.py --mode switch2
+/net/projects2/promega/bin/python3 split_data_reproducible.py --mode switch2
 ```
 - Both models use BA1+BA2+BA3+BA4 organoids (intersection only)
 - ⚠️ Note: BA3/BA4 have known issues per IDOR/Promega
@@ -42,7 +42,7 @@ python3 split_data_reproducible.py --mode switch2
 
 ### Switch 3: All Image Data
 ```bash
-python3 split_data_reproducible.py --mode switch3
+/net/projects2/promega/bin/python3 split_data_reproducible.py --mode switch3
 ```
 - Image model gets ALL organoids from all batches
 - Metabolite still uses BA1+BA2 only
@@ -50,7 +50,7 @@ python3 split_data_reproducible.py --mode switch3
 
 ### All Modes
 ```bash
-python3 split_data_reproducible.py --mode all
+/net/projects2/promega/bin/python3 split_data_reproducible.py --mode all
 ```
 Generates all splits at once.
 
@@ -115,6 +115,9 @@ Based on IDOR/Promega guidance:
 
 4. **Fair model comparison:**
    - Both models see exact same organoids, just different modalities
+
+
+
 
 
 
