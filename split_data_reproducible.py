@@ -30,7 +30,19 @@ RANDOM_SEED = 42  # Fixed seed for reproducibility
 TEST_SIZE = 0.2  # 80/20 train/val split
 
 # Good metabolites (based on IDOR/Promega restrictions)
+# Always included:
+# - GlucoseGlo ✓
+# - GlutamateGlo ✓
+# - LactateGlo ✓
+# - PyruvateGlo ✓
+#
+# Conditionally included:
+# - MalateGlo: included for days >10, excluded for days ≤10 (inclusive)
+#
+# Excluded metabolites:
+# - BCAAGlo: completely excluded (do not use at all)
 REQUIRED_METABOLITES = ['GlucoseGlo', 'GlutamateGlo', 'LactateGlo', 'PyruvateGlo']
+MALATE_EXCLUSION_THRESHOLD_DAY = 10  # Don't use MalateGlo for days ≤10
 
 # Target day for survey labels (labels come from Dy30)
 LABEL_DAY = 'Dy30'
@@ -69,6 +81,21 @@ def extract_organoid_id(key):
     if match:
         return f"{match.group(1)} {match.group(2)}"
     return key
+
+def extract_day_number(day_id):
+    """
+    Extract numeric day from dayID string.
+    'Dy03' -> 3, 'Dy30' -> 30, returns None if invalid.
+    """
+    if not day_id:
+        return None
+    match = re.match(r'^Dy(\d+)$', day_id)
+    if match:
+        try:
+            return int(match.group(1))
+        except ValueError:
+            return None
+    return None
 
 def has_complete_metabolites(metabolites):
     """Check if sample has all required metabolites with valid data."""
@@ -178,11 +205,24 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
         }
         
         # Add metabolites if present
+        # Note: For image-only modes (switch1/switch3), this only runs if metabolites exist.
+        # Image-only samples without metabolites will have no 'metabolites' field.
         if has_metabolites:
-            timepoint_data['metabolites'] = {
+            metabolites_dict = {
                 met: value['metabolites'][met]['concentration_uM'] 
                 for met in REQUIRED_METABOLITES
             }
+            
+            # Conditionally include MalateGlo for days >10
+            # (Only applies when metabolites are included - not relevant for image-only samples)
+            day_num = extract_day_number(day)
+            if day_num is not None and day_num > MALATE_EXCLUSION_THRESHOLD_DAY:
+                if 'MalateGlo' in value.get('metabolites', {}):
+                    malate_data = value['metabolites']['MalateGlo']
+                    if 'concentration_uM' in malate_data and malate_data['concentration_uM'] is not None:
+                        metabolites_dict['MalateGlo'] = malate_data['concentration_uM']
+            
+            timepoint_data['metabolites'] = metabolites_dict
         
         organoid_data[organoid_id]['timepoints'][day] = timepoint_data
     

@@ -73,22 +73,35 @@ Generates all splits at once.
           "PyruvateGlo": 2.971
         }
       },
-      "Dy06": { ... },
+      "Dy30": {
+        "img_path": "/path/to/image.png",
+        "mask_path": "/path/to/mask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo": 8.234,
+          "GlutamateGlo": 2.156,
+          "LactateGlo": 6.891,
+          "PyruvateGlo": 2.654,
+          "MalateGlo": 0.184
+        }
+      },
       ...
     }
   }
 }
 ```
 
+**Note:** MalateGlo only appears for days >10 (e.g., Dy11, Dy14, Dy17, Dy21, Dy24, Dy28, Dy30), not for early days (Dy03, Dy06, Dy09, Dy10).
+
 ## Metabolite Restrictions Applied
 
 Based on IDOR/Promega guidance:
-- ✓ GlucoseGlo
-- ✓ GlutamateGlo  
-- ✓ LactateGlo
-- ✓ PyruvateGlo
-- ✗ MalateGlo (excluded - unreliable)
-- ✗ BCAAGlo (excluded - unreliable for days ≤10)
+- ✓ GlucoseGlo (always included)
+- ✓ GlutamateGlo (always included)
+- ✓ LactateGlo (always included)
+- ✓ PyruvateGlo (always included)
+- ⚠️ MalateGlo (included for days >10, excluded for days ≤10 inclusive)
+- ✗ BCAAGlo (completely excluded - do not use)
 
 ## Example Results
 
