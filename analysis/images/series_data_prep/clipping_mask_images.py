@@ -13,8 +13,8 @@ GLOBAL_MEAN_PATH = Path("/net/projects2/promega/data-analysis/output/cnn_lstm/gl
 OUT_DIR = Path("/net/projects2/promega/data-analysis/output/lstm_ready/clipping_mask_images")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-BLUR_KERNEL = (15, 15)
-DILATE_ITERATIONS = 5
+BLUR_KERNEL = (5, 5)
+DILATE_ITERATIONS = 1
 
 def to_rgb(img):
     return np.stack([img]*3, axis=-1) if img.ndim == 2 else img

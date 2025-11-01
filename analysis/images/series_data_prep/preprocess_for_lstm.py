@@ -13,7 +13,7 @@ from skimage.transform import resize
 from config import OUTPUT_FOLDER, RAW_IMAGE_DATA
 
 # Target physical scale and dimensions
-TARGET_UM_PER_PX = 8.0
+TARGET_UM_PER_PX = 9.0
 TARGET_SIZE = 575
 
 def load_json(p: Path):
