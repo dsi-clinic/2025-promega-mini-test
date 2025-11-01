@@ -6,28 +6,25 @@ import re
 from typing import Dict
 
 
+# ---------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------
 metabolite_names = [
-    "GlucoseGlo",
-    "GlutamateGlo",
-    "MalateGlo",
-    "BCAAGlo",
-    "LactateGlo",
-    "PyruvateGlo",
+    "GlucoseGlo", "GlutamateGlo", "MalateGlo",
+    "BCAAGlo", "LactateGlo", "PyruvateGlo",
 ]
+survey_patterns = ["5-0", "4-1", "3-2", "2-3", "1-4", "0-5"]
+batch_names = ["BA1", "BA2", "BA3", "BA4"]  # add more if needed
 
 
+# ---------------------------------------------------------
+# Template for per-day summary
+# ---------------------------------------------------------
 def summary_template() -> Dict[str, int]:
     """
-    Create a base summary template for organoid and metabolite statistics.
-
-    Returns
-    -------
-    Dict[str, int]
-        A dictionary initialized with counters for key organoid metrics,
-        including image counts, metabolite matches, splits, stitches,
-        and survey votes.
+    Base summary template for organoid and metabolite statistics.
     """
-    return {
+    template = {
         "Number of images": 0,
         "Number of organoids": 0,
         "Metabolites match": 0,
@@ -35,47 +32,66 @@ def summary_template() -> Dict[str, int]:
         "Metabolite Data Available": 0,
         "Number stitched": 0,
         "Number split": 0,
-        "Survey 5-0": 0,
-        "Survey 4-1": 0,
-        "Survey 3-2": 0,
-        "Survey 2-3": 0,
-        "Survey 1-4": 0,
-        "Survey 0-5": 0,
     }
 
+    # global survey columns (aggregate across batches)
+    for s in survey_patterns:
+        template[f"Survey {s}"] = 0
 
+    # batch-specific survey + total columns
+    for b in batch_names:
+        for s in survey_patterns:
+            template[f"Survey {s} ({b})"] = 0
+        template[f"{b} Total"] = 0
+
+    return template
+
+
+# ---------------------------------------------------------
+# Generate summary table
+# ---------------------------------------------------------
 def generate_summary_table(input_path: Path, output_path: Path) -> pd.DataFrame:
     """
-    Generate and save a summary statistics table from organoid data.
-
-    Parameters
-    ----------
-    input_path : Path
-        Path to the JSON file containing all organoid data (e.g., all_data.json).
-    output_path : Path
-        Path to save the generated summary CSV file.
-
-    Returns
-    -------
-    pd.DataFrame
-        A DataFrame containing day-wise counts of organoids, images,
-        metabolite matches, and survey evaluations.
+    Generate a summary statistics table by day, including per-batch breakdowns.
     """
-    # --- Step 1: Load data ---
+    # --- Load data ---
     with open(input_path, "r") as f:
         data = json.load(f)
     print(f"Loaded {len(data)} records from {input_path}")
 
-    # --- Step 2: Initialize summary ---
     summary = defaultdict(summary_template)
 
-    # --- Step 3: Loop through organoids ---
+    # --- Iterate through all organoid entries ---
     for _, entry in data.items():
         day = entry.get("dayID", "Unknown")
-
-        # base counters
         summary[day]["Number of organoids"] += 1
         summary[day]["Number of images"] += len(entry.get("all_files", []))
+
+        # --- Detect batch robustly ---
+        batch = None
+
+        # Priority 1: dedicated "BA" field
+        if "BA" in entry and isinstance(entry["BA"], str):
+            match = re.search(r"BA\d+", entry["BA"], re.IGNORECASE)
+            if match:
+                batch = match.group(0).upper()
+
+        # Priority 2: fallback search through main_id or verification fields
+        if batch is None:
+            possible_fields = [
+                entry.get("main_id", ""),
+                entry.get("verification", {}).get("main_id", ""),
+                entry.get("processed", {}).get("main_id", ""),
+            ]
+            for f in possible_fields:
+                match = re.search(r"BA\d+", str(f), re.IGNORECASE)
+                if match:
+                    batch = match.group(0).upper()
+                    break
+
+        # Default to Unknown if not found
+        if batch is None:
+            batch = "Unknown"
 
         # --- Metabolites ---
         metabolites = entry.get("metabolites", {})
@@ -95,7 +111,7 @@ def generate_summary_table(input_path: Path, output_path: Path) -> pd.DataFrame:
         if "stitch" in cls or "stitched" in cls:
             summary[day]["Number stitched"] += 1
 
-        # --- Survey evaluations (aggregate as 5-0, 4-1, etc.) ---
+        # --- Survey evaluations ---
         evaluations = entry.get("survey", {}).get("evaluations", [])
         if evaluations:
             votes = Counter({"Acceptable": 0, "Not Acceptable": 0})
@@ -108,52 +124,57 @@ def generate_summary_table(input_path: Path, output_path: Path) -> pd.DataFrame:
 
             a, n = votes["Acceptable"], votes["Not Acceptable"]
             label = f"Survey {a}-{n}"
+
+            # Global (day-level total)
             if label in summary[day]:
                 summary[day][label] += 1
             else:
-                summary[day][label] = 1  # in case of unexpected combos (like 6-0)
+                summary[day][label] = 1
 
-    # --- Step 4: Convert to DataFrame ---
+            # Batch-specific survey counts
+            batch_label = f"{label} ({batch})"
+            if batch_label in summary[day]:
+                summary[day][batch_label] += 1
+            else:
+                summary[day][batch_label] = 1
+
+        # --- Batch total ---
+        if f"{batch} Total" in summary[day]:
+            summary[day][f"{batch} Total"] += 1
+        else:
+            summary[day][f"{batch} Total"] = 1
+
+    # --- Convert to DataFrame ---
     df = pd.DataFrame(summary).T
     df.index.name = "Day"
 
+    # Define column order for clarity
     regular_cols = [
-        "Number of images",
-        "Number of organoids",
-        "Metabolites match",
-        "Metabolites don't match",
-        "Metabolite Data Available",
-        "Number stitched",
-        "Number split",
-        "Survey 5-0",
-        "Survey 4-1",
-        "Survey 3-2",
-        "Survey 2-3",
-        "Survey 1-4",
-        "Survey 0-5",
+        "Number of images", "Number of organoids",
+        "Metabolites match", "Metabolites don't match",
+        "Metabolite Data Available", "Number stitched", "Number split",
     ]
-    df = df.reindex(columns=regular_cols)
+    survey_cols = [f"Survey {s}" for s in survey_patterns]
+    batch_survey_cols = [f"Survey {s} ({b})" for b in batch_names for s in survey_patterns]
+    batch_total_cols = [f"{b} Total" for b in batch_names]
+
+    df = df.reindex(columns=regular_cols + survey_cols + batch_survey_cols + batch_total_cols)
     df = df.sort_index()
 
-    # --- Step 5: Save ---
+    # --- Save output ---
     df.to_csv(output_path, index=True)
     print(f"Summary table saved to: {output_path}")
 
     return df
 
 
+# ---------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------
 def main():
-    """
-    Entry point for generating the summary table.
-
-    This allows the script to be run directly from the command line.
-    Example:
-        python maketable.py
-    """
     current_dir = Path(__file__).resolve().parent
     input_path = current_dir / "all_data.json"
     output_path = current_dir / "Summary_Table.csv"
-
     generate_summary_table(input_path=input_path, output_path=output_path)
 
 
