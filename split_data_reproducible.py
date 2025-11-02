@@ -208,10 +208,14 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
         # Note: For image-only modes (switch1/switch3), this only runs if metabolites exist.
         # Image-only samples without metabolites will have no 'metabolites' field.
         if has_metabolites:
-            metabolites_dict = {
-                met: value['metabolites'][met]['concentration_uM'] 
-                for met in REQUIRED_METABOLITES
-            }
+            metabolites_dict = {}
+            
+            # Extract both concentration_uM and initial_concentration for each required metabolite
+            for met in REQUIRED_METABOLITES:
+                met_data = value['metabolites'][met]
+                # Store with full feature names matching the expected format
+                metabolites_dict[f'{met}_concentration_uM'] = met_data.get('concentration_uM')
+                metabolites_dict[f'{met}_initial_concentration'] = met_data.get('initial_concentration')
             
             # Conditionally include MalateGlo for days >10
             # (Only applies when metabolites are included - not relevant for image-only samples)
@@ -220,7 +224,9 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
                 if 'MalateGlo' in value.get('metabolites', {}):
                     malate_data = value['metabolites']['MalateGlo']
                     if 'concentration_uM' in malate_data and malate_data['concentration_uM'] is not None:
-                        metabolites_dict['MalateGlo'] = malate_data['concentration_uM']
+                        metabolites_dict['MalateGlo_concentration_uM'] = malate_data['concentration_uM']
+                    if 'initial_concentration' in malate_data and malate_data['initial_concentration'] is not None:
+                        metabolites_dict['MalateGlo_initial_concentration'] = malate_data['initial_concentration']
             
             timepoint_data['metabolites'] = metabolites_dict
         

@@ -174,7 +174,13 @@ Create a `.env` file in the project root with these variables set to your local 
 2. **Master Merger**: Combines all data sources
    - `file_utils/merge/merge_all_data.py` - Creates unified `all_data.json`
 
-3. **Analysis**: Uses `all_data.json` as single source of truth
+3. **Reproducible Data Splits**: Creates train/validation splits for ML models
+   - `split_data_reproducible.py` - Splits data by organoid (prevents data leakage) and extracts metabolite features
+   - Extracts both `concentration_uM` and `initial_concentration` for each metabolite (e.g., `GlucoseGlo_concentration_uM`, `GlucoseGlo_initial_concentration`)
+   - Outputs saved to `data_splits/` directory
+   - Usage: `python3 split_data_reproducible.py --mode base`
+
+4. **Analysis**: Uses `all_data.json` as single source of truth
    - All analysis code in `analysis/` directory
    - No direct access to raw data files
    - Standardized organoid key format: `"BA1 96_1 Dy30 A1"`
