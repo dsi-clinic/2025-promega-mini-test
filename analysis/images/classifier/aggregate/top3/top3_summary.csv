@@ -1,0 +1,10 @@
+metric,rank,variant,backbone,algo,mean_over_days
+accuracy,1,overlay,vit,overlay/vit,0.7454022988505747
+accuracy,2,rgb+mask,cnn,rgb+mask/cnn,0.7423719958202718
+accuracy,3,overlay,cnn,overlay/cnn,0.7393416927899686
+f1,1,overlay,vit,overlay/vit,0.8326745804428022
+f1,2,overlay,resnet,overlay/resnet,0.8258772261834418
+f1,3,overlay,cnn,overlay/cnn,0.8257148741339173
+auroc,1,soft(rgb),soft_efficientnet,soft(rgb)/soft_efficientnet,0.7276214526214527
+auroc,2,rgb,cnn,rgb/cnn,0.7266534391534392
+auroc,3,overlay,vit,overlay/vit,0.7217291967291968
