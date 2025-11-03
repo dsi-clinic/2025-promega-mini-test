@@ -49,6 +49,7 @@ class DataSources(typing.NamedTuple):
     survey_json: dict
     manual_mask_map: dict
     found_files: list
+    preprocessed_files: list
 
 def get_args():
     arg_parser = create_args()
@@ -100,7 +101,11 @@ def load_data_sources(cfg):
 
     infer_resized_dir = cfg.in_dir.joinpath("images", cfg.infer_resized_dir)
     found_files = list(infer_resized_dir.rglob("image_mapping*_processed.json"))
-    print(f"Located {len(found_files)} files in {infer_resized_dir}")
+    print(f"Located {len(found_files)} processed files in {infer_resized_dir}")
+
+    preprocessed_files_dir = cfg.in_dir.joinpath("json", "preprocessed")
+    preprocessed_files = list(preprocessed_files_dir.rglob("*"))
+    print(f"Located {len(preprocessed_files)} preprocessed files in {preprocessed_files_dir}")
 
     return DataSources(
         base_map=base_map,
@@ -108,6 +113,7 @@ def load_data_sources(cfg):
         survey_json=survey_json,
         manual_mask_map=manual_mask_map,
         found_files=found_files,
+        preprocessed_files=preprocessed_files
     )
 
 def load_json(path: Path | str):
@@ -143,15 +149,14 @@ def normalize_manual_mask_map(manual_mask_map, in_dir):
             norm_key = OrganoidNormalizer.normalize_key(raw_key)
         except ValueError:
             norm_key = OrganoidNormalizer.clean_string(raw_key).upper()
+
+        manual_data["Best Z Filename"] = in_dir.joinpath("images", "raw_images", Path(manual_data["Best Z Filename"]).name)
+        check_existence(manual_data["Best Z Filename"])
+
+        manual_data["MT Mask Path"] = in_dir.joinpath("masks", "manual", Path(manual_data["MT Mask Path"]).name)
+        check_existence(manual_data["MT Mask Path"])
+
         manual_mask_normalized[norm_key] = manual_data
-
-        best_z = ("images", "raw_images") + Path(manual_data["Best Z Filename"]).parts[6:]
-        manual_data["Best Z Filename"] = in_dir.joinpath(*best_z)
-        check_existence(manual_data["Best Z Filename"])
-
-        mt_mask = ("masks",) + Path(manual_data["MT Mask Path"]).parts[6:]
-        manual_data["MT Mask Path"] = in_dir.joinpath(*mt_mask)
-        check_existence(manual_data["Best Z Filename"])
 
     return manual_mask_normalized
 
@@ -169,24 +174,43 @@ def build_processed_files_map(found_files, in_dir, infer_resized_dir):
     for p in found_files:
         raw = load_json(p)
         for batch_data in raw.values():
-            img_path = ("images", infer_resized_dir) + Path(batch_data["img_path"]).parts[7:]
-            batch_data["img_path"] = in_dir.joinpath(*img_path)
-            check_existence(batch_data["img_path"])
+            img_path = in_dir.joinpath("images", infer_resized_dir, Path(batch_data["img_path"]).name)
+            check_existence(img_path)
+            batch_data["img_path"] = str(img_path)
 
-            mask_path = ("predictions",) + Path(batch_data["mask_path"]).parts[6:]
-            batch_data["mask_path"] = in_dir.joinpath(*mask_path)
-            check_existence(batch_data["mask_path"])
-
-            overlay_path = ("predictions",) + Path(batch_data["overlay_path"]).parts[6:]
-            batch_data["overlay_path"] = in_dir.joinpath(*overlay_path)
-            check_existence(batch_data["overlay_path"])
+            mask_path = in_dir.joinpath("masks", "predicted", Path(batch_data["mask_path"]).name)
+            check_existence(mask_path)
+            batch_data["mask_path"] = str(mask_path)
 
         processed_map.update(raw)
 
     return processed_map
 
+def build_preprocessed_map(files, in_dir, infer_resized_dir):
+    """Build and return a dictionary of preprocessed JSON data."""
+    preprocessed_map = {}
+    for file in files:
+        raw = load_json(file)
+        for batch_data in raw:
+            img_path = in_dir.joinpath("images", infer_resized_dir, Path(batch_data["img_path"]).name)
+            check_existence(img_path)
+            batch_data["img_path"] = str(img_path)
+
+            mask_path = in_dir.joinpath("masks", "predicted", Path(batch_data["mask_path"]).name)
+            check_existence(mask_path)
+            batch_data["mask_path"] = str(mask_path)
+
+            overlay_path = in_dir.joinpath("masks", "image_overlays", Path(batch_data["overlay_path"]).name)
+            check_existence(overlay_path)
+            batch_data["overlay_path"] = str(overlay_path)
+
+            main_id = batch_data["id"].replace("DY", "Dy")
+            preprocessed_map[main_id] = batch_data
+
+    return preprocessed_map
+
 def merge_data_sources(base_map, survey_map, metab_map, manual_mask_normalized,
-                       processed_map):
+                       processed_map, preprocessed_map):
     """Merge and return dictionary of all data sources plus number of masks."""
     combined = {}
     manual_mask_count = 0
@@ -205,6 +229,11 @@ def merge_data_sources(base_map, survey_map, metab_map, manual_mask_normalized,
         if processed:
             entry["processed"] = processed
             entry["main_id"] = processed.get("main_id")
+
+        # Match preprocessed info
+        preprocessed = preprocessed_map.get(raw_k) or preprocessed_map.get(normalized_parent_key(raw_k))
+        if preprocessed:
+            entry["preprocessed"] = preprocessed
 
         norm_key_parent = normalized_parent_key(raw_k)
 
@@ -299,11 +328,15 @@ def main():
     print("Loading processed files JSON data...")
     processed_map = build_processed_files_map(sources.found_files, cfg.in_dir, cfg.infer_resized_dir)
 
+    # Load preprocessed JSONs
+    print("Loading preprocessed files JSON data...")
+    preprocessed_map = build_preprocessed_map(sources.preprocessed_files, cfg.in_dir, cfg.infer_resized_dir)
+
     # ---------- merge ----------
     print("Merging data sources...")
     combined, survey_matched_count, survey_not_matched_count, manual_mask_count = merge_data_sources(
         sources.base_map, survey_map, sources.metab_map, manual_mask_normalized,
-        processed_map
+        processed_map, preprocessed_map
     )
 
     # ---------- sanitize and write output ----------
@@ -311,6 +344,7 @@ def main():
     combined_clean = sanitize_for_json(combined)
 
     out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
     with open(out_file, "w") as f:
         json.dump(combined_clean, f, indent=2)
 
