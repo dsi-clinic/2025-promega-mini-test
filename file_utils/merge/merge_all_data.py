@@ -2,6 +2,7 @@
 # Standard
 import argparse
 import dataclasses
+import datetime
 import json
 import math
 import re
@@ -11,6 +12,12 @@ from tqdm import tqdm
 
 # Application
 from file_utils.common.organoid_patterns import OrganoidNormalizer
+from file_utils.merge.normalized_records import (
+    OrganoidRecordBuilder,
+    ImageClassifierEmitter,
+    SurveyClassifierEmitter,
+    emit_views,
+)
 
 # ---------- helpers ----------
 @dataclasses.dataclass
@@ -20,6 +27,13 @@ class Config:
     })
     out_dir: Path = dataclasses.field(metadata={
         "help": "Path to output directory where results will be saved"
+    })
+    min_survey_votes: int = dataclasses.field(default=4, metadata={
+        "help": "Minimum number of votes required to indicate acceptable" \
+                + "or not acceptable survey results"
+    })
+    survey_day: int = dataclasses.field(default=30, metadata={
+        "help": "Day that survey was conducted"
     })
     target_width: int = dataclasses.field(default=512, metadata={
         "help": "Target input image width (pixels)"
@@ -33,6 +47,8 @@ class Config:
     METABOLITE_MAP_JSON: typing.ClassVar[str] = "metabolite_map.json"
     SURVEY_AGGREGATED_JSON: typing.ClassVar[str] = "organoid_surveys_aggregated.json"
     ALL_DATA_JSON: typing.ClassVar[str] = "all_data.json"
+    IMAGE_CLASSIFIER: typing.ClassVar[str] = "image_classifier.json"
+    SURVEY_CLASSIFIER: typing.ClassVar[str] = "survey_classifier.json"
 
     def __post_init__(self):
         # Basic validation / normalization
@@ -150,11 +166,13 @@ def normalize_manual_mask_map(manual_mask_map, in_dir):
         except ValueError:
             norm_key = OrganoidNormalizer.clean_string(raw_key).upper()
 
-        manual_data["Best Z Filename"] = in_dir.joinpath("images", "raw_images", Path(manual_data["Best Z Filename"]).name)
-        check_existence(manual_data["Best Z Filename"])
+        best_z = in_dir.joinpath("images", "raw_images", Path(manual_data["Best Z Filename"]).name)
+        check_existence(best_z)
+        manual_data["Best Z Filename"] = str(best_z)
 
-        manual_data["MT Mask Path"] = in_dir.joinpath("masks", "manual", Path(manual_data["MT Mask Path"]).name)
-        check_existence(manual_data["MT Mask Path"])
+        mask_path = in_dir.joinpath("masks", "manual", Path(manual_data["MT Mask Path"]).name)
+        check_existence(mask_path)
+        manual_data["MT Mask Path"] = str(mask_path)
 
         manual_mask_normalized[norm_key] = manual_data
 
@@ -283,6 +301,63 @@ def extract_mdl_day(day_id: str) -> float:
         return day_num
     return None
 
+def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count, manual_mask_count, combined):
+    builder = OrganoidRecordBuilder(
+        schema_version=1,
+        min_survey_votes=cfg.min_survey_votes,
+        target_size=(cfg.target_width, cfg.target_height),
+    )
+    records = { source_id.replace(" ", "_"): builder.build(source_id, entry) for source_id, entry in combined.items() }
+    payload = {
+        "schema_version": builder.schema_version,
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "records": { source_id: record.to_dict() for source_id, record in records.items() },
+        "stats": {
+            "total_records": len(records),
+            "survey_matches": survey_matched_count,
+            "survey_not_matched": survey_not_matched_count,
+            "manual_masks": manual_mask_count,
+        },
+    }
+
+    # ---------- sanitize and write output for all data ----------
+    print("Sanitizing data for JSON...")
+    payload_clean = sanitize_for_json(payload)
+
+    out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
+    write_json(out_file, payload_clean)
+
+    return records, payload["stats"]
+
+def generate_views(records, cfg):
+    """Generate image and survey classifier views on the data."""
+    views = emit_views(
+        records,
+        [
+            ImageClassifierEmitter(),
+            SurveyClassifierEmitter(survey_day=cfg.survey_day, min_votes=cfg.min_survey_votes),
+        ],
+    )
+    payload_clean = sanitize_for_json(views)
+
+    out_file = cfg.out_dir.joinpath("json", cfg.IMAGE_CLASSIFIER)
+    write_json(out_file, payload_clean["image_classifier"])
+
+    out_file = cfg.out_dir.joinpath("json", cfg.SURVEY_CLASSIFIER)
+    write_json(out_file, payload_clean["survey_classifier"])
+
+    total_ambiguous = sum(
+        day_info.get("ambiguous_labels_tally", 0)
+        for day_info in views["survey_classifier"].values()
+        if isinstance(day_info, dict)
+    )
+
+    return {
+        "num_days_image": len(views["image_classifier"].keys()),
+        "num_days_survey": len(views["survey_classifier"].keys()),
+        "num_survey_amb":total_ambiguous
+    }
+
 def sanitize_for_json(obj):
     """
     Recursively sanitize data to be JSON-safe.
@@ -307,6 +382,20 @@ def sanitize_for_json(obj):
         except (TypeError, ValueError):
             pass
         return str(obj)
+
+def write_json(out_file, payload):
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_file, "w") as f:
+        json.dump(payload, f, indent=2)
+
+def print_stats(stats, out_file):
+    print(f"Wrote {stats['total_records']:,} merged records → {out_file}")
+    print(f"Survey matches: {stats['survey_matches']:,}")
+    print(f"Survey not matched: {stats['survey_not_matched']:,}")
+    print(f"Found {stats['manual_masks']:,} manual masks")
+    print(f"Number of days for image classifer: {stats['num_days_image']:,}")
+    print(f"Number of days for survey classifier {stats['num_days_survey']:,}")
+    print(f"Number of ambiguous labels: {stats['num_survey_amb']:,}")
 
 def main():
     # ---------- command line arguments ----------
@@ -339,19 +428,19 @@ def main():
         processed_map, preprocessed_map
     )
 
-    # ---------- sanitize and write output ----------
-    print("\nSanitizing data for JSON...")
-    combined_clean = sanitize_for_json(combined)
+    # ---------- normalize ----------
+    print("\nNormalizing merged records...")
+    records, stats = build_normalized_records(cfg, survey_matched_count, survey_not_matched_count, manual_mask_count, combined)
 
-    out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
-    out_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_file, "w") as f:
-        json.dump(combined_clean, f, indent=2)
+    # ---------- emit views ----------
+    print("Generating derived views...")
+    view_stats = generate_views(records, cfg)
+    stats.update(view_stats)
 
-    print(f"\nWrote {len(combined_clean):,} merged records → {out_file}")
-    print(f"Survey matches: {survey_matched_count:,}")
-    print(f"Survey not matched: {survey_not_matched_count:,}")
-    print(f"Found {manual_mask_count:,} manual masks")
+    # -----------
+    print_stats(stats, cfg.ALL_DATA_JSON)
+
+
 
 if __name__ == "__main__":
     main()
