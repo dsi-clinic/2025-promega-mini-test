@@ -4,10 +4,13 @@ import argparse
 import dataclasses
 import datetime
 import json
+import logging
 import math
 import re
 import typing
 from pathlib import Path
+
+
 from tqdm import tqdm
 
 # Application
@@ -18,6 +21,11 @@ from file_utils.merge.normalized_records import (
     SurveyClassifierEmitter,
     emit_views,
 )
+
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 # ---------- helpers ----------
 @dataclasses.dataclass
@@ -71,7 +79,7 @@ def get_args():
     arg_parser = create_args()
     args = arg_parser.parse_args()
     for key,val in vars(args).items():
-        print(f"{key}: {val}")
+        logging.info(f"{key}: {val}")
     cfg = Config(**vars(args))
     return cfg
 
@@ -99,29 +107,29 @@ def create_args() -> argparse.ArgumentParser:
 def load_data_sources(cfg):
     """Load data sources and return NamedTuple with source data in memory."""
     original_mapping = cfg.in_dir.joinpath("json", cfg.ORIGINAL_MAPPING_JSON)
-    print(f"Loading base mapping: {original_mapping}")
+    logging.info(f"Loading base mapping: {original_mapping}")
     base_json = load_json(original_mapping)
     base_map = base_json.get("entries", {})
 
     metabolite_map = cfg.in_dir.joinpath("json", cfg.METABOLITE_MAP_JSON)
-    print(f"Loading metabolite map: {metabolite_map}")
+    logging.info(f"Loading metabolite map: {metabolite_map}")
     metab_map = load_json(metabolite_map)
 
     survey_aggregated = cfg.in_dir.joinpath("json", cfg.SURVEY_AGGREGATED_JSON)
-    print(f"Loading survey data: {survey_aggregated}")
+    logging.info(f"Loading survey data: {survey_aggregated}")
     survey_json = load_json(survey_aggregated)
 
     manual_threshold = cfg.in_dir.joinpath("json", cfg.MANUAL_THRESHOLD_MAPPING_JSON)
-    print(f"Loading manual threshold mapping: {manual_threshold}")
+    logging.info(f"Loading manual threshold mapping: {manual_threshold}")
     manual_mask_map = load_json(manual_threshold)
 
     infer_resized_dir = cfg.in_dir.joinpath("images", cfg.infer_resized_dir)
     found_files = list(infer_resized_dir.rglob("image_mapping*_processed.json"))
-    print(f"Located {len(found_files)} processed files in {infer_resized_dir}")
+    logging.info(f"Located {len(found_files)} processed files in {infer_resized_dir}")
 
     preprocessed_files_dir = cfg.in_dir.joinpath("json", "preprocessed")
     preprocessed_files = list(preprocessed_files_dir.rglob("*"))
-    print(f"Located {len(preprocessed_files)} preprocessed files in {preprocessed_files_dir}")
+    logging.info(f"Located {len(preprocessed_files)} preprocessed files in {preprocessed_files_dir}")
 
     return DataSources(
         base_map=base_map,
@@ -321,7 +329,7 @@ def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count
     }
 
     # ---------- sanitize and write output for all data ----------
-    print("Sanitizing data for JSON...")
+    logging.info("Sanitizing data for JSON...")
     payload_clean = sanitize_for_json(payload)
 
     out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
@@ -389,13 +397,13 @@ def write_json(out_file, payload):
         json.dump(payload, f, indent=2)
 
 def print_stats(stats, out_file):
-    print(f"Wrote {stats['total_records']:,} merged records → {out_file}")
-    print(f"Survey matches: {stats['survey_matches']:,}")
-    print(f"Survey not matched: {stats['survey_not_matched']:,}")
-    print(f"Found {stats['manual_masks']:,} manual masks")
-    print(f"Number of days for image classifer: {stats['num_days_image']:,}")
-    print(f"Number of days for survey classifier {stats['num_days_survey']:,}")
-    print(f"Number of ambiguous labels: {stats['num_survey_amb']:,}")
+    logging.info(f"Wrote {stats['total_records']:,} merged records → {out_file}")
+    logging.info(f"Survey matches: {stats['survey_matches']:,}")
+    logging.info(f"Survey not matched: {stats['survey_not_matched']:,}")
+    logging.info(f"Found {stats['manual_masks']:,} manual masks")
+    logging.info(f"Number of days for image classifer: {stats['num_days_image']:,}")
+    logging.info(f"Number of days for survey classifier {stats['num_days_survey']:,}")
+    logging.info(f"Number of ambiguous labels: {stats['num_survey_amb']:,}")
 
 def main():
     # ---------- command line arguments ----------
@@ -405,39 +413,39 @@ def main():
     sources = load_data_sources(cfg)
 
     # Build survey map keyed by image_id or parent
-    print("Building survey map by (main_id, split_index)...")
+    logging.info("Building survey map by (main_id, split_index)...")
     survey_map = build_survey_map(sources.survey_json)
-    print(f"Built survey map with {len(survey_map)} unique (main_id, split_index) pairs")
+    logging.info(f"Built survey map with {len(survey_map)} unique (main_id, split_index) pairs")
 
     # Build manual mask map with normalized keys
-    print("Normalizing keys for manual mask map...")
+    logging.info("Normalizing keys for manual mask map...")
     manual_mask_normalized = normalize_manual_mask_map(sources.manual_mask_map, cfg.in_dir)
 
     # Load processed JSONs
-    print("Loading processed files JSON data...")
+    logging.info("Loading processed files JSON data...")
     processed_map = build_processed_files_map(sources.found_files, cfg.in_dir, cfg.infer_resized_dir)
 
     # Load preprocessed JSONs
-    print("Loading preprocessed files JSON data...")
+    logging.info("Loading preprocessed files JSON data...")
     preprocessed_map = build_preprocessed_map(sources.preprocessed_files, cfg.in_dir, cfg.infer_resized_dir)
 
     # ---------- merge ----------
-    print("Merging data sources...")
+    logging.info("Merging data sources...")
     combined, survey_matched_count, survey_not_matched_count, manual_mask_count = merge_data_sources(
         sources.base_map, survey_map, sources.metab_map, manual_mask_normalized,
         processed_map, preprocessed_map
     )
 
     # ---------- normalize ----------
-    print("\nNormalizing merged records...")
+    logging.info("Normalizing merged records...")
     records, stats = build_normalized_records(cfg, survey_matched_count, survey_not_matched_count, manual_mask_count, combined)
 
     # ---------- emit views ----------
-    print("Generating derived views...")
+    logging.info("Generating derived views...")
     view_stats = generate_views(records, cfg)
     stats.update(view_stats)
 
-    # -----------
+    # ----------  print top-level data stats ----------
     print_stats(stats, cfg.ALL_DATA_JSON)
 
 
