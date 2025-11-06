@@ -342,7 +342,7 @@ def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count
 
     return records, payload["stats"]
 
-def generate_views(records, cfg):
+def generate_views(records, cfg, stats):
     """Generate image and survey classifier views on the data."""
     views = emit_views(
         records,
@@ -354,16 +354,22 @@ def generate_views(records, cfg):
     payload_clean = sanitize_for_json(views)
 
     out_file = cfg.out_dir.joinpath("json", cfg.IMAGE_CLASSIFIER)
+    payload_clean["image_classifier"]["metadata"]["num_img_split"] = stats["num_img_split"]
+    payload_clean["image_classifier"]["metadata"]["num_img_stitched"] = stats["num_img_stitched"]
+    payload_clean["image_classifier"]["metadata"]["num_img_no_label"] = stats["num_img_no_label"]
     write_json(out_file, payload_clean["image_classifier"])
 
     out_file = cfg.out_dir.joinpath("json", cfg.SURVEY_CLASSIFIER)
+    payload_clean["survey_classifier"]["metadata"]["num_ambiguous"] = stats["num_ambiguous_votes"]
+    payload_clean["survey_classifier"]["metadata"]["num_acceptable_votes"] = stats["num_acceptable_votes"]
+    payload_clean["survey_classifier"]["metadata"]["num_not_acceptable_votes"] = stats["num_not_acceptable_votes"]
     write_json(out_file, payload_clean["survey_classifier"])
 
     return {
         "num_days_image": sum(1 for key in views["image_classifier"] if "Dy" in key),
-        "num_days_image_skipped": views["image_classifier"]["total_images_skipped"],
+        "num_days_image_skipped": views["image_classifier"]["metadata"]["total_skipped"],
         "num_days_survey": sum(1 for key in views["survey_classifier"] if "Dy" in key),
-        "num_days_survey_skipped": views["survey_classifier"]["total_images_skipped"],
+        "num_days_survey_skipped": views["survey_classifier"]["metadata"]["total_skipped"],
     }
 
 def sanitize_for_json(obj):
@@ -449,7 +455,7 @@ def main():
 
     # ---------- emit views ----------
     logging.info("Generating derived views...")
-    view_stats = generate_views(records, cfg)
+    view_stats = generate_views(records, cfg, stats)
     stats.update(view_stats)
 
     # ----------  print top-level data stats ----------

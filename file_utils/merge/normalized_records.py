@@ -55,9 +55,13 @@ class OrganoidRecord:
         return label.get("acceptance_flag") if isinstance(label, dict) else None
 
     @property
-    def survey_majority_label(self) -> Optional[SchemaDict]:
+    def survey_majority_label(self) -> Optional[str]:
         label = self.data.get("survey", {}).get("label", {})
         return label.get("acceptance_flag") if isinstance(label, dict) else None
+
+    @property
+    def survey_evaluation(self) -> Optional[List[dict]]:
+        return self.data.get("survey", {}).get("evaluations", {})
 
 
 @dataclass
@@ -327,7 +331,7 @@ class BaseViewEmitter:
     def finalize(self) -> SchemaDict:
         fields = ("id", "img_path", "label", "mask_path", "overlay_path")
 
-        records = {"records": {}}
+        records = {"records": {}, "metadata": {}}
         for day, rows in self._records_by_day.items():
             day_data = {name: [row.get(name) for row in rows] for name in fields}
 
@@ -341,7 +345,7 @@ class BaseViewEmitter:
         for day, skipped in self._skipped_records_by_day.items():
             records["records"].setdefault(day, {})["skipped"] = skipped
 
-        records["total_images_skipped"] = sum(
+        records["metadata"]["total_skipped"] = sum(
             len(skipped) for skipped in self._skipped_records_by_day.values()
         )
 
@@ -393,11 +397,12 @@ class SurveyClassifierEmitter(BaseViewEmitter):
         if record.day_id != self.survey_day:
             return
 
+        evals = record.survey_evaluation
         img_path = record.processed_img_path
         mask_path = record.processed_mask_path
         label = record.survey_majority_label
 
-        if not record.day_id or not img_path or not mask_path \
+        if not eval or not record.day_id or not img_path or not mask_path \
             or label not in self.label_list:
             self._skipped_records_by_day[record.day_id].append(record.record_id)
             return
