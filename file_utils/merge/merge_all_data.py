@@ -16,6 +16,7 @@ from tqdm import tqdm
 # Application
 from file_utils.common.organoid_patterns import OrganoidNormalizer
 from file_utils.merge.normalized_records import (
+    RecordMetrics,
     OrganoidRecordBuilder,
     ImageClassifierEmitter,
     SurveyClassifierEmitter,
@@ -57,6 +58,7 @@ class Config:
     ALL_DATA_JSON: typing.ClassVar[str] = "all_data.json"
     IMAGE_CLASSIFIER: typing.ClassVar[str] = "image_classifier.json"
     SURVEY_CLASSIFIER: typing.ClassVar[str] = "survey_classifier.json"
+    SCHEMA_VERSION: typing.ClassVar[int] = 1
 
     def __post_init__(self):
         # Basic validation / normalization
@@ -311,22 +313,24 @@ def extract_mdl_day(day_id: str) -> float:
 
 def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count, manual_mask_count, combined):
     builder = OrganoidRecordBuilder(
-        schema_version=1,
         min_survey_votes=cfg.min_survey_votes,
+        survey_day=cfg.survey_day,
         target_size=(cfg.target_width, cfg.target_height),
+        record_metrics = RecordMetrics()
     )
     records = { source_id.replace(" ", "_"): builder.build(source_id, entry) for source_id, entry in combined.items() }
     payload = {
-        "schema_version": builder.schema_version,
+        "schema_version": cfg.SCHEMA_VERSION,
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "records": { source_id: record.to_dict() for source_id, record in records.items() },
         "stats": {
             "total_records": len(records),
             "survey_matches": survey_matched_count,
             "survey_not_matched": survey_not_matched_count,
             "manual_masks": manual_mask_count,
         },
+        "records": { source_id: record.to_dict() for source_id, record in records.items() },
     }
+    payload["stats"].update(builder.record_metrics.to_dict())
 
     # ---------- sanitize and write output for all data ----------
     logging.info("Sanitizing data for JSON...")
@@ -354,16 +358,9 @@ def generate_views(records, cfg):
     out_file = cfg.out_dir.joinpath("json", cfg.SURVEY_CLASSIFIER)
     write_json(out_file, payload_clean["survey_classifier"])
 
-    total_ambiguous = sum(
-        day_info.get("ambiguous_labels_tally", 0)
-        for day_info in views["survey_classifier"].values()
-        if isinstance(day_info, dict)
-    )
-
     return {
         "num_days_image": len(views["image_classifier"].keys()),
         "num_days_survey": len(views["survey_classifier"].keys()),
-        "num_survey_amb":total_ambiguous
     }
 
 def sanitize_for_json(obj):
@@ -403,7 +400,8 @@ def print_stats(stats, out_file):
     logging.info(f"Found {stats['manual_masks']:,} manual masks")
     logging.info(f"Number of days for image classifer: {stats['num_days_image']:,}")
     logging.info(f"Number of days for survey classifier {stats['num_days_survey']:,}")
-    logging.info(f"Number of ambiguous labels: {stats['num_survey_amb']:,}")
+    logging.info(f"Number of ambiguous labels: {stats['num_ambiguous_votes']:,}")
+    logging.info(f"Number of metabolite outliers: {stats['num_metabolite_outliers']}")
 
 def main():
     # ---------- command line arguments ----------

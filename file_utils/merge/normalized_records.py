@@ -4,9 +4,15 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Protocol
+from dataclasses import asdict, dataclass, field
+import logging
+from typing import Any, ClassVar, Dict, Iterable, List, Mapping, Optional, Protocol
 
+
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 SchemaDict = Dict[str, Any]
 
@@ -52,16 +58,54 @@ class OrganoidRecord:
         return label.get("acceptance_flag") if isinstance(label, dict) else None
 
 
+@dataclass
+class RecordMetrics:
+    num_organoids: int = 0
+
+    num_img_split: int = 0
+    num_img_stitched: int = 0
+    num_img_no_label: int = 0
+
+    num_no_metabolite: int = 0
+    num_metabolite_outliers: int = 0
+    metabolite_outlier_counts: Counter = field(default_factory=Counter)
+
+    num_acceptable_votes: int = 0
+    num_not_acceptable_votes: int = 0
+    num_ambiguous_votes: int = 0
+
+    SPLIT_OR_STITCHED: ClassVar[dict] = {
+        "NoSplitNoStitched": (0, 0),
+        "SplitNoStitched": (1, 0),
+        "NoSplitStitched": (0, 1),
+        "SplitStitched": (1, 1),
+    }
+
+    METABOLITES: ClassVar[list] = [
+        "BCAAGlo",
+        "GlucoseGlo",
+        "GlutamateGlo",
+        "LactateGlo",
+        "MalateGlo",
+        "PyruvateGlo"
+    ]
+
+    def to_dict(self) -> dict:
+        self.metabolite_outlier_counts = dict(self.metabolite_outlier_counts)
+        return asdict(self)
+
+
 class OrganoidRecordBuilder:
     """Factory creating OrganoidRecord instances from merged payloads."""
 
     LABEL_MAP = {"Accepted": 1, "Not Accepted": 0, "Acceptable": 1, "Not Acceptable": 0}
 
-    def __init__(self, *, schema_version: int = 1, min_survey_votes: int = 4,
-                 target_size: tuple[int, int] = (512, 384)):
-        self.schema_version = schema_version
+    def __init__(self, *, min_survey_votes: int = 4, survey_day: int = 30,
+                 target_size: tuple[int, int] = (512, 384), record_metrics: RecordMetrics):
         self.min_survey_votes = min_survey_votes
+        self.survey_day = f"Dy{survey_day:02d}"
         self.target_size = target_size
+        self.record_metrics = record_metrics
 
     def build(self, source_id: str, entry: SchemaDict) -> OrganoidRecord:
         processed = entry.get("processed") or {}
@@ -72,7 +116,6 @@ class OrganoidRecordBuilder:
 
         payload: SchemaDict = {
             "id": source_id,
-            "schema_version": self.schema_version,
             "day": {
                 "id": entry.get("dayID"),
                 "number": entry.get("mdl_day"),
@@ -91,6 +134,7 @@ class OrganoidRecordBuilder:
             "metabolites": metabolites,
             "survey": self._build_surveys(survey)
         }
+        self._get_record_metrics(payload)
         return OrganoidRecord(source_id=source_id, data=payload)
 
     def _build_images(
@@ -218,6 +262,44 @@ class OrganoidRecordBuilder:
             "source": "survey.evaluations",
         }
 
+    def _get_record_metrics(self, record: SchemaDict) -> SchemaDict:
+        main_id = record.get("id")
+        self.record_metrics.num_organoids += 1
+
+        spl_stc_label = record.get("metadata", {}).get("verification", {}).get("classification_verification")
+        split, stitched = self.record_metrics.SPLIT_OR_STITCHED[spl_stc_label]
+        self.record_metrics.num_img_split += split
+        self.record_metrics.num_img_stitched += stitched
+        if split and stitched: logging.warning(f"Image has been split and stitched: {main_id}")
+
+        img_label = record.get("images", {}).get("label", {}).get("value")
+        if not img_label:
+            self.record_metrics.num_img_no_label += 1
+
+        metabolite_data = record.get("metabolites", {})
+        if not metabolite_data:
+            self.record_metrics.num_no_metabolite += 1
+        else:
+            missing = set(self.record_metrics.METABOLITES) - set(metabolite_data)
+            extra = set(metabolite_data) - set(self.record_metrics.METABOLITES)
+            if missing or extra:
+                logging.warning(f"{main_id} Missing metabolites: {missing}, Extra metabolites: {extra}")
+            for metabolite_key, details in metabolite_data.items():
+                if details["is_outlier"]:
+                    self.record_metrics.metabolite_outlier_counts[metabolite_key] += 1
+                    self.record_metrics.num_metabolite_outliers += 1
+
+        survey_votes = record.get("survey", {}).get("summary", {}).get("votes", {})
+        if survey_votes:
+            if "Acceptable" in survey_votes.keys():
+                self.record_metrics.num_acceptable_votes += survey_votes["Acceptable"]
+            if "Not Acceptable" in survey_votes.keys():
+                self.record_metrics.num_not_acceptable_votes += survey_votes["Not Acceptable"]
+
+            survey_label = record.get("survey", {}).get("label", {}).get("value")
+            if not survey_label:
+                self.record_metrics.num_ambiguous_votes += 1
+
 
 class ViewEmitter(Protocol):
     """Protocol for view emitters."""
@@ -301,7 +383,6 @@ class SurveyClassifierEmitter(BaseViewEmitter):
         self.survey_day = f"Dy{survey_day:02d}"
         self.min_votes = min_votes
         self._records_by_day: Dict[str, List[SchemaDict]] = defaultdict(list)
-        self._ambiguous_counts = 0
 
     def process(self, record: OrganoidRecord) -> None:
         if not record.day_id:
@@ -320,7 +401,6 @@ class SurveyClassifierEmitter(BaseViewEmitter):
 
         label = record.survey_majority_label
         if label not in self.label_list:
-            self._ambiguous_counts += 1
             return
 
         payload = {
@@ -338,11 +418,9 @@ class SurveyClassifierEmitter(BaseViewEmitter):
                 "img_path": [row.get("img_path") for row in rows],
                 "label": [row.get("label") for row in rows],
                 "mask_path": [row.get("mask_path") for row in rows],
-                "ambiguous_labels_tally": self._ambiguous_counts,
             }
             for day, rows in self._records_by_day.items()
         }
-
 
 
 def emit_views(records: Mapping[str, OrganoidRecord], emitters: Iterable[ViewEmitter]) -> Dict[str, SchemaDict]:
