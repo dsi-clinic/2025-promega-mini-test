@@ -120,11 +120,15 @@ class OrganoidRecordBuilder:
         metabolites = entry.get("metabolites") or {}
         manual_mask_path = entry.get("manual_mask_path")
 
+        day_value = entry.get("mdl_day")
+        formatted_day = f"{day_value:.1f}".rstrip("0").rstrip(".") if day_value is not None else ""
+
         payload: SchemaDict = {
             "id": source_id,
             "day": {
-                "id": entry.get("dayID"),
+                "id": f"Dy{formatted_day}",
                 "number": entry.get("mdl_day"),
+                "original": entry.get("dayID")
             },
             "cell_line": entry.get("cellLine"),
             "plate": {

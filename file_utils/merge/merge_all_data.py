@@ -366,9 +366,9 @@ def generate_views(records, cfg, stats):
     write_json(out_file, payload_clean["survey_classifier"])
 
     return {
-        "num_days_image": sum(1 for key in views["image_classifier"] if "Dy" in key),
+        "num_days_image": len(views["image_classifier"]["records"].keys()),
         "num_days_image_skipped": views["image_classifier"]["metadata"]["total_skipped"],
-        "num_days_survey": sum(1 for key in views["survey_classifier"] if "Dy" in key),
+        "num_days_survey": len(views["survey_classifier"]["records"].keys()),
         "num_days_survey_skipped": views["survey_classifier"]["metadata"]["total_skipped"],
     }
 
