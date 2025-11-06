@@ -10,7 +10,7 @@ import re
 import typing
 from pathlib import Path
 
-
+from rich.logging import RichHandler
 from tqdm import tqdm
 
 # Application
@@ -26,7 +26,8 @@ from file_utils.merge.normalized_records import (
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S',
-                    level=logging.INFO)
+                    level=logging.INFO,
+                    handlers=[RichHandler()])
 
 # ---------- helpers ----------
 @dataclasses.dataclass

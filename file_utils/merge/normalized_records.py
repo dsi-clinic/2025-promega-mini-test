@@ -9,10 +9,12 @@ import logging
 from typing import Any, ClassVar, Dict, Iterable, List, Mapping, Optional, Protocol
 
 
-logging.getLogger().setLevel(logging.INFO)
+from rich.logging import RichHandler
+
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S',
-                    level=logging.INFO)
+                    level=logging.INFO,
+                    handlers=[RichHandler()])
 
 SchemaDict = Dict[str, Any]
 
