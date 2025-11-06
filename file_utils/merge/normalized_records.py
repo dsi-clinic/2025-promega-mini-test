@@ -327,7 +327,7 @@ class BaseViewEmitter:
     def finalize(self) -> SchemaDict:
         fields = ("id", "img_path", "label", "mask_path", "overlay_path")
 
-        records = {}
+        records = {"records": {}}
         for day, rows in self._records_by_day.items():
             day_data = {name: [row.get(name) for row in rows] for name in fields}
 
@@ -336,10 +336,10 @@ class BaseViewEmitter:
                 if all(value is None for value in values):
                     day_data.pop(name)
 
-            records[day] = day_data
+            records["records"][day] = day_data
 
         for day, skipped in self._skipped_records_by_day.items():
-            records.setdefault(day, {})["skipped"] = skipped
+            records["records"].setdefault(day, {})["skipped"] = skipped
 
         records["total_images_skipped"] = sum(
             len(skipped) for skipped in self._skipped_records_by_day.values()
