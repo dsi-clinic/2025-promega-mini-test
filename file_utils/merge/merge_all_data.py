@@ -359,8 +359,10 @@ def generate_views(records, cfg):
     write_json(out_file, payload_clean["survey_classifier"])
 
     return {
-        "num_days_image": len(views["image_classifier"].keys()),
-        "num_days_survey": len(views["survey_classifier"].keys()),
+        "num_days_image": sum(1 for key in views["image_classifier"] if "Dy" in key),
+        "num_days_image_skipped": views["image_classifier"]["total_images_skipped"],
+        "num_days_survey": sum(1 for key in views["survey_classifier"] if "Dy" in key),
+        "num_days_survey_skipped": views["survey_classifier"]["total_images_skipped"],
     }
 
 def sanitize_for_json(obj):
@@ -395,12 +397,18 @@ def write_json(out_file, payload):
 
 def print_stats(stats, out_file):
     logging.info(f"Wrote {stats['total_records']:,} merged records → {out_file}")
+
+    logging.info(f"Number of days for survey classifier {stats['num_days_survey']:,}")
+    logging.info(f"Number of skipped organoid observations for survey classifier: {stats['num_days_survey_skipped']}")
     logging.info(f"Survey matches: {stats['survey_matches']:,}")
     logging.info(f"Survey not matched: {stats['survey_not_matched']:,}")
-    logging.info(f"Found {stats['manual_masks']:,} manual masks")
-    logging.info(f"Number of days for image classifer: {stats['num_days_image']:,}")
-    logging.info(f"Number of days for survey classifier {stats['num_days_survey']:,}")
     logging.info(f"Number of ambiguous labels: {stats['num_ambiguous_votes']:,}")
+
+    logging.info(f"Found {stats['manual_masks']:,} manual masks")
+
+    logging.info(f"Number of days for image classifer: {stats['num_days_image']:,}")
+    logging.info(f"Number of skipped organoid observations for image classifier: {stats['num_days_image_skipped']}")
+
     logging.info(f"Number of metabolite outliers: {stats['num_metabolite_outliers']}")
 
 def main():

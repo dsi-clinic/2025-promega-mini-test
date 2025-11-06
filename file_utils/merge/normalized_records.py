@@ -323,7 +323,27 @@ class BaseViewEmitter:
         raise NotImplementedError
 
     def finalize(self) -> SchemaDict:
-        raise NotImplementedError
+        fields = ("id", "img_path", "label", "mask_path", "overlay_path")
+
+        records = {}
+        for day, rows in self._records_by_day.items():
+            day_data = {name: [row.get(name) for row in rows] for name in fields}
+
+            # remove fields where every value is None
+            for name, values in list(day_data.items()):
+                if all(value is None for value in values):
+                    day_data.pop(name)
+
+            records[day] = day_data
+
+        for day, skipped in self._skipped_records_by_day.items():
+            records.setdefault(day, {})["skipped"] = skipped
+
+        records["total_images_skipped"] = sum(
+            len(skipped) for skipped in self._skipped_records_by_day.values()
+        )
+
+        return records
 
 
 class ImageClassifierEmitter(BaseViewEmitter):
@@ -333,21 +353,16 @@ class ImageClassifierEmitter(BaseViewEmitter):
 
     def __init__(self):
         self._records_by_day: Dict[str, List[SchemaDict]] = defaultdict(list)
+        self._skipped_records_by_day: Dict[str, List[str]] = defaultdict(list)
 
     def process(self, record: OrganoidRecord) -> None:
-        if not record.day_id:
-            return
-
         label = record.image_quality_label
-        if label not in self.label_list:
-            return
-
         img_path = record.processed_img_path
-        if not img_path:
-            return
-
         mask_path = record.processed_mask_path
-        if not mask_path:
+
+        if label not in self.label_list or not img_path or not mask_path \
+            or not record.day_id:
+            self._skipped_records_by_day[record.day_id].append(record.record_id)
             return
 
         overlay_path = record.overlay_img_path
@@ -361,19 +376,6 @@ class ImageClassifierEmitter(BaseViewEmitter):
         }
         self._records_by_day[record.day_id].append(payload)
 
-    def finalize(self) -> SchemaDict:
-        return {
-            day: {
-                "id": [row.get("id") for row in rows],
-                "img_path": [row.get("img_path") for row in rows],
-                "label": [row.get("label") for row in rows],
-                "mask_path": [row.get("mask_path") for row in rows],
-                "overlay_path": [row.get("overlay_path") for row in rows],
-            }
-            for day, rows in self._records_by_day.items()
-        }
-
-
 class SurveyClassifierEmitter(BaseViewEmitter):
     """Build view payload for the human-survey grounded classifier."""
 
@@ -383,24 +385,19 @@ class SurveyClassifierEmitter(BaseViewEmitter):
         self.survey_day = f"Dy{survey_day:02d}"
         self.min_votes = min_votes
         self._records_by_day: Dict[str, List[SchemaDict]] = defaultdict(list)
+        self._skipped_records_by_day: Dict[str, List[str]] = defaultdict(list)
 
     def process(self, record: OrganoidRecord) -> None:
-        if not record.day_id:
-            return
-
         if record.day_id != self.survey_day:
             return
 
         img_path = record.processed_img_path
-        if not img_path:
-            return
-
         mask_path = record.processed_mask_path
-        if not mask_path:
-            return
-
         label = record.survey_majority_label
-        if label not in self.label_list:
+
+        if not record.day_id or not img_path or not mask_path \
+            or label not in self.label_list:
+            self._skipped_records_by_day[record.day_id].append(record.record_id)
             return
 
         payload = {
@@ -410,17 +407,6 @@ class SurveyClassifierEmitter(BaseViewEmitter):
             "label": label,
         }
         self._records_by_day[record.day_id].append(payload)
-
-    def finalize(self) -> SchemaDict:
-        return {
-            day: {
-                "id": [row.get("id") for row in rows],
-                "img_path": [row.get("img_path") for row in rows],
-                "label": [row.get("label") for row in rows],
-                "mask_path": [row.get("mask_path") for row in rows],
-            }
-            for day, rows in self._records_by_day.items()
-        }
 
 
 def emit_views(records: Mapping[str, OrganoidRecord], emitters: Iterable[ViewEmitter]) -> Dict[str, SchemaDict]:
