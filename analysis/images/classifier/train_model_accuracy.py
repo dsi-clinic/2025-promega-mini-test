@@ -37,9 +37,6 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # ---------- Classes ----------
 @dataclasses.dataclass
 class Config:
-    in_dir: Path = dataclasses.field(metadata={
-        "help": "Path to input directory containing organoid images"
-    })
     out_dir: Path = dataclasses.field(metadata={
         "help": "Path to output directory where results will be saved"
     })
@@ -82,8 +79,6 @@ class Config:
 
     def __post_init__(self):
         # Basic validation / normalization
-        if not self.in_dir.exists():
-            raise RuntimeError(f"{self.in_dir} does not exist")
         if not (0.0 < self.test_frac < 0.5):
             raise ValueError("test-frac must be in (0, 0.5)")
         if not (0.0 < self.val_frac < 0.5):
@@ -94,6 +89,7 @@ class Config:
             raise ValueError("train_bs must be > 0")
         # Set up
         self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.json_file = self.out_dir.parent.joinpath("json", "image_classifier.json")
         self.val_batch_size = int(self.val_batch_size) if self.val_batch_size is not None else self.batch_size
         self.target_size: tuple = (self.target_width, self.target_height)
 
@@ -322,19 +318,27 @@ def day_to_int(day_str: str) -> int:
 
 # ---------- Train/Eval ----------
 def collect_results(cfg):
+    # Load JSON file data
+    with open(cfg.json_file) as jf:
+        json_data = json.load(jf)
+
     # Collect results: pick the best backbone per day by **validation accuracy**
     per_day_best = {}
     per_model_results = {bk: {} for bk in BACKBONES}
-    for json_file in sorted(cfg.in_dir.glob("Dy*.json"), key=lambda p: day_to_int(p.stem)):
-        day = json_file.stem
+    for day, data in json_data["records"].items():
+        if not data:
+            print(f"⚠ Skipping {day} — no records")
+            return None
+
         best = None
         for backbone_key, backbone_name in BACKBONES.items():
-            res = run_training_for_day(json_file, backbone_key, backbone_name, cfg=cfg)
+            res = run_training_for_day(day, data, backbone_key, backbone_name, cfg=cfg)
             if res is None:
                 continue
             per_model_results[backbone_key][day] = res
             if (best is None) or (res["val_accuracy"] > best["val_accuracy"]):
                 best = res
+
         if best:
             per_day_best[day] = best
             print(f"✅ Best for {day} (by VAL): {best['backbone_key']} | val acc={best['val_accuracy']:.3f} | TEST acc={best['test_accuracy']:.3f}, f1={best['test_f1']:.3f}")
@@ -347,20 +351,15 @@ def collect_results(cfg):
 
     return per_day_best, per_model_results
 
-def run_training_for_day(day_json_path: Path, backbone_key: str,
+def run_training_for_day(day: str, data: dict, backbone_key: str,
                          backbone_name: str, cfg:Config):
     """Train + validate with small val/test; select by VAL acc, report on TEST."""
-    records = json.loads(day_json_path.read_text())
-    if not records:
-        print(f"⚠ Skipping {day_json_path.name} — no records")
-        return None
-
-    labels, imgs, masks = get_labels_images_masks(records, day_json_path, cfg)
-
+    labels = data.get("label", [])
+    imgs = data.get(cfg.input_path_key, [])
+    masks = data.get("mask_path", [])
     # Filter out entries with missing files (and record details)
-    labels, imgs, masks = filter_labels_images_masks(labels, imgs, masks,
-                                                     backbone_key, day_json_path,
-                                                     cfg)
+    labels, imgs, masks = filter_labels_images_masks(day, labels, imgs, masks,
+                                                     backbone_key, cfg)
 
     # ---- Split: first cut TEST (test_frac), then VAL to reach overall val_frac
     if cfg.use_mask:
@@ -399,13 +398,13 @@ def run_training_for_day(day_json_path: Path, backbone_key: str,
 
     # Define model
     model = ImageOnlyClassifier(backbone_key, backbone_name, cfg.target_size, use_mask=cfg.use_mask).to(DEVICE)
-    model_dir = cfg.out_dir / backbone_key / day_json_path.stem
+    model_dir = cfg.out_dir / backbone_key / day
     model_dir.mkdir(parents=True, exist_ok=True)
     model_path = model_dir / "model.pth"
 
     # Run training
     history, best_acc = run_phases(model, model_path, backbone_key, backbone_name,
-                                   day_json_path, train_loader, val_loader,
+                                   day, train_loader, val_loader,
                                    class_weights, cfg)
 
     # Save per-day training curves
@@ -416,15 +415,15 @@ def run_training_for_day(day_json_path: Path, backbone_key: str,
 
     # Val metrics (record only; NOT used for final reporting)
     val_metrics = get_validation_metrics(model, y_val, model_dir, val_loader,
-                                         day_json_path, cfg)
+                                         day, cfg)
 
     # Test metrics（final reporting）
     test_metrics = get_test_metrics(model, y_val, model_dir, test_loader,
-                                    day_json_path, best_acc, backbone_key, cfg)
+                                    day, best_acc, backbone_key, cfg)
 
     # Return: choose by val, report test
     return {
-        "day": day_json_path.stem,
+        "day": day,
         "day_no": test_metrics["day_no"],
         "backbone_key": backbone_key,
         "val_accuracy": float(best_acc),     # selection metric
@@ -464,7 +463,7 @@ def get_labels_images_masks(records, day_json_path, cfg):
         masks = None
     return labels, imgs, masks
 
-def filter_labels_images_masks(labels, imgs, masks, backbone_key, day_json_path, cfg):
+def filter_labels_images_masks(day, labels, imgs, masks, backbone_key, cfg):
     """Filter entries with missing files (and record dteails)."""
     filtered_imgs, filtered_labels = [], []
     filtered_masks = [] if cfg.use_mask else None
@@ -484,17 +483,10 @@ def filter_labels_images_masks(labels, imgs, masks, backbone_key, day_json_path,
             filtered_masks.append(str(mask_path))
 
     if missing_records:
-        log_dir = cfg.out_dir / backbone_key / day_json_path.stem
-        log_dir.mkdir(parents=True, exist_ok=True)
-        missing_csv = log_dir / "missing_files.csv"
-        with missing_csv.open("w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["img_path", "mask_path", "reason"])
-            writer.writeheader()
-            writer.writerows(missing_records)
-        print(f"⚠ {day_json_path.name}: skipped {len(missing_records)} entries due to missing files (details → {missing_csv})")
+        write_missing_csv(day, cfg, backbone_key, missing_records)
 
     if not filtered_labels:
-        print(f"⚠ Skipping {day_json_path.name} — no valid samples after filtering missing files")
+        print(f"⚠ Skipping {day} — no valid samples after filtering missing files")
         return None
 
     imgs = np.array(filtered_imgs)
@@ -505,11 +497,33 @@ def filter_labels_images_masks(labels, imgs, masks, backbone_key, day_json_path,
         masks = None
     return filtered_labels, filtered_imgs, filtered_masks
 
+def write_missing_csv(day, cfg, backbone_key, missing_records):
+    log_dir = cfg.out_dir / backbone_key
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    missing_csv = log_dir / "missing_files.csv"
+    fieldnames = ["img_path", "mask_path", "reason"]
+
+    combined_rows = []
+    if missing_csv.exists():
+        with missing_csv.open("r", newline="") as fh:
+            reader = csv.DictReader(fh)
+            combined_rows.extend(reader)
+
+    combined_rows.extend(missing_records)
+
+    with missing_csv.open("w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(combined_rows)
+
+    print(f"⚠ {day}: skipped {len(missing_records)} entries due to missing files (details → {missing_csv})")
+
 def make_loader(imgs, labels, augment, batch_size, cfg, mask_paths=None):
     ds = OrganoidDataset(imgs, labels, target_size=cfg.target_size, mask_paths=mask_paths, augment=augment, use_mask=cfg.use_mask)
     return DataLoader(ds, batch_size=batch_size, shuffle=augment, num_workers=cfg.num_workers)
 
-def run_phases(model, model_path, backbone_key, backbone_name, day_json_path,
+def run_phases(model, model_path, backbone_key, backbone_name, day,
                train_loader, val_loader, class_weights, cfg):
     """Run epochs for each phase to train the data."""
     # Optimizer
@@ -524,7 +538,7 @@ def run_phases(model, model_path, backbone_key, backbone_name, day_json_path,
         vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=cfg.use_mask)
         history["train_loss"].append(tl); history["val_loss"].append(vl)
         history["train_acc"].append(tacc); history["val_acc"].append(vacc)
-        print(f"[{day_json_path.stem}][{backbone_key}][P1][{epoch:02d}][bs={cfg.batch_size}/{cfg.val_batch_size}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
+        print(f"[{day}][{backbone_key}][P1][{epoch:02d}][bs={cfg.batch_size}/{cfg.val_batch_size}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
         if vacc > best_acc:
             best_acc = vacc
             torch.save(model.state_dict(), model_path)
@@ -540,7 +554,7 @@ def run_phases(model, model_path, backbone_key, backbone_name, day_json_path,
         vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=cfg.use_mask)
         history["train_loss"].append(tl); history["val_loss"].append(vl)
         history["train_acc"].append(tacc); history["val_acc"].append(vacc)
-        print(f"[{day_json_path.stem}][{backbone_key}][P2][{epoch:03d}][bs={cfg.batch_size}/{cfg.val_batch_size}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
+        print(f"[{day}][{backbone_key}][P2][{epoch:03d}][bs={cfg.batch_size}/{cfg.val_batch_size}] loss {tl:.4f}/{vl:.4f} acc {tacc:.3f}/{vacc:.3f}")
         if vacc > best_acc:
             best_acc = vacc
             torch.save(model.state_dict(), model_path)
@@ -589,7 +603,7 @@ def plot_training_curver(history, model_dir):
     plt.close()
     print(f"📈 Saved curves → {model_dir/'training_curves.png'}")
 
-def get_validation_metrics(model, y_val, model_dir, val_loader, day_json_path, cfg):
+def get_validation_metrics(model, y_val, model_dir, val_loader, day, cfg):
     """Calculate and return valiation metrics."""
     _, val_trues, val_acc, val_f1, val_probs = evaluate_on_loader(model, val_loader, use_mask=cfg.use_mask)
     # Safely compute ROC AUC (may be undefined if only one class present)
@@ -599,7 +613,7 @@ def get_validation_metrics(model, y_val, model_dir, val_loader, day_json_path, c
         val_roc_auc = None
     val_pr_auc = float(average_precision_score(val_trues, val_probs)) if len(val_trues) > 0 else None
     val_metrics = {
-        "day": day_json_path.stem,
+        "day": day,
         "split": "val",
         "accuracy": float(val_acc),
         "f1": float(val_f1),
@@ -614,7 +628,7 @@ def get_validation_metrics(model, y_val, model_dir, val_loader, day_json_path, c
         json.dump(val_metrics, f, indent=2)
     return val_metrics
 
-def get_test_metrics(model, y_val, model_dir, test_loader, day_json_path, best_acc, backbone_key, cfg):
+def get_test_metrics(model, y_val, model_dir, test_loader, day, best_acc, backbone_key, cfg):
     """Calcualte and return test metrics."""
     preds_bin, trues, test_acc, test_f1, test_probs = evaluate_on_loader(model, test_loader, use_mask=cfg.use_mask)
     # Safely compute test ROC AUC
@@ -623,13 +637,13 @@ def get_test_metrics(model, y_val, model_dir, test_loader, day_json_path, best_a
     except Exception:
         test_roc_auc = None
     test_pr_auc = float(average_precision_score(trues, test_probs)) if len(trues) > 0 else None
-    day_no = day_to_int(day_json_path.stem)
+    day_no = day_to_int(day)
     num_in_sample = int(len(trues))
     actual_good = int(trues.sum())
     predicted_good = int(preds_bin.sum())
 
     test_metrics = {
-        "day": day_json_path.stem,
+        "day": day,
         "day_no": day_no,
         "split": "test",
         "accuracy": float(test_acc),

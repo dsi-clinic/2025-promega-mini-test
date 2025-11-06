@@ -37,9 +37,6 @@ METRICS_TO_COMBINE = ['loss', 'val_loss', 'accuracy', 'val_accuracy', 'auc',
 # --- Classes ---
 @dataclasses.dataclass
 class Config:
-    in_dir: Path = dataclasses.field(metadata={
-        "help": "Path to input directory containing organoid images"
-    })
     out_dir: Path = dataclasses.field(metadata={
         "help": "Path to output directory where results will be saved"
     })
@@ -62,9 +59,8 @@ class Config:
         "help": "Target input image height (pixels)"
     })
     def __post_init__(self):
-        if not self.in_dir.exists():
-            raise RuntimeError(f"{self.in_dir} does not exist")
-
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.json_file = self.out_dir.joinpath("json", "survey_classifier.json")
         self.target_size: tuple = (self.target_width, self.target_height)
 
 # --- Functions ---
@@ -102,63 +98,32 @@ def create_args() -> argparse.ArgumentParser:
 
 def extract_day_data(all_data, target_day):
     """Extract survey data for a particular day."""
-    all_new_data = {}
-    matched_count = 0
-    missing_processed = 0
-    ambiguous_labels = 0
-    no_evaluation = 0
 
-    for key, value in all_data.items():
-        # Filter for Dy30 records with survey data
-        if value.get('dayID') != target_day:
-            continue
+    day_data = all_data.get("records", {}).get(target_day, {})
+    imgs = day_data.get("img_path", [])
+    labels = day_data.get("label", [])
+    masks = day_data.get("mask_path", [])
 
-        if 'survey' not in value:
-            continue
+    assert len(imgs) == len(labels) == len(masks), (
+        f"Day {target_day} has mismatched list lengths: "
+        f"{len(imgs)} images, {len(labels)} labels, {len(masks)} masks"
+    )
 
-        # Check if processed image data exists
-        if 'processed' not in value:
-            missing_processed += 1
-            continue
-
-        # Get evaluations from survey data
-        evaluations = value['survey'].get('evaluations', [])
-        if not evaluations:
-            no_evaluation += 1
-            continue
-
-        # Compute label from evaluations
-        label = compute_majority_label(evaluations, min_votes=4)
-        if label is None:
-            ambiguous_labels += 1
-            continue
-
-        # Add to dataset
-        all_new_data[key] = {
-            'img_path': value['processed']['img_path'],
-            'seg_map_path': value['processed']['mask_path'],
-            'label': label
-        }
-        matched_count += 1
-
-    print(f"✓ Loaded {len(all_data)} total records from all_data.json")
-    print(f"✓ Found {matched_count} Dy30 records with clear majority labels (4+ votes)")
-    if missing_processed > 0:
-        print(f"⚠ Skipped {missing_processed} records without processed image paths")
-    if ambiguous_labels > 0:
-        print(f"⚠ Skipped {ambiguous_labels} records with ambiguous labels (no clear majority)")
-    if no_evaluation > 0:
-        print(f"⚠ Skipped {no_evaluation} records without evaluation data")
-
-    # Check if we have any data
-    if not all_new_data:
+        # Check if we have any data
+    if not imgs or not labels or not masks:
         print("\n❌ Error: No matching data found.")
-        print("   - Check that all_data.json has survey data for Dy30")
+        print("   - Check that survey_classifier.json has survey data for Dy30")
         print("   - Check that evaluations have clear majority votes")
-        exit()
+        raise RuntimeError("Error: No survey data found.")
 
-    print(f"✓ Successfully prepared {len(all_new_data)} organoids for training")
-    return all_new_data
+    print(f"✓ Loaded {len(imgs)} total records from survey_classifier.json")
+    total_votes = all_data.get("metadata", 0).get("num_acceptable_votes") + all_data.get("metadata", 0).get("num_not_acceptable_votes")
+    print(f"✓ Found {total_votes} Dy30 records with clear majority labels (4+ votes)")
+    print(f"⚠ Skipped {all_data.get('metadata', '').get('total_skipped')} records without processed image paths, evalutations, or labels")
+    print(f"⚠ Skipped {all_data.get('metadata', '').get('num_ambiguous')} records with ambiguous labels (no clear majority)")
+    print(f"✓ Successfully prepared {len(imgs)} organoids for training")
+
+    return imgs, labels, masks
 
 # --- Helper function to compute majority label from evaluations ---
 def compute_majority_label(evaluations, min_votes=4):
@@ -183,31 +148,15 @@ def compute_majority_label(evaluations, min_votes=4):
     else:
         return None  # Skip ambiguous cases
 
-def prep_training(all_new_data):
-    """Prepare data for training and pull out images, masks, and labels."""
-    image_paths = []
-    mask_paths = []
-    labels = []
-
-    for item in all_new_data.values():
-        image_paths.append(item['img_path'])
-        mask_paths.append(item['seg_map_path'])
-        labels.append(item['label'])
-
-    unique_labels = sorted(list(set(labels)))
-    label_to_index = {"Not Acceptable": 0, "Acceptable": 1}  # Explicitly map to 0 and 1
-    indexed_labels = np.array([label_to_index[label] for label in labels])
-    num_classes = 1  # Binary classification uses 1 output unit with sigmoid
-
-    # --- Calculate and Print Class Distribution ---
+def print_class_distribution(indexed_labels):
+    """Calculate and print class distribution."""
     print("\n--- Class Distribution (Before Split) ---")
+    label_to_index = {"Not Acceptable": 0, "Acceptable": 1}  # Explicitly map to 0 and 1
     class_counts = Counter(indexed_labels)
     for class_idx, count in sorted(class_counts.items()):
         label_name = [name for name, idx in label_to_index.items() if idx == class_idx][0]
         print(f"Class {class_idx} ('{label_name}'): {count} samples")
     print("------------------------------------------")
-
-    return image_paths, mask_paths, indexed_labels
 
 def create_dataset(img_paths, mask_paths, labels, batch_size, target_size, augment=False, shuffle=True):
     # Convert lists to TensorFlow tensors
@@ -605,20 +554,20 @@ def main():
     # --- 1. command line arguments ---
     cfg = get_args()
 
-    # --- 2. Load all_data.json (unified data source) ---
-    all_data_file = cfg.out_dir.joinpath("json", "all_data.json")
-    print(f"--- Loading data from: {all_data_file} ---")
-    with open(all_data_file) as f:
+    # --- 2. Load data (unified data source) ---
+    print(f"--- Loading data from: {cfg.json_file} ---")
+    with open(cfg.json_file) as f:
         all_data = json.load(f)
 
-    # --- 3. Extract Dy30 data with survey from all_data.json ---
-    all_new_data = extract_day_data(all_data, cfg.target_day)
+    # --- 3. Extract Dy30 data with survey ---
+    image_paths, indexed_labels, mask_paths = extract_day_data(all_data, cfg.target_day)
 
     # --- 4. Prepare data for training ---
-    image_paths, mask_paths, indexed_labels = prep_training(all_new_data)
+    print_class_distribution(indexed_labels)
 
     # --- 5. Split data into training and validation sets ---
     # We split paths and labels first, then load images on demand in the TF Dataset.
+    indexed_labels = np.array(indexed_labels)
     X_img_path_train, X_img_path_val, X_mask_path_train, X_mask_path_val, y_train, y_val = train_test_split(
         image_paths, mask_paths, indexed_labels, test_size=0.2, stratify=indexed_labels
     )
