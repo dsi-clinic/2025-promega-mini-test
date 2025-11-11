@@ -91,7 +91,7 @@ class Config:
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.json_file = self.out_dir.parent.joinpath("json", "image_classifier.json")
         self.val_batch_size = int(self.val_batch_size) if self.val_batch_size is not None else self.batch_size
-        self.target_size: tuple = (self.target_width, self.target_height)
+        self.target_size: tuple = (self.target_height, self.target_width)  # (H, W) format for PyTorch/timm
 
 class EarlyStopping:
     def __init__(self, patience=20, min_delta=1e-4):
