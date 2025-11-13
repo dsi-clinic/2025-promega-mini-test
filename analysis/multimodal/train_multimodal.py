@@ -25,7 +25,8 @@ import timm
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_class_weight
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score
+from sklearn.metrics import (accuracy_score, f1_score, roc_auc_score, average_precision_score, 
+                             roc_curve, confusion_matrix, recall_score, precision_score)
 
 # Configuration
 SEED = 42
@@ -87,21 +88,31 @@ class OrganoidDataset(Dataset):
         if self.use_metabolites:
             self.meta_features_list = self._extract_metabolite_features()  # list of variable-length arrays
             
-            # Convert to numpy for scaling (each row may have different length)
-            # Fit scaler only on the features present in this day's data
+            # Pad to maximum dimension before converting to numpy array
+            # This handles mixed days (4-dim for days ≤10, 5-dim for days >10)
             if fit_scaler:
-                # All samples in this dataset should have same dimensionality (same day)
+                # Fit scaler: pad all vectors to max dimension
+                max_dim = max(len(f) for f in self.meta_features_list) if self.meta_features_list else 5
+                padded_features = [f + [0.0] * (max_dim - len(f)) for f in self.meta_features_list]
+                
                 self.scaler = StandardScaler()
-                # Fit on actual data (no padding yet)
-                self.meta_features = np.array(self.meta_features_list, dtype=np.float32)
+                self.meta_features = np.array(padded_features, dtype=np.float32)
                 self.meta_features = self.scaler.fit_transform(self.meta_features)
             elif scaler is not None:
+                # Use existing scaler: pad to match scaler's expected dimension
+                scaler_dim = scaler.mean_.shape[0]
+                padded_features = [f + [0.0] * (scaler_dim - len(f)) for f in self.meta_features_list]
+                
                 self.scaler = scaler
-                self.meta_features = np.array(self.meta_features_list, dtype=np.float32)
+                self.meta_features = np.array(padded_features, dtype=np.float32)
                 self.meta_features = self.scaler.transform(self.meta_features)
             else:
+                # No scaler: pad to max dimension
+                max_dim = max(len(f) for f in self.meta_features_list) if self.meta_features_list else 5
+                padded_features = [f + [0.0] * (max_dim - len(f)) for f in self.meta_features_list]
+                
                 self.scaler = None
-                self.meta_features = np.array(self.meta_features_list, dtype=np.float32)
+                self.meta_features = np.array(padded_features, dtype=np.float32)
         else:
             self.scaler = scaler
     
@@ -217,8 +228,7 @@ class MultimodalClassifier(nn.Module):
         backbone_name = BACKBONE_MODELS[config['backbone']]
         extra = {'img_size': config['target_size']} if 'vit' in backbone_name else {}
         self.backbone = timm.create_model(backbone_name, pretrained=True, num_classes=0, **extra)
-        for p in self.backbone.parameters():
-            p.requires_grad = False
+        # Do NOT freeze here - will be frozen later in train_for_day
         
         img_dim = self.backbone.num_features
         
@@ -254,11 +264,6 @@ class MultimodalClassifier(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(128, 1)
         )
-    
-    def unfreeze_backbone(self):
-        for n, p in self.backbone.named_parameters():
-            if 'blocks.' in n or 'layer' in n:
-                p.requires_grad = True
     
     def forward(self, *args):
         """Forward pass handling different input combinations."""
@@ -419,16 +424,224 @@ def eval_epoch(model, loader, config):
     preds, labels = np.array(preds), np.array(labels)
     preds_bin = (preds > 0.5).astype(int)
     
+    # Compute confusion matrix for 0.5 threshold
+    cm = confusion_matrix(labels, preds_bin, labels=[0, 1])
+    tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+    
+    # Calculate Specificity / True Negative Rate (TNR)
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    
+    # Calculate standard metrics
+    recall = recall_score(labels, preds_bin, zero_division=0)
+    precision = precision_score(labels, preds_bin, zero_division=0)
+    
+    # Compute ROC-based optimal threshold
+    opt_thresh = 0.5
+    acc_opt = accuracy_score(labels, preds_bin)
+    f1_opt = f1_score(labels, preds_bin, zero_division=0)
+    
+    if len(np.unique(labels)) > 1:
+        fpr, tpr, thresholds = roc_curve(labels, preds)
+        optimal_idx = np.argmax(tpr - fpr)
+        opt_thresh = thresholds[optimal_idx]
+        preds_opt = (preds >= opt_thresh).astype(int)
+        acc_opt = accuracy_score(labels, preds_opt)
+        f1_opt = f1_score(labels, preds_opt, zero_division=0)
+    
     return {
         'acc': accuracy_score(labels, preds_bin),
         'f1': f1_score(labels, preds_bin, zero_division=0),
+        'recall': recall,
+        'precision': precision,
+        'specificity': specificity,
         'auc': roc_auc_score(labels, preds) if len(np.unique(labels)) > 1 else None,
         'pr_auc': average_precision_score(labels, preds) if len(np.unique(labels)) > 1 else None,
+        'acc_opt': acc_opt,
+        'f1_opt': f1_opt,
+        'opt_thresh': opt_thresh,
         'preds': preds,
-        'labels': labels
+        'labels': labels,
+        'confusion_matrix': {
+            'TP': int(tp),
+            'FP': int(fp),
+            'TN': int(tn),
+            'FN': int(fn)
+        }
     }
 
-def train_for_day(day, train_df, val_df, test_df, config, output_dir):
+def eval_epoch_detailed(model, loader, dataset_df, config):
+    """
+    Evaluate model and return per-organoid predictions.
+    
+    Args:
+        model: The trained model
+        loader: DataLoader for evaluation
+        dataset_df: DataFrame containing organoid IDs
+        config: Configuration dictionary
+    
+    Returns:
+        Dictionary with metrics and per-organoid predictions
+    """
+    model.eval()
+    preds, labels = [], []
+    
+    with torch.no_grad():
+        for batch in loader:
+            if config['use_images'] and config['use_metabolites']:
+                if 'mask' in config['input_mode']:
+                    *inputs, y = batch
+                else:
+                    *inputs, y = batch
+            elif config['use_images']:
+                if 'mask' in config['input_mode']:
+                    *inputs, y = batch
+                else:
+                    *inputs, y = batch
+            else:
+                *inputs, y = batch
+            
+            inputs = [x.to(config['device']) for x in inputs]
+            probs = torch.sigmoid(model(*inputs)).cpu().numpy()
+            preds.extend(probs)
+            labels.extend(y.numpy())
+    
+    preds, labels = np.array(preds), np.array(labels)
+    preds_bin = (preds > 0.5).astype(int)
+    
+    # Create per-organoid results
+    organoid_results = []
+    for idx in range(len(dataset_df)):
+        org_id = dataset_df.iloc[idx]['org_id']
+        true_label = int(labels[idx])
+        pred_prob = float(preds[idx])
+        pred_label = int(preds_bin[idx])
+        correct = (pred_label == true_label)
+        
+        # Determine confusion matrix category
+        if true_label == 1 and pred_label == 1:
+            cm_category = 'TP'
+        elif true_label == 0 and pred_label == 1:
+            cm_category = 'FP'
+        elif true_label == 1 and pred_label == 0:
+            cm_category = 'FN'
+        else:  # true_label == 0 and pred_label == 0
+            cm_category = 'TN'
+        
+        organoid_results.append({
+            'Organoid_ID': org_id,
+            'True_Label': true_label,
+            'Predicted_Probability': pred_prob,
+            'Predicted_Label': pred_label,
+            'Correct': correct,
+            'CM_Category': cm_category
+        })
+    
+    # Compute confusion matrix for 0.5 threshold
+    cm = confusion_matrix(labels, preds_bin, labels=[0, 1])
+    tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+    
+    # Calculate Specificity / True Negative Rate (TNR)
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    
+    # Calculate standard metrics
+    recall = recall_score(labels, preds_bin, zero_division=0)
+    precision = precision_score(labels, preds_bin, zero_division=0)
+    
+    # Compute ROC-based optimal threshold
+    opt_thresh = 0.5
+    acc_opt = accuracy_score(labels, preds_bin)
+    f1_opt = f1_score(labels, preds_bin, zero_division=0)
+    
+    if len(np.unique(labels)) > 1:
+        fpr, tpr, thresholds = roc_curve(labels, preds)
+        optimal_idx = np.argmax(tpr - fpr)
+        opt_thresh = thresholds[optimal_idx]
+        preds_opt = (preds >= opt_thresh).astype(int)
+        acc_opt = accuracy_score(labels, preds_opt)
+        f1_opt = f1_score(labels, preds_opt, zero_division=0)
+    
+    return {
+        'acc': accuracy_score(labels, preds_bin),
+        'f1': f1_score(labels, preds_bin, zero_division=0),
+        'recall': recall,
+        'precision': precision,
+        'specificity': specificity,
+        'auc': roc_auc_score(labels, preds) if len(np.unique(labels)) > 1 else None,
+        'pr_auc': average_precision_score(labels, preds) if len(np.unique(labels)) > 1 else None,
+        'acc_opt': acc_opt,
+        'f1_opt': f1_opt,
+        'opt_thresh': opt_thresh,
+        'preds': preds,
+        'labels': labels,
+        'confusion_matrix': {
+            'TP': int(tp),
+            'FP': int(fp),
+            'TN': int(tn),
+            'FN': int(fn)
+        },
+        'organoid_predictions': organoid_results
+    }
+
+def pretrain_shared_backbone(train_df, val_df, config):
+    """
+    Pretrain a shared backbone using all training samples from all days combined.
+    Returns the best backbone state_dict and the global metabolite scaler.
+    """
+    print(f"\n{'='*60}\nPretraining Shared Backbone (All Days)\n{'='*60}")
+    
+    # Transforms
+    t_train = get_transforms(config, augment=True) if config['use_images'] else None
+    t_eval = get_transforms(config, augment=False) if config['use_images'] else None
+    
+    # Create datasets with all days combined
+    train_ds = OrganoidDataset(train_df, config, t_train, fit_scaler=True)
+    scaler = train_ds.scaler
+    val_ds = OrganoidDataset(val_df, config, t_eval, scaler=scaler)
+    
+    print(f"Train: {len(train_ds)}, Val: {len(val_ds)}")
+    
+    train_loader = DataLoader(train_ds, batch_size=config['batch_size'], shuffle=True, num_workers=4)
+    val_loader = DataLoader(val_ds, batch_size=config['batch_size'], num_workers=4)
+    
+    # Class weights (use filtered dataset)
+    labels = [train_ds.label_map.get(train_ds.df.iloc[i]['label'], 0) for i in range(len(train_ds))]
+    weights_arr = compute_class_weight('balanced', classes=np.unique(labels), y=labels)
+    class_weights = {int(c): float(w) for c, w in zip(np.unique(labels), weights_arr)}
+    
+    # Model
+    model = MultimodalClassifier(config).to(config['device'])
+    opt = optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=config['learning_rate'],
+        weight_decay=1e-4
+    )
+    crit = nn.BCEWithLogitsLoss(reduction='none')
+    
+    best_val_acc, best_state = -np.inf, None
+    es = EarlyStopping(config['early_stopping_patience'])
+    
+    print(f"Training shared backbone (all parameters trainable)")
+    for epoch in range(config['num_epochs_phase1']):
+        tl, ta = train_epoch(model, train_loader, opt, crit, class_weights, config)
+        vr = eval_epoch(model, val_loader, config)
+        
+        if vr['acc'] > best_val_acc:
+            best_val_acc, best_state = vr['acc'], model.state_dict().copy()
+        
+        if epoch % 10 == 0:
+            print(f"Ep {epoch}: loss={tl:.4f}, tr_acc={ta:.3f}, val_acc={vr['acc']:.3f}")
+        
+        if es(vr['acc']):
+            print(f"Early stop at epoch {epoch}")
+            break
+    
+    print(f"Shared backbone pretraining complete. Best val acc: {best_val_acc:.3f}\n")
+    
+    return best_state, scaler
+
+
+def train_for_day(day, train_df, val_df, test_df, config, output_dir,
+                  shared_backbone_state=None, shared_scaler=None):
     """Train model for a specific day."""
     print(f"\n{'='*60}\nTraining for {day}\n{'='*60}")
     
@@ -440,13 +653,30 @@ def train_for_day(day, train_df, val_df, test_df, config, output_dir):
         print(f"No training data for {day}")
         return None
     
+    def label_counts(df):
+        return df['label'].value_counts().to_dict()
+    
+    train_counts = label_counts(train_day)
+    val_counts = label_counts(val_day)
+    test_counts = label_counts(test_day)
+
+    print(f"{day} label counts:")
+    print(f"  Train: {train_counts}")
+    print(f"  Val  : {val_counts}")
+    print(f"  Test : {test_counts}")
+    
     # Transforms
     t_train = get_transforms(config, augment=True) if config['use_images'] else None
     t_eval = get_transforms(config, augment=False) if config['use_images'] else None
     
-    # Datasets (fit scaler on train, use it for val/test)
-    train_ds = OrganoidDataset(train_day, config, t_train, fit_scaler=True)
-    scaler = train_ds.scaler
+    # Datasets - use global scaler if provided, otherwise fit on day-specific data
+    if shared_scaler is not None:
+        train_ds = OrganoidDataset(train_day, config, t_train, scaler=shared_scaler)
+        scaler = shared_scaler
+    else:
+        train_ds = OrganoidDataset(train_day, config, t_train, fit_scaler=True)
+        scaler = train_ds.scaler
+    
     val_ds = OrganoidDataset(val_day, config, t_eval, scaler=scaler)
     test_ds = OrganoidDataset(test_day, config, t_eval, scaler=scaler)
     
@@ -463,15 +693,37 @@ def train_for_day(day, train_df, val_df, test_df, config, output_dir):
     
     # Model
     model = MultimodalClassifier(config).to(config['device'])
-    opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=config['learning_rate'])
+    
+    # Load shared backbone weights if provided
+    if shared_backbone_state is not None:
+        print("Loading shared backbone weights...")
+        # Load matching keys for backbone and meta_branch
+        model_dict = model.state_dict()
+        pretrained_dict = {k: v for k, v in shared_backbone_state.items() 
+                          if k in model_dict and (k.startswith('backbone.') or k.startswith('meta_branch.'))}
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict, strict=False)
+        print(f"Loaded {len(pretrained_dict)} pretrained parameters")
+    
+    # Freeze backbone for all days
+    if config['use_images']:
+        print("Freezing backbone...")
+        for param in model.backbone.parameters():
+            param.requires_grad = False
+    
+    opt = optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=config['learning_rate'],
+        weight_decay=1e-4
+    )
     crit = nn.BCEWithLogitsLoss(reduction='none')
     
     history = defaultdict(list)
     best_val_acc, best_state = -np.inf, None
     es = EarlyStopping(config['early_stopping_patience'])
     
-    # Phase 1: Frozen backbone
-    print(f"Phase 1: Frozen backbone")
+    # Train day-specific classifier head (backbone remains frozen)
+    print(f"Training day-specific head (backbone frozen)")
     for epoch in range(config['num_epochs_phase1']):
         tl, ta = train_epoch(model, train_loader, opt, crit, class_weights, config)
         vr = eval_epoch(model, val_loader, config)
@@ -489,33 +741,9 @@ def train_for_day(day, train_df, val_df, test_df, config, output_dir):
             print(f"Early stop at epoch {epoch}")
             break
     
-    # Phase 2: Fine-tuning
-    if config['use_images']:
-        print(f"\nPhase 2: Fine-tuning")
-        model.unfreeze_backbone()
-        opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
-        es = EarlyStopping(config['early_stopping_patience'])
-        
-        for epoch in range(config['num_epochs_phase2']):
-            tl, ta = train_epoch(model, train_loader, opt, crit, class_weights, config)
-            vr = eval_epoch(model, val_loader, config)
-            history['train_loss'].append(tl)
-            history['train_acc'].append(ta)
-            history['val_acc'].append(vr['acc'])
-            
-            if vr['acc'] > best_val_acc:
-                best_val_acc, best_state = vr['acc'], model.state_dict().copy()
-            
-            if epoch % 10 == 0:
-                print(f"Ep {epoch}: loss={tl:.4f}, tr_acc={ta:.3f}, val_acc={vr['acc']:.3f}")
-            
-            if es(vr['acc']):
-                print(f"Early stop at epoch {epoch}")
-                break
-    
-    # Evaluate best model
+    # Evaluate best model with detailed per-organoid tracking
     model.load_state_dict(best_state)
-    test_res = eval_epoch(model, test_loader, config)
+    test_res = eval_epoch_detailed(model, test_loader, test_ds.df, config)
     
     auc = test_res.get('auc')
     try:
@@ -531,15 +759,33 @@ def train_for_day(day, train_df, val_df, test_df, config, output_dir):
     # Save model
     torch.save(best_state, day_dir / 'model.pth')
     
-    # Save metrics
+    # Save per-organoid predictions to CSV
+    organoid_preds_df = pd.DataFrame(test_res['organoid_predictions'])
+    organoid_preds_df.to_csv(day_dir / 'organoid_predictions.csv', index=False)
+    print(f"Saved per-organoid predictions to {day_dir / 'organoid_predictions.csv'}")
+    
+    # Save metrics including ROC-optimal threshold metrics, confusion matrix, and specificity
+    cm = test_res['confusion_matrix']
     with open(day_dir / 'metrics_test.json', 'w') as f:
         json.dump({
             'day': day,
             'test_acc': float(test_res['acc']),
             'test_f1': float(test_res['f1']),
+            'test_recall': float(test_res['recall']),
+            'test_precision': float(test_res['precision']),
+            'test_specificity': float(test_res['specificity']),
             'test_auc': float(test_res['auc']) if test_res['auc'] else None,
             'test_pr_auc': float(test_res['pr_auc']) if test_res['pr_auc'] else None,
-            'val_acc': float(best_val_acc)
+            'test_acc_opt': float(test_res['acc_opt']),
+            'test_f1_opt': float(test_res['f1_opt']),
+            'opt_thresh': float(test_res['opt_thresh']),
+            'val_acc': float(best_val_acc),
+            'confusion_matrix': {
+                'TP': cm['TP'],
+                'FP': cm['FP'],
+                'TN': cm['TN'],
+                'FN': cm['FN']
+            }
         }, f, indent=2)
     
     # Save training curves
@@ -560,10 +806,15 @@ def train_for_day(day, train_df, val_df, test_df, config, output_dir):
     
     return {
         'day': day,
+        'day_no': day_to_int(day),
         'val_acc': best_val_acc,
         'test_acc': test_res['acc'],
         'test_f1': test_res['f1'],
-        'test_auc': test_res['auc']
+        'test_recall': test_res['recall'],
+        'test_precision': test_res['precision'],
+        'test_specificity': test_res['specificity'],
+        'test_auc': test_res['auc'],
+        'confusion_matrix': test_res['confusion_matrix']
     }
 
 def main():
@@ -643,6 +894,9 @@ def main():
     train_df, val_df, test_df = load_and_prepare_data(config)
     print(f"Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
     
+    # Pretrain shared backbone using all days
+    shared_backbone_state, shared_scaler = pretrain_shared_backbone(train_df, val_df, config)
+    
     # Determine days to train
     if args.days:
         days_to_train = args.days
@@ -655,44 +909,96 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Train per day
+    # Train per day with shared backbone
     results = {}
     for day in days_to_train:
-        res = train_for_day(day, train_df, val_df, test_df, config, output_dir)
+        res = train_for_day(day, train_df, val_df, test_df, config, output_dir,
+                           shared_backbone_state, shared_scaler)
         if res:
             results[day] = res
     
     # Summary
     if results:
-        summary = pd.DataFrame([
-            {'Day': day, 'Day_Num': day_to_int(day), 'Val_Acc': res['val_acc'],
-             'Test_Acc': res['test_acc'], 'Test_F1': res['test_f1'], 'Test_AUC': res['test_auc']}
-            for day, res in results.items()
-        ]).sort_values('Day_Num')
+        # Create comprehensive summary with all metrics including confusion matrix
+        summary_rows = []
+        for day, res in results.items():
+            cm = res['confusion_matrix']
+            summary_rows.append({
+                'Day': day,
+                'Day_No': res['day_no'],
+                'Backbone': config['backbone'],
+                'Test_Accuracy': res['test_acc'],
+                'Test_F1': res['test_f1'],
+                'Test_Recall': res['test_recall'],
+                'Test_Precision': res['test_precision'],
+                'Test_Specificity': res['test_specificity'],
+                'Test_ROC_AUC': res['test_auc'] if res['test_auc'] else None,
+                'TP': cm['TP'],
+                'FP': cm['FP'],
+                'TN': cm['TN'],
+                'FN': cm['FN']
+            })
+        
+        summary = pd.DataFrame(summary_rows).sort_values('Day_No')
         
         print("\n" + "="*70)
         print("RESULTS SUMMARY")
         print("="*70)
         print(summary.to_string(index=False))
         
+        # Save summary for this model configuration
         summary.to_csv(output_dir / 'results_summary.csv', index=False)
+        
+        # Create/update master CSV in outputs_multimodal/overall/
+        overall_dir = output_dir.parent / 'overall'
+        overall_dir.mkdir(parents=True, exist_ok=True)
+        master_csv_path = overall_dir / 'master_results.csv'
+        
+        # Add model configuration identifier
+        model_id = f"{config['backbone']}_{config['input_mode']}_{config['fusion_strategy']}"
+        summary['Model_ID'] = model_id
+        summary['Input_Mode'] = config['input_mode']
+        summary['Fusion_Strategy'] = config['fusion_strategy']
+        summary['Use_Metabolites'] = config['use_metabolites']
+        
+        # Reorder columns for clarity
+        col_order = ['Model_ID', 'Backbone', 'Input_Mode', 'Fusion_Strategy', 'Use_Metabolites', 
+                     'Day', 'Day_No', 'Test_Accuracy', 'Test_F1', 'Test_Recall', 'Test_Precision', 
+                     'Test_Specificity', 'Test_ROC_AUC', 'TP', 'FP', 'TN', 'FN']
+        summary = summary[col_order]
+        
+        # Append or create master CSV
+        if master_csv_path.exists():
+            existing_df = pd.read_csv(master_csv_path)
+            # Remove any existing entries for this model configuration
+            existing_df = existing_df[existing_df['Model_ID'] != model_id]
+            # Append new results
+            master_df = pd.concat([existing_df, summary], ignore_index=True)
+        else:
+            master_df = summary
+        
+        # Sort by Model_ID and Day_No
+        master_df = master_df.sort_values(['Model_ID', 'Day_No'])
+        master_df.to_csv(master_csv_path, index=False)
+        
+        print(f"\nMaster results updated at {master_csv_path}")
         
         # Plot metrics
         fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-        axes[0].plot(summary['Day_Num'], summary['Test_Acc'], 'o-')
+        axes[0].plot(summary['Day_No'], summary['Test_Accuracy'], 'o-')
         axes[0].set_title('Test Accuracy by Day')
         axes[0].set_xlabel('Day')
         axes[0].set_ylabel('Accuracy')
         axes[0].grid(True, alpha=0.3)
         
-        axes[1].plot(summary['Day_Num'], summary['Test_F1'], 'o-', color='orange')
+        axes[1].plot(summary['Day_No'], summary['Test_F1'], 'o-', color='orange')
         axes[1].set_title('Test F1 by Day')
         axes[1].set_xlabel('Day')
         axes[1].set_ylabel('F1 Score')
         axes[1].grid(True, alpha=0.3)
         
-        if summary['Test_AUC'].notna().any():
-            axes[2].plot(summary['Day_Num'], summary['Test_AUC'], 'o-', color='green')
+        if summary['Test_ROC_AUC'].notna().any():
+            axes[2].plot(summary['Day_No'], summary['Test_ROC_AUC'], 'o-', color='green')
             axes[2].set_title('Test ROC-AUC by Day')
             axes[2].set_xlabel('Day')
             axes[2].set_ylabel('ROC-AUC')
