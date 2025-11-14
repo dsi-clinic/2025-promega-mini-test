@@ -27,7 +27,9 @@ sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure'
 # ============================================================
 ALL_DATA_JSON = 'all_data.json'
 RANDOM_SEED = 42  # Fixed seed for reproducibility
-TEST_SIZE = 0.2  # 80/20 train/val split
+TEST_SIZE = 0.2  # 20% test set (held out)
+VAL_SIZE = 0.1   # 10% validation set (within the 80% training set)
+# Final ratios: 72% train / 8% val / 20% test (80/20 training/testing, 90/10 train/val within training)
 
 # Good metabolites (based on IDOR/Promega restrictions)
 # Always included:
@@ -198,6 +200,9 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
         
         # Add this timepoint
         day = value.get('dayID')
+        # Merge Dy20 and Dy21 into Dy20_5 (they represent the same timepoint)
+        if day in ['Dy20', 'Dy21']:
+            day = 'Dy20_5'
         timepoint_data = {
             'img_path': value['processed']['img_path'],
             'mask_path': value['processed']['mask_path'],
@@ -238,43 +243,87 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
 # SPLIT FUNCTIONS
 # ============================================================
 
-def split_by_organoid(organoid_data, random_seed=RANDOM_SEED, test_size=TEST_SIZE):
+def split_by_organoid(organoid_data, random_seed=RANDOM_SEED, test_size=TEST_SIZE, val_size=VAL_SIZE):
     """
-    Split organoids into train/val sets with stratification by label.
-    Returns train_data, val_data (both in same format as organoid_data)
+    Split organoids into train/val/test sets with stratification by label.
+    
+    Structure:
+    1. First split: 80% training / 20% test (held out)
+    2. Within 80% training: split into train/val (90% train, 10% val of training set)
+    
+    Returns train_data, val_data, test_data (all in same format as organoid_data)
     """
     if not organoid_data:
-        return {}, {}
+        return {}, {}, {}
     
     # Extract organoid IDs and labels
     organoid_ids = list(organoid_data.keys())
     labels = [organoid_data[oid]['label'] for oid in organoid_ids]
     
-    # Split with stratification
-    train_ids, val_ids = train_test_split(
-        organoid_ids, 
-        test_size=test_size, 
-        stratify=labels, 
+    # First split: 80% training / 20% test (held out)
+    train_test_ids, test_ids = train_test_split(
+        organoid_ids,
+        test_size=test_size,
+        stratify=labels,
         random_state=random_seed
     )
     
-    # Create train and val dictionaries
+    # Extract labels for the training set
+    train_test_labels = [organoid_data[oid]['label'] for oid in train_test_ids]
+    
+    # Second split: Within training set, split into train/val
+    # val_size is relative to the training set (e.g., 0.1 = 10% of training set goes to val)
+    train_ids, val_ids = train_test_split(
+        train_test_ids,
+        test_size=val_size,
+        stratify=train_test_labels,
+        random_state=random_seed
+    )
+    
+    # Create train, val, and test dictionaries
     train_data = {oid: organoid_data[oid] for oid in train_ids}
     val_data = {oid: organoid_data[oid] for oid in val_ids}
+    test_data = {oid: organoid_data[oid] for oid in test_ids}
     
-    return train_data, val_data
+    return train_data, val_data, test_data
 
 # ============================================================
 # OUTPUT FUNCTIONS
 # ============================================================
 
-def save_splits(train_data, val_data, output_prefix, mode_name):
-    """Save train/val splits to JSON files."""
+from collections import Counter
+
+def print_day_label_stats(data_dict, name):
+    """
+    For each day in this split, print how many samples per label.
+    Helps spot tiny or single-class days in train/val/test.
+    """
+    print(f"\n  {name} per-day label stats:")
+    # day -> Counter({label: count})
+    day_label_counts = {}
+
+    for org_data in data_dict.values():
+        label = org_data['label']
+        for day, tp in org_data['timepoints'].items():
+            if day not in day_label_counts:
+                day_label_counts[day] = Counter()
+            day_label_counts[day][label] += 1
+
+    for day in sorted(day_label_counts.keys()):
+        c = day_label_counts[day]
+        total = sum(c.values())
+        print(f"    {day}: total={total}, "
+              f"Acceptable={c.get('Acceptable', 0)}, "
+              f"Not Acceptable={c.get('Not Acceptable', 0)}")
+
+def save_splits(train_data, val_data, test_data, output_prefix, mode_name):
+    """Save train/val/test splits to JSON files."""
     output_dir = Path('data_splits')
     output_dir.mkdir(exist_ok=True)
     
     train_file = output_dir / f'{output_prefix}_train_{mode_name}.json'
     val_file = output_dir / f'{output_prefix}_val_{mode_name}.json'
+    test_file = output_dir / f'{output_prefix}_test_{mode_name}.json'
     
     with open(train_file, 'w') as f:
         json.dump(train_data, f, indent=2)
@@ -282,7 +331,10 @@ def save_splits(train_data, val_data, output_prefix, mode_name):
     with open(val_file, 'w') as f:
         json.dump(val_data, f, indent=2)
     
-    return train_file, val_file
+    with open(test_file, 'w') as f:
+        json.dump(test_data, f, indent=2)
+    
+    return train_file, val_file, test_file
 
 def print_statistics(data_dict, name):
     """Print statistics about a dataset."""
@@ -333,19 +385,25 @@ def run_base_mode(all_data):
     
     print(f"\nCollected data for {len(organoid_data)} organoids with complete data")
     
-    # Split by organoid
-    train_data, val_data = split_by_organoid(organoid_data, random_seed=RANDOM_SEED)
+    # Split by organoid: 80% training / 20% test, then split training into train/val
+    train_data, val_data, test_data = split_by_organoid(organoid_data, random_seed=RANDOM_SEED)
     
-    print("\nTrain/Val Split:")
+    print("\nTrain/Val/Test Split:")
     print_statistics(train_data, "Training")
-    print_statistics(val_data, "Validation")
+    print_statistics(val_data, "Validation (within training)")
+    print_statistics(test_data, "Test (held out)")
+
+    print_day_label_stats(train_data, "Training")
+    print_day_label_stats(val_data, "Validation")
+    print_day_label_stats(test_data, "Test")
     
     # Save
-    train_file, val_file = save_splits(train_data, val_data, 'both', 'base')
+    train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'both', 'base')
     print(f"\n✓ Saved: {train_file}")
     print(f"✓ Saved: {val_file}")
+    print(f"✓ Saved: {test_file}")
     
-    return organoid_data, train_data, val_data
+    return organoid_data, train_data, val_data, test_data
 
 def run_switch1_mode(all_data, intersection_organoids):
     """
@@ -366,19 +424,21 @@ def run_switch1_mode(all_data, intersection_organoids):
     print(f"Total BA1+BA2 organoids with image: {len(all_image_organoids)}")
     print(f"Additional image-only organoids: {len(all_image_organoids) - len(intersection_organoids)}")
     
-    # Split by organoid
-    train_data, val_data = split_by_organoid(all_image_organoids, random_seed=RANDOM_SEED)
+    # Split by organoid: 80% training / 20% test, then split training into train/val
+    train_data, val_data, test_data = split_by_organoid(all_image_organoids, random_seed=RANDOM_SEED)
     
-    print("\nImage Train/Val Split:")
+    print("\nImage Train/Val/Test Split:")
     print_statistics(train_data, "Training")
-    print_statistics(val_data, "Validation")
+    print_statistics(val_data, "Validation (within training)")
+    print_statistics(test_data, "Test (held out)")
     
     # Save
-    train_file, val_file = save_splits(train_data, val_data, 'image', 'switch1')
+    train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'image', 'switch1')
     print(f"\n✓ Saved: {train_file}")
     print(f"✓ Saved: {val_file}")
+    print(f"✓ Saved: {test_file}")
     
-    return train_data, val_data
+    return train_data, val_data, test_data
 
 def run_switch2_mode(all_data):
     """
@@ -398,19 +458,21 @@ def run_switch2_mode(all_data):
     
     print(f"\nCollected data for {len(organoid_data)} organoids (all batches)")
     
-    # Split by organoid
-    train_data, val_data = split_by_organoid(organoid_data, random_seed=RANDOM_SEED)
+    # Split by organoid: 80% training / 20% test, then split training into train/val
+    train_data, val_data, test_data = split_by_organoid(organoid_data, random_seed=RANDOM_SEED)
     
-    print("\nTrain/Val Split:")
+    print("\nTrain/Val/Test Split:")
     print_statistics(train_data, "Training")
-    print_statistics(val_data, "Validation")
+    print_statistics(val_data, "Validation (within training)")
+    print_statistics(test_data, "Test (held out)")
     
     # Save
-    train_file, val_file = save_splits(train_data, val_data, 'both', 'switch2')
+    train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'both', 'switch2')
     print(f"\n✓ Saved: {train_file}")
     print(f"✓ Saved: {val_file}")
+    print(f"✓ Saved: {test_file}")
     
-    return train_data, val_data
+    return train_data, val_data, test_data
 
 def run_switch3_mode(all_data):
     """
@@ -430,19 +492,21 @@ def run_switch3_mode(all_data):
     
     print(f"\nCollected data for {len(organoid_data)} organoids (all batches)")
     
-    # Split by organoid
-    train_data, val_data = split_by_organoid(organoid_data, random_seed=RANDOM_SEED)
+    # Split by organoid: 80% training / 20% test, then split training into train/val
+    train_data, val_data, test_data = split_by_organoid(organoid_data, random_seed=RANDOM_SEED)
     
-    print("\nImage Train/Val Split:")
+    print("\nImage Train/Val/Test Split:")
     print_statistics(train_data, "Training")
-    print_statistics(val_data, "Validation")
+    print_statistics(val_data, "Validation (within training)")
+    print_statistics(test_data, "Test (held out)")
     
     # Save
-    train_file, val_file = save_splits(train_data, val_data, 'image', 'switch3')
+    train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'image', 'switch3')
     print(f"\n✓ Saved: {train_file}")
     print(f"✓ Saved: {val_file}")
+    print(f"✓ Saved: {test_file}")
     
-    return train_data, val_data
+    return train_data, val_data, test_data
 
 # ============================================================
 # MAIN
@@ -471,17 +535,21 @@ def main():
     print(f"\n⚠️  IMPORTANT: Splitting by ORGANOID, not by individual samples!")
     print(f"   This prevents data leakage when training across timepoints.")
     print(f"\nUsing fixed random seed: {RANDOM_SEED}")
-    print(f"Train/Val split: {int((1-TEST_SIZE)*100)}/{int(TEST_SIZE*100)}")
+    print(f"Split structure: 80% Training / 20% Test (held out)")
+    print(f"Within Training: {int((1-VAL_SIZE)*100)}% Train / {int(VAL_SIZE*100)}% Val")
+    print(f"Final ratios: ~{int((1-TEST_SIZE)*(1-VAL_SIZE)*100)}% Train / ~{int((1-TEST_SIZE)*VAL_SIZE*100)}% Val / {int(TEST_SIZE*100)}% Test")
     print(f"Labels from: {LABEL_DAY}")
     
     # Run requested mode(s)
+    organoid_data = None
     if args.mode == 'base' or args.mode == 'all':
-        organoid_data, train_base, val_base = run_base_mode(all_data)
+        organoid_data, train_base, val_base, test_base = run_base_mode(all_data)
     
     if args.mode == 'switch1' or args.mode == 'all':
-        if args.mode == 'switch1':
-            organoid_data, _, _ = run_base_mode(all_data)
-        run_switch1_mode(all_data, organoid_data)
+        if args.mode == 'switch1' and organoid_data is None:
+            organoid_data, _, _, _ = run_base_mode(all_data)
+        if organoid_data is not None:
+            run_switch1_mode(all_data, organoid_data)
     
     if args.mode == 'switch2' or args.mode == 'all':
         run_switch2_mode(all_data)
