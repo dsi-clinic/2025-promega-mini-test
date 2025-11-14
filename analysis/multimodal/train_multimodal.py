@@ -28,8 +28,7 @@ from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (accuracy_score, f1_score, roc_auc_score, average_precision_score, 
                              roc_curve, confusion_matrix, recall_score, precision_score)
 
-# Configuration
-SEED = 42
+SEED = 1
 
 # Metabolite features - match Meta_classifier_new_split.ipynb exactly
 # NEVER use *_initial_concentration fields
