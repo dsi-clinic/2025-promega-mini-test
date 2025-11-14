@@ -233,7 +233,7 @@ def build_preprocessed_map(files, in_dir, infer_resized_dir):
             check_existence(overlay_path)
             batch_data["overlay_path"] = str(overlay_path)
 
-            main_id = batch_data["id"].replace("DY", "Dy")
+            main_id = batch_data["metadata_key"]
             preprocessed_map[main_id] = batch_data
 
     return preprocessed_map
