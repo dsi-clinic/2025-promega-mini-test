@@ -291,8 +291,8 @@ def split_by_organoid(organoid_data, random_seed=RANDOM_SEED, test_size=TEST_SIZ
 # OUTPUT FUNCTIONS
 # ============================================================
 
-def save_splits(train_data, val_data, test_data, output_prefix, mode_name):
-    """Save train/val/test splits to JSON files."""
+def save_splits(train_data, val_data, output_prefix, mode_name):
+    """Save train/val splits to JSON files."""
     output_dir = Path('data_splits')
     output_dir.mkdir(exist_ok=True)
     
@@ -365,8 +365,7 @@ def run_base_mode(all_data):
     
     print("\nTrain/Val/Test Split:")
     print_statistics(train_data, "Training")
-    print_statistics(val_data, "Validation (within training)")
-    print_statistics(test_data, "Test (held out)")
+    print_statistics(val_data, "Validation")
     
     # Save
     train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'both', 'base')
