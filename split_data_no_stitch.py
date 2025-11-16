@@ -350,9 +350,9 @@ def main():
     # Save splits
     print("\n4. Saving splits to data_splits directory...")
     save_splits(train_data, val_data, test_data, 'both', 'base_no_stitch')
-    
+
     print("\n" + "=" * 100)
-    print("✅ COMPLETED!")
+    print("Completed split generation for base_no_stitch.")
     print("=" * 100)
     print(f"""
 Output files created:

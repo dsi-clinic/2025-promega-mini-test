@@ -264,6 +264,21 @@ class FocalLoss(nn.Module):
 
 # ---------- Train/Eval ----------
 def epoch_loop(model, loader, optimizer, class_weights, train=True, use_mask=False, focal_loss_fn=None):
+    """
+    Run one pass over a DataLoader for training or evaluation.
+
+    Args:
+        model: The classifier model.
+        loader: PyTorch DataLoader yielding (img, [mask,] label) batches.
+        optimizer: Optimizer to step when train=True (ignored when train=False).
+        class_weights: Dict mapping class index -> weight for imbalance handling.
+        train: If True, run in training mode and update model parameters.
+        use_mask: If True, expect masks in the batches and pass them to the model.
+        focal_loss_fn: Optional FocalLoss instance. If None, use weighted BCE loss.
+
+    Returns:
+        mean_loss (float), accuracy (float), binary_predictions (np.ndarray), true_labels (np.ndarray).
+    """
     model.train() if train else model.eval()
     
     # Use focal loss if provided, otherwise use weighted BCE
@@ -416,15 +431,15 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
     )
     
     if len(train_imgs) == 0:
-        print(f"⚠ Skipping {day_str} — no training samples")
+        print(f"Skipping {day_str}: no training samples")
         return None
     
     if len(val_imgs) == 0:
-        print(f"⚠ Skipping {day_str} — no validation samples")
+        print(f"Skipping {day_str}: no validation samples")
         return None
     
     if len(test_imgs) == 0:
-        print(f"⚠ Skipping {day_str} — no test samples")
+        print(f"Skipping {day_str}: no test samples")
         return None
     
     # Use val and test directly (no splitting needed)
@@ -483,7 +498,9 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
     history = defaultdict(list)
     best_acc = -np.inf
     
-    # Phase 1 — frozen
+    # Phase 1 — frozen backbone.
+    # Use an upper bound on epochs; EarlyStopping (patience=20) plus ReduceLROnPlateau
+    # will typically stop much earlier once validation accuracy stops improving.
     for epoch in range(100):
         tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask, focal_loss_fn=focal_loss_fn)
         vl, vacc, _, _ = epoch_loop(model, val_loader,   opt, class_weights, train=False, use_mask=use_mask, focal_loss_fn=focal_loss_fn)
@@ -525,7 +542,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
     plt.tight_layout()
     plt.savefig(model_dir / "training_curves.png")
     plt.close()
-    print(f"📈 Saved curves → {model_dir/'training_curves.png'}")
+    print(f"Saved training curves to {model_dir/'training_curves.png'}")
     
     # ---- Evaluate with best VAL checkpoint
     model.load_state_dict(torch.load(model_path, map_location=DEVICE))
@@ -587,7 +604,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
     }
     with (model_dir / "metrics_test.json").open("w") as f:
         json.dump(test_metrics, f, indent=2)
-    print(f"📝 Saved metrics → {model_dir/'metrics_val.json'} and {model_dir/'metrics_test.json'}")
+    print(f"Saved metrics to {model_dir/'metrics_val.json'} and {model_dir/'metrics_test.json'}")
     
     return {
         "day": day_str,
@@ -606,6 +623,13 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
 
 # ---------- Orchestration ----------
 def main():
+    """
+    Entry point for fixed-split image classifier training with DINOv2/ResNet/EfficientNet.
+
+    Loads reproducible train/val/test splits, trains each backbone per day using focal
+    loss, early stopping, and LR scheduling, then writes per-day CSV summaries and
+    per-backbone JSON metrics to the configured output directory.
+    """
     set_seed()
     
     parser = argparse.ArgumentParser()
@@ -641,26 +665,26 @@ def main():
         raise FileNotFoundError(f"Test split file not found: {test_split_file}")
     
     # Load split data
-    print(f"📂 Loading splits from {train_split_file}, {val_split_file}, and {test_split_file}")
+    print(f"Loading splits from {train_split_file}, {val_split_file}, and {test_split_file}")
     train_data, val_data, test_data = load_split_data(train_split_file, val_split_file, test_split_file)
-    print(f"✓ Loaded {len(train_data)} train organoids, {len(val_data)} val organoids, {len(test_data)} test organoids")
+    print(f"Loaded {len(train_data)} train organoids, {len(val_data)} val organoids, {len(test_data)} test organoids")
     
     train_bs = int(args.batch_size)
     val_bs = int(args.val_batch_size) if args.val_batch_size is not None else train_bs
     use_mask = bool(args.use_mask)
     input_key = str(args.input_path_key)
     
-    print(f"🧪 Using batch sizes — train: {train_bs}, val/test: {val_bs}")
-    print(f"🖼️ Target size (HxW): {TARGET_SIZE}")
-    print(f"🗂️ Input field: {input_key}; masks enabled: {use_mask}")
-    print(f"📊 Using fixed train/val/test splits from split_data_reproducible.py")
+    print(f"Using batch sizes — train: {train_bs}, val/test: {val_bs}")
+    print(f"Target size (HxW): {TARGET_SIZE}")
+    print(f"Input field: {input_key}; masks enabled: {use_mask}")
+    print(f"Using fixed train/val/test splits from split_data_reproducible.py")
     
     # Get all unique days from the splits
     all_days = set()
     for org_data in list(train_data.values()) + list(val_data.values()) + list(test_data.values()):
         all_days.update(org_data.get('timepoints', {}).keys())
     all_days = sorted(all_days, key=day_to_int)
-    print(f"📅 Found {len(all_days)} days: {', '.join(all_days)}")
+    print(f"Found {len(all_days)} days: {', '.join(all_days)}")
     
     # Collect results: pick the best backbone per day by **validation accuracy**
     per_day_best = {}
@@ -681,12 +705,16 @@ def main():
                 best = res
         if best:
             per_day_best[day_str] = best
-            print(f"✅ Best for {day_str} (by VAL): {best['backbone_key']} | val acc={best['val_accuracy']:.3f} | TEST acc={best['test_accuracy']:.3f}, f1={best['test_f1']:.3f}")
+            print(
+                f"Best for {day_str} (by VAL): {best['backbone_key']} | "
+                f"val acc={best['val_accuracy']:.3f} | "
+                f"TEST acc={best['test_accuracy']:.3f}, f1={best['test_f1']:.3f}"
+            )
         else:
-            print(f"⚠ No valid result for {day_str}")
+            print(f"No valid result for {day_str}")
     
     if not per_day_best:
-        print("❌ No days produced results; aborting summary.")
+        print("No days produced results; aborting summary.")
         return
     
     # ---- Build 4-column table (based on TEST)
@@ -709,7 +737,7 @@ def main():
         )
         writer.writeheader()
         writer.writerows(rows)
-    print(f"🧾 Saved table → {table_path}")
+    print(f"Saved per-day summary table to {table_path}")
     
     # ---- Per-model charts and summary
     day_numbers = {}
@@ -746,7 +774,7 @@ def main():
                 plt.tight_layout()
                 out_path = out_dir / filename
                 plt.savefig(out_path)
-                print(f"📊 Saved {title.lower()} → {out_path}")
+                print(f"Saved {title.lower()} plot to {out_path}")
             plt.close()
         
         plot_metric("test_accuracy", "Accuracy (test)", "Per-day Test Accuracy by Backbone", "accuracy_by_model.png")
@@ -783,7 +811,7 @@ def main():
     summary_path = out_dir / "final_test_summary.json"
     with summary_path.open("w") as f:
         json.dump(summary, f, indent=2)
-    print(f"✅ Saved final test summary → {summary_path}")
+    print(f"Saved final test summary to {summary_path}")
     
     # ---- Also print the 4-column table to stdout
     print("\n=== Summary Table (TEST) ===")

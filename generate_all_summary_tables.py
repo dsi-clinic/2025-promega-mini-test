@@ -99,6 +99,8 @@ DATA_SPLITS = {
 
 # Model classes (same as train_model_multimodal.py)
 class MaskBranch(nn.Module):
+    """Small convolutional branch to encode a binary mask into a feature vector."""
+
     def __init__(self, out_dim=64):
         super().__init__()
         self.out_dim = out_dim
@@ -111,16 +113,19 @@ class MaskBranch(nn.Module):
             nn.MaxPool2d(2),
             nn.Conv2d(32, 64, 3, padding=1),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1))
+            nn.AdaptiveAvgPool2d((1, 1)),
         )
         self.fc = nn.Linear(64, out_dim)
         
     def forward(self, mask):
+        """Encode a mask tensor of shape [B,1,H,W] into a dense feature [B,out_dim]."""
         x = self.conv_layers(mask)
         x = x.view(x.size(0), -1)
         return self.fc(x)
 
 class ImageOnlyClassifier(nn.Module):
+    """Backbone + optional mask branch + binary classifier head used for evaluation."""
+
     def __init__(self, backbone_key, backbone_name, target_size, use_mask=False):
         super().__init__()
         self.use_mask = use_mask
@@ -135,7 +140,7 @@ class ImageOnlyClassifier(nn.Module):
                 backbone_name,
                 pretrained=False,
                 num_classes=0,
-                global_pool="avg"
+                global_pool="avg",
             )
             out_dim = self.backbone.num_features
 
@@ -154,6 +159,7 @@ class ImageOnlyClassifier(nn.Module):
         )
 
     def forward(self, img, mask=None):
+        """Forward pass returning a logit for each input image (and optional mask)."""
         if self._is_dinov2:
             outputs = self.backbone(img)
             f = outputs.last_hidden_state[:, 0, :]
@@ -167,19 +173,19 @@ class ImageOnlyClassifier(nn.Module):
         return self.classifier(f).squeeze(1)
 
 def day_to_int(day_str):
-    """Convert day string (e.g., 'Dy03') to integer"""
+    """Convert a day string (e.g., 'Dy03') to a numeric representation for sorting."""
     match = re.search(r'(\d+(?:\.\d+)?)', day_str)
     if match:
         return float(match.group(1))
     return 0.0
 
 def is_normal_image(img_path):
-    """Check if image is normal (nosplit_nostitch)"""
+    """Return True if the image file name indicates a normal (nosplit_nostitch) image."""
     img_str = str(img_path).lower()
     return "nosplit_nostitch" in img_str
 
 def classify_image_type(img_path):
-    """Classify image as: normal, split, stitched, or split_and_stitched"""
+    """Classify an image path as normal, split, stitched, or split_and_stitched."""
     img_str = str(img_path).lower()
     
     has_split = "split" in img_str and "nosplit" not in img_str
@@ -195,7 +201,7 @@ def classify_image_type(img_path):
         return "normal"
 
 def resolve_input_path(timepoint, input_key):
-    """Resolve input path, handling overlay_path fallback"""
+    """Resolve input path for the given timepoint, handling overlay_path fallbacks."""
     if input_key == "overlay_path":
         overlay_path = timepoint.get("overlay_path")
         if overlay_path and Path(overlay_path).exists():
@@ -213,7 +219,7 @@ def resolve_input_path(timepoint, input_key):
         return timepoint.get(input_key)
 
 def load_model(config_name, backbone_key):
-    """Load trained model"""
+    """Load a trained model checkpoint for a given config and backbone."""
     config = DATA_SPLITS[config_name]
     model_path = RESULTS_BASE_DIR / config["output_dir"] / backbone_key / "model.pth"
     
@@ -227,7 +233,7 @@ def load_model(config_name, backbone_key):
     return model
 
 def get_transforms(backbone_key, use_mask):
-    """Get image and mask transforms"""
+    """Return image and (optional) mask transforms for the specified backbone."""
     if backbone_key == "dinov2":
         img_transform = T.Compose([
             T.Resize(TARGET_SIZE),
@@ -249,14 +255,14 @@ def get_transforms(backbone_key, use_mask):
     return img_transform, mask_transform
 
 def evaluate_day_backbone(config_name, backbone_key, test_data):
-    """Evaluate model on test data, grouped by day"""
+    """Evaluate a single backbone for one configuration on test data, grouped by day."""
     print(f"  Evaluating {backbone_key}...")
     
     # Load model
     model = load_model(config_name, backbone_key)
-    if model is None:
-        print(f"    ⚠ Model not found, skipping")
-        return None
+        if model is None:
+            print(f"    Model not found, skipping")
+            return None
     
     config = DATA_SPLITS[config_name]
     img_transform, mask_transform = get_transforms(backbone_key, config["use_mask"])
@@ -295,7 +301,10 @@ def evaluate_day_backbone(config_name, backbone_key, test_data):
         with torch.no_grad():
             for sample in samples:
                 try:
-                    # Load image
+                    # Load image (guarded by existence check; errors are caught and logged)
+                    if not Path(sample["input_path"]).exists():
+                        print(f"    Skipping missing image: {sample['input_path']}")
+                        continue
                     img = Image.open(sample["input_path"]).convert("RGB")
                     img_tensor = img_transform(img).unsqueeze(0).to(DEVICE)
                     
@@ -322,7 +331,7 @@ def evaluate_day_backbone(config_name, backbone_key, test_data):
                     image_types.append(classify_image_type(sample["input_path"]))
                     
                 except Exception as e:
-                    print(f"    ⚠ Error processing {sample['input_path']}: {e}")
+                    print(f"    Error processing {sample['input_path']}: {e}")
                     continue
         
         if not all_labels:
@@ -437,7 +446,7 @@ def generate_summary_table(config_name):
     test_file = Path(config["test_split"])
     
     if not test_file.exists():
-        print(f"  ⚠ Test split not found: {test_file}")
+        print(f"  Test split not found: {test_file}")
         return None
     
     # Load test data
@@ -454,7 +463,7 @@ def generate_summary_table(config_name):
             all_results.extend(results)
     
     if not all_results:
-        print(f"  ⚠ No results generated")
+        print(f"  No results generated")
         return None
     
     # Create DataFrame
@@ -482,7 +491,7 @@ def main():
         try:
             generate_summary_table(config_name)
         except Exception as e:
-            print(f"  ❌ Error generating table for {config_name}: {e}")
+            print(f"Error generating table for {config_name}: {e}")
             import traceback
             traceback.print_exc()
     
