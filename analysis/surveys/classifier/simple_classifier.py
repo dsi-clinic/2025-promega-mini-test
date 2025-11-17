@@ -118,7 +118,7 @@ def extract_day_data(all_data, target_day):
 
     print(f"✓ Loaded {len(imgs)} total records from survey_classifier.json")
     total_votes = all_data.get("metadata", 0).get("num_acceptable_votes") + all_data.get("metadata", 0).get("num_not_acceptable_votes")
-    print(f"✓ Found {total_votes} Dy30 records with clear majority labels (4+ votes)")
+    print(f"✓ Found {total_votes} Dy30 votes with clear majority labels (4+ votes)")
     print(f"⚠ Skipped {all_data.get('metadata', '').get('total_skipped')} records without processed image paths, evalutations, or labels")
     print(f"⚠ Skipped {all_data.get('metadata', '').get('num_ambiguous')} records with ambiguous labels (no clear majority)")
     print(f"✓ Successfully prepared {len(imgs)} organoids for training")
