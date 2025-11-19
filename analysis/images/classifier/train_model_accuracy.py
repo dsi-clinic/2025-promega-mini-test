@@ -5,12 +5,16 @@ import csv
 import dataclasses
 import datetime
 import json
+import os
 import random
 import re
 from collections import defaultdict
 from pathlib import Path
 
 # Third party imports
+import dotenv
+dotenv.load_dotenv()    # Load environment variables ahead of torch imports
+
 import matplotlib.pyplot as plt
 import numpy as np
 import timm
@@ -75,6 +79,9 @@ class Config:
     })
     seed: int = dataclasses.field(default=1, metadata={
         "help": "Random seed for reproducibility"
+    })
+    deterministic: bool = dataclasses.field(default=False, metadata={
+        "help": "Use deterministic operations for reproducibility"
     })
 
     def __post_init__(self):
@@ -152,8 +159,12 @@ class OrganoidDataset(Dataset):
 class SmallCNNBackbone(nn.Module):
     """Simple CNN feature extractor used when backbone_key == 'cnn'."""
 
-    def __init__(self, out_dim=256):
+    def __init__(self, out_dim=256, deterministic=False):
         super().__init__()
+        # Replace AdaptiveAvgPool2d with AvgPool2d for deterministic behavior
+        # Input size after 3 conv layers with stride=2: (384/8, 512/8) = (48, 64)
+        # To get (4, 4) output: kernel_size = (48/4, 64/4) = (12, 16)
+        avg_pool = nn.AdaptiveAvgPool2d((4, 4)) if not deterministic else nn.AvgPool2d(kernel_size=(12, 16), stride=(12, 16))
         self.features = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(32),
@@ -164,7 +175,7 @@ class SmallCNNBackbone(nn.Module):
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((4, 4)),
+            avg_pool,
         )
         self.proj = nn.Sequential(
             nn.Flatten(),
@@ -181,8 +192,9 @@ class SmallCNNBackbone(nn.Module):
 class MaskBranch(nn.Module):
     """Compact branch to encode binary masks into a feature vector."""
 
-    def __init__(self, out_dim=64):
+    def __init__(self, out_dim=64, deterministic=False):
         super().__init__()
+        avg_pool = nn.AdaptiveAvgPool2d((4, 4)) if not deterministic else nn.AvgPool2d(kernel_size=(12, 16), stride=(12, 16))
         self.encoder = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm2d(16),
@@ -191,7 +203,7 @@ class MaskBranch(nn.Module):
             nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((4, 4)),
+            avg_pool,
             nn.Flatten(),
             nn.Linear(32 * 4 * 4, out_dim),
             nn.ReLU(inplace=True),
@@ -203,13 +215,13 @@ class MaskBranch(nn.Module):
 
 # ---------- Model ----------
 class ImageOnlyClassifier(nn.Module):
-    def __init__(self, backbone_key, backbone_name, target_size, use_mask=False):
+    def __init__(self, backbone_key, backbone_name, target_size, use_mask=False, deterministic=False):
         super().__init__()
         self.use_mask = use_mask
         self.backbone_key = backbone_key
 
         if backbone_key == "cnn":
-            self.backbone = SmallCNNBackbone()
+            self.backbone = SmallCNNBackbone(deterministic=deterministic)
             out_dim = self.backbone.out_dim
             self._is_timm = False
         else:
@@ -234,7 +246,7 @@ class ImageOnlyClassifier(nn.Module):
                 p.requires_grad = False
 
         if self.use_mask:
-            self.mask_branch = MaskBranch(out_dim=64)
+            self.mask_branch = MaskBranch(out_dim=64, deterministic=deterministic)
             head_in = out_dim + self.mask_branch.out_dim
         else:
             self.mask_branch = None
@@ -265,7 +277,17 @@ class ImageOnlyClassifier(nn.Module):
         return self.classifier(f).squeeze(1)
 
 # ---------- Utils ----------
-def set_seed(seed):
+def set_deterministic(deterministic):
+    if torch.cuda.is_available() and deterministic:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+    try:
+        torch.use_deterministic_algorithms(True)
+    except RuntimeError as e:
+        print(f"Warning: Could not enable deterministic algorithms: {e}")
+
+def set_seed(seed, deterministic):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -396,8 +418,11 @@ def run_training_for_day(day: str, data: dict, backbone_key: str,
                               batch_size=cfg.val_batch_size, cfg=cfg
     )
 
+    # Reset seed before model creation to ensure deterministic initialization
+    set_seed(cfg.seed, cfg.deterministic)
+
     # Define model
-    model = ImageOnlyClassifier(backbone_key, backbone_name, cfg.target_size, use_mask=cfg.use_mask).to(DEVICE)
+    model = ImageOnlyClassifier(backbone_key, backbone_name, cfg.target_size, use_mask=cfg.use_mask, deterministic=cfg.deterministic).to(DEVICE)
     model_dir = cfg.out_dir / backbone_key / day
     model_dir.mkdir(parents=True, exist_ok=True)
     model_path = model_dir / "model.pth"
@@ -415,26 +440,28 @@ def run_training_for_day(day: str, data: dict, backbone_key: str,
 
     # Val metrics (record only; NOT used for final reporting)
     val_metrics = get_validation_metrics(model, y_val, model_dir, val_loader,
-                                         day, cfg)
+                                         day, cfg, backbone_key, backbone_name,
+                                         X_val)
 
     # Test metrics（final reporting）
     test_metrics = get_test_metrics(model, y_val, model_dir, test_loader,
-                                    day, best_acc, backbone_key, cfg)
+                                    day, best_acc, cfg, backbone_key,
+                                    backbone_name, X_test)
 
     # Return: choose by val, report test
     return {
         "day": day,
-        "day_no": test_metrics["day_no"],
+        "day_no": test_metrics["metrics"]["day_no"],
         "backbone_key": backbone_key,
         "val_accuracy": float(best_acc),     # selection metric
-        "test_accuracy": test_metrics["accuracy"],    # reporting metric
-        "test_f1": test_metrics["f1"],
-        "val_roc_auc": val_metrics["roc_auc"],
-        "test_roc_auc": test_metrics["roc_auc"],
+        "test_accuracy": test_metrics["metrics"]["accuracy"],    # reporting metric
+        "test_f1": test_metrics["metrics"]["f1"],
+        "val_roc_auc": val_metrics["metrics"]["roc_auc"],
+        "test_roc_auc": test_metrics["metrics"]["roc_auc"],
         "val_num": int(len(y_val)),
-        "test_num": test_metrics["test_n"],
-        "test_actual_good": test_metrics["actual_good"],
-        "test_pred_good": test_metrics["predicted_good"],
+        "test_num": test_metrics["metrics"]["test_n"],
+        "test_actual_good": test_metrics["metrics"]["actual_good"],
+        "test_pred_good": test_metrics["metrics"]["predicted_good"],
     }
 
 def get_labels_images_masks(records, day_json_path, cfg):
@@ -521,7 +548,12 @@ def write_missing_csv(day, cfg, backbone_key, missing_records):
 
 def make_loader(imgs, labels, augment, batch_size, cfg, mask_paths=None):
     ds = OrganoidDataset(imgs, labels, target_size=cfg.target_size, mask_paths=mask_paths, augment=augment, use_mask=cfg.use_mask)
-    return DataLoader(ds, batch_size=batch_size, shuffle=augment, num_workers=cfg.num_workers)
+    if cfg.deterministic:
+        generator = torch.Generator()
+        generator.manual_seed(cfg.seed)
+        return DataLoader(ds, batch_size=batch_size, shuffle=augment, num_workers=cfg.num_workers, generator=generator)
+    else:
+        return DataLoader(ds, batch_size=batch_size, shuffle=augment, num_workers=cfg.num_workers)
 
 def run_phases(model, model_path, backbone_key, backbone_name, day,
                train_loader, val_loader, class_weights, cfg):
@@ -603,9 +635,10 @@ def plot_training_curver(history, model_dir):
     plt.close()
     print(f"📈 Saved curves → {model_dir/'training_curves.png'}")
 
-def get_validation_metrics(model, y_val, model_dir, val_loader, day, cfg):
+def get_validation_metrics(model, y_val, model_dir, val_loader, day, cfg,
+                           backbone_key, backbone_name, val_img_paths):
     """Calculate and return valiation metrics."""
-    _, val_trues, val_acc, val_f1, val_probs = evaluate_on_loader(model, val_loader, use_mask=cfg.use_mask)
+    preds_bin, val_trues, val_acc, val_f1, val_probs = evaluate_on_loader(model, val_loader, use_mask=cfg.use_mask)
     # Safely compute ROC AUC (may be undefined if only one class present)
     try:
         val_roc_auc = float(roc_auc_score(val_trues, val_probs))
@@ -613,22 +646,38 @@ def get_validation_metrics(model, y_val, model_dir, val_loader, day, cfg):
         val_roc_auc = None
     val_pr_auc = float(average_precision_score(val_trues, val_probs)) if len(val_trues) > 0 else None
     val_metrics = {
-        "day": day,
-        "split": "val",
-        "accuracy": float(val_acc),
-        "f1": float(val_f1),
-        "roc_auc": val_roc_auc,
-        "pr_auc": val_pr_auc,
-        "n": int(len(y_val)),
-        "batch_size": int(cfg.val_batch_size),
-        "input_key": cfg.input_path_key,
-        "use_mask": cfg.use_mask,
+        "metrics": {
+            "day": day,
+            "split": "val",
+            "accuracy": float(val_acc),
+            "f1": float(val_f1),
+            "roc_auc": val_roc_auc,
+            "pr_auc": val_pr_auc,
+            "n": int(len(y_val)),
+            "batch_size": int(cfg.val_batch_size),
+            "input_key": cfg.input_path_key,
+            "use_mask": cfg.use_mask,
+        },
+        "model": {
+            "backbone_key": backbone_key,
+            "backbone_name": backbone_name,
+            "target_size": cfg.target_size,
+            "use_mask": cfg.use_mask,
+            "deterministic": cfg.deterministic,
+        },
+        "results":{
+            'image_paths': val_img_paths,
+            'true_labels': val_trues.tolist(),
+            'predicted_probabilities': val_probs.tolist(),
+            'predicted_binary': preds_bin.tolist(),
+        }
     }
     with (model_dir / "metrics_val.json").open("w") as f:
         json.dump(val_metrics, f, indent=2)
     return val_metrics
 
-def get_test_metrics(model, y_val, model_dir, test_loader, day, best_acc, backbone_key, cfg):
+def get_test_metrics(model, y_val, model_dir, test_loader, day, best_acc, cfg,
+                     backbone_key, backbone_name, test_img_paths):
     """Calcualte and return test metrics."""
     preds_bin, trues, test_acc, test_f1, test_probs = evaluate_on_loader(model, test_loader, use_mask=cfg.use_mask)
     # Safely compute test ROC AUC
@@ -643,23 +692,36 @@ def get_test_metrics(model, y_val, model_dir, test_loader, day, best_acc, backbo
     predicted_good = int(preds_bin.sum())
 
     test_metrics = {
-        "day": day,
-        "day_no": day_no,
-        "split": "test",
-        "accuracy": float(test_acc),
-        "f1": float(test_f1),
-        "roc_auc": test_roc_auc,
-        "pr_auc": test_pr_auc,
-        "val_accuracy_for_selection": float(best_acc),
-        "val_n": int(len(y_val)),
-        "test_n": num_in_sample,
-        "actual_good": actual_good,
-        "predicted_good": predicted_good,
-        "batch_size_train": int(cfg.batch_size),
-        "batch_size_valtest": int(cfg.val_batch_size),
-        "backbone_key": backbone_key,
-        "input_key": cfg.input_path_key,
-        "use_mask": cfg.use_mask,
+        "metrics": {
+            "day": day,
+            "day_no": day_no,
+            "split": "test",
+            "accuracy": float(test_acc),
+            "f1": float(test_f1),
+            "roc_auc": test_roc_auc,
+            "pr_auc": test_pr_auc,
+            "val_accuracy_for_selection": float(best_acc),
+            "val_n": int(len(y_val)),
+            "test_n": num_in_sample,
+            "actual_good": actual_good,
+            "predicted_good": predicted_good,
+            "batch_size_train": int(cfg.batch_size),
+            "batch_size_valtest": int(cfg.val_batch_size),
+        },
+        "model": {
+            "backbone_key": backbone_key,
+            "backbone_name": backbone_name,
+            "target_size": cfg.target_size,
+            "input_key": cfg.input_path_key,
+            "use_mask": cfg.use_mask,
+            "deterministic": cfg.deterministic,
+        },
+        "results":{
+            'image_paths': test_img_paths,
+            'true_labels': trues.tolist(),
+            'predicted_probabilities': test_probs.tolist(),
+            'predicted_binary': preds_bin.tolist(),
+        }
     }
     with (model_dir / "metrics_test.json").open("w") as f:
         json.dump(test_metrics, f, indent=2)
@@ -808,7 +870,8 @@ def main():
     start = datetime.datetime.now()
     # Set up for model training
     cfg = get_args()
-    set_seed(cfg.seed)
+    set_deterministic(cfg.deterministic)
+    set_seed(cfg.seed, cfg.deterministic)
     print_config_stats(cfg)
 
     # Collect results: pick the best backbone per day by **validation accuracy**
