@@ -744,7 +744,7 @@ def main():
     summary_path = out_dir / "final_test_summary.json"
     with summary_path.open("w") as f:
         json.dump(summary, f, indent=2)
-    print(f"✅ Saved final test summary → {summary_path}")
+    print(f"Saved final test summary → {summary_path}")
 
     # ---- Also print the 4-column table to stdout
     print("\n=== Summary Table (TEST) ===")
