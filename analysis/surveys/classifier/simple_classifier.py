@@ -450,7 +450,7 @@ def plot_model_metrics(history, history_fine_tune, out_dir):
 
     print("\nTraining history plots saved as 'training_auc_final_model_with_augmentation.png' and 'training_loss_final_model_with_augmentation.png'")
 
-def plot_confusion_matrix(model, val_dataset, out_dir):
+def plot_confusion_matrix(model, val_dataset, val_img_paths, out_dir):
     """Generate a confusion matrix from validation dataset."""
     print("\n--- Generating Confusion Matrix ---")
     # To get predictions for the confusion matrix, iterate through the validation dataset
@@ -482,6 +482,7 @@ def plot_confusion_matrix(model, val_dataset, out_dir):
 
     # Save metrics to JSON file
     metrics = {
+        "val_img_paths": val_img_paths,
         "val_true_labels": y_true_all.tolist(),
         "predicted_probabilities": y_pred_proba_all.tolist(),
         "binary_predictions": y_pred.tolist(),
@@ -653,7 +654,7 @@ def main():
     plot_model_metrics(history, history_fine_tune, cfg.out_dir)
 
     # --- 12. Print Confusion Matrix ---
-    plot_confusion_matrix(model, val_dataset, cfg.out_dir)
+    plot_confusion_matrix(model, val_dataset, X_img_path_val, cfg.out_dir)
 
     end_time = datetime.datetime.now()
     print(f"Execution time: {end_time - start_time}")
