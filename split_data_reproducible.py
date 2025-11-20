@@ -503,7 +503,7 @@ def main():
         all_data = json.load(f)
     print(f"✓ Loaded {len(all_data)} records", flush=True)
     
-    print(f"\n⚠️  IMPORTANT: Splitting by ORGANOID, not by individual samples!")
+    print(f"\nIMPORTANT: Splitting by ORGANOID, not by individual samples!")
     print(f"   This prevents data leakage when training across timepoints.")
     print(f"\nUsing fixed random seed: {RANDOM_SEED}")
     print(f"Split structure: 80% Training / 20% Test (held out)")
