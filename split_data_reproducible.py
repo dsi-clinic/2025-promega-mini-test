@@ -291,31 +291,6 @@ def split_by_organoid(organoid_data, random_seed=RANDOM_SEED, test_size=TEST_SIZ
 # OUTPUT FUNCTIONS
 # ============================================================
 
-from collections import Counter
-
-def print_day_label_stats(data_dict, name):
-    """
-    For each day in this split, print how many samples per label.
-    Helps spot tiny or single-class days in train/val/test.
-    """
-    print(f"\n  {name} per-day label stats:")
-    # day -> Counter({label: count})
-    day_label_counts = {}
-
-    for org_data in data_dict.values():
-        label = org_data['label']
-        for day, tp in org_data['timepoints'].items():
-            if day not in day_label_counts:
-                day_label_counts[day] = Counter()
-            day_label_counts[day][label] += 1
-
-    for day in sorted(day_label_counts.keys()):
-        c = day_label_counts[day]
-        total = sum(c.values())
-        print(f"    {day}: total={total}, "
-              f"Acceptable={c.get('Acceptable', 0)}, "
-              f"Not Acceptable={c.get('Not Acceptable', 0)}")
-
 def save_splits(train_data, val_data, test_data, output_prefix, mode_name):
     """Save train/val/test splits to JSON files."""
     output_dir = Path('data_splits')
@@ -392,10 +367,6 @@ def run_base_mode(all_data):
     print_statistics(train_data, "Training")
     print_statistics(val_data, "Validation (within training)")
     print_statistics(test_data, "Test (held out)")
-
-    print_day_label_stats(train_data, "Training")
-    print_day_label_stats(val_data, "Validation")
-    print_day_label_stats(test_data, "Test")
     
     # Save
     train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'both', 'base')
