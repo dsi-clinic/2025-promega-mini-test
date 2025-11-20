@@ -64,7 +64,7 @@ class Config:
     })
     def __post_init__(self):
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        self.json_file = self.out_dir.joinpath("json", "survey_classifier.json")
+        self.json_file = self.out_dir.parent.joinpath("json", "survey_classifier.json")
         self.target_size: tuple = (self.target_width, self.target_height)
 
 # --- Functions ---
@@ -416,7 +416,7 @@ def evaluate_model(history, history_fine_tune, model, val_dataset, out_dir):
     print(f"  Recall: {results[4]:.4f}")
 
     # Save the trained model ---
-    model.save(out_dir.joinpath('survey_classifier', 'organoid_classifier_final_model_with_augmentation.h5'))
+    model.save(out_dir.joinpath('organoid_classifier_final_model_with_augmentation.h5'))
     print("\nFinal model classifier saved as 'organoid_classifier_final_model_with_augmentation.h5'")
 
 def plot_model_metrics(history, history_fine_tune, out_dir):
@@ -437,7 +437,7 @@ def plot_model_metrics(history, history_fine_tune, out_dir):
     plt.ylabel('AUC Score')
     plt.legend()
     plt.title('Training and Validation AUC')
-    plt.savefig(out_dir.joinpath('survey_classifier', 'training_auc_final_model_with_augmentation.png'))
+    plt.savefig(out_dir.joinpath('training_auc_final_model_with_augmentation.png'))
 
     plt.subplot(1, 2, 2)
     plt.plot(history.history['loss'], label='Train Loss')
@@ -446,7 +446,7 @@ def plot_model_metrics(history, history_fine_tune, out_dir):
     plt.ylabel('Loss')
     plt.legend()
     plt.title('Training and Validation Loss')
-    plt.savefig(out_dir.joinpath('survey_classifier', 'training_loss_final_model_with_augmentation.png'))
+    plt.savefig(out_dir.joinpath('training_loss_final_model_with_augmentation.png'))
 
     print("\nTraining history plots saved as 'training_auc_final_model_with_augmentation.png' and 'training_loss_final_model_with_augmentation.png'")
 
@@ -477,7 +477,7 @@ def plot_confusion_matrix(model, val_dataset, out_dir):
     disp.ax_.set_ylabel("Actual label")
     disp.ax_.set_title("Actual vs Predicted Confusion Matrix")
     plt.tight_layout()
-    plt.savefig(out_dir / "survey_classifier" / "confusion_matrix.png")
+    plt.savefig(out_dir / "confusion_matrix.png")
     plt.close()
 
     # Save metrics to JSON file
@@ -486,7 +486,7 @@ def plot_confusion_matrix(model, val_dataset, out_dir):
         "predicted_probabilities": y_pred_proba_all.tolist(),
         "binary_predictions": y_pred.tolist(),
     }
-    with open(out_dir / "survey_classifier" / "metrics.json", "w") as f:
+    with open(out_dir / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
 
 # --- Helper function to get mapping paths ---
