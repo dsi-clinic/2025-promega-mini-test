@@ -251,22 +251,38 @@ class OrganoidRecordBuilder:
 
     def _compute_survey_majority(self, survey: SchemaDict) -> Optional[SchemaDict]:
         evaluations: List[SchemaDict] = survey.get("evaluations") or []
-        votes = Counter()
+        inv_votes = Counter()
+        reg_votes = Counter()
         for eval_entry in evaluations:
             vote = eval_entry.get("evaluation")
             if vote:
-                votes[vote] += 1
-        if not votes:
-            return None
-        total = sum(votes.values())
-        winning_label = next(
-            (label for label, count in votes.items() if count >= self.min_survey_votes),
+                original_image_ref = eval_entry.get("original_image_ref")
+                if "INV" in original_image_ref:
+                    inv_votes[vote] += 1
+                else:
+                    reg_votes[vote] += 1
+
+        winning_inv_label = next(
+            (label for label, count in inv_votes.items() if count >= self.min_survey_votes),
             None,
         )
+
+        winning_reg_label = next(
+            (label for label, count in reg_votes.items() if count >= self.min_survey_votes),
+            None,
+        )
+
+        if inv_votes and inv_votes[winning_inv_label] != reg_votes[winning_reg_label]:
+            main_id = survey.get("quality_scores", [])[0].get("main_id")
+            logging.warning(f"{main_id}:  Inverted evaluation - {inv_votes[winning_inv_label]} '{winning_inv_label}' does not match regular evaluation - {reg_votes[winning_reg_label]} '{winning_reg_label}'")
+            winning_reg_label = None
+
+        total = sum(inv_votes.values()) + sum(reg_votes.values())
+
         return {
-            "value": winning_label,
-            "acceptance_flag": self.LABEL_MAP.get(winning_label) if winning_label else None,
-            "votes": dict(votes),
+            "value": winning_reg_label,
+            "acceptance_flag": self.LABEL_MAP.get(winning_reg_label) if winning_reg_label else None,
+            "votes": dict(reg_votes + inv_votes),
             "total_evaluations": total,
             "min_votes": self.min_survey_votes,
             "source": "survey.evaluations",

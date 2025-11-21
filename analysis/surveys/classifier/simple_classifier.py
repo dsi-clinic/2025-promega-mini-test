@@ -1,11 +1,16 @@
 # Standard
 import argparse
 import dataclasses
+import datetime
 import json
 from collections import Counter
 from pathlib import Path
+import random
 
 # Third party
+import dotenv
+dotenv.load_dotenv()    # Load environment variables ahead of torch imports
+
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -21,13 +26,6 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropou
 
 # Application
 from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer
-
-# --- Check for GPU availability ---
-gpus = tf.config.list_physical_devices('GPU')
-if gpus:
-    print(f"TensorFlow is using the following GPUs: {gpus}")
-else:
-    print("TensorFlow is using the CPU.")
 
 # --- Constants ---
 METRICS_TO_COMBINE = ['loss', 'val_loss', 'accuracy', 'val_accuracy', 'auc',
@@ -58,9 +56,15 @@ class Config:
     target_height: int = dataclasses.field(default=224, metadata={
         "help": "Target input image height (pixels)"
     })
+    deterministic: bool = dataclasses.field(default=False, metadata={
+        "help": "Use deterministic operations"
+    })
+    seed: int = dataclasses.field(default=1, metadata={
+        "help": "Random seed for reproducibility"
+    })
     def __post_init__(self):
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        self.json_file = self.out_dir.joinpath("json", "survey_classifier.json")
+        self.json_file = self.out_dir.parent.joinpath("json", "survey_classifier.json")
         self.target_size: tuple = (self.target_width, self.target_height)
 
 # --- Functions ---
@@ -95,6 +99,18 @@ def create_args() -> argparse.ArgumentParser:
         parser.add_argument(*flags, **kwargs)
 
     return parser
+
+def set_deterministic(deterministic):
+    try:
+        tf.config.experimental.enable_op_determinism()
+    except AttributeError:
+        print("Warning: Deterministic operations not available in this TensorFlow version. Using seeds only.")
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+    tf.keras.utils.set_random_seed(seed)
 
 def extract_day_data(all_data, target_day):
     """Extract survey data for a particular day."""
@@ -158,7 +174,7 @@ def print_class_distribution(indexed_labels):
         print(f"Class {class_idx} ('{label_name}'): {count} samples")
     print("------------------------------------------")
 
-def create_dataset(img_paths, mask_paths, labels, batch_size, target_size, augment=False, shuffle=True):
+def create_dataset(img_paths, mask_paths, labels, batch_size, target_size, augment=False, shuffle=True, seed=None):
     # Convert lists to TensorFlow tensors
     img_path_tensor = tf.constant(img_paths)
     mask_path_tensor = tf.constant(mask_paths)
@@ -192,7 +208,10 @@ def create_dataset(img_paths, mask_paths, labels, batch_size, target_size, augme
     )
 
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=len(img_paths)) # Shuffle the dataset
+        if seed:
+            dataset = dataset.shuffle(buffer_size=len(img_paths), seed=seed) # Shuffle the dataset with provided seed
+        else:
+            dataset = dataset.shuffle(buffer_size=len(img_paths)) # Shuffle the dataset with global seed
 
     if augment:
         # Augment data, then structure it for the model.
@@ -234,8 +253,8 @@ def load_and_preprocess_tf(img_path_tensor, mask_path_tensor, label_tensor, targ
 
 def augment_data(img, mask, label):
     # Data augmentation operations
-    # Ensure a consistent seed for transformations that apply to both image and mask
-    seed = tf.random.uniform(shape=[], maxval=1000000, dtype=tf.int32)
+    # Note: TensorFlow's global seed (set via tf.random.set_seed) ensures
+    # deterministic behavior for random operations within each epoch
 
     # Apply random horizontal flip
     # Ensure the seed is passed consistently if using stateful ops, or rely on tf.random ops.
@@ -397,7 +416,7 @@ def evaluate_model(history, history_fine_tune, model, val_dataset, out_dir):
     print(f"  Recall: {results[4]:.4f}")
 
     # Save the trained model ---
-    model.save(out_dir.joinpath('survey_classifier', 'organoid_classifier_final_model_with_augmentation.h5'))
+    model.save(out_dir.joinpath('organoid_classifier_final_model_with_augmentation.h5'))
     print("\nFinal model classifier saved as 'organoid_classifier_final_model_with_augmentation.h5'")
 
 def plot_model_metrics(history, history_fine_tune, out_dir):
@@ -418,7 +437,7 @@ def plot_model_metrics(history, history_fine_tune, out_dir):
     plt.ylabel('AUC Score')
     plt.legend()
     plt.title('Training and Validation AUC')
-    plt.savefig(out_dir.joinpath('survey_classifier', 'training_auc_final_model_with_augmentation.png'))
+    plt.savefig(out_dir.joinpath('training_auc_final_model_with_augmentation.png'))
 
     plt.subplot(1, 2, 2)
     plt.plot(history.history['loss'], label='Train Loss')
@@ -427,11 +446,11 @@ def plot_model_metrics(history, history_fine_tune, out_dir):
     plt.ylabel('Loss')
     plt.legend()
     plt.title('Training and Validation Loss')
-    plt.savefig(out_dir.joinpath('survey_classifier', 'training_loss_final_model_with_augmentation.png'))
+    plt.savefig(out_dir.joinpath('training_loss_final_model_with_augmentation.png'))
 
     print("\nTraining history plots saved as 'training_auc_final_model_with_augmentation.png' and 'training_loss_final_model_with_augmentation.png'")
 
-def plot_confusion_matrix(model, val_dataset, out_dir):
+def plot_confusion_matrix(model, val_dataset, val_img_paths, out_dir):
     """Generate a confusion matrix from validation dataset."""
     print("\n--- Generating Confusion Matrix ---")
     # To get predictions for the confusion matrix, iterate through the validation dataset
@@ -458,8 +477,18 @@ def plot_confusion_matrix(model, val_dataset, out_dir):
     disp.ax_.set_ylabel("Actual label")
     disp.ax_.set_title("Actual vs Predicted Confusion Matrix")
     plt.tight_layout()
-    plt.savefig(out_dir / "survey_classifier" / "confusion_matrix.png")
+    plt.savefig(out_dir / "confusion_matrix.png")
     plt.close()
+
+    # Save metrics to JSON file
+    metrics = {
+        "val_img_paths": val_img_paths,
+        "val_true_labels": y_true_all.tolist(),
+        "predicted_probabilities": y_pred_proba_all.tolist(),
+        "binary_predictions": y_pred.tolist(),
+    }
+    with open(out_dir / "metrics.json", "w") as f:
+        json.dump(metrics, f, indent=2)
 
 # --- Helper function to get mapping paths ---
 def get_mapping_paths(prepocessed_json_dir, batch_number, day_number=30):
@@ -551,8 +580,20 @@ def macro_f1_score_keras(y_true, y_pred):
     return macro_f1
 
 def main():
-    # --- 1. command line arguments ---
+    start_time = datetime.datetime.now()
+    # --- 1. command line arguments and setup ---
     cfg = get_args()
+
+    # --- Set seeds and deterministic operations ---
+    set_seed(cfg.seed)
+    set_deterministic(cfg.deterministic)
+
+    # --- Check for GPU availability ---
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        print(f"TensorFlow is using the following GPUs: {gpus}")
+    else:
+        print("TensorFlow is using the CPU.")
 
     # --- 2. Load data (unified data source) ---
     print(f"--- Loading data from: {cfg.json_file} ---")
@@ -569,7 +610,7 @@ def main():
     # We split paths and labels first, then load images on demand in the TF Dataset.
     indexed_labels = np.array(indexed_labels)
     X_img_path_train, X_img_path_val, X_mask_path_train, X_mask_path_val, y_train, y_val = train_test_split(
-        image_paths, mask_paths, indexed_labels, test_size=0.2, stratify=indexed_labels
+        image_paths, mask_paths, indexed_labels, test_size=0.2, stratify=indexed_labels, random_state=cfg.seed
     )
 
     # --- 6. Calculate and Apply Class Weights ---
@@ -587,9 +628,11 @@ def main():
     # --- 7. Data Loading and Augmentation with tf.data.Dataset ---
     batch_size = cfg.batch_size
     train_dataset = create_dataset(X_img_path_train, X_mask_path_train, y_train,
-                                   batch_size, cfg.target_size, augment=True, shuffle=True)
+                                   batch_size, cfg.target_size, augment=True,
+                                   shuffle=True, seed=cfg.seed)
     val_dataset = create_dataset(X_img_path_val, X_mask_path_val, y_val,
-                                 batch_size, cfg.target_size, augment=False, shuffle=False)
+                                 batch_size, cfg.target_size, augment=False,
+                                 shuffle=False, seed=cfg.seed)
 
     # --- 8. Initialize model with training dataset
     model, base_model = initialize_model(train_dataset)
@@ -611,7 +654,10 @@ def main():
     plot_model_metrics(history, history_fine_tune, cfg.out_dir)
 
     # --- 12. Print Confusion Matrix ---
-    plot_confusion_matrix(model, val_dataset, cfg.out_dir)
+    plot_confusion_matrix(model, val_dataset, X_img_path_val, cfg.out_dir)
+
+    end_time = datetime.datetime.now()
+    print(f"Execution time: {end_time - start_time}")
 
 if __name__ == "__main__":
     main()
