@@ -1,1 +1,1 @@
-"""Project Python code"""
+# Common utilities for file processing
