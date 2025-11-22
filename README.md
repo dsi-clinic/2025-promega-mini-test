@@ -5,45 +5,49 @@ This repository contains a comprehensive system for analyzing organoid quality u
 ## Project Structure
 
 ```mermaid
+%%{init: {"themeVariables": { "fontSize": "16px" }, "flowchart": { "rankSpacing": 50, "nodeSpacing": 45 }}}%%
 flowchart TD
     %% ========= INPUT STAGE ========= %%
     A1([Raw Images])
     A2([Metabolite Excels])
     A3([Survey Excels])
-    A4([Config & Env Vars<br/>config.py / core_env.yaml])
-
+    A4([Config and Env Vars<br/>config.py / core_env.yaml])
+    
     %% ========= FILE_UTILS PROCESSING ========= %%
-    subgraph B[file_utils - Data Mapping & Integration]
+    subgraph B[file_utils - Data Mapping and Integration]
         B1[file_utils/images/scripts<br/>image_mapper_main.py<br/>Image metadata → JSON]
         B1b[file_utils/common/organoid_patterns.py<br/>Pattern normalization helpers]
         B2[file_utils/metabolites/metabolite_mapper.py<br/>Metabolite Excel → JSON]
         B3[file_utils/surveys/surveys_mapper.py<br/>Survey Excel → JSON]
-        B4[file_utils/merge/merge_all_data.py<br/>Merge image + metabolite + survey JSON → all_data.json]
+        B4[file_utils/merge/merge_all_data.py<br/>Merge image, metabolite, and survey JSON<br/>→ all_data.json]
     end
-
+    
     %% ========= ANALYSIS PIPELINE ========= %%
-    subgraph C[analysis - Downstream Analysis & ML]
+    subgraph C[analysis - Downstream Analysis]
         subgraph C1[analysis/images]
-            C11[resize<br/>Standardize image size + pixel scale]
-            C12[metrics/shape_metrics<br/>Organoid shape features]
-            C13[segmentation_mmseg<br/>MMSeg training & inference]
-            C14[classifier<br/>Image classifiers – ViT / CNN]
-            C15[series/preprocess<br/>Filter complete time series + normalize masks]
+            C13[segmentation_mmseg<br/>MMSeg training and predictions]
+            C16[edge_fraction<br/>Post-prediction edge analysis<br/>Adds edge metrics to all_data.json]
+            C14[classifier<br/>ViT or CNN classifier<br/>Uses MMSeg-processed images]
+            C11[resize<br/>Scale to physical size and aspect ratio]
+            C12[metrics/shape_metrics<br/>Morphological feature analysis]
+            
+            subgraph C15[series - Time Series Analysis]
+                C15a[series/filter_complete_series.py<br/>Filter to complete, valid series<br/>→ complete_series_data_no_blanks.json]
+                C15b[series/preprocess_for_lstm.py<br/>Reprocess filtered data<br/>Adds lstm_processed field<br/>→ lstm_ready/ images]
+                C15c[series/cnn_lstm/train_organoid_lstm.py<br/>CNN-LSTM training<br/>Predict organoid quality from time series]
+            end
         end
-
+        
         subgraph C2[analysis/metabolites]
-            C21[classifier<br/>Metabolite-based classifiers]
+            C21[classifier<br/>Metabolite-based models<br/>Combined with image-derived data]
         end
-
+        
         subgraph C3[analysis/surveys]
-            C31[agreement_aggregations<br/>Survey agreement analysis]
-            C32[classifier<br/>Survey-based classifiers]
-            C33[simulations<br/>Reliability simulations]
+            C32[classifier<br/>Survey-based models<br/>Combined with image-derived data]
+            C33[agreement_aggregations<br/>Statistical agreement analysis<br/>From all_data.json]
         end
-
-        C4[multimodal<br/>CNN fusion of image + metabolite + survey features]
     end
-
+    
     %% ========= DATA FLOW ========= %%
     A1 --> B1
     B1b --> B1
@@ -52,17 +56,31 @@ flowchart TD
     B1 --> B4
     B2 --> B4
     B3 --> B4
-
-    %% From merged data to analyses
-    B4 --> C11
-    C11 --> C13
-    C13 --> C14
-    C14 --> C15
-    C15 --> C4
-
+    
+    B4 --> C13
+    C13 --> C16
+    C16 --> B4
+    C16 --> C14
+    C16 --> C11
+    
+    %% LSTM Pipeline Flow
+    B4 --> C15a
+    C15a --> C15b
+    C15b --> C15c
+    
+    C11 --> C12
+    B4 --> C14
+    B4 --> C12
     B4 --> C21
-    B4 --> C31
-    B4 --> C4
+    B4 --> C32
+    B4 --> C33
+    
+    C14 --> C21
+    C14 --> C32
+    C12 --> C21
+    C12 --> C32
+    C15c --> C21
+    C15c --> C32
 ```
 
 ## Quick Start
