@@ -291,7 +291,7 @@ def split_by_organoid(organoid_data, random_seed=RANDOM_SEED, test_size=TEST_SIZ
 # OUTPUT FUNCTIONS
 # ============================================================
 
-def save_splits(train_data, val_data, output_prefix, mode_name):
+def save_splits(train_data, val_data, test_data, output_prefix, mode_name):
     """Save train/val splits to JSON files."""
     output_dir = Path('data_splits')
     output_dir.mkdir(exist_ok=True)
@@ -502,7 +502,7 @@ def main():
         all_data = json.load(f)
     print(f"✓ Loaded {len(all_data)} records", flush=True)
     
-    print(f"\nIMPORTANT: Splitting by ORGANOID, not by individual samples!")
+    print(f"\n⚠️  IMPORTANT: Splitting by ORGANOID, not by individual samples!")
     print(f"   This prevents data leakage when training across timepoints.")
     print(f"\nUsing fixed random seed: {RANDOM_SEED}")
     print(f"Split structure: 80% Training / 20% Test (held out)")
