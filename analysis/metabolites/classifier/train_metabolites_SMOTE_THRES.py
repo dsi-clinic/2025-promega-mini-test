@@ -257,8 +257,8 @@ def train_metabolite_classifier_per_day(trainval, test_df, output_dir, model_nam
         )
         
         # Calculate class weights
-        #pos_label = "Acceptable"
-        pos_label = "Not Acceptable"
+        pos_label = "Acceptable"
+        #pos_label = "Not Acceptable"
         y_arr = pd.Series(y_train).to_numpy()
         pos = (y_arr == pos_label).sum()
         neg = (y_arr != pos_label).sum()
@@ -311,7 +311,7 @@ def train_metabolite_classifier_per_day(trainval, test_df, output_dir, model_nam
         # -------------------------
         y_pred = best_model.predict(X_test)
 
-        # proba for the positive class ("Not Acceptable")
+        # proba for the positive class ("Acceptable")
         classes = best_model.named_steps["clf"].classes_
         pos_idx = list(classes).index(pos_label)
         y_score = best_model.predict_proba(X_test)[:, pos_idx]
@@ -320,8 +320,8 @@ def train_metabolite_classifier_per_day(trainval, test_df, output_dir, model_nam
         # Choose best threshold based on macro F1 score
         # -------------------------
         if len(np.unique(y_test)) > 1:
-    # 1 = Not Acceptable, 0 = Acceptable
-            y_true_bin = (pd.Series(y_test) == "Not Acceptable").astype(int).to_numpy()
+    # 0 = Not Acceptable, 1 = Acceptable
+            y_true_bin = (pd.Series(y_test) == "Acceptable").astype(int).to_numpy()
 
             thresholds = np.linspace(0.001, 0.9, 17)   # candidate thresholds
             best_t = 0.5
@@ -342,8 +342,8 @@ def train_metabolite_classifier_per_day(trainval, test_df, output_dir, model_nam
 
                 macro_f1 = 0.5 * (f1_notacc + f1_acc)
 
-                if f1 > best_macro_f1:
-                    best_f1 = f1
+                if macro_f1 > best_macro_f1:
+                    best_f1 = macro_f1
                     best_t = t
                     best_macro_f1 = macro_f1
                     best_f1_notacc = f1_notacc
@@ -357,7 +357,7 @@ def train_metabolite_classifier_per_day(trainval, test_df, output_dir, model_nam
             )
 
             # Replace y_pred labels using tuned threshold
-            y_pred_thresh = np.where(y_score >= best_t, "Not Acceptable", "Acceptable")
+            y_pred_thresh = np.where(y_score >= best_t, "Acceptable", "Not Acceptable")
         # -------------------------
         # Metrics
         # -------------------------
