@@ -360,16 +360,24 @@ def train_metabolite_classifier_per_day(
     test_df,
     output_dir,
     model_name="lgbm",
-    boosting_type="gbdt",
-    threshold_mode="per_day",
-    weight_mode="both",        # "both", "class_weight_only", "scale_pos_only"
-    use_scaling=True,          # True / False
-    cv_scoring="f1_weighted"   # "f1_weighted", "balanced_accuracy", "f1_notaccept"
+    cv_scoring="f1_weighted",      # "f1_weighted", "f1_notaccept", "macro_f1"
+    threshold_metric="f1_weighted" # "f1_weighted", "f1_notaccept", "macro_f1"
 ):
     """
     Train LightGBM classifier for each day and save detailed results.
+    Fixed parameters:
+      - boosting_type="gbdt"
+      - threshold_mode="per_day"
+      - weight_mode="both"
+      - use_scaling=False
     """
     set_seed()
+
+    # Fixed parameters
+    boosting_type = "gbdt"
+    threshold_mode = "per_day"
+    weight_mode = "both"
+    use_scaling = False
 
     model_dir = Path(output_dir) / model_name
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -384,10 +392,8 @@ def train_metabolite_classifier_per_day(
     print(f"Weight mode         : {weight_mode}")
     print(f"Use scaling         : {use_scaling}")
     print(f"CV scoring          : {cv_scoring}")
+    print(f"Threshold metric    : {threshold_metric}")
     print(f"{'='*60}\n")
-
-    if threshold_mode != "per_day":
-        raise ValueError("Only 'per_day' threshold_mode is supported in this refactored script.")
 
     # Base columns to drop (day-specific logic is handled in prepare_data_for_day)
     cols_to_drop_base = [
@@ -446,17 +452,9 @@ def train_metabolite_classifier_per_day(
             neg = (y_arr != pos_label).sum()
             ratio_balanced = (neg / pos) if pos > 0 else 1.0
 
-        if weight_mode == "both":
-            final_class_weight = class_weight_dict_balanced
-            final_scale_pos_weight = ratio_balanced
-        elif weight_mode == "class_weight_only":
-            final_class_weight = class_weight_dict_balanced
-            final_scale_pos_weight = 1.0
-        elif weight_mode == "scale_pos_only":
-            final_class_weight = None
-            final_scale_pos_weight = ratio_balanced
-        else:
-            raise ValueError(f"Unknown weight_mode: {weight_mode}")
+        # weight_mode="both"
+        final_class_weight = class_weight_dict_balanced
+        final_scale_pos_weight = ratio_balanced
 
         model = LGBMClassifier(
             random_state=SEED,
@@ -478,12 +476,15 @@ def train_metabolite_classifier_per_day(
         }
 
         cv = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=SEED)
+        
         if cv_scoring == "f1_weighted":
             scoring_obj = "f1_weighted"
         elif cv_scoring == "balanced_accuracy":
             scoring_obj = "balanced_accuracy"
         elif cv_scoring == "f1_notaccept":
             scoring_obj = make_scorer(f1_score, pos_label="Not Acceptable")
+        elif cv_scoring == "macro_f1":
+            scoring_obj = "f1_macro"
         else:
             raise ValueError(f"Unknown cv_scoring: {cv_scoring}")
 
@@ -511,81 +512,96 @@ def train_metabolite_classifier_per_day(
     thresholds_per_day = {}
     default_threshold = 0.5
 
-    def tune_threshold(scores, labels):
+    def tune_threshold(scores, labels, metric="f1_weighted"):
+        """
+        Tune threshold based on validation scores and labels.
+        labels: 1=Acceptable, 0=Not Acceptable
+        metric: "f1_weighted", "f1_notaccept", "macro_f1"
+        """
         scores = np.asarray(scores)
-        labels = np.asarray(labels)
+        labels = np.asarray(labels) # 1=Acceptable, 0=Not Acceptable
         thresholds = np.linspace(0.1, 0.9, 17)
-        best_t, best_f1 = 0.5, -1.0
+        best_t, best_score = 0.5, -1.0
+        
         for t in thresholds:
+            # Predict Acceptable (1) if score >= t
             y_pred_bin = (scores >= t).astype(int)
-            f1 = f1_score(labels, y_pred_bin, zero_division=0)
-            if f1 > best_f1:
-                best_f1 = f1
-                best_t = t
-        return best_t, best_f1
-
-    if threshold_mode == "per_day":
-        print("\n[THRESHOLDS] Mode = per_day")
-        per_day_val_scores = {}
-        per_day_val_labels = {}
-
-        for days in unique_days:
-            if days not in per_day_info:
-                continue
-            day_num = per_day_info[days]["day_num"]
-            day_train = train_df[train_df['DY'] == days].copy()
-            day_val = val_df[val_df['DY'] == days].copy()
-
-            if len(day_val) == 0:
-                continue
-
-            X_train, y_train, groups_train = prepare_data_for_day(day_train, day_num, cols_to_drop_base)
-            X_val, y_val, _ = prepare_data_for_day(day_val, day_num, cols_to_drop_base)
             
-            if use_scaling:
-                X_train_scaled, X_val_scaled, _, _ = clean_and_scale_data(X_train, X_val=X_val)
+            if metric == "f1_weighted":
+                score = f1_score(labels, y_pred_bin, average='weighted', zero_division=0)
+            elif metric == "f1_notaccept":
+                # labels are 1=Acceptable, 0=Not Acceptable
+                # We want F1 for Not Acceptable (class 0)
+                score = f1_score(labels, y_pred_bin, pos_label=0, zero_division=0)
+            elif metric == "macro_f1":
+                score = f1_score(labels, y_pred_bin, average='macro', zero_division=0)
             else:
-                X_train_scaled, X_val_scaled, _ = clean_data_no_scaling(X_train, X_val=X_val)
+                # Fallback, should not happen with valid metric choices
+                score = f1_score(labels, y_pred_bin, zero_division=0) 
 
-            info = per_day_info[days]
-            model = LGBMClassifier(
-                random_state=SEED,
-                verbose=-1,
-                n_jobs=1,
-                scale_pos_weight=info["scale_pos_weight"],
-                class_weight=info["class_weight_dict"],
-                boosting_type=boosting_type,
-                **info["best_params"]
-            )
-            model.fit(X_train_scaled, y_train)
-            val_proba = model.predict_proba(X_val_scaled)
-            classes_order = list(model.classes_)
-            if "Acceptable" in classes_order:
-                acc_idx = classes_order.index("Acceptable")
-                scores = val_proba[:, acc_idx]
-            else:
-                scores = val_proba[:, 1]
-            labels_bin = (pd.Series(y_val) == "Acceptable").astype(int).to_numpy()
+            if score > best_score:
+                best_score = score
+                best_t = t
+        return best_t, best_score
 
-            if len(np.unique(labels_bin)) > 1:
-                per_day_val_scores[days] = scores
-                per_day_val_labels[days] = labels_bin
-                t, f = tune_threshold(scores, labels_bin)
-                thresholds_per_day[days] = t
-                print(f"  {days}: threshold={t:.3f}, F1_val={f:.3f}")
-            else:
-                thresholds_per_day[days] = default_threshold
-                print(f"  {days}: one-class VAL, using default threshold={default_threshold:.3f}")
+    print(f"\n[THRESHOLDS] Mode = per_day, Metric = {threshold_metric}")
+    per_day_val_scores = {}
+    per_day_val_labels = {}
 
-        # For calibration diagnostic, use pooled per-day scores/labels
-        all_scores_for_calib = []
-        all_labels_for_calib = []
-        for d in per_day_val_scores:
-            all_scores_for_calib.extend(per_day_val_scores[d].tolist())
-            all_labels_for_calib.extend(per_day_val_labels[d].tolist())
+    for days in unique_days:
+        if days not in per_day_info:
+            continue
+        day_num = per_day_info[days]["day_num"]
+        day_train = train_df[train_df['DY'] == days].copy()
+        day_val = val_df[val_df['DY'] == days].copy()
 
-    else:
-        raise ValueError(f"Unknown threshold_mode: {threshold_mode}")
+        if len(day_val) == 0:
+            continue
+
+        X_train, y_train, groups_train = prepare_data_for_day(day_train, day_num, cols_to_drop_base)
+        X_val, y_val, _ = prepare_data_for_day(day_val, day_num, cols_to_drop_base)
+        
+        if use_scaling:
+            X_train_scaled, X_val_scaled, _, _ = clean_and_scale_data(X_train, X_val=X_val)
+        else:
+            X_train_scaled, X_val_scaled, _ = clean_data_no_scaling(X_train, X_val=X_val)
+
+        info = per_day_info[days]
+        model = LGBMClassifier(
+            random_state=SEED,
+            verbose=-1,
+            n_jobs=1,
+            scale_pos_weight=info["scale_pos_weight"],
+            class_weight=info["class_weight_dict"],
+            boosting_type=boosting_type,
+            **info["best_params"]
+        )
+        model.fit(X_train_scaled, y_train)
+        val_proba = model.predict_proba(X_val_scaled)
+        classes_order = list(model.classes_)
+        if "Acceptable" in classes_order:
+            acc_idx = classes_order.index("Acceptable")
+            scores = val_proba[:, acc_idx]
+        else:
+            scores = val_proba[:, 1]
+        labels_bin = (pd.Series(y_val) == "Acceptable").astype(int).to_numpy()
+
+        if len(np.unique(labels_bin)) > 1:
+            per_day_val_scores[days] = scores
+            per_day_val_labels[days] = labels_bin
+            t, f = tune_threshold(scores, labels_bin, metric=threshold_metric)
+            thresholds_per_day[days] = t
+            print(f"  {days}: threshold={t:.3f}, {threshold_metric}={f:.3f}")
+        else:
+            thresholds_per_day[days] = default_threshold
+            print(f"  {days}: one-class VAL, using default threshold={default_threshold:.3f}")
+
+    # For calibration diagnostic, use pooled per-day scores/labels
+    all_scores_for_calib = []
+    all_labels_for_calib = []
+    for d in per_day_val_scores:
+        all_scores_for_calib.extend(per_day_val_scores[d].tolist())
+        all_labels_for_calib.extend(per_day_val_labels[d].tolist())
 
     # Calibration diagnostic (based on VAL)
     save_calibration_diagnostic(model_dir, all_scores_for_calib, all_labels_for_calib)
@@ -638,19 +654,9 @@ def train_metabolite_classifier_per_day(
             neg_comb = (y_arr_comb != pos_label).sum()
             ratio_comb = (neg_comb / pos_comb) if pos_comb > 0 else 1.0
 
-        if weight_mode == "both":
-            final_class_weight_comb = weight_dict_comb
-            final_scale_pos_weight_comb = ratio_comb
-        elif weight_mode == "class_weight_only":
-            final_class_weight_comb = weight_dict_comb
-            final_scale_pos_weight_comb = 1.0
-        elif weight_mode == "scale_pos_only":
-            final_class_weight_comb = None
-            final_scale_pos_weight_comb = ratio_comb
-        else:
-            # Should not happen if checked earlier
-            final_class_weight_comb = weight_dict_comb
-            final_scale_pos_weight_comb = ratio_comb
+        # weight_mode="both"
+        final_class_weight_comb = weight_dict_comb
+        final_scale_pos_weight_comb = ratio_comb
 
         final_model = LGBMClassifier(
             random_state=SEED,
@@ -699,8 +705,7 @@ def train_metabolite_classifier_per_day(
             print("  Test ROC AUC: N/A")
         print(f"  Test Accuracy: {accuracy:.3f}")
         print(f"  Test F1 (Acceptable): {f1_accept:.3f}")
-        print(f"  Test Recall (Acceptable): {recall_accept:.3f}")
-        print(f"  Test Precision (Acceptable): {precision_accept:.3f}")
+        print(f"  Test F1 (Not Acceptable): {f1_notaccept:.3f}")
         print(f"  Threshold used: {threshold_used:.3f}")
 
         # Misclassified organoids
@@ -745,17 +750,14 @@ def train_metabolite_classifier_per_day(
             'day': days,
             'day_no': day_num,
             'test_accuracy': float(accuracy),
-            'test_f1': float(f1_accept),
-            'test_recall': float(recall_accept),
-            'test_precision': float(precision_accept),
-            'test_specificity': float(specificity),
-            'test_roc_auc': float(roc_auc) if roc_auc is not None else None,
             'test_f1_acceptable': float(f1_accept),
             'test_f1_notacceptable': float(f1_notaccept),
             'test_recall_acceptable': float(recall_accept),
             'test_recall_notacceptable': float(recall_notaccept),
             'test_precision_acceptable': float(precision_accept),
             'test_precision_notacceptable': float(precision_notaccept),
+            'test_specificity': float(specificity),
+            'test_roc_auc': float(roc_auc) if roc_auc is not None else None,
             'best_params': info["best_params"],
             'threshold_used': float(threshold_used),
             'confusion_matrix': {
@@ -793,20 +795,30 @@ def train_metabolite_classifier_per_day(
         plt.close()
         print(f"  Saved confusion matrix to {day_dir / 'confusion_matrix.png'}")
 
-        results_summary.append({
+        # Flatten results for summary CSV
+        row = {
             'Day': days,
             'Day_No': day_num,
             'Test_Accuracy': accuracy,
             'Test_F1_Acceptable': f1_accept,
+            'Test_F1_NotAcceptable': f1_notaccept,
             'Test_Recall_Acceptable': recall_accept,
+            'Test_Recall_NotAcceptable': recall_notaccept,
             'Test_Precision_Acceptable': precision_accept,
+            'Test_Precision_NotAcceptable': precision_notaccept,
             'Test_Specificity': specificity,
             'Test_ROC_AUC': roc_auc if roc_auc is not None else None,
             'TP': int(tp),
             'FP': int(fp),
             'TN': int(tn),
-            'FN': int(fn)
-        })
+            'FN': int(fn),
+            'Threshold_Used': threshold_used,
+        }
+        # Flatten best_params
+        for k, v in info["best_params"].items():
+            row[f"BestParam_{k}"] = v
+            
+        results_summary.append(row)
 
     if not results_summary:
         print("\n⚠ No results to summarize")
@@ -825,35 +837,39 @@ def train_metabolite_classifier_per_day(
     # Metrics-by-day plots
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-    axes[0, 0].plot(summary_df['Day_No'], summary_df['Test_Accuracy'], 'o-')
-    axes[0, 0].set_title('Test Accuracy by Day')
+    # 1. Test F1 (Not Acceptable)
+    axes[0, 0].plot(summary_df['Day_No'], summary_df['Test_F1_NotAcceptable'], 'o-', color='orange')
+    axes[0, 0].set_title('Test F1 Score (Not Acceptable)')
     axes[0, 0].set_xlabel('Day')
-    axes[0, 0].set_ylabel('Accuracy')
+    axes[0, 0].set_ylabel('F1 Score')
     axes[0, 0].grid(True, alpha=0.3)
     axes[0, 0].set_ylim([0, 1])
 
-    axes[0, 1].plot(summary_df['Day_No'], summary_df['Test_F1_Acceptable'], 'o-')
-    axes[0, 1].set_title('Test F1 Score (Acceptable) by Day')
+    # 2. Test F1 (Acceptable)
+    axes[0, 1].plot(summary_df['Day_No'], summary_df['Test_F1_Acceptable'], 'o-', color='blue')
+    axes[0, 1].set_title('Test F1 Score (Acceptable)')
     axes[0, 1].set_xlabel('Day')
     axes[0, 1].set_ylabel('F1 Score')
     axes[0, 1].grid(True, alpha=0.3)
     axes[0, 1].set_ylim([0, 1])
 
+    # 3. Test Specificity
+    axes[1, 0].plot(summary_df['Day_No'], summary_df['Test_Specificity'], 'o-', color='purple')
+    axes[1, 0].set_title('Test Specificity (TNR)')
+    axes[1, 0].set_xlabel('Day')
+    axes[1, 0].set_ylabel('Specificity')
+    axes[1, 0].grid(True, alpha=0.3)
+    axes[1, 0].set_ylim([0, 1])
+
+    # 4. Test ROC-AUC
     auc_data = summary_df.dropna(subset=['Test_ROC_AUC'])
     if len(auc_data) > 0:
-        axes[1, 0].plot(auc_data['Day_No'], auc_data['Test_ROC_AUC'], 'o-')
-        axes[1, 0].set_title('Test ROC-AUC by Day')
-        axes[1, 0].set_xlabel('Day')
-        axes[1, 0].set_ylabel('ROC-AUC')
-        axes[1, 0].grid(True, alpha=0.3)
-        axes[1, 0].set_ylim([0, 1])
-
-    axes[1, 1].plot(summary_df['Day_No'], summary_df['Test_Recall_Acceptable'], 'o-')
-    axes[1, 1].set_title('Test Recall (Acceptable) by Day')
-    axes[1, 1].set_xlabel('Day')
-    axes[1, 1].set_ylabel('Recall')
-    axes[1, 1].grid(True, alpha=0.3)
-    axes[1, 1].set_ylim([0, 1])
+        axes[1, 1].plot(auc_data['Day_No'], auc_data['Test_ROC_AUC'], 'o-', color='green')
+        axes[1, 1].set_title('Test ROC-AUC')
+        axes[1, 1].set_xlabel('Day')
+        axes[1, 1].set_ylabel('ROC-AUC')
+        axes[1, 1].grid(True, alpha=0.3)
+        axes[1, 1].set_ylim([0, 1])
 
     plt.tight_layout()
     plt.savefig(model_dir / 'metrics_by_day.png', dpi=150)
@@ -866,71 +882,17 @@ def train_metabolite_classifier_per_day(
     print(f"{'='*60}\n")
 
 
-# --- PRESETS ---
-PRESETS = {
-    "per_day_noscale_main": {
-        "model_name": "lgbm_per_day_noscale",           # base
-        "boosting_type": "gbdt",
-        "threshold_mode": "per_day",
-        "weight_mode": "both",
-        "use_scaling": False,
-        "cv_scoring": "f1_weighted"
-    },
-    "per_day_noscale_classweight": {
-        "model_name": "lgbm_per_day_noscale",           # same base
-        "boosting_type": "gbdt",
-        "threshold_mode": "per_day",
-        "weight_mode": "class_weight_only",
-        "use_scaling": False,
-        "cv_scoring": "f1_weighted"
-    },
-    "per_day_f1_notaccept": {
-        "model_name": "lgbm_per_day_noscale",           # same base
-        "boosting_type": "gbdt",
-        "threshold_mode": "per_day",
-        "weight_mode": "both",
-        "use_scaling": True,
-        "cv_scoring": "f1_notaccept"
-    },
-    "per_day_noscale_f1_notaccept": {
-        "model_name": "lgbm_per_day_noscale",           # same base
-        "boosting_type": "gbdt",
-        "threshold_mode": "per_day",
-        "weight_mode": "both",
-        "use_scaling": False,
-        "cv_scoring": "f1_notaccept"
-    },
-    "per_day_noscale_classweight_f1_notaccept": {
-        "model_name": "lgbm_per_day_noscale",           # same base
-        "boosting_type": "gbdt",
-        "threshold_mode": "per_day",
-        "weight_mode": "class_weight_only",
-        "use_scaling": False,
-        "cv_scoring": "f1_notaccept"
-    },
-    # ... rest of your presets unchanged ...
-}
-
 def main():
     """Main training function with CLI."""
-    parser = argparse.ArgumentParser(description="Train Metabolite Classifiers with Presets")
-    parser.add_argument("--preset", action="append", default=[],
-                        help=f"Preset configuration to run. Choices: {list(PRESETS.keys())}. "
-                             "Can be specified multiple times to run multiple presets sequentially. "
-                             "If not specified, defaults to 'per_day_noscale_main'.")
-    parser.add_argument("--weight_mode", choices=["both", "class_weight_only", "scale_pos_only"],
-                        help="Override weight_mode for the selected preset(s).")
-    parser.add_argument("--use_scaling", type=str, choices=["true", "false", "True", "False"],
-                        help="Override use_scaling for the selected preset(s).")
-    parser.add_argument("--cv_scoring", choices=["f1_weighted", "balanced_accuracy", "f1_notaccept"],
-                        help="Override cv_scoring for the selected preset(s).")
-    parser.add_argument("--threshold_mode", choices=["per_day"],
-                        help="Override threshold_mode (only 'per_day' supported).")
+    parser = argparse.ArgumentParser(description="Train Metabolite Classifiers (Simplified)")
+    parser.add_argument("--cv_scoring", choices=["f1_weighted", "f1_notaccept", "macro_f1"],
+                        default="f1_weighted",
+                        help="Metric to optimize during GridSearch CV.")
+    parser.add_argument("--threshold_metric", choices=["f1_weighted", "f1_notaccept", "macro_f1"],
+                        default="f1_weighted",
+                        help="Metric to optimize during threshold tuning on validation set.")
 
     args = parser.parse_args()
-
-    # Default preset if none specified
-    presets_to_run = args.preset if args.preset else ["per_day_noscale_main"]
 
     train_data_path = 'data_splits/both_train_base.json'
     val_data_path = 'data_splits/both_val_base.json'
@@ -959,54 +921,18 @@ def main():
     val_df = compute_growth_features(val_df)
     test_df = compute_growth_features(test_df)
 
-    print("\n" + "!"*60)
-    print("WARNING: Previous threshold-tuned results that used TEST data for tuning")
-    print("were leaky and should be discarded. This script uses VALIDATION ONLY.")
-    print("!"*60 + "\n")
+    # Construct model name based on args
+    model_name = f"lgbm_per_day_noscale_cv_{args.cv_scoring}_thresh_{args.threshold_metric}"
 
-    for preset_name in presets_to_run:
-        if preset_name not in PRESETS:
-            print(f"Error: Unknown preset '{preset_name}'. Skipping.")
-            continue
-
-        config = PRESETS[preset_name].copy()
-
-        # Apply overrides
-        if args.weight_mode:
-            config["weight_mode"] = args.weight_mode
-        if args.use_scaling is not None:
-            config["use_scaling"] = (args.use_scaling.lower() == "true")
-        if args.cv_scoring:
-            config["cv_scoring"] = args.cv_scoring
-        if args.threshold_mode:
-            config["threshold_mode"] = args.threshold_mode
-
-        # 🔧 NEW: build a unique model_name suffix based on weight_mode + cv_scoring
-        base_name = config["model_name"]
-        name_parts = [base_name]
-
-        if config["weight_mode"] == "class_weight_only":
-            name_parts.append("classweight")
-
-        # (You can add something for scale_pos_only if you care later)
-
-        if config["cv_scoring"] == "f1_weighted":
-            name_parts.append("f1_weighted")
-        elif config["cv_scoring"] == "f1_notaccept":
-            name_parts.append("f1_notaccept")
-
-        config["model_name"] = "_".join(name_parts)
-
-        print(f"\nRunning preset: {preset_name}")
-        print(f"Configuration: {config}")
-
-        train_metabolite_classifier_per_day(
-            train_df,
-            val_df,
-            test_df,
-            output_dir,
-            **config
-        )
+    train_metabolite_classifier_per_day(
+        train_df,
+        val_df,
+        test_df,
+        output_dir,
+        model_name=model_name,
+        cv_scoring=args.cv_scoring,
+        threshold_metric=args.threshold_metric
+    )
 
 
 if __name__ == '__main__':
