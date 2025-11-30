@@ -869,7 +869,7 @@ def train_metabolite_classifier_per_day(
 # --- PRESETS ---
 PRESETS = {
     "per_day_noscale_main": {
-        "model_name": "lgbm_per_day_noscale",
+        "model_name": "lgbm_per_day_noscale",           # base
         "boosting_type": "gbdt",
         "threshold_mode": "per_day",
         "weight_mode": "both",
@@ -877,47 +877,39 @@ PRESETS = {
         "cv_scoring": "f1_weighted"
     },
     "per_day_noscale_classweight": {
-        "model_name": "lgbm_per_day_noscale_classweight",
+        "model_name": "lgbm_per_day_noscale",           # same base
         "boosting_type": "gbdt",
         "threshold_mode": "per_day",
         "weight_mode": "class_weight_only",
         "use_scaling": False,
         "cv_scoring": "f1_weighted"
     },
-    "per_day_scale_pos": {
-        "model_name": "lgbm_per_day_scale_pos_only",
-        "boosting_type": "gbdt",
-        "threshold_mode": "per_day",
-        "weight_mode": "scale_pos_only",
-        "use_scaling": True,
-        "cv_scoring": "f1_weighted"
-    },
-    "per_day_balacc": {
-        "model_name": "lgbm_per_day_balanced_accuracy",
-        "boosting_type": "gbdt",
-        "threshold_mode": "per_day",
-        "weight_mode": "both",
-        "use_scaling": True,
-        "cv_scoring": "balanced_accuracy"
-    },
     "per_day_f1_notaccept": {
-        "model_name": "lgbm_per_day_f1_notaccept",
+        "model_name": "lgbm_per_day_noscale",           # same base
         "boosting_type": "gbdt",
         "threshold_mode": "per_day",
         "weight_mode": "both",
         "use_scaling": True,
         "cv_scoring": "f1_notaccept"
     },
-    "per_day_baseline": {
-        "model_name": "lgbm_per_day_baseline",
+    "per_day_noscale_f1_notaccept": {
+        "model_name": "lgbm_per_day_noscale",           # same base
         "boosting_type": "gbdt",
         "threshold_mode": "per_day",
         "weight_mode": "both",
-        "use_scaling": True,
-        "cv_scoring": "f1_weighted"
-    }
+        "use_scaling": False,
+        "cv_scoring": "f1_notaccept"
+    },
+    "per_day_noscale_classweight_f1_notaccept": {
+        "model_name": "lgbm_per_day_noscale",           # same base
+        "boosting_type": "gbdt",
+        "threshold_mode": "per_day",
+        "weight_mode": "class_weight_only",
+        "use_scaling": False,
+        "cv_scoring": "f1_notaccept"
+    },
+    # ... rest of your presets unchanged ...
 }
-
 
 def main():
     """Main training function with CLI."""
@@ -988,6 +980,22 @@ def main():
             config["cv_scoring"] = args.cv_scoring
         if args.threshold_mode:
             config["threshold_mode"] = args.threshold_mode
+
+        # 🔧 NEW: build a unique model_name suffix based on weight_mode + cv_scoring
+        base_name = config["model_name"]
+        name_parts = [base_name]
+
+        if config["weight_mode"] == "class_weight_only":
+            name_parts.append("classweight")
+
+        # (You can add something for scale_pos_only if you care later)
+
+        if config["cv_scoring"] == "f1_weighted":
+            name_parts.append("f1_weighted")
+        elif config["cv_scoring"] == "f1_notaccept":
+            name_parts.append("f1_notaccept")
+
+        config["model_name"] = "_".join(name_parts)
 
         print(f"\nRunning preset: {preset_name}")
         print(f"Configuration: {config}")
