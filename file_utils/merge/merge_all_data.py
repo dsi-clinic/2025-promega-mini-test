@@ -2,15 +2,32 @@
 # Standard
 import argparse
 import dataclasses
+import datetime
 import json
+import logging
 import math
 import re
 import typing
 from pathlib import Path
+
+from rich.logging import RichHandler
 from tqdm import tqdm
 
 # Application
 from file_utils.common.organoid_patterns import OrganoidNormalizer
+from file_utils.merge.normalized_records import (
+    RecordMetrics,
+    OrganoidRecordBuilder,
+    ImageClassifierEmitter,
+    SurveyClassifierEmitter,
+    emit_views,
+)
+
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO,
+                    handlers=[RichHandler()])
 
 # ---------- helpers ----------
 @dataclasses.dataclass
@@ -20,6 +37,13 @@ class Config:
     })
     out_dir: Path = dataclasses.field(metadata={
         "help": "Path to output directory where results will be saved"
+    })
+    min_survey_votes: int = dataclasses.field(default=4, metadata={
+        "help": "Minimum number of votes required to indicate acceptable" \
+                + "or not acceptable survey results"
+    })
+    survey_day: int = dataclasses.field(default=30, metadata={
+        "help": "Day that survey was conducted"
     })
     target_width: int = dataclasses.field(default=512, metadata={
         "help": "Target input image width (pixels)"
@@ -33,6 +57,9 @@ class Config:
     METABOLITE_MAP_JSON: typing.ClassVar[str] = "metabolite_map.json"
     SURVEY_AGGREGATED_JSON: typing.ClassVar[str] = "organoid_surveys_aggregated.json"
     ALL_DATA_JSON: typing.ClassVar[str] = "all_data.json"
+    IMAGE_CLASSIFIER: typing.ClassVar[str] = "image_classifier.json"
+    SURVEY_CLASSIFIER: typing.ClassVar[str] = "survey_classifier.json"
+    SCHEMA_VERSION: typing.ClassVar[int] = 1
 
     def __post_init__(self):
         # Basic validation / normalization
@@ -49,12 +76,13 @@ class DataSources(typing.NamedTuple):
     survey_json: dict
     manual_mask_map: dict
     found_files: list
+    preprocessed_files: list
 
 def get_args():
     arg_parser = create_args()
     args = arg_parser.parse_args()
     for key,val in vars(args).items():
-        print(f"{key}: {val}")
+        logging.info(f"{key}: {val}")
     cfg = Config(**vars(args))
     return cfg
 
@@ -82,25 +110,29 @@ def create_args() -> argparse.ArgumentParser:
 def load_data_sources(cfg):
     """Load data sources and return NamedTuple with source data in memory."""
     original_mapping = cfg.in_dir.joinpath("json", cfg.ORIGINAL_MAPPING_JSON)
-    print(f"Loading base mapping: {original_mapping}")
+    logging.info(f"Loading base mapping: {original_mapping}")
     base_json = load_json(original_mapping)
     base_map = base_json.get("entries", {})
 
     metabolite_map = cfg.in_dir.joinpath("json", cfg.METABOLITE_MAP_JSON)
-    print(f"Loading metabolite map: {metabolite_map}")
+    logging.info(f"Loading metabolite map: {metabolite_map}")
     metab_map = load_json(metabolite_map)
 
     survey_aggregated = cfg.in_dir.joinpath("json", cfg.SURVEY_AGGREGATED_JSON)
-    print(f"Loading survey data: {survey_aggregated}")
+    logging.info(f"Loading survey data: {survey_aggregated}")
     survey_json = load_json(survey_aggregated)
 
     manual_threshold = cfg.in_dir.joinpath("json", cfg.MANUAL_THRESHOLD_MAPPING_JSON)
-    print(f"Loading manual threshold mapping: {manual_threshold}")
+    logging.info(f"Loading manual threshold mapping: {manual_threshold}")
     manual_mask_map = load_json(manual_threshold)
 
     infer_resized_dir = cfg.in_dir.joinpath("images", cfg.infer_resized_dir)
     found_files = list(infer_resized_dir.rglob("image_mapping*_processed.json"))
-    print(f"Located {len(found_files)} files in {infer_resized_dir}")
+    logging.info(f"Located {len(found_files)} processed files in {infer_resized_dir}")
+
+    preprocessed_files_dir = cfg.in_dir.joinpath("json", "preprocessed")
+    preprocessed_files = list(preprocessed_files_dir.rglob("*"))
+    logging.info(f"Located {len(preprocessed_files)} preprocessed files in {preprocessed_files_dir}")
 
     return DataSources(
         base_map=base_map,
@@ -108,6 +140,7 @@ def load_data_sources(cfg):
         survey_json=survey_json,
         manual_mask_map=manual_mask_map,
         found_files=found_files,
+        preprocessed_files=preprocessed_files
     )
 
 def load_json(path: Path | str):
@@ -143,15 +176,16 @@ def normalize_manual_mask_map(manual_mask_map, in_dir):
             norm_key = OrganoidNormalizer.normalize_key(raw_key)
         except ValueError:
             norm_key = OrganoidNormalizer.clean_string(raw_key).upper()
+
+        best_z = in_dir.joinpath("images", "raw_images", Path(manual_data["Best Z Filename"]).name)
+        check_existence(best_z)
+        manual_data["Best Z Filename"] = str(best_z)
+
+        mask_path = in_dir.joinpath("masks", "manual", Path(manual_data["MT Mask Path"]).name)
+        check_existence(mask_path)
+        manual_data["MT Mask Path"] = str(mask_path)
+
         manual_mask_normalized[norm_key] = manual_data
-
-        best_z = ("images", "raw_images") + Path(manual_data["Best Z Filename"]).parts[6:]
-        manual_data["Best Z Filename"] = in_dir.joinpath(*best_z)
-        check_existence(manual_data["Best Z Filename"])
-
-        mt_mask = ("masks",) + Path(manual_data["MT Mask Path"]).parts[6:]
-        manual_data["MT Mask Path"] = in_dir.joinpath(*mt_mask)
-        check_existence(manual_data["Best Z Filename"])
 
     return manual_mask_normalized
 
@@ -169,24 +203,43 @@ def build_processed_files_map(found_files, in_dir, infer_resized_dir):
     for p in found_files:
         raw = load_json(p)
         for batch_data in raw.values():
-            img_path = ("images", infer_resized_dir) + Path(batch_data["img_path"]).parts[7:]
-            batch_data["img_path"] = in_dir.joinpath(*img_path)
-            check_existence(batch_data["img_path"])
+            img_path = in_dir.joinpath("images", infer_resized_dir, Path(batch_data["img_path"]).name)
+            check_existence(img_path)
+            batch_data["img_path"] = str(img_path)
 
-            mask_path = ("predictions",) + Path(batch_data["mask_path"]).parts[6:]
-            batch_data["mask_path"] = in_dir.joinpath(*mask_path)
-            check_existence(batch_data["mask_path"])
-
-            overlay_path = ("predictions",) + Path(batch_data["overlay_path"]).parts[6:]
-            batch_data["overlay_path"] = in_dir.joinpath(*overlay_path)
-            check_existence(batch_data["overlay_path"])
+            mask_path = in_dir.joinpath("masks", "predicted", Path(batch_data["mask_path"]).name)
+            check_existence(mask_path)
+            batch_data["mask_path"] = str(mask_path)
 
         processed_map.update(raw)
 
     return processed_map
 
+def build_preprocessed_map(files, in_dir, infer_resized_dir):
+    """Build and return a dictionary of preprocessed JSON data."""
+    preprocessed_map = {}
+    for file in files:
+        raw = load_json(file)
+        for batch_data in raw:
+            img_path = in_dir.joinpath("images", infer_resized_dir, Path(batch_data["img_path"]).name)
+            check_existence(img_path)
+            batch_data["img_path"] = str(img_path)
+
+            mask_path = in_dir.joinpath("masks", "predicted", Path(batch_data["mask_path"]).name)
+            check_existence(mask_path)
+            batch_data["mask_path"] = str(mask_path)
+
+            overlay_path = in_dir.joinpath("masks", "image_overlays", Path(batch_data["overlay_path"]).name)
+            check_existence(overlay_path)
+            batch_data["overlay_path"] = str(overlay_path)
+
+            main_id = batch_data["metadata_key"]
+            preprocessed_map[main_id] = batch_data
+
+    return preprocessed_map
+
 def merge_data_sources(base_map, survey_map, metab_map, manual_mask_normalized,
-                       processed_map):
+                       processed_map, preprocessed_map):
     """Merge and return dictionary of all data sources plus number of masks."""
     combined = {}
     manual_mask_count = 0
@@ -205,6 +258,11 @@ def merge_data_sources(base_map, survey_map, metab_map, manual_mask_normalized,
         if processed:
             entry["processed"] = processed
             entry["main_id"] = processed.get("main_id")
+
+        # Match preprocessed info
+        preprocessed = preprocessed_map.get(raw_k) or preprocessed_map.get(normalized_parent_key(raw_k))
+        if preprocessed:
+            entry["preprocessed"] = preprocessed
 
         norm_key_parent = normalized_parent_key(raw_k)
 
@@ -254,6 +312,66 @@ def extract_mdl_day(day_id: str) -> float:
         return day_num
     return None
 
+def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count, manual_mask_count, combined):
+    builder = OrganoidRecordBuilder(
+        min_survey_votes=cfg.min_survey_votes,
+        survey_day=cfg.survey_day,
+        target_size=(cfg.target_width, cfg.target_height),
+        record_metrics = RecordMetrics()
+    )
+    records = { source_id.replace(" ", "_"): builder.build(source_id, entry) for source_id, entry in combined.items() }
+    payload = {
+        "schema_version": cfg.SCHEMA_VERSION,
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "stats": {
+            "total_records": len(records),
+            "survey_matches": survey_matched_count,
+            "survey_not_matched": survey_not_matched_count,
+            "manual_masks": manual_mask_count,
+        },
+        "records": { source_id: record.to_dict() for source_id, record in records.items() },
+    }
+    payload["stats"].update(builder.record_metrics.to_dict())
+
+    # ---------- sanitize and write output for all data ----------
+    logging.info("Sanitizing data for JSON...")
+    payload_clean = sanitize_for_json(payload)
+
+    out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
+    write_json(out_file, payload_clean)
+
+    return records, payload["stats"]
+
+def generate_views(records, cfg, stats):
+    """Generate image and survey classifier views on the data."""
+    views = emit_views(
+        records,
+        [
+            ImageClassifierEmitter(),
+            SurveyClassifierEmitter(survey_day=cfg.survey_day, min_votes=cfg.min_survey_votes),
+        ],
+    )
+    payload_clean = sanitize_for_json(views)
+
+    out_file = cfg.out_dir.joinpath("json", cfg.IMAGE_CLASSIFIER)
+    payload_clean["image_classifier"]["metadata"]["num_img_split"] = stats["num_img_split"]
+    payload_clean["image_classifier"]["metadata"]["num_img_stitched"] = stats["num_img_stitched"]
+    payload_clean["image_classifier"]["metadata"]["num_img_no_label"] = stats["num_img_no_label"]
+    write_json(out_file, payload_clean["image_classifier"])
+
+    out_file = cfg.out_dir.joinpath("json", cfg.SURVEY_CLASSIFIER)
+    payload_clean["survey_classifier"]["metadata"]["num_ambiguous"] = stats["num_ambiguous_votes"]
+    payload_clean["survey_classifier"]["metadata"]["num_acceptable_votes"] = stats["num_acceptable_votes"]
+    payload_clean["survey_classifier"]["metadata"]["num_not_acceptable_votes"] = stats["num_not_acceptable_votes"]
+    write_json(out_file, payload_clean["survey_classifier"])
+
+    return {
+        "num_days_image": len(views["image_classifier"]["records"].keys()),
+        "num_days_image_skipped": views["image_classifier"]["metadata"]["total_skipped"],
+        "num_days_survey": len(views["survey_classifier"]["records"].keys()),
+        "num_days_survey_skipped": views["survey_classifier"]["metadata"]["total_skipped"],
+    }
+
 def sanitize_for_json(obj):
     """
     Recursively sanitize data to be JSON-safe.
@@ -279,6 +397,27 @@ def sanitize_for_json(obj):
             pass
         return str(obj)
 
+def write_json(out_file, payload):
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_file, "w") as f:
+        json.dump(payload, f, indent=2)
+
+def print_stats(stats, out_file):
+    logging.info(f"Wrote {stats['total_records']:,} merged records → {out_file}")
+
+    logging.info(f"Number of days for survey classifier {stats['num_days_survey']:,}")
+    logging.info(f"Number of skipped organoid observations for survey classifier: {stats['num_days_survey_skipped']}")
+    logging.info(f"Survey matches: {stats['survey_matches']:,}")
+    logging.info(f"Survey not matched: {stats['survey_not_matched']:,}")
+    logging.info(f"Number of ambiguous labels: {stats['num_ambiguous_votes']:,}")
+
+    logging.info(f"Found {stats['manual_masks']:,} manual masks")
+
+    logging.info(f"Number of days for image classifer: {stats['num_days_image']:,}")
+    logging.info(f"Number of skipped organoid observations for image classifier: {stats['num_days_image_skipped']}")
+
+    logging.info(f"Number of metabolite outliers: {stats['num_metabolite_outliers']}")
+
 def main():
     # ---------- command line arguments ----------
     cfg = get_args()
@@ -287,37 +426,42 @@ def main():
     sources = load_data_sources(cfg)
 
     # Build survey map keyed by image_id or parent
-    print("Building survey map by (main_id, split_index)...")
+    logging.info("Building survey map by (main_id, split_index)...")
     survey_map = build_survey_map(sources.survey_json)
-    print(f"Built survey map with {len(survey_map)} unique (main_id, split_index) pairs")
+    logging.info(f"Built survey map with {len(survey_map)} unique (main_id, split_index) pairs")
 
     # Build manual mask map with normalized keys
-    print("Normalizing keys for manual mask map...")
+    logging.info("Normalizing keys for manual mask map...")
     manual_mask_normalized = normalize_manual_mask_map(sources.manual_mask_map, cfg.in_dir)
 
     # Load processed JSONs
-    print("Loading processed files JSON data...")
+    logging.info("Loading processed files JSON data...")
     processed_map = build_processed_files_map(sources.found_files, cfg.in_dir, cfg.infer_resized_dir)
 
+    # Load preprocessed JSONs
+    logging.info("Loading preprocessed files JSON data...")
+    preprocessed_map = build_preprocessed_map(sources.preprocessed_files, cfg.in_dir, cfg.infer_resized_dir)
+
     # ---------- merge ----------
-    print("Merging data sources...")
+    logging.info("Merging data sources...")
     combined, survey_matched_count, survey_not_matched_count, manual_mask_count = merge_data_sources(
         sources.base_map, survey_map, sources.metab_map, manual_mask_normalized,
-        processed_map
+        processed_map, preprocessed_map
     )
 
-    # ---------- sanitize and write output ----------
-    print("\nSanitizing data for JSON...")
-    combined_clean = sanitize_for_json(combined)
+    # ---------- normalize ----------
+    logging.info("Normalizing merged records...")
+    records, stats = build_normalized_records(cfg, survey_matched_count, survey_not_matched_count, manual_mask_count, combined)
 
-    out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
-    with open(out_file, "w") as f:
-        json.dump(combined_clean, f, indent=2)
+    # ---------- emit views ----------
+    logging.info("Generating derived views...")
+    view_stats = generate_views(records, cfg, stats)
+    stats.update(view_stats)
 
-    print(f"\nWrote {len(combined_clean):,} merged records → {out_file}")
-    print(f"Survey matches: {survey_matched_count:,}")
-    print(f"Survey not matched: {survey_not_matched_count:,}")
-    print(f"Found {manual_mask_count:,} manual masks")
+    # ----------  print top-level data stats ----------
+    print_stats(stats, cfg.ALL_DATA_JSON)
+
+
 
 if __name__ == "__main__":
     main()

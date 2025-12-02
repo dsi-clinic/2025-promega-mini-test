@@ -32,3 +32,4 @@ dependencies:
     - ipython
     - jupyter_client
     - jupyter_core
+    - rich
