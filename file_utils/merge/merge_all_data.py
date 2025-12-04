@@ -57,6 +57,7 @@ class Config:
     METABOLITE_MAP_JSON: typing.ClassVar[str] = "metabolite_map.json"
     SURVEY_AGGREGATED_JSON: typing.ClassVar[str] = "organoid_surveys_aggregated.json"
     ALL_DATA_JSON: typing.ClassVar[str] = "all_data.json"
+    SUMMARY_JSON: typing.ClassVar[str] = "summary.json"
     IMAGE_CLASSIFIER: typing.ClassVar[str] = "image_classifier.json"
     SURVEY_CLASSIFIER: typing.ClassVar[str] = "survey_classifier.json"
     SCHEMA_VERSION: typing.ClassVar[int] = 1
@@ -320,27 +321,27 @@ def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count
         record_metrics = RecordMetrics()
     )
     records = { source_id.replace(" ", "_"): builder.build(source_id, entry) for source_id, entry in combined.items() }
-    payload = {
-        "schema_version": cfg.SCHEMA_VERSION,
-        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "stats": {
+    stats = {
             "total_records": len(records),
             "survey_matches": survey_matched_count,
             "survey_not_matched": survey_not_matched_count,
             "manual_masks": manual_mask_count,
-        },
-        "records": { source_id: record.to_dict() for source_id, record in records.items() },
-    }
-    payload["stats"].update(builder.record_metrics.to_dict())
+        }
+    stats.update(builder.record_metrics.to_dict())
 
     # ---------- sanitize and write output for all data ----------
     logging.info("Sanitizing data for JSON...")
-    payload_clean = sanitize_for_json(payload)
+    records_dict = { source_id: record.to_dict() for source_id, record in records.items() }
+    records_clean = sanitize_for_json(records_dict)
+    stats_clean = sanitize_for_json(stats)
 
     out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
-    write_json(out_file, payload_clean)
+    write_json(out_file, records_clean)
 
-    return records, payload["stats"]
+    out_file = cfg.out_dir.joinpath("json", cfg.SUMMARY_JSON)
+    write_json(out_file, stats_clean)
+
+    return records, stats
 
 def generate_views(records, cfg, stats):
     """Generate image and survey classifier views on the data."""
