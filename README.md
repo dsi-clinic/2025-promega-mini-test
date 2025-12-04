@@ -405,6 +405,31 @@ python file_utils/merge/validate_schema.py data/output/json/all_data.json --stri
 python file_utils/merge/validate_schema.py data/output/json/all_data.json --quiet
 ```
 
+### Retrieve Main Identifiers (`file_utils/images/retrieve_main_identifiers.py`)
+
+**Entry Point**: `python file_utils/images/retrieve_main_identifiers.py`
+
+**Description**: Extracts and normalizes main identifiers from image filename bases in a CSV file. The script processes filename bases by:
+- Replacing split markers: `(1)%` → `split_1`, `(2)%` → `split_2`, `-2-%(stitched)` → `split_2`
+- Removing stitched markers: `(stitched)` → removed
+- Normalizing case: `Ba` → `BA`
+- Stripping trailing `%` characters
+
+**Required Arguments**:
+- `--csv-file`: Path to CSV file containing a `filename base` column
+- `--out-file`: Path to output JSON file where normalized identifiers will be saved
+
+**Example**:
+```bash
+python file_utils/images/retrieve_main_identifiers.py \
+    --csv-file input.csv \
+    --out-file main_identifiers.json
+```
+
+**Input/Output Example**:
+- Input filename base: `"Ba4 96_1 Dy28 C12(1)%"`
+- Output identifier: `"BA4 96_1 Dy28 C12 split_1"`
+
 ## Input Data Types
 
 The system processes three main types of input data:
