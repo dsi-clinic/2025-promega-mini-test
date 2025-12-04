@@ -30,6 +30,10 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
                     level=logging.INFO,
                     handlers=[RichHandler()])
 
+# Constants
+EXPECTED_TOTAL_RECORDS = 5168
+EXPECTED_NUM_LABELS = 301
+
 # ---------- helpers ----------
 @dataclasses.dataclass
 class Config:
@@ -52,7 +56,7 @@ class Config:
     target_height: int = dataclasses.field(default=384, metadata={
         "help": "Target input image height (pixels)"
     })
-    validate_schema: bool = dataclasses.field(default=True, metadata={
+    validate_schema: bool = dataclasses.field(default=False, metadata={
         "help": "Validate schema of generated all_data.json file"
     })
 
@@ -342,6 +346,8 @@ def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count
 
     # Validate the records before writing (in-memory validation)
     if cfg.validate_schema:
+        if not validate_data(stats_clean):
+            raise RuntimeError("Data validation failed")
         if not validate_json(records_clean):
             raise RuntimeError("Schema validation failed")
 
@@ -371,7 +377,7 @@ def generate_views(records, cfg, stats):
     write_json(out_file, payload_clean["image_classifier"])
 
     out_file = cfg.out_dir.joinpath("json", cfg.SURVEY_CLASSIFIER)
-    payload_clean["survey_classifier"]["metadata"]["num_ambiguous"] = stats["num_ambiguous_votes"]
+    payload_clean["survey_classifier"]["metadata"]["num_ambiguous"] = stats["num_no_majority"]
     payload_clean["survey_classifier"]["metadata"]["num_acceptable_votes"] = stats["num_acceptable_votes"]
     payload_clean["survey_classifier"]["metadata"]["num_not_acceptable_votes"] = stats["num_not_acceptable_votes"]
     write_json(out_file, payload_clean["survey_classifier"])
@@ -408,6 +414,23 @@ def sanitize_for_json(obj):
             pass
         return str(obj)
 
+def validate_data(stats: dict) -> bool:
+    """Validate the data before writing."""
+    logging.info("Validating data before writing...")
+    try:
+        assert stats['total_records'] == EXPECTED_TOTAL_RECORDS
+        assert stats['num_organoids'] == stats['total_records']
+        assert stats['num_img_paths'] == stats["total_records"]
+        assert stats['num_labels'] == EXPECTED_NUM_LABELS
+        assert stats['num_metabolites'] + stats['num_no_metabolite'] == stats['total_records']
+        assert stats['survey_matches'] + stats['survey_not_matched'] == stats['total_records']
+        assert stats['total_votes'] == stats['num_acceptable_votes'] + stats['num_not_acceptable_votes']
+        logging.info(f"Data validation passed")
+        return True
+    except AssertionError as e:
+        logging.warning(f"Data validation failed with exception: {e}")
+        return False
+
 def validate_json(records: dict) -> bool:
     """Validate the schema of the records before writing."""
     logging.info("Validating schema of records before writing...")
@@ -440,6 +463,7 @@ def write_json(out_file, payload):
     out_file.parent.mkdir(parents=True, exist_ok=True)
     with open(out_file, "w") as f:
         json.dump(payload, f, indent=2)
+    logging.info(f"Wrote :{out_file}")
 
 def print_stats(stats, out_file):
     logging.info(f"Wrote {stats['total_records']:,} merged records → {out_file}")
@@ -448,7 +472,7 @@ def print_stats(stats, out_file):
     logging.info(f"Number of skipped organoid observations for survey classifier: {stats['num_days_survey_skipped']}")
     logging.info(f"Survey matches: {stats['survey_matches']:,}")
     logging.info(f"Survey not matched: {stats['survey_not_matched']:,}")
-    logging.info(f"Number of ambiguous labels: {stats['num_ambiguous_votes']:,}")
+    logging.info(f"Number of ambiguous labels: {stats['num_no_majority']:,}")
 
     logging.info(f"Found {stats['manual_masks']:,} manual masks")
 

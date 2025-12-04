@@ -296,6 +296,7 @@ Create a `.env` file in the project root with these variables set to your local 
 - `--survey-day`: Day that survey was conducted (default: 30)
 - `--target-width`: Target image width in pixels (default: 512)
 - `--target-height`: Target image height in pixels (default: 384)
+- `--validate-schema`: Validate schema of generated `all_data.json` file (default: False)
 
 **Example**:
 ```bash
@@ -304,7 +305,8 @@ python file_utils/merge/merge_all_data.py \
     --out-dir /path/to/output \
     --min-survey-votes 4 \
     --target-width 512 \
-    --target-height 384
+    --target-height 384 \
+    --validate-schema
 ```
 
 ### Image Classifier (`analysis/images/classifier/train_model_accuracy.py`)
@@ -373,6 +375,34 @@ python simple_classifier.py \
     --target-height 224 \
     --seed 1 \
     --deterministic
+```
+
+### Schema Validation (`file_utils/merge/validate_schema.py`)
+
+**Entry Point**: `python file_utils/merge/validate_schema.py`
+
+**Required Arguments**:
+- `json_file`: Path to `all_data.json` file to validate
+
+**Optional Arguments**:
+- `--sample`: Number of records to sample for validation (default: validate all records)
+- `--strict`: Treat warnings as errors (default: False)
+- `--quiet`: Suppress validation report output, only show errors (default: False)
+- `--log-level`: Set logging level - DEBUG, INFO, WARNING, ERROR (default: INFO)
+
+**Example**:
+```bash
+# Validate entire file
+python file_utils/merge/validate_schema.py data/output/json/all_data.json
+
+# Validate sample of 100 records
+python file_utils/merge/validate_schema.py data/output/json/all_data.json --sample 100
+
+# Strict mode (treat warnings as errors)
+python file_utils/merge/validate_schema.py data/output/json/all_data.json --strict
+
+# Quiet mode (only show errors)
+python file_utils/merge/validate_schema.py data/output/json/all_data.json --quiet
 ```
 
 ## Input Data Types

@@ -68,6 +68,7 @@ class OrganoidRecord:
 class RecordMetrics:
     num_organoids: int = 0
 
+    num_img_paths: int = 0
     num_img_split: int = 0
     num_img_stitched: int = 0
     num_img_no_label: int = 0
@@ -79,7 +80,10 @@ class RecordMetrics:
 
     num_acceptable_votes: int = 0
     num_not_acceptable_votes: int = 0
-    num_ambiguous_votes: int = 0
+    num_no_majority: int = 0
+    total_votes: int = 0
+
+    num_labels: int = 0
 
     SPLIT_OR_STITCHED: ClassVar[dict] = {
         "NoSplitNoStitched": (0, 0),
@@ -299,6 +303,9 @@ class OrganoidRecordBuilder:
         self.record_metrics.num_img_stitched += stitched
         if split and stitched: logging.warning(f"{main_id}: Image has been split and stitched")
 
+        img_path = record.get("images", {}).get("processed", {}).get("img_path")
+        if img_path:
+            self.record_metrics.num_img_paths += 1
         img_label = record.get("images", {}).get("label", {}).get("value")
         if not img_label:
             self.record_metrics.num_img_no_label += 1
@@ -319,6 +326,7 @@ class OrganoidRecordBuilder:
 
         survey_votes = record.get("survey", {}).get("summary", {}).get("votes", {})
         if survey_votes:
+            self.record_metrics.total_votes += sum(survey_votes.values())
             if "Acceptable" in survey_votes.keys():
                 self.record_metrics.num_acceptable_votes += survey_votes["Acceptable"]
             if "Not Acceptable" in survey_votes.keys():
@@ -326,7 +334,9 @@ class OrganoidRecordBuilder:
 
             survey_label = record.get("survey", {}).get("label", {}).get("value")
             if not survey_label:
-                self.record_metrics.num_ambiguous_votes += 1
+                self.record_metrics.num_no_majority += 1
+            else:
+                self.record_metrics.num_labels += 1
 
 
 class ViewEmitter(Protocol):
