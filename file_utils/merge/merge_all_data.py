@@ -22,6 +22,7 @@ from file_utils.merge.normalized_records import (
     SurveyClassifierEmitter,
     emit_views,
 )
+from file_utils.merge.validate_schema import validate_all_data_json
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
@@ -50,6 +51,9 @@ class Config:
     })
     target_height: int = dataclasses.field(default=384, metadata={
         "help": "Target input image height (pixels)"
+    })
+    validate_schema: bool = dataclasses.field(default=True, metadata={
+        "help": "Validate schema of generated all_data.json file"
     })
 
     ORIGINAL_MAPPING_JSON: typing.ClassVar[str] = "image_mapping.json"
@@ -314,12 +318,14 @@ def extract_mdl_day(day_id: str) -> float:
     return None
 
 def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count, manual_mask_count, combined):
+    """Build normalized records and stats."""
     builder = OrganoidRecordBuilder(
         min_survey_votes=cfg.min_survey_votes,
         survey_day=cfg.survey_day,
         target_size=(cfg.target_width, cfg.target_height),
         record_metrics = RecordMetrics()
     )
+
     records = { source_id.replace(" ", "_"): builder.build(source_id, entry) for source_id, entry in combined.items() }
     stats = {
             "total_records": len(records),
@@ -329,15 +335,19 @@ def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count
         }
     stats.update(builder.record_metrics.to_dict())
 
-    # ---------- sanitize and write output for all data ----------
     logging.info("Sanitizing data for JSON...")
     records_dict = { source_id: record.to_dict() for source_id, record in records.items() }
     records_clean = sanitize_for_json(records_dict)
     stats_clean = sanitize_for_json(stats)
 
+    # Validate the records before writing (in-memory validation)
+    if cfg.validate_schema:
+        if not validate_json(records_clean):
+            raise RuntimeError("Schema validation failed")
+
+    # Write the records and stats to JSON files
     out_file = cfg.out_dir.joinpath("json", cfg.ALL_DATA_JSON)
     write_json(out_file, records_clean)
-
     out_file = cfg.out_dir.joinpath("json", cfg.SUMMARY_JSON)
     write_json(out_file, stats_clean)
 
@@ -397,6 +407,34 @@ def sanitize_for_json(obj):
         except (TypeError, ValueError):
             pass
         return str(obj)
+
+def validate_json(records: dict) -> bool:
+    """Validate the schema of the records before writing."""
+    logging.info("Validating schema of records before writing...")
+    try:
+        validation_results = validate_all_data_json(data=records, strict=True)
+
+        if validation_results['valid']:
+            valid = True
+            logging.info("Schema validation passed")
+
+        else:
+            valid = False
+            error_count = len(validation_results['errors'])
+            warning_count = len(validation_results['warnings'])
+            logging.warning(f"Schema validation found {error_count} errors and {warning_count} warnings")
+
+            # Log first few errors
+            for error in validation_results['errors'][:5]:
+                logging.warning(f"  - {error}")
+            if error_count > 5:
+                logging.warning(f"  ... and {error_count - 5} more errors")
+
+    except Exception as e:
+        valid = False
+        logging.warning(f"Schema validation failed with exception: {e}")
+
+    return valid
 
 def write_json(out_file, payload):
     out_file.parent.mkdir(parents=True, exist_ok=True)

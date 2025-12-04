@@ -297,7 +297,7 @@ class OrganoidRecordBuilder:
         split, stitched = self.record_metrics.SPLIT_OR_STITCHED[spl_stc_label]
         self.record_metrics.num_img_split += split
         self.record_metrics.num_img_stitched += stitched
-        if split and stitched: logging.warning(f"Image has been split and stitched: {main_id}")
+        if split and stitched: logging.warning(f"{main_id}: Image has been split and stitched")
 
         img_label = record.get("images", {}).get("label", {}).get("value")
         if not img_label:
@@ -424,7 +424,7 @@ class SurveyClassifierEmitter(BaseViewEmitter):
         mask_path = record.processed_mask_path
         label = record.survey_majority_label
 
-        if not eval or not record.day_id or not img_path or not mask_path \
+        if not evals or not record.day_id or not img_path or not mask_path \
             or label not in self.label_list:
             self._skipped_records_by_day[record.day_id].append(record.record_id)
             return
