@@ -73,6 +73,7 @@ class RecordMetrics:
     num_img_no_label: int = 0
 
     num_no_metabolite: int = 0
+    num_metabolites: int = 0
     num_metabolite_outliers: int = 0
     metabolite_outlier_counts: Counter = field(default_factory=Counter)
 
@@ -306,6 +307,7 @@ class OrganoidRecordBuilder:
         if not metabolite_data:
             self.record_metrics.num_no_metabolite += 1
         else:
+            self.record_metrics.num_metabolites += 1
             missing = set(self.record_metrics.METABOLITES) - set(metabolite_data)
             extra = set(metabolite_data) - set(self.record_metrics.METABOLITES)
             if missing or extra:
