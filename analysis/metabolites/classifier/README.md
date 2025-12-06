@@ -1,22 +1,25 @@
 # Metabolite Classifier
 
-This directory contains scripts for training LightGBM classifiers to predict organoid quality (Acceptable vs Not Acceptable) based on metabolite features.
+This directory contains scripts for training LightGBM classifiers to predict organoid quality (Acceptable vs Not Acceptable) based on metabolite features. Each script trains a separate model per day (Dy03, Dy06, etc.) since metabolite availability and patterns differ across timepoints.
 
 ## Training Models
 
 ### train_metabolites.py
 
-Main per-day classifier using LightGBM with metabolite concentration and growth features.
+Main per-day classifier using LightGBM with metabolite concentration and growth features. This is the primary model after extensive experimentation.
 
-**Fixed Parameters:**
-- `boosting_type="gbdt"`
-- `threshold_mode="per_day"`
-- `weight_mode="both"`
-- `use_scaling=False`
+**Fixed Parameters (hardcoded after testing):**
+- `boosting_type="gbdt"`: Gradient boosting (tested vs dart, goss)
+- `threshold_mode="per_day"`: Threshold tuned separately for each day on validation data (tested vs global threshold)
+- `weight_mode="both"`: Uses both `class_weight` and `scale_pos_weight` to handle class imbalance (tested vs each alone)
+- `use_scaling=False`: No StandardScaler applied; LightGBM handles unscaled features well (tested vs scaled)
 
 **Configurable Parameters:**
-- `cv_scoring`: Cross-validation scoring metric (`f1_weighted`, `f1_notaccept`, `macro_f1`)
-- `threshold_metric`: Classification threshold tuning metric (`f1_weighted`, `f1_notaccept`, `macro_f1`)
+- `cv_scoring`: Metric used during GridSearchCV hyperparameter tuning
+  - `f1_weighted`: Balances F1 across classes by support
+  - `f1_notaccept`: Optimizes for detecting "Not Acceptable" organoids (minority class)
+  - `macro_f1`: Equal weight to both classes regardless of support
+- `threshold_metric`: Metric used to tune classification threshold on validation set (same options as above)
 
 **Usage:**
 ```bash
@@ -28,12 +31,15 @@ python train_metabolites.py --cv_scoring f1_notaccept --threshold_metric f1_nota
 
 ### train_metabolites_SMOTE_THRES.py
 
-Variant using SMOTE oversampling to address class imbalance. Uses an imblearn Pipeline with SMOTE and LightGBM.
+Alternative approach using SMOTE oversampling to address class imbalance instead of class weighting. Uses an imblearn Pipeline combining SMOTE with LightGBM.
 
-**Key Differences:**
-- Applies SMOTE with `k_neighbors=3` to oversample minority class
-- Uses StratifiedKFold (not StratifiedGroupKFold) for cross-validation
-- Threshold tuning based on macro F1 score
+**Key Differences from main script:**
+- Applies SMOTE with `k_neighbors=3` to synthetically oversample the minority class before training
+- Uses StratifiedKFold (not StratifiedGroupKFold) since SMOTE cannot preserve group structure
+- Threshold tuning based on macro F1 score to balance both classes
+- No class weighting (relies on SMOTE instead)
+
+**Note:** This was an experimental approach. Results were comparable but SMOTE can be problematic with small datasets and doesn't respect organoid grouping.
 
 **Usage:**
 ```bash
@@ -44,7 +50,9 @@ python train_metabolites_SMOTE_THRES.py
 
 ### train_metabolites_trajectory.py
 
-Trajectory-based classification using multi-day metabolite histories to predict the final Day 30 label.
+Trajectory-based classification using multi-day metabolite histories to predict the final Day 30 label. Instead of training one model per day with single-day features, this flattens multiple days into one feature vector per organoid.
+
+**Motivation:** Test whether knowing an organoid's metabolite trajectory (change over time) improves prediction compared to single-day snapshots.
 
 **Experiments (4 variants):**
 1. `traj_late_Dy28`: Late-only trajectory (Dy24, Dy28) to predict at Dy28
@@ -52,7 +60,7 @@ Trajectory-based classification using multi-day metabolite histories to predict 
 3. `traj_late_Dy30`: Late-only trajectory (Dy24, Dy28, Dy30) to predict at Dy30
 4. `traj_allhist_Dy30`: All-history trajectory (all days <= 30) to predict at Dy30
 
-Each sample is one organoid with flattened multi-day features.
+The "late" variants use only the final 2-3 timepoints (hypothesis: late-stage metabolites are most predictive). The "allhist" variants use the full trajectory (hypothesis: cumulative patterns matter).
 
 **Usage:**
 ```bash
