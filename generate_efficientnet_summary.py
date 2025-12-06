@@ -152,7 +152,7 @@ def main():
         writer.writeheader()
         writer.writerows(summary_rows)
     
-    print(f"\n✓ Summary table saved to: {output_file}")
+    print(f"\n[OK] Summary table saved to: {output_file}")
     print(f"  Total rows: {len(summary_rows)}")
     print(f"  Days covered: {len(summary_rows)}")
     

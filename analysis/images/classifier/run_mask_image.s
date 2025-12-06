@@ -10,10 +10,12 @@
 set -euo pipefail
 
 # ====== adjust these paths ======
-PROJ_ROOT=/net/scratch/jiaweizhang/2025-promega-mini-test
+PROJ_ROOT=${PROJ_ROOT:-/home/tonyluo/minitest}
 PY=${PROJ_ROOT}/analysis/images/classifier/train_model_accuracy.py
-DATA_DIR=${PROJ_ROOT}/analysis/images/classifier/data/preprocessed/512x384/majority
-OUT_DIR=${PROJ_ROOT}/analysis/images/classifier/outputs_mask_image_noaugment
+TRAIN_SPLIT=${PROJ_ROOT}/data_splits/both_train_base.json
+VAL_SPLIT=${PROJ_ROOT}/data_splits/both_val_base.json
+TEST_SPLIT=${PROJ_ROOT}/data_splits/both_test_base.json
+OUT_DIR=${OUT_DIR:-/net/projects2/promega/results/outputs_mask_image}
 CONDA_PREFIX=/net/projects2/promega
 # ================================
 
@@ -28,15 +30,18 @@ USE_MASK=true
 
 echo "Conda prefix: ${CONDA_PREFIX}"
 nvidia-smi || true
-echo "Running ${PY}"
-echo "DATA_DIR=${DATA_DIR}"
+echo "Running ${PY} with fixed splits"
+echo "Train split: ${TRAIN_SPLIT}"
+echo "Val split: ${VAL_SPLIT}"
+echo "Test split: ${TEST_SPLIT}"
 echo "Combination: input_key=${INPUT_KEY}, use_mask=${USE_MASK}"
 
 ARGS=(
-  --data_dir "${DATA_DIR}"
+  --train-split "${TRAIN_SPLIT}"
+  --val-split "${VAL_SPLIT}"
+  --test-split "${TEST_SPLIT}"
   --batch-size 16
-  --val-frac 0.10
-  --test-frac 0.10
+  --val-batch-size 16
   --input-path-key "${INPUT_KEY}"
   --outdir "${OUT_DIR}"
 )
@@ -45,6 +50,9 @@ if [[ "${USE_MASK}" == true ]]; then
   ARGS+=(--use-mask)
 fi
 
-PYTHONPATH=. conda run -p "${CONDA_PREFIX}" python "${PY}" "${ARGS[@]}"
+cd "${PROJ_ROOT}"
+export PYTHONPATH="${PROJ_ROOT}:$PYTHONPATH"
+${CONDA_PREFIX}/bin/python3 -u "${PY}" "${ARGS[@]}"
 
 echo "Done."
+

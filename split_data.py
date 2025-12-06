@@ -1,15 +1,26 @@
 #!/usr/bin/env python3 -u
 """
-Reproducible train/val split for image and metabolite models.
+Unified reproducible train/val/test split for image and metabolite models.
 
 CRITICAL: Splits by ORGANOID, not by individual samples!
-This ensures the same organoid across all timepoints stays together in train or val.
+This ensures the same organoid across all timepoints stays together in train/val/test.
 Prevents data leakage when training on early days to predict Dy30 outcomes.
 
-Base mode: Only BA1+BA2 with both image and complete metabolite data
-Switch 1: Image gets additional BA1/BA2 image-only samples
-Switch 2: Include BA3/BA4 intersection (both image+metabolite)
-Switch 3: Image gets ALL data from all 4 batches
+HIGH QUALITY DATA ONLY:
+- BA1+BA2 batches only (high quality batches)
+- 4/5 vote consensus required for labels
+- Complete metabolite data required (all 4 metabolites)
+- Valid processed images required (img_path + mask_path)
+
+4 SWITCHES (Image Filtering Only):
+1. exclude_stitched_only: Exclude stitched images only (keep split)
+2. exclude_split_only: Exclude split/presplit images only (keep stitched)
+3. exclude_both: Exclude both stitched AND split/presplit images
+4. exclude_nothing: Include all images (no filtering)
+
+ORGANOID-LEVEL EXCLUSION:
+If ANY day has a problematic image type (per switch), the ENTIRE organoid
+is excluded from all days (including metabolite data).
 """
 import json
 import argparse
@@ -33,10 +44,10 @@ VAL_SIZE = 0.1   # 10% validation set (within the 80% training set)
 
 # Good metabolites (based on IDOR/Promega restrictions)
 # Always included:
-# - GlucoseGlo ✓
-# - GlutamateGlo ✓
-# - LactateGlo ✓
-# - PyruvateGlo ✓
+# - GlucoseGlo [OK]
+# - GlutamateGlo [OK]
+# - LactateGlo [OK]
+# - PyruvateGlo [OK]
 #
 # Conditionally included:
 # - MalateGlo: included for days >10, excluded for days ≤10 (inclusive)
@@ -49,12 +60,15 @@ MALATE_EXCLUSION_THRESHOLD_DAY = 10  # Don't use MalateGlo for days ≤10
 # Target day for survey labels (labels come from Dy30)
 LABEL_DAY = 'Dy30'
 
+# High quality batches only
+HIGH_QUALITY_BATCHES = ['BA1', 'BA2']
+
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
 
 def compute_majority_label(evaluations, min_votes=4):
-    """Compute majority label from survey evaluations."""
+    """Compute majority label from survey evaluations. Requires 4/5 votes for high quality."""
     if not evaluations or len(evaluations) != 5:
         return None
     
@@ -128,18 +142,99 @@ def has_valid_image_data(record):
             'mask_path' in record['processed'])
 
 # ============================================================
+# IMAGE TYPE FILTERING FUNCTIONS
+# ============================================================
+
+def is_stitched(common_key, img_path=None):
+    """Check if sample is stitched."""
+    common_key_lower = str(common_key).lower() if common_key else ""
+    img_path_lower = str(img_path).lower() if img_path else ""
+    
+    # Check for stitched, but allow "nostitch" patterns
+    if 'stitched' in common_key_lower:
+        if 'nostitch' in common_key_lower or 'no_stitch' in common_key_lower or 'no-stitch' in common_key_lower:
+            return False  # Explicitly not stitched
+        return True
+    
+    if img_path and 'stitched' in img_path_lower:
+        if 'nostitch' in img_path_lower or 'no_stitch' in img_path_lower or 'no-stitch' in img_path_lower:
+            return False  # Explicitly not stitched
+        return True
+    
+    return False
+
+def is_split_or_presplit(common_key, img_path=None):
+    """Check if sample is split or presplit."""
+    common_key_lower = str(common_key).lower() if common_key else ""
+    img_path_lower = str(img_path).lower() if img_path else ""
+    
+    # Check for presplit
+    if 'presplit' in common_key_lower or (img_path and 'presplit' in img_path_lower):
+        return True
+    
+    # Check for split (but NOT nosplit)
+    if 'split' in common_key_lower and 'nosplit' not in common_key_lower:
+        return True
+    
+    if img_path and 'split' in img_path_lower and 'nosplit' not in img_path_lower:
+        return True
+    
+    return False
+
+def should_exclude_image(common_key, img_path, switch_mode):
+    """
+    Determine if an image should be excluded based on switch mode.
+    
+    Args:
+        common_key: Common key from all_data.json
+        img_path: Image path string
+        switch_mode: One of 'exclude_stitched_only', 'exclude_split_only', 'exclude_both', 'exclude_nothing'
+    
+    Returns:
+        True if image should be excluded, False otherwise
+    """
+    if switch_mode == 'exclude_nothing':
+        return False
+    
+    is_stitched_flag = is_stitched(common_key, img_path)
+    is_split_flag = is_split_or_presplit(common_key, img_path)
+    
+    if switch_mode == 'exclude_stitched_only':
+        return is_stitched_flag
+    elif switch_mode == 'exclude_split_only':
+        return is_split_flag
+    elif switch_mode == 'exclude_both':
+        return is_stitched_flag or is_split_flag
+    
+    return False
+
+# ============================================================
 # DATA COLLECTION FUNCTIONS
 # ============================================================
 
-def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=True):
+def collect_organoid_data(all_data, switch_mode='exclude_nothing'):
     """
     Collect all timepoints for organoids, grouped by organoid ID.
-    Only include organoids that have Dy30 labels.
+    
+    HIGH QUALITY FILTERS APPLIED:
+    - Only BA1+BA2 batches
+    - Only organoids with Dy30 labels (4/5 vote consensus)
+    - Only organoids with complete metabolite data
+    - Only organoids with valid processed images
+    
+    ORGANOID-LEVEL EXCLUSION:
+    - If ANY day has problematic image type (per switch_mode), exclude ENTIRE organoid
+    - All timepoints and metabolite data are excluded for that organoid
+    
+    Args:
+        all_data: Full all_data.json dictionary
+        switch_mode: Image filtering mode ('exclude_stitched_only', 'exclude_split_only', 
+                    'exclude_both', 'exclude_nothing')
     
     Returns:
-    - organoid_dict: {organoid_id: {'label': ..., 'timepoints': {...}}}
+        organoid_dict: {organoid_id: {'label': ..., 'batch': ..., 'timepoints': {...}}}
     """
-    # First pass: get Dy30 labels for each organoid
+    # First pass: get Dy30 labels for each organoid (with high quality filters)
     organoid_labels = {}
     
     for key, value in all_data.items():
@@ -147,12 +242,12 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
         if value.get('dayID') != LABEL_DAY:
             continue
         
-        # Check batch
+        # Check batch (HIGH QUALITY: BA1+BA2 only)
         batch = get_batch_prefix(value.get('BA'))
-        if batch not in batches:
+        if batch not in HIGH_QUALITY_BATCHES:
             continue
         
-        # Get label from survey
+        # Get label from survey (HIGH QUALITY: 4/5 votes required)
         if 'survey' not in value:
             continue
         
@@ -165,10 +260,11 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
         organoid_id = extract_organoid_id(key)
         organoid_labels[organoid_id] = label
     
-    print(f"  Found {len(organoid_labels)} organoids with Dy30 labels in {batches}")
+    print(f"  Found {len(organoid_labels)} organoids with Dy30 labels in {HIGH_QUALITY_BATCHES}")
     
     # Second pass: collect all timepoints for labeled organoids
-    organoid_data = {}
+    # First, collect ALL timepoints for each organoid
+    organoid_all_timepoints = {}
     
     for key, value in all_data.items():
         # Extract organoid ID and check if it has a label
@@ -178,21 +274,21 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
         
         # Check batch
         batch = get_batch_prefix(value.get('BA'))
-        if batch not in batches:
+        if batch not in HIGH_QUALITY_BATCHES:
             continue
         
         # Check if has valid image data
         if not has_valid_image_data(value):
             continue
         
-        # If metabolites required, check completeness
+        # Check metabolites (HIGH QUALITY: complete metabolites required)
         has_metabolites = has_complete_metabolites(value.get('metabolites'))
-        if require_metabolites and not has_metabolites:
-            continue
+        if not has_metabolites:
+            continue  # Skip if missing metabolites (high quality requirement)
         
         # Initialize organoid entry if needed
-        if organoid_id not in organoid_data:
-            organoid_data[organoid_id] = {
+        if organoid_id not in organoid_all_timepoints:
+            organoid_all_timepoints[organoid_id] = {
                 'label': organoid_labels[organoid_id],
                 'batch': batch,
                 'timepoints': {}
@@ -203,27 +299,62 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
         # Merge Dy20 and Dy21 into Dy20_5 (they represent the same timepoint)
         if day in ['Dy20', 'Dy21']:
             day = 'Dy20_5'
-        timepoint_data = {
-            'img_path': value['processed']['img_path'],
-            'mask_path': value['processed']['mask_path'],
-            'day': day
+        
+        # Store timepoint with metadata for filtering
+        common_key = key
+        img_path = value['processed']['img_path'] if 'processed' in value else None
+        
+        organoid_all_timepoints[organoid_id]['timepoints'][day] = {
+            'common_key': common_key,
+            'img_path': img_path,
+            'value': value  # Store full value for later processing
+        }
+    
+    # Third pass: Apply organoid-level exclusion based on switch_mode
+    # If ANY day has problematic image, exclude ENTIRE organoid
+    organoid_data = {}
+    
+    for organoid_id, org_info in organoid_all_timepoints.items():
+        # Check if ANY timepoint has problematic image type
+        should_exclude_organoid = False
+        
+        for day, timepoint_info in org_info['timepoints'].items():
+            common_key = timepoint_info['common_key']
+            img_path = timepoint_info['img_path']
+            
+            if should_exclude_image(common_key, img_path, switch_mode):
+                should_exclude_organoid = True
+                break  # Found problematic image, exclude entire organoid
+        
+        # Skip this organoid if it should be excluded
+        if should_exclude_organoid:
+            continue
+        
+        # Organoid passed all filters - include it with all timepoints
+        organoid_data[organoid_id] = {
+            'label': org_info['label'],
+            'batch': org_info['batch'],
+            'timepoints': {}
         }
         
-        # Add metabolites if present
-        # Note: For image-only modes (switch1/switch3), this only runs if metabolites exist.
-        # Image-only samples without metabolites will have no 'metabolites' field.
-        if has_metabolites:
-            metabolites_dict = {}
+        # Process timepoints and add metabolites
+        for day, timepoint_info in org_info['timepoints'].items():
+            value = timepoint_info['value']
             
-            # Extract both concentration_uM and initial_concentration for each required metabolite
+            timepoint_data = {
+                'img_path': value['processed']['img_path'],
+                'mask_path': value['processed']['mask_path'],
+                'day': day
+            }
+            
+            # Add metabolites (all required metabolites are present by this point)
+            metabolites_dict = {}
             for met in REQUIRED_METABOLITES:
                 met_data = value['metabolites'][met]
-                # Store with full feature names matching the expected format
                 metabolites_dict[f'{met}_concentration_uM'] = met_data.get('concentration_uM')
                 metabolites_dict[f'{met}_initial_concentration'] = met_data.get('initial_concentration')
             
             # Conditionally include MalateGlo for days >10
-            # (Only applies when metabolites are included - not relevant for image-only samples)
             day_num = extract_day_number(day)
             if day_num is not None and day_num > MALATE_EXCLUSION_THRESHOLD_DAY:
                 if 'MalateGlo' in value.get('metabolites', {}):
@@ -234,8 +365,7 @@ def collect_organoid_data(all_data, batches=['BA1', 'BA2'], require_metabolites=
                         metabolites_dict['MalateGlo_initial_concentration'] = malate_data['initial_concentration']
             
             timepoint_data['metabolites'] = metabolites_dict
-        
-        organoid_data[organoid_id]['timepoints'][day] = timepoint_data
+            organoid_data[organoid_id]['timepoints'][day] = timepoint_data
     
     return organoid_data
 
@@ -291,14 +421,26 @@ def split_by_organoid(organoid_data, random_seed=RANDOM_SEED, test_size=TEST_SIZ
 # OUTPUT FUNCTIONS
 # ============================================================
 
-def save_splits(train_data, val_data, test_data, output_prefix, mode_name):
-    """Save train/val/test splits to JSON files."""
+def get_output_filename_suffix(switch_mode):
+    """Get output filename suffix based on switch mode (matching old naming patterns)."""
+    mode_map = {
+        'exclude_stitched_only': 'exclude_stitch_only',
+        'exclude_split_only': 'exclude_split_only',
+        'exclude_both': 'base_no_stitch',
+        'exclude_nothing': 'base'
+    }
+    return mode_map.get(switch_mode, switch_mode)
+
+def save_splits(train_data, val_data, test_data, switch_mode):
+    """Save train/val/test splits to JSON files with appropriate naming."""
     output_dir = Path('data_splits')
     output_dir.mkdir(exist_ok=True)
     
-    train_file = output_dir / f'{output_prefix}_train_{mode_name}.json'
-    val_file = output_dir / f'{output_prefix}_val_{mode_name}.json'
-    test_file = output_dir / f'{output_prefix}_test_{mode_name}.json'
+    suffix = get_output_filename_suffix(switch_mode)
+    
+    train_file = output_dir / f'both_train_{suffix}.json'
+    val_file = output_dir / f'both_val_{suffix}.json'
+    test_file = output_dir / f'both_test_{suffix}.json'
     
     with open(train_file, 'w') as f:
         json.dump(train_data, f, indent=2)
@@ -342,23 +484,33 @@ def print_statistics(data_dict, name):
 # MAIN MODES
 # ============================================================
 
-def run_base_mode(all_data):
+def run_split_mode(all_data, switch_mode):
     """
-    Base mode: Only BA1+BA2 organoids with both image and complete metabolite data.
-    Both models train on the exact same organoids.
+    Run split with specified switch mode.
+    
+    Args:
+        all_data: Full all_data.json dictionary
+        switch_mode: One of 'exclude_stitched_only', 'exclude_split_only', 
+                    'exclude_both', 'exclude_nothing'
     """
+    mode_names = {
+        'exclude_stitched_only': 'Exclude Stitched Only',
+        'exclude_split_only': 'Exclude Split/Presplit Only',
+        'exclude_both': 'Exclude Both Stitched and Split',
+        'exclude_nothing': 'Exclude Nothing (Include All)'
+    }
+    
     print("\n" + "="*60)
-    print("BASE MODE: BA1+BA2 Intersection Only")
+    print(f"SWITCH MODE: {mode_names.get(switch_mode, switch_mode)}")
     print("="*60)
+    print(f"High Quality Filters: BA1+BA2, 4/5 votes, complete metabolites")
+    print(f"Image Filtering: {mode_names.get(switch_mode, switch_mode)}")
+    print(f"Organoid-Level Exclusion: If ANY day has problematic image, exclude entire organoid")
     
-    # Collect organoid data
-    organoid_data = collect_organoid_data(
-        all_data, 
-        batches=['BA1', 'BA2'], 
-        require_metabolites=True
-    )
+    # Collect organoid data with filtering
+    organoid_data = collect_organoid_data(all_data, switch_mode=switch_mode)
     
-    print(f"\nCollected data for {len(organoid_data)} organoids with complete data")
+    print(f"\nCollected data for {len(organoid_data)} organoids")
     
     # Split by organoid: 80% training / 20% test, then split training into train/val
     train_data, val_data, test_data = split_by_organoid(organoid_data, random_seed=RANDOM_SEED)
@@ -369,113 +521,10 @@ def run_base_mode(all_data):
     print_statistics(test_data, "Test (held out)")
     
     # Save
-    train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'both', 'base')
-    print(f"\n✓ Saved: {train_file}")
-    print(f"✓ Saved: {val_file}")
-    print(f"✓ Saved: {test_file}")
-    
-    return organoid_data, train_data, val_data, test_data
-
-def run_switch1_mode(all_data, intersection_organoids):
-    """
-    Switch 1: Image gets additional BA1/BA2 organoids (image-only).
-    Metabolite still uses only intersection.
-    """
-    print("\n" + "="*60)
-    print("SWITCH 1: Image Gets Additional BA1+BA2 Samples")
-    print("="*60)
-    
-    # Collect all BA1/BA2 organoids with image data (metabolites optional)
-    all_image_organoids = collect_organoid_data(
-        all_data, 
-        batches=['BA1', 'BA2'], 
-        require_metabolites=False
-    )
-    
-    print(f"Total BA1+BA2 organoids with image: {len(all_image_organoids)}")
-    print(f"Additional image-only organoids: {len(all_image_organoids) - len(intersection_organoids)}")
-    
-    # Split by organoid: 80% training / 20% test, then split training into train/val
-    train_data, val_data, test_data = split_by_organoid(all_image_organoids, random_seed=RANDOM_SEED)
-    
-    print("\nImage Train/Val/Test Split:")
-    print_statistics(train_data, "Training")
-    print_statistics(val_data, "Validation (within training)")
-    print_statistics(test_data, "Test (held out)")
-    
-    # Save
-    train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'image', 'switch1')
-    print(f"\n✓ Saved: {train_file}")
-    print(f"✓ Saved: {val_file}")
-    print(f"✓ Saved: {test_file}")
-    
-    return train_data, val_data, test_data
-
-def run_switch2_mode(all_data):
-    """
-    Switch 2: Include BA3+BA4 organoids (intersection with both image+metabolite).
-    Both models use this extended intersection.
-    """
-    print("\n" + "="*60)
-    print("SWITCH 2: Include BA3+BA4 Intersection")
-    print("="*60)
-    
-    # Collect from all batches
-    organoid_data = collect_organoid_data(
-        all_data, 
-        batches=['BA1', 'BA2', 'BA3', 'BA4'], 
-        require_metabolites=True
-    )
-    
-    print(f"\nCollected data for {len(organoid_data)} organoids (all batches)")
-    
-    # Split by organoid: 80% training / 20% test, then split training into train/val
-    train_data, val_data, test_data = split_by_organoid(organoid_data, random_seed=RANDOM_SEED)
-    
-    print("\nTrain/Val/Test Split:")
-    print_statistics(train_data, "Training")
-    print_statistics(val_data, "Validation (within training)")
-    print_statistics(test_data, "Test (held out)")
-    
-    # Save
-    train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'both', 'switch2')
-    print(f"\n✓ Saved: {train_file}")
-    print(f"✓ Saved: {val_file}")
-    print(f"✓ Saved: {test_file}")
-    
-    return train_data, val_data, test_data
-
-def run_switch3_mode(all_data):
-    """
-    Switch 3: Image gets ALL organoids from all 4 batches.
-    Metabolite still uses BA1+BA2 intersection only.
-    """
-    print("\n" + "="*60)
-    print("SWITCH 3: Image Gets All Available Data")
-    print("="*60)
-    
-    # Collect all organoids from all batches with image data
-    organoid_data = collect_organoid_data(
-        all_data, 
-        batches=['BA1', 'BA2', 'BA3', 'BA4'], 
-        require_metabolites=False
-    )
-    
-    print(f"\nCollected data for {len(organoid_data)} organoids (all batches)")
-    
-    # Split by organoid: 80% training / 20% test, then split training into train/val
-    train_data, val_data, test_data = split_by_organoid(organoid_data, random_seed=RANDOM_SEED)
-    
-    print("\nImage Train/Val/Test Split:")
-    print_statistics(train_data, "Training")
-    print_statistics(val_data, "Validation (within training)")
-    print_statistics(test_data, "Test (held out)")
-    
-    # Save
-    train_file, val_file, test_file = save_splits(train_data, val_data, test_data, 'image', 'switch3')
-    print(f"\n✓ Saved: {train_file}")
-    print(f"✓ Saved: {val_file}")
-    print(f"✓ Saved: {test_file}")
+    train_file, val_file, test_file = save_splits(train_data, val_data, test_data, switch_mode)
+    print(f"\n[OK] Saved: {train_file}")
+    print(f"[OK] Saved: {val_file}")
+    print(f"[OK] Saved: {test_file}")
     
     return train_data, val_data, test_data
 
@@ -485,14 +534,39 @@ def run_switch3_mode(all_data):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Reproducible train/val split for image and metabolite models (by organoid)'
+        description='Unified reproducible train/val/test split for high quality data (BA1+BA2 only)',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Switch Modes (Image Filtering Only):
+  1. exclude_stitched_only: Exclude stitched images only (keep split)
+  2. exclude_split_only: Exclude split/presplit images only (keep stitched)
+  3. exclude_both: Exclude both stitched AND split/presplit images
+  4. exclude_nothing: Include all images (no filtering)
+
+High Quality Filters (Always Applied):
+  - BA1+BA2 batches only
+  - 4/5 vote consensus required for labels
+  - Complete metabolite data required (all 4 metabolites)
+  - Valid processed images required
+
+Organoid-Level Exclusion:
+  If ANY day has a problematic image type (per switch), the ENTIRE organoid
+  is excluded from all days (including metabolite data).
+
+Output files saved to data_splits/ with names matching old patterns.
+        """
     )
     parser.add_argument(
-        '--mode', 
-        type=str, 
-        default='base',
-        choices=['base', 'switch1', 'switch2', 'switch3', 'all'],
-        help='Split mode: base, switch1, switch2, switch3, or all'
+        '--switch',
+        type=str,
+        default='exclude_nothing',
+        choices=['exclude_stitched_only', 'exclude_split_only', 'exclude_both', 'exclude_nothing'],
+        help='Switch mode for image filtering'
+    )
+    parser.add_argument(
+        '--all',
+        action='store_true',
+        help='Generate splits for all 4 switch modes'
     )
     
     args = parser.parse_args()
@@ -501,35 +575,30 @@ def main():
     print(f"\nLoading {ALL_DATA_JSON}...", flush=True)
     with open(ALL_DATA_JSON) as f:
         all_data = json.load(f)
-    print(f"✓ Loaded {len(all_data)} records", flush=True)
+    print(f"[OK] Loaded {len(all_data)} records", flush=True)
     
-    print(f"\n⚠️  IMPORTANT: Splitting by ORGANOID, not by individual samples!")
+    print(f"\n[WARNING] IMPORTANT: Splitting by ORGANOID, not by individual samples!")
     print(f"   This prevents data leakage when training across timepoints.")
     print(f"\nUsing fixed random seed: {RANDOM_SEED}")
     print(f"Split structure: 80% Training / 20% Test (held out)")
     print(f"Within Training: {int((1-VAL_SIZE)*100)}% Train / {int(VAL_SIZE*100)}% Val")
     print(f"Final ratios: ~{int((1-TEST_SIZE)*(1-VAL_SIZE)*100)}% Train / ~{int((1-TEST_SIZE)*VAL_SIZE*100)}% Val / {int(TEST_SIZE*100)}% Test")
     print(f"Labels from: {LABEL_DAY}")
+    print(f"\nHIGH QUALITY DATA ONLY:")
+    print(f"  - Batches: {', '.join(HIGH_QUALITY_BATCHES)} only")
+    print(f"  - Labels: 4/5 vote consensus required")
+    print(f"  - Metabolites: Complete data required (all 4 metabolites)")
     
-    # Run requested mode(s)
-    organoid_data = None
-    if args.mode == 'base' or args.mode == 'all':
-        organoid_data, train_base, val_base, test_base = run_base_mode(all_data)
-    
-    if args.mode == 'switch1' or args.mode == 'all':
-        if args.mode == 'switch1' and organoid_data is None:
-            organoid_data, _, _, _ = run_base_mode(all_data)
-        if organoid_data is not None:
-            run_switch1_mode(all_data, organoid_data)
-    
-    if args.mode == 'switch2' or args.mode == 'all':
-        run_switch2_mode(all_data)
-    
-    if args.mode == 'switch3' or args.mode == 'all':
-        run_switch3_mode(all_data)
+    # Run requested switch mode(s)
+    if args.all:
+        switch_modes = ['exclude_stitched_only', 'exclude_split_only', 'exclude_both', 'exclude_nothing']
+        for switch_mode in switch_modes:
+            run_split_mode(all_data, switch_mode)
+    else:
+        run_split_mode(all_data, args.switch)
     
     print("\n" + "="*60)
-    print("✓ Split complete! All files saved to data_splits/")
+    print("[OK] Split complete! All files saved to data_splits/")
     print("="*60)
     print("\nData format: Each organoid has all its timepoints together.")
     print("Use this to train on early days and predict Dy30 outcomes!")
@@ -537,3 +606,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
