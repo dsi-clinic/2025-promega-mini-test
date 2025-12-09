@@ -7,9 +7,11 @@ normalized main identifiers by:
 - Replacing split markers: (1)% -> split_1, (2)% -> split_2, -2-%(stitched) -> split_2
 - Removing stitched markers: (stitched) -> removed
 - Normalizing case: Ba -> BA
-- Stripping trailing '%' characters
+- Stripping trailing "%" characters
 
 The normalized identifiers are sorted and saved to a JSON file.
+
+(ASSUMPTION: Batch 1 Day 20 is actually Day 21 to match other batches.)
 
 Usage:
     python retrieve_main_identifiers.py --csv-file input.csv --out-file output.json
@@ -26,43 +28,64 @@ import pathlib
 import pandas as pd
 
 logging.getLogger().setLevel(logging.INFO)
-logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
-                    datefmt='%Y-%m-%dT%H:%M:%S',
+logging.basicConfig(format="%(asctime)s,%(msecs)d %(levelname)s %(message)s",
+                    datefmt="%Y-%m-%dT%H:%M:%S",
                     level=logging.INFO)
 
+def parse_batch_day_from_key(key: str):
+    """Parse batch and day from a key string.
+
+    Args:
+        key: The key string to parse
+
+    Returns:
+        batch: The batch number
+        day: The day number
+    """
+    key_array = key.split(" ")
+    batch = key_array[0].replace("BA", "")
+    day = key_array[2].replace("Dy", "")
+    return int(batch), int(day)
+
 def main():
-    parser = argparse.ArgumentParser(description='Retrieve main identifiers from a CSV file')
-    parser.add_argument('--csv-file', type=pathlib.Path, help='The CSV file to retrieve main identifiers from')
-    parser.add_argument('--out-file', type=pathlib.Path, help='The file to save the main identifiers to')
+    parser = argparse.ArgumentParser(description="Retrieve main identifiers from a CSV file")
+    parser.add_argument("--csv-file", type=pathlib.Path, help="The CSV file to retrieve main identifiers from")
+    parser.add_argument("--out-file", type=pathlib.Path, help="The file to save the main identifiers to")
     args = parser.parse_args()
 
     df = pd.read_csv(args.csv_file)
-    filename_bases = df['filename base'].tolist()
+    filename_bases = df["filename base"].tolist()
 
     main_ids = []
     for fb in filename_bases:
         # Check for specific patterns first (before general patterns)
-        if '-2-%(stitched)' in fb:
-            fb = fb.replace('-2-%(stitched)', ' split_2')
+        if "-2-%(stitched)" in fb:
+            fb = fb.replace("-2-%(stitched)", " split_2")
             logging.debug(f"Matched -2-%(stitched): {fb}")
-        elif '(1)%' in fb:
-            fb = fb.replace('(1)%', ' split_1')
-        elif '(2)%' in fb:
-            fb = fb.replace('(2)%', ' split_2')
-        elif '(stitched)' in fb:
-            fb = fb.replace('(stitched)', '')
+        elif "(1)%" in fb:
+            fb = fb.replace("(1)%", " split_1")
+        elif "(2)%" in fb:
+            fb = fb.replace("(2)%", " split_2")
+        elif "(stitched)" in fb:
+            fb = fb.replace("(stitched)", "")
 
-        fb = fb.replace('Ba', 'BA')
-        fb = fb.rstrip('%')
+        fb = fb.replace("Ba", "BA")
+        fb = fb.rstrip("%")
+
+        # Update batch 1 day 20 to day 21 to match other batches
+        batch, day = parse_batch_day_from_key(fb)
+        if batch == 1 and day == 20:
+            day = 21
+            fb = fb.replace(f"Dy20", f"Dy{day}")
         main_ids.append(fb)
 
     logging.info(f"Found {len(main_ids)} main identifiers")
 
     main_ids.sort()
-    with open(args.out_file, 'w') as jf:
+    with open(args.out_file, "w") as jf:
         json.dump(main_ids, jf, indent=2)
     logging.info(f"Saved main identifiers to: {args.out_file}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
