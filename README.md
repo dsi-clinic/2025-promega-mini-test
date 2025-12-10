@@ -2,6 +2,24 @@
 
 This repository contains a comprehensive system for analyzing organoid quality using multimodal data including images, metabolites, and survey assessments for time series prediction.
 
+## Contributors
+
+
+## Data Sources
+
+The data used in this analysis comes from Promega organoid experiments:
+- **Images**: Brightfield and fluorescence microscopy images of organoids
+- **Metabolites**: Metabolite concentration measurements (Glucose, Glutamate, Lactate, Pyruvate, Malate)
+- **Surveys**: Expert evaluations of organoid quality (Acceptable/Not Acceptable)
+
+Data is processed through the pipeline:
+1. Raw data → Individual mappers (`file_utils/`)
+2. Merged into `all_data.json` via `file_utils/merge/merge_all_data.py`
+3. Split into train/val/test sets via `split_data.py`
+4. Used for model training and analysis
+
+See `file_utils/README.md` for detailed data processing documentation.
+
 ## Project Structure
 
 ```mermaid

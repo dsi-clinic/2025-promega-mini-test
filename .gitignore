@@ -215,3 +215,27 @@ test_gpu.py
 
 # Utility scripts (optional, not essential)
 analysis/images/classifier/monitor_accuracy.sh
+
+# Tony's analysis/documentation files (not essential)
+*.md
+!README.md
+!analysis/images/classifier/efficientnet_image_classifier/README.md
+*.txt
+!files_to_add_to_main.txt
+*.pdf
+*.png
+*.csv
+*.json
+!data_splits/*.json
+!all_data.json
+*.py
+!split_data.py
+!analysis/images/classifier/efficientnet_image_classifier/*.py
+!file_utils/merge/merge_all_data.py
+*.sh
+!analysis/images/classifier/efficientnet_image_classifier/*.sh
+*.s
+!analysis/images/classifier/efficientnet_image_classifier/*.s
+*.slurm
+test_*/
+misclassified_samples*/
