@@ -201,6 +201,7 @@ def process_excel_file(file: str):
             if entry_type:
                 yield (record_id, entry_type, categorized_entry)
 
+
 def determine_stitched(image_id: str) -> bool:
     """Determine if the image is stitched.
 
@@ -219,6 +220,7 @@ def determine_stitched(image_id: str) -> bool:
         is_stitched = False
 
     return is_stitched
+
 
 def construct_identifiers(image_id: str, split_index: int | None, is_stitched: bool) -> tuple[str, str]:
     """Construct the record_id and main_id.
@@ -250,6 +252,7 @@ def construct_identifiers(image_id: str, split_index: int | None, is_stitched: b
 
     return record_id, main_id
 
+
 def clean_image_id(image_id: str) -> str:
     """Clean the image id.
 
@@ -266,15 +269,25 @@ def clean_image_id(image_id: str) -> str:
         image_id,
         flags=re.IGNORECASE,
     )
-    # also remove parenthetical annotations like "(stitched)"
+    # Also remove parenthetical annotations like "(stitched)"
     image_id_core = re.sub(r"\(.*?\)", "", image_id_core)
     image_id_core = re.sub(r"\s+", " ", image_id_core).strip()
     image_id_clean = clean_id_for_json(image_id_core)
 
+    # Capitalize Batch identifier
+    image_id_clean = image_id_clean.replace("Ba", "BA")
     return image_id_clean
 
-# --- Parse image_id into BA/day/well ---
+
 def parse_image_id(image_id):
+    """Parse the image id into BA/day/well.
+
+    Args:
+        image_id: The image id
+
+    Returns:
+        dict: The parsed image id
+    """
     cleaned = re.sub(r"\(.*?\)", "", image_id)                 # remove parentheses
     cleaned = re.sub(r"[^A-Za-z0-9\s_]", " ", cleaned)         # replace junk chars with space
     cleaned = re.sub(r"\s+", " ", cleaned).strip()             # normalize whitespace
@@ -290,16 +303,30 @@ def parse_image_id(image_id):
         return {}
 
 
-# --- Main processor ---
-def process_organoid_files(directory):
+def process_organoid_files(directory, identifiers_file: pathlib.Path) -> dict:
+    """Process the organoid files.
+
+    Args:
+        directory: The directory containing the organoid files
+        identifiers_file: The file containing the identifiers to map to
+    Returns:
+        data: The data dictionary
+    """
     excel_files = get_excel_files(directory)
     logging.info("Total excel files found: %d", len(excel_files))
+
+    with open(identifiers_file, "r") as f:
+        identifiers = json.load(f)
+    logging.info("Total identifiers found: %d", len(identifiers))
 
     data = collections.defaultdict(lambda: {"evaluations": [], "quality_scores": []})
     for file in excel_files:
         logging.info("Processing file: %s", file)
         try:
             for record_id, entry_type, entry in process_excel_file(file):
+                if record_id not in identifiers:
+                    logging.warning(f"Identifier {record_id} not found in identifiers")
+                    continue
                 data[record_id][entry_type].append(entry)
         except Exception as e:
             logging.exception(f" Error processing file {file}: {e}")
@@ -307,9 +334,10 @@ def process_organoid_files(directory):
 
     return data
 
+
 def main():
     args = get_args()
-    data = process_organoid_files(args.in_dir)
+    data = process_organoid_files(args.in_dir, args.identifiers)
     logging.info("Final organoid count: %d", len(data))
 
     args.out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -317,6 +345,6 @@ def main():
         json.dump(data, f, indent=2)
     print(f" Wrote: {args.out_file}")
 
-# --- Run ---
+
 if __name__ == "__main__":
     main()
