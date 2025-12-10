@@ -130,6 +130,8 @@ def get_missing_identifiers(metabolite_map: dict, main_identifiers: list[str]) -
 
 def main():
     args = get_args()
+    for key, value in vars(args).items(): logging.info(f"  {key}: {value}")
+
     main_identifiers, split_identifiers = get_main_identifiers(args.identifiers)
     df = get_metabolite_data(args.in_file)
 
