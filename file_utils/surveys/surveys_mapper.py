@@ -6,10 +6,9 @@ import argparse
 import collections
 import json
 import logging
-import os
 import pathlib
 import re
-import sys
+import typing
 
 import pandas as pd
 
@@ -21,6 +20,8 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S',
                     level=logging.INFO)
 
+# Constants
+LABEL_MAP = {"Accepted": 1, "Not Accepted": 0, "Acceptable": 1, "Not Acceptable": 0}
 
 def get_args() -> argparse.Namespace:
     """Get arguments from the command line.
@@ -32,6 +33,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument('--in-dir', type=pathlib.Path, help='The directory containing the survey results')
     parser.add_argument('--identifiers', type=pathlib.Path, help='The file containing the identifiers to map to')
     parser.add_argument('--out-file', type=pathlib.Path, help='The file to save the formatted survey data to')
+    parser.add_argument('--min-survey-votes', type=int, default=4, help='The minimum number of votes required to determine a majority')
     args = parser.parse_args()
     return args
 
@@ -161,7 +163,7 @@ def categorize_entry(
     return None, entry
 
 
-def process_excel_file(file: str):
+def process_excel_file(file: str) -> typing.Generator[tuple[str, str, dict], None, None]:
     """Process an excel file and yield entries.
 
     Args:
@@ -199,7 +201,7 @@ def process_excel_file(file: str):
             entry_type, categorized_entry = categorize_entry(entry, parts, is_quality_form, employee_name)
 
             if entry_type:
-                yield (record_id, organoid_id, entry_type, categorized_entry)
+                yield (record_id, entry_type, categorized_entry)
 
 
 def determine_stitched(image_id: str) -> bool:
@@ -303,12 +305,60 @@ def parse_image_id(image_id):
         return {}
 
 
-def process_organoid_files(directory, identifiers_file: pathlib.Path) -> dict:
+def compute_survey_majority(evaluations: list[dict], min_survey_votes: int = 4) -> dict:
+    """Compute the majority vote label for a list of evaluations.
+
+    Args:
+        evaluations: The list of evaluations
+
+    Returns:
+        dict: The majority vote label
+    """
+    inv_votes = collections.Counter()
+    reg_votes = collections.Counter()
+    for eval_entry in evaluations:
+        vote = eval_entry.get("evaluation")
+        if vote:
+            original_image_ref = eval_entry.get("original_image_ref")
+            if "INV" in original_image_ref:
+                inv_votes[vote] += 1
+            else:
+                reg_votes[vote] += 1
+
+    winning_inv_label = next(
+        (label for label, count in inv_votes.items() if count >= min_survey_votes),
+        None,
+    )
+
+    winning_reg_label = next(
+        (label for label, count in reg_votes.items() if count >= min_survey_votes),
+        None,
+    )
+
+    if inv_votes and inv_votes[winning_inv_label] != reg_votes[winning_reg_label]:
+        main_id = evaluations[0].get("image_id")
+        logging.warning(f"{main_id}:  Inverted evaluation - {inv_votes[winning_inv_label]} '{winning_inv_label}' does not match regular evaluation - {reg_votes[winning_reg_label]} '{winning_reg_label}'")
+        winning_reg_label = None
+
+    total = sum(inv_votes.values()) + sum(reg_votes.values())
+
+    return {
+        "value": winning_reg_label,
+        "acceptance_flag": LABEL_MAP.get(winning_reg_label) if winning_reg_label else None,
+        "votes": dict(reg_votes + inv_votes),
+        "total_evaluations": total,
+        "min_votes": min_survey_votes,
+        "source": "survey.evaluations",
+    }
+
+
+def process_organoid_files(directory, identifiers_file: pathlib.Path, min_survey_votes: int = 4) -> dict:
     """Process the organoid files.
 
     Args:
         directory: The directory containing the organoid files
         identifiers_file: The file containing the identifiers to map to
+        min_survey_votes: The minimum number of votes required to determine a majority
     Returns:
         data: The data dictionary
     """
@@ -320,27 +370,35 @@ def process_organoid_files(directory, identifiers_file: pathlib.Path) -> dict:
     logging.info("Total identifiers found: %d", len(identifiers))
 
     # Nested defaultdict: record_id -> organoid_id -> {"evaluations": [], "quality_scores": []}
-    data = collections.defaultdict(
-        lambda: collections.defaultdict(lambda: {"evaluations": [], "quality_scores": []})
-    )
+    data = collections.defaultdict(lambda: {"evaluations": [], "quality_scores": []})
     for file in excel_files:
         logging.info("Processing file: %s", file)
         try:
-            for record_id, organoid_id, entry_type, entry in process_excel_file(file):
+            for record_id, entry_type, entry in process_excel_file(file):
                 if record_id not in identifiers:
                     logging.warning(f"Identifier {record_id} not found in identifiers")
                     continue
-                data[record_id][organoid_id][entry_type].append(entry)
+                data[record_id][entry_type].append(entry)
         except Exception as e:
             logging.exception(f" Error processing file {file}: {e}")
             continue
+
+    # Compute majority vote label for each record
+    total_votes = 0
+    for record_id, entries in data.items():
+        majority = compute_survey_majority(entries["evaluations"], min_survey_votes)
+        data[record_id]["label"] = majority
+        total_votes += majority["total_evaluations"]
+    logging.info("Total votes: %d", total_votes)
 
     return data
 
 
 def main():
     args = get_args()
-    data = process_organoid_files(args.in_dir, args.identifiers)
+    for key, value in vars(args).items(): logging.info(f"  {key}: {value}")
+
+    data = process_organoid_files(args.in_dir, args.identifiers, args.min_survey_votes)
     logging.info("Final organoid count: %d", len(data))
 
     args.out_file.parent.mkdir(parents=True, exist_ok=True)
