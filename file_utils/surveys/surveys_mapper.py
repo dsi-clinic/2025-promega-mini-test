@@ -11,7 +11,6 @@ import pathlib
 import re
 import sys
 
-from matplotlib import image
 import pandas as pd
 
 from file_utils.common.organoid_patterns import OrganoidNormalizer, clean_id_for_json
@@ -53,12 +52,14 @@ def get_excel_files(directory: pathlib.Path) -> list[str]:
     excel_files.sort()
     return excel_files
 
-def process_excel_file(file: str, data: dict):
-    """Process an excel file.
+def process_excel_file(file: str):
+    """Process an excel file and yield entries.
 
     Args:
         file: The file to process
-        data: The data to update
+
+    Yields:
+        tuple: (record_id, entry_type, entry) where entry_type is either "quality_scores" or "evaluations"
     """
     is_quality_form = "Image Classification" in pathlib.Path(file).name
     basename = pathlib.Path(file).name
@@ -110,15 +111,15 @@ def process_excel_file(file: str, data: dict):
                     **parsed_meta
                 }
 
-                # Assign to survey category
+                # Assign to survey category and yield entry
                 if is_quality_form and any(q in parts for q in ["Good", "Bad", "Reasonable"]):
                     entry["quality"] = next(p for p in parts if p in ["Good", "Bad", "Reasonable"])
-                    data[record_id]["quality_scores"].append(entry)
+                    yield (record_id, "quality_scores", entry)
 
                 elif not is_quality_form and any(e in parts for e in ["Acceptable", "Not Acceptable", "Not Loaded"]):
                     entry["evaluation"] = next(p for p in parts if p in ["Acceptable", "Not Acceptable", "Not Loaded"])
                     entry["employee"] = employee_name
-                    data[record_id]["evaluations"].append(entry)
+                    yield (record_id, "evaluations", entry)
 
 def determine_stitched(image_id: str) -> bool:
     """Determine if the image is stitched.
@@ -217,12 +218,9 @@ def process_organoid_files(directory):
     data = collections.defaultdict(lambda: {"evaluations": [], "quality_scores": []})
     for file in excel_files:
         logging.info("Processing file: %s", file)
-
-        is_quality_form = "Image Classification" in pathlib.Path(file).name
-        basename = pathlib.Path(file).name
-
         try:
-            process_excel_file(file, data)
+            for record_id, entry_type, entry in process_excel_file(file):
+                data[record_id][entry_type].append(entry)
         except Exception as e:
             logging.exception(f" Error processing file {file}: {e}")
             continue
