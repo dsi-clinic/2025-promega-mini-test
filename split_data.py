@@ -422,22 +422,38 @@ def split_by_organoid(organoid_data, random_seed=RANDOM_SEED, test_size=TEST_SIZ
 # ============================================================
 
 def get_output_filename_suffix(switch_mode):
-    """Get output filename suffix based on switch mode (matching old naming patterns)."""
+    """
+    Get output filename suffix based on switch mode.
+    
+    Naming convention matches metabolite classifier expectations:
+    - 'exclude_nothing' → 'base' → generates both_train_base.json, both_val_base.json, both_test_base.json
+      (This is the default and matches what metabolite classifier uses)
+    - Other modes generate suffixes that are appended to 'both_train_', 'both_val_', 'both_test_'
+    
+    This ensures compatibility with both image and metabolite classifiers.
+    """
     mode_map = {
         'exclude_stitched_only': 'exclude_stitch_only',
         'exclude_split_only': 'exclude_split_only',
         'exclude_both': 'base_no_stitch',
-        'exclude_nothing': 'base'
+        'exclude_nothing': 'base'  # Default: matches metabolite classifier naming (both_train_base.json)
     }
     return mode_map.get(switch_mode, switch_mode)
 
 def save_splits(train_data, val_data, test_data, switch_mode):
-    """Save train/val/test splits to JSON files with appropriate naming."""
+    """
+    Save train/val/test splits to JSON files with appropriate naming.
+    
+    Naming convention: both_train_<suffix>.json, both_val_<suffix>.json, both_test_<suffix>.json
+    This matches the metabolite classifier convention for compatibility.
+    Default (exclude_nothing) generates: both_train_base.json, both_val_base.json, both_test_base.json
+    """
     output_dir = Path('data_splits')
     output_dir.mkdir(exist_ok=True)
     
     suffix = get_output_filename_suffix(switch_mode)
     
+    # Naming convention: both_train_<suffix>.json (matches metabolite classifier)
     train_file = output_dir / f'both_train_{suffix}.json'
     val_file = output_dir / f'both_val_{suffix}.json'
     test_file = output_dir / f'both_test_{suffix}.json'

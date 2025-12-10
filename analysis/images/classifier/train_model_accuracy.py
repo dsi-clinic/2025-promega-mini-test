@@ -3,7 +3,7 @@
 Multi-backbone image classifier training script:
 - Uses reproducible splits from split_data.py (both_train_base.json, both_val_base.json)
 - Includes focal loss and learning rate scheduling
-- Trains DINOv2, ResNet, and EfficientNet models
+- Trains VIT (using DINOv2 as a variation), ResNet, and EfficientNet models
 """
 
 import os, json, argparse, re, csv
@@ -29,7 +29,7 @@ from transformers import AutoModel
 
 # -------- Config (defaults; can be overridden by CLI) --------
 BACKBONES = {
-    "dinov2": "facebook/dinov2-base",  # DINOv2 instead of ViT
+    "vit": "facebook/dinov2-base",  # VIT: Using DINOv2 as a self-supervised Vision Transformer variant
     "resnet": "resnet50",
     "efficientnet": "efficientnet_b0",
 }
@@ -48,6 +48,11 @@ SEED = 1
 
 # ---------- Utils ----------
 def set_seed(seed=SEED):
+    """Set random seeds for reproducibility.
+    
+    Args:
+        seed: Random seed value to use for all random number generators.
+    """
     import random
     random.seed(seed)
     np.random.seed(seed)
@@ -56,17 +61,41 @@ def set_seed(seed=SEED):
         torch.cuda.manual_seed_all(seed)
 
 def day_to_int(day_str: str) -> int:
-    # "Dy28" -> 28, fallback -1
+    """Extract day number from day string.
+    
+    Args:
+        day_str: Day string in format "Dy{XX}" or "dy{XX}" (e.g., "Dy28", "dy03").
+    
+    Returns:
+        Day number as integer, or -1 if pattern not found.
+    """
     m = re.search(r"[Dd][Yy](\d+)", day_str)
     return int(m.group(1)) if m else -1
 
 class EarlyStopping:
+    """Early stopping callback to stop training when validation metric stops improving."""
+    
     def __init__(self, patience=20, min_delta=1e-4):
+        """Initialize early stopping.
+        
+        Args:
+            patience: Number of epochs to wait before stopping.
+            min_delta: Minimum change to qualify as an improvement.
+        """
         self.patience = patience
         self.min_delta = min_delta
         self.best = -np.inf
         self.bad = 0
+    
     def step(self, score):
+        """Check if training should stop based on current score.
+        
+        Args:
+            score: Current validation metric score (higher is better).
+        
+        Returns:
+            True if training should stop, False otherwise.
+        """
         if score > self.best + self.min_delta:
             self.best = score
             self.bad = 0
@@ -78,7 +107,7 @@ class EarlyStopping:
 class OrganoidDataset(Dataset):
     """Dataset that can optionally return mask tensors alongside images."""
 
-    def __init__(self, img_paths, labels, mask_paths=None, augment=False, use_mask=False, use_dinov2=False):
+    def __init__(self, img_paths, labels, mask_paths=None, augment=False, use_mask=False, use_vit=False):
         self.img_paths = img_paths
         self.labels = labels
         self.mask_paths = mask_paths
@@ -91,8 +120,8 @@ class OrganoidDataset(Dataset):
                 T.ColorJitter(0.2, 0.2, 0.2, 0.1),
             ]
         t += [T.ToTensor()]
-        # DINOv2 expects ImageNet normalization
-        if use_dinov2:
+        # VIT (DINOv2 variant) expects ImageNet normalization
+        if use_vit:
             t += [T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
         self.t_img = T.Compose(t)
 
@@ -122,7 +151,13 @@ class OrganoidDataset(Dataset):
 # ---------- Model ----------
 class MaskBranch(nn.Module):
     """Compact branch to encode binary masks into a feature vector."""
+    
     def __init__(self, out_dim=64):
+        """Initialize mask branch encoder.
+        
+        Args:
+            out_dim: Output feature dimension (default: 64).
+        """
         super().__init__()
         self.encoder = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=7, stride=2, padding=3),
@@ -139,17 +174,35 @@ class MaskBranch(nn.Module):
         )
         self.out_dim = out_dim
     def forward(self, mask):
+        """Forward pass through mask encoder.
+        
+        Args:
+            mask: Binary mask tensor of shape (B, 1, H, W).
+        
+        Returns:
+            Encoded mask features of shape (B, out_dim).
+        """
         return self.encoder(mask)
 
 class ImageOnlyClassifier(nn.Module):
+    """Image classifier with optional mask branch support."""
+    
     def __init__(self, backbone_key, backbone_name, target_size, use_mask=False):
+        """Initialize image classifier.
+        
+        Args:
+            backbone_key: Backbone identifier ("vit", "resnet", or "efficientnet").
+            backbone_name: Backbone model name for timm or HuggingFace.
+            target_size: Target image size as (H, W) tuple.
+            use_mask: If True, include mask branch for multimodal input.
+        """
         super().__init__()
         self.use_mask = use_mask
         self.backbone_key = backbone_key
-        self._is_dinov2 = (backbone_key == "dinov2")
+        self._is_vit = (backbone_key == "vit")
 
-        if self._is_dinov2:
-            # DINOv2 from HuggingFace
+        if self._is_vit:
+            # VIT: Using DINOv2 (self-supervised Vision Transformer variant) from HuggingFace
             self.backbone = AutoModel.from_pretrained(backbone_name)
             # Freeze backbone initially
             for p in self.backbone.parameters():
@@ -185,8 +238,13 @@ class ImageOnlyClassifier(nn.Module):
         )
 
     def unfreeze_backbone(self):
-        if self._is_dinov2:
-            # Unfreeze the last few layers of DINOv2
+        """Unfreeze backbone layers for fine-tuning.
+        
+        For VIT (DINOv2): Unfreezes last 4 encoder layers (layers 8-11).
+        For Timm models: Unfreezes blocks/layers for fine-tuning.
+        """
+        if self._is_vit:
+            # Unfreeze the last few layers of VIT (DINOv2 variant)
             for name, p in self.backbone.named_parameters():
                 if "encoder.layer" in name:
                     try:
@@ -196,8 +254,10 @@ class ImageOnlyClassifier(nn.Module):
                             # Unfreeze last 4 layers (layers 8-11 for base)
                             if layer_num >= 8:
                                 p.requires_grad = True
-                    except:
-                        pass
+                    except Exception as e:
+                        # Skip layers that don't match expected pattern
+                        # This is expected for some layer names that don't follow standard pattern
+                        continue
         else:
             # Timm models: unfreeze blocks/layers for fine-tuning
             for name, p in self.backbone.named_parameters():
@@ -205,8 +265,17 @@ class ImageOnlyClassifier(nn.Module):
                     p.requires_grad = True
 
     def forward(self, img, mask=None):
-        if self._is_dinov2:
-            # DINOv2 returns a dict with 'last_hidden_state'
+        """Forward pass through classifier.
+        
+        Args:
+            img: Image tensor of shape (B, 3, H, W).
+            mask: Optional mask tensor of shape (B, 1, H, W) if use_mask=True.
+        
+        Returns:
+            Logits tensor of shape (B, 1).
+        """
+        if self._is_vit:
+            # VIT (DINOv2 variant) returns a dict with 'last_hidden_state'
             outputs = self.backbone(img)
             # Use CLS token (first token) from last hidden state
             f = outputs.last_hidden_state[:, 0, :]  # [batch_size, hidden_size]
@@ -221,22 +290,55 @@ class ImageOnlyClassifier(nn.Module):
             f = torch.cat([f, f_mask], dim=1)
         return self.classifier(f).squeeze(1)
 
-def make_loader(imgs, labels, augment, batch_size, mask_paths=None, use_mask=False, use_dinov2=False):
-    ds = OrganoidDataset(imgs, labels, mask_paths=mask_paths, augment=augment, use_mask=use_mask, use_dinov2=use_dinov2)
+def make_loader(imgs, labels, augment, batch_size, mask_paths=None, use_mask=False, use_vit=False):
+    """Create PyTorch DataLoader for organoid dataset.
+    
+    Args:
+        imgs: List of image file paths.
+        labels: List of binary labels (0 or 1).
+        augment: If True, apply data augmentation during training.
+        batch_size: Batch size for DataLoader.
+        mask_paths: Optional list of mask file paths (required if use_mask=True).
+        use_mask: If True, include mask tensors in batches.
+        use_vit: If True, apply ImageNet normalization for VIT (DINOv2 variant).
+    
+    Returns:
+        PyTorch DataLoader instance.
+    """
+    ds = OrganoidDataset(imgs, labels, mask_paths=mask_paths, augment=augment, use_mask=use_mask, use_vit=use_vit)
     return DataLoader(ds, batch_size=batch_size, shuffle=augment, num_workers=NUM_WORKERS)
 
 # ---------- Focal Loss (PyTorch version) ----------
 class FocalLoss(nn.Module):
-    """Focal Loss for addressing class imbalance and hard examples.
-    Adapted from survey classifier improvements (gamma=2.0, alpha=0.25).
+    """Focal loss for addressing class imbalance in binary classification.
+    
+    Focal loss down-weights easy examples and focuses on hard examples,
+    making it effective for imbalanced datasets.
     """
+    
     def __init__(self, gamma=2.0, alpha=0.25, reduction='mean'):
+        """Initialize focal loss.
+        
+        Args:
+            gamma: Focusing parameter (higher gamma = more focus on hard examples).
+            alpha: Weighting factor for positive class (1-alpha for negative class).
+            reduction: Reduction method ('mean', 'sum', or 'none').
+        """
         super().__init__()
         self.gamma = gamma
         self.alpha = alpha
         self.reduction = reduction
 
     def forward(self, inputs, targets):
+        """Compute focal loss.
+        
+        Args:
+            inputs: Logits tensor of shape (N,).
+            targets: Binary labels tensor of shape (N,) with values 0 or 1.
+        
+        Returns:
+            Scalar loss value (if reduction='mean' or 'sum') or tensor (if reduction='none').
+        """
         # inputs are logits, convert to probabilities
         probs = torch.sigmoid(inputs)
         
@@ -455,15 +557,15 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
     weights = compute_class_weight("balanced", classes=np.unique(train_labels), y=train_labels)
     class_weights = {int(k): float(w) for k, w in zip(np.unique(train_labels), weights)}
     
-    # loaders (use_dinov2 flag for proper normalization)
-    use_dinov2_flag = (backbone_key == "dinov2")
+    # loaders (use_vit flag for proper normalization - VIT uses DINOv2 variant)
+    use_vit_flag = (backbone_key == "vit")
     train_loader = make_loader(
         train_imgs, train_labels,
         mask_paths=train_masks if use_mask else None,
         augment=True,  # Use augmentation for training
         batch_size=train_bs,
         use_mask=use_mask,
-        use_dinov2=use_dinov2_flag,
+        use_vit=use_vit_flag,
     )
     val_loader = make_loader(
         X_val, y_val,
@@ -471,7 +573,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
         augment=False,
         batch_size=val_bs,
         use_mask=use_mask,
-        use_dinov2=use_dinov2_flag,
+        use_vit=use_vit_flag,
     )
     test_loader = make_loader(
         X_test, y_test,
@@ -479,7 +581,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
         augment=False,
         batch_size=val_bs,
         use_mask=use_mask,
-        use_dinov2=use_dinov2_flag,
+        use_vit=use_vit_flag,
     )
     
     # model/opt
@@ -552,6 +654,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
     try:
         val_roc_auc = float(roc_auc_score(val_trues, val_probs))
     except Exception:
+        # ROC-AUC may fail if all labels are the same class
         val_roc_auc = None
     val_pr_auc = float(average_precision_score(val_trues, val_probs)) if len(val_trues) > 0 else None
     
@@ -560,6 +663,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
     try:
         test_roc_auc = float(roc_auc_score(trues, test_probs))
     except Exception:
+        # ROC-AUC may fail if all labels are the same class
         test_roc_auc = None
     test_pr_auc = float(average_precision_score(trues, test_probs)) if len(trues) > 0 else None
     
@@ -624,7 +728,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
 # ---------- Orchestration ----------
 def main():
     """
-    Entry point for fixed-split image classifier training with DINOv2/ResNet/EfficientNet.
+    Entry point for fixed-split image classifier training with VIT (DINOv2 variant)/ResNet/EfficientNet.
 
     Loads reproducible train/val/test splits, trains each backbone per day using focal
     loss, early stopping, and LR scheduling, then writes per-day CSV summaries and

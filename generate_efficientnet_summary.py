@@ -11,7 +11,14 @@ import argparse
 from collections import defaultdict
 
 def count_samples_by_day(split_file):
-    """Count samples and organoids per day from split file."""
+    """Count samples and organoids per day from split file.
+    
+    Args:
+        split_file: Path to JSON split file containing organoid data.
+    
+    Returns:
+        dict: Dictionary mapping day strings to dicts with 'samples' and 'organoids' counts.
+    """
     with open(split_file) as f:
         split_data = json.load(f)
     
@@ -31,6 +38,12 @@ def count_samples_by_day(split_file):
     return result
 
 def main():
+    """Generate comprehensive summary table for EfficientNet training results.
+    
+    Loads metrics from training results directory and creates a CSV summary table
+    with all metrics (Accuracy, F1, Recall, Precision, TNR, ROC-AUC, PR-AUC, Balanced Accuracy).
+    Also includes sample and organoid counts from split files.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--results-dir", required=True, help="Directory with training results")
     parser.add_argument("--split-prefix", required=True, help="Prefix for split files (e.g., 'both_train_base_no_stitch')")
@@ -40,10 +53,18 @@ def main():
     results_dir = Path(args.results_dir)
     split_dir = Path("data_splits")
     
-    # Load sample counts
-    train_file = split_dir / f"{args.split_prefix.replace('_train_', '_train_')}.json"
-    val_file = split_dir / f"{args.split_prefix.replace('_train_', '_val_')}.json"
-    test_file = split_dir / f"{args.split_prefix.replace('_train_', '_test_')}.json"
+    # Load sample counts - split prefix should be like "both_train_exclude_stitch_only"
+    # Extract suffix and build train/val/test file names following metabolite classifier convention
+    if args.split_prefix.startswith("both_train_"):
+        split_suffix = args.split_prefix.replace("both_train_", "")
+        train_file = split_dir / f"both_train_{split_suffix}.json"
+        val_file = split_dir / f"both_val_{split_suffix}.json"
+        test_file = split_dir / f"both_test_{split_suffix}.json"
+    else:
+        # Fallback: assume prefix is just the suffix (e.g., "exclude_stitch_only")
+        train_file = split_dir / f"both_train_{args.split_prefix}.json"
+        val_file = split_dir / f"both_val_{args.split_prefix}.json"
+        test_file = split_dir / f"both_test_{args.split_prefix}.json"
     
     train_counts = count_samples_by_day(train_file)
     val_counts = count_samples_by_day(val_file)
