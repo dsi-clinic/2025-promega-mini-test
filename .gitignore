@@ -212,3 +212,6 @@ training_*.png
 
 # Test files
 test_gpu.py
+
+# Utility scripts (optional, not essential)
+analysis/images/classifier/monitor_accuracy.sh
