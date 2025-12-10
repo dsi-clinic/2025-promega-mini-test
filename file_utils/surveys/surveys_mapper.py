@@ -199,7 +199,7 @@ def process_excel_file(file: str):
             entry_type, categorized_entry = categorize_entry(entry, parts, is_quality_form, employee_name)
 
             if entry_type:
-                yield (record_id, entry_type, categorized_entry)
+                yield (record_id, organoid_id, entry_type, categorized_entry)
 
 
 def determine_stitched(image_id: str) -> bool:
@@ -319,15 +319,18 @@ def process_organoid_files(directory, identifiers_file: pathlib.Path) -> dict:
         identifiers = json.load(f)
     logging.info("Total identifiers found: %d", len(identifiers))
 
-    data = collections.defaultdict(lambda: {"evaluations": [], "quality_scores": []})
+    # Nested defaultdict: record_id -> organoid_id -> {"evaluations": [], "quality_scores": []}
+    data = collections.defaultdict(
+        lambda: collections.defaultdict(lambda: {"evaluations": [], "quality_scores": []})
+    )
     for file in excel_files:
         logging.info("Processing file: %s", file)
         try:
-            for record_id, entry_type, entry in process_excel_file(file):
+            for record_id, organoid_id, entry_type, entry in process_excel_file(file):
                 if record_id not in identifiers:
                     logging.warning(f"Identifier {record_id} not found in identifiers")
                     continue
-                data[record_id][entry_type].append(entry)
+                data[record_id][organoid_id][entry_type].append(entry)
         except Exception as e:
             logging.exception(f" Error processing file {file}: {e}")
             continue
