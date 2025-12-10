@@ -52,6 +52,115 @@ def get_excel_files(directory: pathlib.Path) -> list[str]:
     excel_files.sort()
     return excel_files
 
+def is_organoid_cell_value(val) -> bool:
+    """Check if a cell value contains organoid data.
+
+    Args:
+        val: The cell value to check
+
+    Returns:
+        bool: True if the value contains organoid identifiers
+    """
+    return pd.notna(val) and isinstance(val, str) and (
+        "Organoid_" in val or any(x in val for x in ["Ba1", "Ba2", "Ba3", "Ba4", "Dy"])
+    )
+
+
+def extract_organoid_ids(cell_value: str) -> tuple[str | None, str | None]:
+    """Extract organoid_id and image_id from a cell value.
+
+    Args:
+        cell_value: The cell value containing organoid data
+
+    Returns:
+        tuple: (organoid_id, image_id) or (None, None) if not found
+    """
+    parts = [p.strip() for p in cell_value.split(",")]
+    organoid_id = next((p for p in parts if "Organoid_" in p), None)
+    image_id = next((p for p in parts if any(x in p for x in ["Ba1", "Ba2", "Ba3", "Ba4", "Dy"])), None)
+    return organoid_id, image_id
+
+
+def process_image_id(image_id: str) -> tuple[str, str, int | None, dict]:
+    """Process an image_id to extract metadata and construct identifiers.
+
+    Args:
+        image_id: The raw image identifier
+
+    Returns:
+        tuple: (record_id, main_id, split_index, parsed_meta)
+    """
+    is_stitched = determine_stitched(image_id)
+    split_info = OrganoidNormalizer.extract_split_info(image_id) or {}
+    split_index = split_info.get("split_index", None)
+    record_id, main_id = construct_identifiers(image_id, split_index, is_stitched)
+    parsed_meta = parse_image_id(image_id)
+    return record_id, main_id, split_index, parsed_meta
+
+
+def build_entry(
+    original_cell: str,
+    organoid_id: str,
+    record_id: str,
+    main_id: str,
+    split_index: int | None,
+    parsed_meta: dict,
+    source_file: str,
+) -> dict:
+    """Build an organoid entry dictionary.
+
+    Args:
+        original_cell: The original Excel cell text
+        organoid_id: The raw organoid identifier
+        record_id: The cleaned record identifier
+        main_id: The main identifier for matching
+        split_index: The split index if applicable
+        parsed_meta: Parsed metadata (batch, plate, day, well)
+        source_file: The source file name
+
+    Returns:
+        dict: The entry dictionary
+    """
+    return {
+        "original_image_ref": original_cell,
+        "raw_organoid_id": organoid_id,
+        "image_id": record_id,
+        "main_id": main_id,
+        "split_index": split_index,
+        "source_file": source_file,
+        **parsed_meta,
+    }
+
+
+def categorize_entry(
+    entry: dict,
+    parts: list[str],
+    is_quality_form: bool,
+    employee_name: str | None,
+) -> tuple[str | None, dict]:
+    """Categorize an entry and add category-specific fields.
+
+    Args:
+        entry: The entry dictionary to categorize
+        parts: The parsed parts from the cell value
+        is_quality_form: Whether this is a quality form
+        employee_name: The employee name (for evaluation forms)
+
+    Returns:
+        tuple: (entry_type, entry) or (None, entry) if no category matches
+    """
+    if is_quality_form and any(q in parts for q in ["Good", "Bad", "Reasonable"]):
+        entry["quality"] = next(p for p in parts if p in ["Good", "Bad", "Reasonable"])
+        return "quality_scores", entry
+
+    elif not is_quality_form and any(e in parts for e in ["Acceptable", "Not Acceptable", "Not Loaded"]):
+        entry["evaluation"] = next(p for p in parts if p in ["Acceptable", "Not Acceptable", "Not Loaded"])
+        entry["employee"] = employee_name
+        return "evaluations", entry
+
+    return None, entry
+
+
 def process_excel_file(file: str):
     """Process an excel file and yield entries.
 
@@ -70,56 +179,27 @@ def process_excel_file(file: str):
             f"{row.get('First Name', '')} {row.get('Last Name', '')}".strip()
             if not is_quality_form else None
         )
-        for col in row.index:    # Locate row,column index with organoid id data
+
+        for col in row.index:
             val = row[col]
-            if pd.notna(val) and isinstance(val, str) and (
-                "Organoid_" in val or any(x in val for x in ["Ba1", "Ba2", "Ba3", "Ba4", "Dy"])
-            ):
+            if not is_organoid_cell_value(val):
+                continue
 
-                original_cell = val
-                parts = [p.strip() for p in val.split(",")]
+            organoid_id, image_id = extract_organoid_ids(val)
+            if not organoid_id or not image_id:
+                continue
 
-                organoid_id = next((p for p in parts if "Organoid_" in p), None)
-                image_id = next((p for p in parts if any(x in p for x in ["Ba1","Ba2","Ba3","Ba4","Dy"])), None)
+            record_id, main_id, split_index, parsed_meta = process_image_id(image_id)
+            if not parsed_meta:
+                logging.warning(f"Could not parse image_id: {image_id} from {organoid_id} in {basename}")
 
-                if not organoid_id or not image_id:
-                    continue
+            entry = build_entry(val, organoid_id, record_id, main_id, split_index, parsed_meta, basename)
 
-                # Detect and strip extra tokens (INV, STITCHED, PRE/POST, etc.)
-                is_stitched = determine_stitched(image_id)
+            parts = [p.strip() for p in val.split(",")]
+            entry_type, categorized_entry = categorize_entry(entry, parts, is_quality_form, employee_name)
 
-                # Detect split (safe even if none)
-                split_info = OrganoidNormalizer.extract_split_info(image_id) or {}
-                split_index = split_info.get("split_index", None)
-
-                # Construct redcord_id and main_id mirroring all_data naming
-                record_id, main_id = construct_identifiers(image_id, split_index, is_stitched)
-
-                # Get batch, plate, day, well from image_id
-                parsed_meta = parse_image_id(image_id)
-                if parsed_meta == {}:
-                    logging.warning(f" Could not parse image_id: {image_id} from {organoid_id} in {basename}")
-
-                # Build organoid entry
-                entry = {
-                    "original_image_ref": original_cell,  # exact Excel cell text
-                    "raw_organoid_id": organoid_id,
-                    "image_id": record_id,           # base cleaned form
-                    "main_id": main_id,                   # used for matching all_data
-                    "split_index": split_index,
-                    "source_file": basename,
-                    **parsed_meta
-                }
-
-                # Assign to survey category and yield entry
-                if is_quality_form and any(q in parts for q in ["Good", "Bad", "Reasonable"]):
-                    entry["quality"] = next(p for p in parts if p in ["Good", "Bad", "Reasonable"])
-                    yield (record_id, "quality_scores", entry)
-
-                elif not is_quality_form and any(e in parts for e in ["Acceptable", "Not Acceptable", "Not Loaded"]):
-                    entry["evaluation"] = next(p for p in parts if p in ["Acceptable", "Not Acceptable", "Not Loaded"])
-                    entry["employee"] = employee_name
-                    yield (record_id, "evaluations", entry)
+            if entry_type:
+                yield (record_id, entry_type, categorized_entry)
 
 def determine_stitched(image_id: str) -> bool:
     """Determine if the image is stitched.
