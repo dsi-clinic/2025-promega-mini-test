@@ -33,6 +33,7 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
 # Constants
 EXPECTED_TOTAL_RECORDS = 5168
 EXPECTED_NUM_LABELS = 301
+LABEL_MAP = {"Accepted": 1, "Not Accepted": 0, "Acceptable": 1, "Not Acceptable": 0}
 
 # ---------- helpers ----------
 @dataclasses.dataclass
@@ -141,8 +142,7 @@ def load_survey_map(cfg: Config) -> dict:
     """Load survey data and build survey map keyed by (main_id, split_index)."""
     survey_file = cfg.data_dir.joinpath(cfg.SURVEY_AGGREGATED_JSON)
     logging.info(f"Loading survey data: {survey_file} and building survey map...")
-    survey_data = load_json(survey_file)
-    return build_survey_map(survey_data)
+    return load_json(survey_file)
 
 def load_base_map(cfg: Config) -> dict:
     """Load base image mapping from JSON file."""
@@ -161,7 +161,7 @@ def load_manual_mask_map(cfg: Config) -> dict:
 def load_processed_map(cfg: Config) -> dict:
     """Load processed files JSON data."""
     logging.info("Loading processed files JSON data...")
-    infer_resized_dir = cfg.data_dir.joinpath(cfg.IMAGES_DIR, cfg.infer_resized_dir)
+    infer_resized_dir = cfg.data_dir.joinpath(cfg.infer_resized_dir)
     found_files = list(infer_resized_dir.rglob("image_mapping*_processed.json"))
     logging.info(f"Located {len(found_files)} processed files in {infer_resized_dir}")
     return build_processed_files_map(found_files, cfg.data_dir, cfg.infer_resized_dir, cfg.MASKS_PREDICTED_DIR)
@@ -175,7 +175,14 @@ def load_preprocessed_map(cfg: Config) -> dict:
     return build_preprocessed_map(preprocessed_files, cfg.data_dir, cfg.infer_resized_dir, cfg.MASKS_PREDICTED_DIR, cfg.MASKS_OVERLAYS_DIR)
 
 def load_data_sources(cfg: Config) -> DataSources:
-    """Load all data sources and return NamedTuple with source data in memory."""
+    """Load all data sources and return NamedTuple with source data in memory.
+
+    Args:
+        cfg: Configuration object
+
+    Returns:
+        DataSources object containing all data sources
+    """
     return DataSources(
         identifiers_map=load_identifiers_map(cfg),
         base_map=load_base_map(cfg),
@@ -187,29 +194,45 @@ def load_data_sources(cfg: Config) -> DataSources:
     )
 
 def load_json(path: Path | str):
+    """Load JSON file and return dictionary.
+    Args:
+        path: Path to JSON file
+
+    Returns:
+        Dictionary of JSON data
+    """
     path = Path(path)
     if not path.exists():
         raise RuntimeError(f"Required JSON file does not exist: {path}")
     with path.open("r") as f:
         return json.load(f)
 
-def build_survey_map(survey_map):
-    """Build and return dictionary of survey data."""
-    survey_map = {}
-    for row in survey_map.values():
-        for category in ["evaluations", "quality_scores"]:
-            if row.get(category):
-                for item in row[category]:
-                    main_id = item.get("main_id")
-                    split_index = item.get("split_index")
-                    if not main_id:
-                        continue
-                    main_id_norm = main_id.replace(" ", "_").upper()
-                    key = (main_id_norm, split_index)
-                    if key not in survey_map:
-                        survey_map[key] = {"evaluations": [], "quality_scores": []}
-                    survey_map[key][category].append(item)
-    return survey_map
+# def build_survey_map(survey_data):
+#     """Build and return dictionary of survey data.
+
+#     Args:
+#         survey_data: Dictionary of survey data
+
+#     Returns:
+#         Dictionary of survey data keyed by (main_id, split_index)
+#     """
+#     survey_map = {}
+#     for key, row in survey_data.items():
+#         for category in ["evaluations", "quality_scores"]:
+#             if row.get(category):
+#                 for item in row[category]:
+#                     main_id = item.get("main_id")
+#                     split_index = item.get("split_index")
+#                     if not main_id:
+#                         continue
+#                     main_id_norm = main_id.replace(" ", "_").upper()
+#                     key = (main_id_norm, split_index)
+#                     if key not in survey_map:
+#                         survey_map[key] = {"evaluations": [], "quality_scores": []}
+#                     survey_map[key][category].append(item)
+#             print(survey_map)
+#             exit()
+#     return survey_map
 
 def normalize_manual_mask_map(manual_mask_map, data_dir, images_raw_dir, masks_manual_dir):
     """Normalize keys for storage of manual mask data and update path to data files.
@@ -302,63 +325,74 @@ def build_preprocessed_map(files, data_dir, infer_resized_dir, masks_predicted_d
 
     return preprocessed_map
 
-def merge_data_sources(sources: DataSources):
+def merge_data_sources(sources: DataSources) -> tuple[dict, dict]:
     """Merge and return dictionary of all data sources plus number of masks.
 
     Args:
         sources: DataSources object containing all data sources
+
+    Returns:
+        tuple[dict, dict]: Combined dictionary of all data sources and stats dictionary
     """
     combined = {}
-    manual_mask_count = 0
-    survey_matched_count = 0
-    survey_not_matched_count = 0
-
-    for raw_k, payload in tqdm(sources.base_map.items(), desc="Merging"):
-        entry = dict(payload)
-
-        # Extract mdl_day
-        if 'dayID' in entry:
+    for key in tqdm(sources.identifiers_map.keys(), desc="Merging data sources"):
+        # Match base image info
+        entry = dict(sources.base_map[key])
+        main_id = entry.get("main_id", "")
+        if 'dayID' in entry:    # Extract numerical day from dayID
             entry['mdl_day'] = extract_mdl_day(entry['dayID'])
 
         # Match processed info
-        processed = sources.processed_map.get(raw_k) or sources.processed_map.get(normalized_parent_key(raw_k))
+        processed = sources.processed_map.get(key)
         if processed:
             entry["processed"] = processed
-            entry["main_id"] = processed.get("main_id")
+            entry["main_id"] = main_id
 
         # Match preprocessed info
-        preprocessed = sources.preprocessed_map.get(raw_k) or sources.preprocessed_map.get(normalized_parent_key(raw_k))
+        preprocessed = sources.preprocessed_map.get(key) or sources.preprocessed_map.get(key)
         if preprocessed:
             entry["preprocessed"] = preprocessed
+        else:
+            entry["preprocessed"] = {}
 
-        norm_key_parent = normalized_parent_key(raw_k)
+        # Match survey info
+        label = {}
+        if key in sources.survey_map:
+            entry["survey"] = sources.survey_map[key]
+            label = entry["survey"].get("label", {})
+            entry["survey"].pop("label")
+        else:
+            entry["survey"] = {}
 
-        # ----- FIXED SURVEY MERGE LOGIC -----
-        main_id = entry.get("main_id", "")
-        split_index = entry.get("split_index", payload.get("split_index"))
-        if main_id:
-            main_id_norm = main_id.replace(" ", "_").upper()
-            key = (main_id_norm, split_index)
-            if key in sources.survey_map:
-                entry["survey"] = sources.survey_map[key]
-                survey_matched_count += 1
-            else:
-                survey_not_matched_count += 1
-        # ------------------------------------
+        # Store label info
+        if label:
+            entry["label"] = label
+        elif preprocessed:
+            value = preprocessed.get("label", {})
+            entry["label"] = {
+                "value": value,
+                "acceptance_flag": LABEL_MAP.get(value),
+                "source": "preprocessed.label",
+            }
+        else:
+            entry["label"] = {
+                "value": None,
+                "acceptance_flag": None,
+                "source": None,
+            }
 
         # Add metabolites
-        if norm_key_parent in sources.metab_map:
-            entry["metabolites"] = sources.metab_map[norm_key_parent]
+        if key in sources.metab_map:
+            entry["metabolites"] = sources.metab_map[key]
 
         # Add manual mask path
-        if norm_key_parent in sources.manual_mask_map:
-            manual_data = sources.manual_mask_map[norm_key_parent]
+        if key in sources.manual_mask_map:
+            manual_data = sources.manual_mask_map[key]
             entry["manual_mask_path"] = manual_data.get("MT Mask Path")
-            manual_mask_count += 1
 
-        combined[raw_k] = entry
+        combined[key] = entry
 
-    return combined, survey_matched_count, survey_not_matched_count, manual_mask_count
+    return combined
 
 def normalized_parent_key(id_like: str) -> str:
     """Use OrganoidNormalizer to get consistent BA# 96_# Dy## A# format (no suffixes)."""
@@ -379,8 +413,16 @@ def extract_mdl_day(day_id: str) -> float:
         return day_num
     return None
 
-def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count, manual_mask_count, combined):
-    """Build normalized records and stats."""
+def build_normalized_records(cfg, combined):
+    """Build normalized records and stats.
+
+    Args:
+        cfg: Configuration object
+        combined: Dictionary of combined data sources
+
+    Returns:
+        tuple[dict, dict]: Dictionary of normalized records and stats
+    """
     builder = OrganoidRecordBuilder(
         min_survey_votes=cfg.min_survey_votes,
         survey_day=cfg.survey_day,
@@ -389,13 +431,7 @@ def build_normalized_records(cfg, survey_matched_count, survey_not_matched_count
     )
 
     records = { source_id.replace(" ", "_"): builder.build(source_id, entry) for source_id, entry in combined.items() }
-    stats = {
-            "total_records": len(records),
-            "survey_matches": survey_matched_count,
-            "survey_not_matched": survey_not_matched_count,
-            "manual_masks": manual_mask_count,
-        }
-    stats.update(builder.record_metrics.to_dict())
+    stats = builder.record_metrics.to_dict()
 
     logging.info("Sanitizing data for JSON...")
     records_dict = { source_id: record.to_dict() for source_id, record in records.items() }
@@ -524,20 +560,28 @@ def write_json(out_file, payload):
     logging.info(f"Wrote :{out_file}")
 
 def print_stats(stats, out_file):
-    logging.info(f"Wrote {stats['total_records']:,} merged records → {out_file}")
+    """Print statistics in a clean, organized format."""
+    logging.info("Record stats:")
+    logging.info(f"  Wrote {stats['num_records']:,} merged records → {out_file}")
 
-    logging.info(f"Number of days for survey classifier {stats['num_days_survey']:,}")
-    logging.info(f"Number of skipped organoid observations for survey classifier: {stats['num_days_survey_skipped']}")
-    logging.info(f"Survey matches: {stats['survey_matches']:,}")
-    logging.info(f"Survey not matched: {stats['survey_not_matched']:,}")
-    logging.info(f"Number of ambiguous labels: {stats['num_no_majority']:,}")
+    # Records and images
+    logging.info(f"  Image paths: {stats['num_img_paths']:,}")
+    logging.info(f"  Image splits: {stats['num_img_split']:,} | Stitched: {stats['num_img_stitched']:,} | No image label: {stats['num_img_no_label']:,}")
 
-    logging.info(f"Found {stats['manual_masks']:,} manual masks")
+    # Labels
+    logging.info(f"  Labels: {stats['num_labels']:,} | No labels: {stats['num_no_labels']:,}")
 
-    logging.info(f"Number of days for image classifer: {stats['num_days_image']:,}")
-    logging.info(f"Number of skipped organoid observations for image classifier: {stats['num_days_image_skipped']}")
+    # Surveys
+    logging.info(f"  Survey matches: {stats['num_survey']:,} | No survey: {stats['num_no_survey']:,}")
+    logging.info(f"  Acceptable votes: {stats['num_acceptable_votes']:,} | Not acceptable: {stats['num_not_acceptable_votes']:,}")
+    logging.info(f"  Majority: {stats['num_majority']:,} | No majority: {stats['num_no_majority']:,} | Total votes: {stats['total_votes']:,}")
 
-    logging.info(f"Number of metabolite outliers: {stats['num_metabolite_outliers']}")
+    # Metabolites
+    logging.info(f"  Metabolites: {stats['num_metabolites']:,} | No metabolite: {stats['num_no_metabolite']:,}")
+    logging.info(f"  Metabolite outliers: {stats['num_metabolite_outliers']:,}")
+
+    # Manual masks
+    logging.info(f"  Manual masks: {stats['num_manual_masks']:,}")
 
 def main():
     # ---------- command line arguments ----------
@@ -548,16 +592,16 @@ def main():
 
     # ---------- merge ----------
     logging.info("Merging data sources...")
-    combined, survey_matched_count, survey_not_matched_count, manual_mask_count = merge_data_sources(sources)
+    combined = merge_data_sources(sources)
 
     # ---------- normalize ----------
     logging.info("Normalizing merged records...")
-    records, stats = build_normalized_records(cfg, survey_matched_count, survey_not_matched_count, manual_mask_count, combined)
+    records, stats = build_normalized_records(cfg, combined)
 
-    # ---------- emit views ----------
-    logging.info("Generating derived views...")
-    view_stats = generate_views(records, cfg, stats)
-    stats.update(view_stats)
+    # # ---------- emit views ----------
+    # logging.info("Generating derived views...")
+    # view_stats = generate_views(records, cfg, stats)
+    # stats.update(view_stats)
 
     # ----------  print top-level data stats ----------
     print_stats(stats, cfg.ALL_DATA_JSON)

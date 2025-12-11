@@ -66,20 +66,27 @@ class OrganoidRecord:
 
 @dataclass
 class RecordMetrics:
-    num_organoids: int = 0
+    num_records: int = 0
 
     num_img_paths: int = 0
     num_img_split: int = 0
     num_img_stitched: int = 0
     num_img_no_label: int = 0
+    num_manual_masks: int = 0
+
+    num_labels: int = 0
+    num_no_labels: int = 0
 
     num_no_metabolite: int = 0
     num_metabolites: int = 0
     num_metabolite_outliers: int = 0
     metabolite_outlier_counts: Counter = field(default_factory=Counter)
 
+    num_survey: int = 0
+    num_no_survey: int = 0
     num_acceptable_votes: int = 0
     num_not_acceptable_votes: int = 0
+    num_majority: int = 0
     num_no_majority: int = 0
     total_votes: int = 0
 
@@ -119,11 +126,12 @@ class OrganoidRecordBuilder:
         self.record_metrics = record_metrics
 
     def build(self, source_id: str, entry: SchemaDict) -> OrganoidRecord:
-        processed = entry.get("processed") or {}
-        preprocessed = entry.get("preprocessed") or {}
-        survey = entry.get("survey") or {}
-        metabolites = entry.get("metabolites") or {}
+        processed = entry.get("processed", {})
+        preprocessed = entry.get("preprocessed", {})
+        survey = entry.get("survey", {})
+        metabolites = entry.get("metabolites", {})
         manual_mask_path = entry.get("manual_mask_path")
+        label = entry.get("label", {})
 
         day_value = entry.get("mdl_day")
         formatted_day = f"{day_value:.1f}".rstrip("0").rstrip(".") if day_value is not None else ""
@@ -147,7 +155,8 @@ class OrganoidRecordBuilder:
             },
             "images": self._build_images(entry, processed, preprocessed, manual_mask_path),
             "metabolites": metabolites,
-            "survey": self._build_surveys(survey)
+            "survey": self._build_surveys(survey),
+            "label": label,
         }
         self._get_record_metrics(payload)
         return OrganoidRecord(source_id=source_id, data=payload)
@@ -294,15 +303,24 @@ class OrganoidRecordBuilder:
         }
 
     def _get_record_metrics(self, record: SchemaDict) -> SchemaDict:
-        main_id = record.get("id")
-        self.record_metrics.num_organoids += 1
+        """Get metrics for a record.
+        Args:
+            record: The record to get metrics for
 
+        Returns:
+            Updates record_metrics attribute
+        """
+        main_id = record.get("id")
+        self.record_metrics.num_records += 1
+
+        # Track split and stitched images
         spl_stc_label = record.get("metadata", {}).get("verification", {}).get("classification_verification")
         split, stitched = self.record_metrics.SPLIT_OR_STITCHED[spl_stc_label]
         self.record_metrics.num_img_split += split
         self.record_metrics.num_img_stitched += stitched
         if split and stitched: logging.warning(f"{main_id}: Image has been split and stitched")
 
+        # Track image paths
         img_path = record.get("images", {}).get("processed", {}).get("img_path")
         if img_path:
             self.record_metrics.num_img_paths += 1
@@ -310,6 +328,19 @@ class OrganoidRecordBuilder:
         if not img_label:
             self.record_metrics.num_img_no_label += 1
 
+        # Track manual masks
+        manual_mask_path = record.get("images", {}).get("manual_mask_path")
+        if manual_mask_path:
+            self.record_metrics.num_manual_masks += 1
+
+        # Track labels
+        label = record.get("label", {}).get("value")
+        if not label:
+            self.record_metrics.num_no_labels += 1
+        else:
+            self.record_metrics.num_labels += 1
+
+        # Track metabolites
         metabolite_data = record.get("metabolites", {})
         if not metabolite_data:
             self.record_metrics.num_no_metabolite += 1
@@ -324,8 +355,10 @@ class OrganoidRecordBuilder:
                     self.record_metrics.metabolite_outlier_counts[metabolite_key] += 1
                     self.record_metrics.num_metabolite_outliers += 1
 
+        # Track surveys
         survey_votes = record.get("survey", {}).get("summary", {}).get("votes", {})
         if survey_votes:
+            self.record_metrics.num_survey += 1
             self.record_metrics.total_votes += sum(survey_votes.values())
             if "Acceptable" in survey_votes.keys():
                 self.record_metrics.num_acceptable_votes += survey_votes["Acceptable"]
@@ -336,7 +369,9 @@ class OrganoidRecordBuilder:
             if not survey_label:
                 self.record_metrics.num_no_majority += 1
             else:
-                self.record_metrics.num_labels += 1
+                self.record_metrics.num_majority += 1
+        else:
+            self.record_metrics.num_no_survey += 1
 
 
 class ViewEmitter(Protocol):
