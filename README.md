@@ -2,24 +2,6 @@
 
 This repository contains a comprehensive system for analyzing organoid quality using multimodal data including images, metabolites, and survey assessments for time series prediction.
 
-## Contributors
-
-
-## Data Sources
-
-The data used in this analysis comes from Promega organoid experiments:
-- **Images**: Brightfield and fluorescence microscopy images of organoids
-- **Metabolites**: Metabolite concentration measurements (Glucose, Glutamate, Lactate, Pyruvate, Malate)
-- **Surveys**: Expert evaluations of organoid quality (Acceptable/Not Acceptable)
-
-Data is processed through the pipeline:
-1. Raw data → Individual mappers (`file_utils/`)
-2. Merged into `all_data.json` via `file_utils/merge/merge_all_data.py`
-3. Split into train/val/test sets via `split_data.py`
-4. Used for model training and analysis
-
-See `file_utils/README.md` for detailed data processing documentation.
-
 ## Project Structure
 
 ```mermaid
@@ -83,6 +65,30 @@ flowchart TD
     B4 --> C4
 ```
 
+## Data Description (Integrated Overview)
+
+This project analyzes organoid development across **11 timepoints (Day 1–30)** using microscopy images, metabolite signals, and survey evaluations.
+
+### Dataset Composition
+- Four batches (Batch 3 & 4 excluded due to quality issues)
+- 96 organoids per batch
+- Some organoids removed due to incomplete data
+
+### 1. Image Data
+- Microscopy images collected at each timepoint
+- Standardized resizing for model input
+- Includes both split and stitched images
+
+### 2. Metabolite Data
+- GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo 
+
+### 3. Survey Label Data
+- Evaluated by 5 experts
+- Only keep the Majority vote 
+- Used as ground truth labels for training
+
+
+
 ## Quick Start
 
 ### 1. Environment Setup
@@ -109,11 +115,8 @@ cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY  # Replace with your actual path
 
 Replace `/home/tonyluo/minitest` with `/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY` in:
 
-1. **`analysis/images/classifier/run_accuracy.s`**
-   - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
-
-2. **`analysis/surveys/classifier/run_survey_classifier.s`**
-   - Line 12: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
+**`analysis/images/classifier/run_accuracy.s`**
+    - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
 
 Example:
 ```bash
@@ -126,7 +129,7 @@ Example:
 
 **Important**: Analysis must be run on computation nodes (not login nodes) using SLURM job submission.
 
-#### 3a. Image Classifier (GPU Required)
+#### Image Classifier (GPU Required)
 ```bash
 # Navigate to classifier directory
 cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/images/classifier
@@ -144,22 +147,6 @@ tail -f logs/soft-label_<JOBID>.out
 The image classifier will train models for each day (Dy3, Dy6, Dy8, etc.) sequentially.
 Results are saved in `outputs_512x384_Regular_image_with_train_augment_with_auroc/vit/DyXX/`
 
-#### 3b. Survey Classifier (GPU Required)
-```bash
-# Navigate to survey classifier directory  
-cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/surveys/classifier
-
-# Submit the survey classifier job
-sbatch run_survey_classifier.s
-
-# Check completion
-squeue -u $USER
-cat logs/survey_<JOBID>.out
-```
-
-The survey classifier trains a ResNet50V2+CNN dual-input model on Day 30 organoids using survey evaluation labels.
-Results include trained model (`.h5`), training curves, and confusion matrix.
-
 **Recent Updates** (Oct 2025):
 - Now uses `all_data.json` as single data source (no separate mapping files needed)
 - Computes labels directly from survey evaluations in `all_data.json`
@@ -168,7 +155,7 @@ Results include trained model (`.h5`), training curves, and confusion matrix.
 
 **Note**: Before submitting jobs, update the SLURM scripts:
 - `analysis/images/classifier/run_accuracy.s` - Update `PROJ_ROOT` variable (line 13)
-- `analysis/surveys/classifier/run_survey_classifier.s` - Update `PROJ_ROOT` variable (line 13)
+
 
 ## Configuration System
 
@@ -193,10 +180,9 @@ Create a `.env` file in the project root with these variables set to your local 
    - `file_utils/merge/merge_all_data.py` - Creates unified `all_data.json`
 
 3. **Reproducible Data Splits**: Creates train/validation splits for ML models
-   - `split_data_reproducible.py` - Splits data by organoid (prevents data leakage) and extracts metabolite features
+   - `split_data.py` - Splits data by organoid (prevents data leakage) and extracts metabolite features
    - Extracts both `concentration_uM` and `initial_concentration` for each metabolite (e.g., `GlucoseGlo_concentration_uM`, `GlucoseGlo_initial_concentration`)
    - Outputs saved to `data_splits/` directory
-   - Usage: `python3 split_data_reproducible.py --mode base`
 
 4. **Analysis**: Uses `all_data.json` as single source of truth
    - All analysis code in `analysis/` directory
@@ -222,6 +208,208 @@ The `all_data.json` file contains unified organoid data with structure:
   }
 }
 ```
+A file **`AllData_Summary.xlsx`** is included for organoid-wise and general summary of the all_data.json.
+
+
+## Data Split Script
+
+### Purpose
+
+Creates **reproducible train/validation/test splits** for image and metabolite models.
+
+**Key feature:** Splits by **organoid**, not by individual day-level samples.  
+This guarantees that all timepoints for an organoid stay together, completely preventing data leakage when models use early days (e.g., Dy03–Dy10) to predict Dy30 outcomes.
+
+### How It Works
+
+- Uses **Dy30** as the final label source  
+- Requires **4/5 expert consensus** for high-quality labels  
+- Only **BA1 and BA2** batches are included (highest quality)  
+- Requires **complete metabolite data** for all four required metabolites  
+- Requires **valid processed images** (`img_path` + `mask_path`)  
+- Dy20 and Dy21 are merged into `Dy20_5`  
+- Stratified splitting by organoid label (Acceptable / Not Acceptable)  
+- Final split ratios: **72% Train / 8% Val / 20% Test**  
+- Fixed random seed (**42**) for reproducibility  
+
+If any timepoint of an organoid fails **any** quality rule, the **entire organoid is excluded**.
+
+---
+
+### Image Filtering Modes (Switches)
+
+Switches control whether stitched or split/presplit images are allowed.  
+If any image violates the filter for that mode, the entire organoid is dropped.
+
+---
+
+#### 1. `exclude_nothing` (Default – include all images)
+
+```bash
+python split_data_reproducible.py --switch exclude_nothing
+```
+
+- No stitched/split filtering  
+- Recommended default split  
+- Maximizes dataset size  
+
+---
+
+#### 2. `exclude_stitched_only` (Remove stitched images)
+
+```bash
+python split_data_reproducible.py --switch exclude_stitched_only
+```
+
+- Removes organoids with any **stitched** images  
+- Keeps split/presplit images  
+
+---
+
+#### 3. `exclude_split_only` (Remove split/presplit images)
+
+```bash
+python split_data_reproducible.py --switch exclude_split_only
+```
+
+- Removes organoids with any **split or presplit** images  
+- Keeps stitched images  
+
+---
+
+#### 4. `exclude_both` (Remove stitched AND split images)
+
+```bash
+python split_data_reproducible.py --switch exclude_both
+```
+
+- Removes organoids containing *any* stitched or split/presplit images  
+- Most conservative filtering  
+
+---
+
+#### 5. Run all four modes
+
+```bash
+python split_data_reproducible.py --all
+```
+
+Outputs:
+
+- `exclude_stitched_only`  
+- `exclude_split_only`  
+- `exclude_both`  
+- `exclude_nothing`  
+
+---
+
+### Output Format
+
+Results saved into:
+
+```
+data_splits/
+    both_train_<suffix>.json
+    both_val_<suffix>.json
+    both_test_<suffix>.json
+```
+
+Example:  
+- `both_train_base.json` (for `exclude_nothing`)  
+- `both_train_exclude_stitch_only.json` (for switched modes)
+
+---
+
+### Example JSON Structure
+
+```json
+{
+  "BA1 96_1 A1": {
+    "label": "Acceptable",
+    "batch": "BA1",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "...",
+        "mask_path": "...",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.827,
+          "GlutamateGlo_concentration_uM": 2.418,
+          "LactateGlo_concentration_uM": 7.247,
+          "PyruvateGlo_concentration_uM": 2.971
+        }
+      },
+      "Dy30": {
+        "img_path": "...",
+        "mask_path": "...",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 8.234,
+          "GlutamateGlo_concentration_uM": 2.156,
+          "LactateGlo_concentration_uM": 6.891,
+          "PyruvateGlo_concentration_uM": 2.654,
+          "MalateGlo_concentration_uM": 0.184
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+### Metabolite Restrictions
+
+The script enforces some metabolite rules:
+
+#### Always included:
+- GlucoseGlo  
+- GlutamateGlo  
+- LactateGlo  
+- PyruvateGlo  
+
+#### Included only for days > 10:
+- MalateGlo  
+
+#### Always excluded:
+- BCAAGlo  
+
+If any required metabolite is missing → the entire organoid is excluded.
+
+---
+
+### Use Cases
+
+#### 1. Train on early days → Predict Dy30  
+Use Dy03–Dy10 samples to classify final organoid quality.
+
+#### 2. Time-series learning  
+Train models that use multi-day sequences or trajectories.
+
+#### 3. Cross-modal comparisons  
+Image and metabolite models receive **identical organoid splits** for fairness.
+
+#### 4. Sensitivity tests  
+Evaluate model robustness under different image-type filtering rules using the four switches.
+
+## Metabolite Classifier (Brief Summary)
+
+- Per-day LightGBM classifiers
+- Class weighting + imbalance handling
+- Optional SMOTE variant
+- Threshold tuning
+- Trajectory-based classifiers
+
+Full details: `analysis/metabolites/classifier/README.md`
+
+## Image Classifier (Brief Summary)
+
+- ViT / ResNet / EfficientNet backbones
+- Focal loss for imbalance
+- Optional segmentation mask input
+- High-TNR EfficientNet variant
+
+Full details: `analysis/images/classifier/README.md`
 
 ## Key Features
 
@@ -251,5 +439,6 @@ The `all_data.json` file contains unified organoid data with structure:
 ## Known Issues & Future Improvements
 
 See `CLAUDE.md` for detailed code analysis and recommended architectural enhancements.
+
 
 
