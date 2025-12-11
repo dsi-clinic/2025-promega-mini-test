@@ -76,6 +76,8 @@ class RecordMetrics:
 
     num_labels: int = 0
     num_no_labels: int = 0
+    num_survey_labels: int = 0
+    num_preprocessed_labels: int = 0
 
     num_no_metabolite: int = 0
     num_metabolites: int = 0
@@ -334,11 +336,15 @@ class OrganoidRecordBuilder:
             self.record_metrics.num_manual_masks += 1
 
         # Track labels
-        label = record.get("label", {}).get("value")
+        label = record.get("label", {})
         if not label:
             self.record_metrics.num_no_labels += 1
         else:
             self.record_metrics.num_labels += 1
+            if label.get("source") == "preprocessed.label":
+                self.record_metrics.num_preprocessed_labels += 1
+            if label.get("source") == "survey.evaluations":
+                self.record_metrics.num_survey_labels += 1
 
         # Track metabolites
         metabolite_data = record.get("metabolites", {})

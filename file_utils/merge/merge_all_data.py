@@ -569,7 +569,7 @@ def print_stats(stats, out_file):
     logging.info(f"  Image splits: {stats['num_img_split']:,} | Stitched: {stats['num_img_stitched']:,} | No image label: {stats['num_img_no_label']:,}")
 
     # Labels
-    logging.info(f"  Labels: {stats['num_labels']:,} | No labels: {stats['num_no_labels']:,}")
+    logging.info(f"  Labels: {stats['num_labels']:,} | No labels: {stats['num_no_labels']:,}  | Preprocessed: {stats['num_preprocessed_labels']:,} | Survey: {stats['num_survey_labels']:,}")
 
     # Surveys
     logging.info(f"  Survey matches: {stats['num_survey']:,} | No survey: {stats['num_no_survey']:,}")
