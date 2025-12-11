@@ -186,7 +186,7 @@ model.pth
 *.out
 *.err
 
-# Training outputs and model checkpoints  
+# Training outputs and model checkpoints
 outputs_*/
 **/outputs_*/
 

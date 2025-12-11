@@ -12,7 +12,7 @@ from collections import defaultdict
 
 def count_samples_by_day(split_file):
     """Count samples and organoids per day from split file.
-    
+     
     Args:
         split_file: Path to JSON split file containing organoid data.
     

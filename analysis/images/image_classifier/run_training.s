@@ -19,7 +19,10 @@
 set -euo pipefail
 
 # ====== adjust these paths ======
-PROJ_ROOT=${PROJ_ROOT:-/home/tonyluo/minitest}
+# IMPORTANT: Replace YOUR_GITHUB_USERNAME with your actual GitHub username
+# This should be the root directory of your cloned repository
+# You can also override via environment variable: export PROJ_ROOT=/custom/path
+PROJ_ROOT=${PROJ_ROOT:-/home/YOUR_GITHUB_USERNAME/MINITEST_DIRECTORY}
 CONDA_PREFIX=/net/projects2/promega
 # ================================
 
@@ -62,7 +65,7 @@ done
 
 # Set script path based on choice
 if [[ "$SCRIPT" == "train_efficientnet_improved_tnr" ]]; then
-    PY=${PROJ_ROOT}/train_efficientnet_improved_tnr.py
+    PY=${PROJ_ROOT}/analysis/images/image_classifier/train_efficientnet_improved_tnr.py
     # For EfficientNet TNR, build split file names from prefix
     # If prefix is "both_train_exclude_stitch_only", extract suffix "exclude_stitch_only"
     if [[ "$SPLIT_PREFIX" == both_train_* ]]; then
@@ -74,7 +77,7 @@ if [[ "$SCRIPT" == "train_efficientnet_improved_tnr" ]]; then
     VAL_SPLIT=${PROJ_ROOT}/data_splits/both_val_${SPLIT_SUFFIX}.json
     TEST_SPLIT=${PROJ_ROOT}/data_splits/both_test_${SPLIT_SUFFIX}.json
 else
-    PY=${PROJ_ROOT}/analysis/images/classifier/train_model_accuracy.py
+    PY=${PROJ_ROOT}/analysis/images/image_classifier/train_model_accuracy.py
     # For multi-backbone, build split file names from prefix
     if [[ "$SPLIT_PREFIX" == both_train_* ]]; then
         SPLIT_SUFFIX=$(echo "$SPLIT_PREFIX" | sed 's/both_train_//')
@@ -184,7 +187,7 @@ if [[ "$SCRIPT" == "train_efficientnet_improved_tnr" ]]; then
     echo ""
     echo "Training completed successfully. Generating summary table..."
     
-    SUMMARY_SCRIPT=${PROJ_ROOT}/generate_efficientnet_summary.py
+    SUMMARY_SCRIPT=${PROJ_ROOT}/analysis/images/image_classifier/generate_efficientnet_summary.py
     # Extract suffix for output name
     if [[ "$SPLIT_PREFIX" == both_train_* ]]; then
         SUMMARY_SUFFIX=$(echo "$SPLIT_PREFIX" | sed 's/both_train_//')

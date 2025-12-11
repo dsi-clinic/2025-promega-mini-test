@@ -14,7 +14,13 @@ from PIL import Image
 from torchvision import transforms as T
 from torch.utils.data import Dataset, DataLoader
 import sys
-sys.path.append('analysis/images/classifier')
+from pathlib import Path
+
+# Import ImageOnlyClassifier from the training script
+# NOTE: This assumes the script is run from the repository root
+# where 'analysis/images/image_classifier' exists
+script_dir = Path(__file__).parent
+sys.path.insert(0, str(script_dir))
 
 from train_efficientnet_improved_tnr import ImageOnlyClassifier
 
@@ -24,7 +30,15 @@ BACKBONE_NAME = "efficientnet_b0"
 BACKBONE_KEY = "efficientnet"
 
 class SimpleDataset(Dataset):
+    """Simple dataset for loading images and labels for misclassification analysis."""
+    
     def __init__(self, img_paths, labels):
+        """Initialize simple dataset.
+        
+        Args:
+            img_paths: List of image file paths.
+            labels: List of binary labels (0 or 1).
+        """
         self.img_paths = img_paths
         self.labels = labels
         self.transform = T.Compose([
@@ -33,16 +47,33 @@ class SimpleDataset(Dataset):
         ])
     
     def __len__(self):
+        """Return dataset size."""
         return len(self.labels)
     
     def __getitem__(self, idx):
+        """Get item by index.
+        
+        Args:
+            idx: Index of item to retrieve.
+        
+        Returns:
+            Tuple of (image tensor, label tensor, image path).
+        """
         img = Image.open(self.img_paths[idx]).convert("RGB")
         img = self.transform(img)
         label = torch.tensor(self.labels[idx], dtype=torch.float32)
         return img, label, self.img_paths[idx]
 
 def load_day_data(split_file, day_str):
-    """Load data for a specific day with full metadata."""
+    """Load data for a specific day with full metadata.
+    
+    Args:
+        split_file: Path to JSON split file containing organoid data.
+        day_str: Day string to extract (e.g., 'Dy03', 'Dy28').
+    
+    Returns:
+        List of dictionaries with sample metadata (organoid_id, img_path, label, etc.).
+    """
     with open(split_file) as f:
         data = json.load(f)
     
@@ -74,7 +105,16 @@ def load_day_data(split_file, day_str):
     return samples
 
 def extract_misclassified(model, samples, day_str, output_dir):
-    """Extract misclassified samples for a given day."""
+    """Extract misclassified samples for a given day.
+    
+    Runs model inference on samples and saves misclassified examples to CSV.
+    
+    Args:
+        model: Trained classifier model.
+        samples: List of sample dictionaries with img_path, label, etc.
+        day_str: Day string (e.g., 'Dy03', 'Dy28').
+        output_dir: Directory to save misclassified samples CSV files.
+    """
     if len(samples) == 0:
         return
     
@@ -141,6 +181,11 @@ def extract_misclassified(model, samples, day_str, output_dir):
     print(f"    False Positives: {fp_count}, False Negatives: {fn_count}")
 
 def main():
+    """Entry point for extracting misclassified samples.
+    
+    Loads trained models, runs inference on test data, and saves
+    misclassified samples to CSV files organized by day.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--results-dir", required=True, help="Directory with training results")
     parser.add_argument("--test-split", required=True, help="Test split JSON file")

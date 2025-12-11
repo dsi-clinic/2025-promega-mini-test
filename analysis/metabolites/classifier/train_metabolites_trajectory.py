@@ -40,7 +40,6 @@ Usage
 
 import argparse
 import json
-import re
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -164,7 +163,9 @@ def clean_and_scale_data(
         if X_val is not None:
             X_val = X_val.drop(columns=[c for c in all_nan_cols if c in X_val.columns])
         if X_test is not None:
-            X_test = X_test.drop(columns=[c for c in all_nan_cols if c in X_test.columns])
+            X_test = X_test.drop(
+                columns=[c for c in all_nan_cols if c in X_test.columns]
+            )
 
     # Drop constant columns
     constant_cols = [
@@ -176,7 +177,9 @@ def clean_and_scale_data(
         if X_val is not None:
             X_val = X_val.drop(columns=[c for c in constant_cols if c in X_val.columns])
         if X_test is not None:
-            X_test = X_test.drop(columns=[c for c in constant_cols if c in X_test.columns])
+            X_test = X_test.drop(
+                columns=[c for c in constant_cols if c in X_test.columns]
+            )
 
     # Drop near-constant columns
     near_constant_cols = []
@@ -188,9 +191,13 @@ def clean_and_scale_data(
         print(f"  Dropping near-constant columns: {near_constant_cols}")
         X_train = X_train.drop(columns=near_constant_cols)
         if X_val is not None:
-            X_val = X_val.drop(columns=[c for c in near_constant_cols if c in X_val.columns])
+            X_val = X_val.drop(
+                columns=[c for c in near_constant_cols if c in X_val.columns]
+            )
         if X_test is not None:
-            X_test = X_test.drop(columns=[c for c in near_constant_cols if c in X_test.columns])
+            X_test = X_test.drop(
+                columns=[c for c in near_constant_cols if c in X_test.columns]
+            )
 
     # Fill NaNs
     if X_train.isna().any().any():
@@ -339,7 +346,9 @@ def get_allowed_days_for_variant(
         else:
             # Fallback: just last two days <= target_day
             candidate_days = [d for d in all_days_sorted if d <= target_day][-2:]
-        allowed = [d for d in candidate_days if d in all_days_sorted and d <= target_day]
+        allowed = [
+            d for d in candidate_days if d in all_days_sorted and d <= target_day
+        ]
     elif mode == "allhist":
         allowed = [d for d in all_days_sorted if d <= target_day]
     else:
@@ -505,7 +514,9 @@ def save_organoid_predictions(
     print(f"  Saved organoid predictions to {output_path}")
 
 
-def plot_confusion_matrix(cm: np.ndarray, classes: List[str], title: str, out_path: Path):
+def plot_confusion_matrix(
+    cm: np.ndarray, classes: List[str], title: str, out_path: Path
+):
     """
     Simple 2x2 confusion matrix plot.
     """
@@ -574,7 +585,9 @@ def run_variant(
         test_df, target_day, mode, all_days_sorted, metabolite_cols, growth_cols
     )
 
-    print(f"  Train rows: {len(X_train)}, Val rows: {len(X_val)}, Test rows: {len(X_test)}")
+    print(
+        f"  Train rows: {len(X_train)}, Val rows: {len(X_val)}, Test rows: {len(X_test)}"
+    )
 
     if X_train.empty or X_val.empty or X_test.empty:
         print("  Not enough data for this variant (empty split). Skipping.")
@@ -598,7 +611,9 @@ def run_variant(
     class_weights_balanced = compute_class_weight(
         "balanced", classes=classes, y=y_train
     )
-    class_weight_dict = {cls: float(w) for cls, w in zip(classes, class_weights_balanced)}
+    class_weight_dict = {
+        cls: float(w) for cls, w in zip(classes, class_weights_balanced)
+    }
 
     # scale_pos_weight for "Acceptable"
     pos_label_str = "Acceptable"
@@ -673,13 +688,11 @@ def run_variant(
     print("  Re-fitting model on TRAIN+VAL with best hyperparameters...")
     X_combined = pd.concat([X_train, X_val], axis=0)
     y_combined = pd.concat([y_train, y_val], axis=0)
-    groups_combined = pd.concat([groups_train, groups_val], axis=0)
+    pd.concat([groups_train, groups_val], axis=0)
 
     # Rebuild weights on combined
     classes_comb = np.unique(y_combined)
-    weights_comb = compute_class_weight(
-        "balanced", classes=classes_comb, y=y_combined
-    )
+    weights_comb = compute_class_weight("balanced", classes=classes_comb, y=y_combined)
     weight_dict_comb = {cls: float(w) for cls, w in zip(classes_comb, weights_comb)}
 
     y_comb_arr = pd.Series(y_combined).to_numpy()
@@ -730,9 +743,7 @@ def run_variant(
     recall_accept = float(report.get("Acceptable", {}).get("recall", 0.0))
     f1_accept = float(report.get("Acceptable", {}).get("f1-score", 0.0))
 
-    precision_notaccept = float(
-        report.get("Not Acceptable", {}).get("precision", 0.0)
-    )
+    precision_notaccept = float(report.get("Not Acceptable", {}).get("precision", 0.0))
     recall_notaccept = float(report.get("Not Acceptable", {}).get("recall", 0.0))
     f1_notaccept = float(report.get("Not Acceptable", {}).get("f1-score", 0.0))
 
@@ -746,7 +757,11 @@ def run_variant(
 
     specificity = float(tn / (tn + fp)) if (tn + fp) > 0 else 0.0
 
-    print(f"  Test ROC AUC: {roc_auc:.3f}" if roc_auc is not None else "  Test ROC AUC: N/A")
+    print(
+        f"  Test ROC AUC: {roc_auc:.3f}"
+        if roc_auc is not None
+        else "  Test ROC AUC: N/A"
+    )
     print(f"  Test Accuracy: {accuracy:.3f}")
     print(f"  Test F1 (Acceptable): {f1_accept:.3f}")
     print(f"  Test Recall (Acceptable): {recall_accept:.3f}")
@@ -760,7 +775,9 @@ def run_variant(
 
     # Save confusion matrix plot
     cm_path = variant_dir / "confusion_matrix.png"
-    plot_confusion_matrix(cm, label_order, f"Confusion Matrix - {variant_name}", cm_path)
+    plot_confusion_matrix(
+        cm, label_order, f"Confusion Matrix - {variant_name}", cm_path
+    )
 
     # Save metrics JSON
     metrics = {
