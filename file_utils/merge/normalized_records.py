@@ -241,61 +241,9 @@ class OrganoidRecordBuilder:
             }
             for row in survey.get("quality_scores") or []
         ]
-        majority = self._compute_survey_majority(survey)
-        summary = {
-            "total_evaluations": majority["total_evaluations"],
-            "votes": majority["votes"],
-            "min_votes": majority["min_votes"],
-        }
-        label = {
-            "value": majority["value"],
-            "acceptance_flag": majority["acceptance_flag"],
-            "source": majority["source"],
-        }
         return {
             "evaluations": evaluations,
             "quality_scores": quality_scores,
-            "summary": summary,
-            "label": label,
-        }
-
-    def _compute_survey_majority(self, survey: SchemaDict) -> Optional[SchemaDict]:
-        evaluations: List[SchemaDict] = survey.get("evaluations") or []
-        inv_votes = Counter()
-        reg_votes = Counter()
-        for eval_entry in evaluations:
-            vote = eval_entry.get("evaluation")
-            if vote:
-                original_image_ref = eval_entry.get("original_image_ref")
-                if "INV" in original_image_ref:
-                    inv_votes[vote] += 1
-                else:
-                    reg_votes[vote] += 1
-
-        winning_inv_label = next(
-            (label for label, count in inv_votes.items() if count >= self.min_survey_votes),
-            None,
-        )
-
-        winning_reg_label = next(
-            (label for label, count in reg_votes.items() if count >= self.min_survey_votes),
-            None,
-        )
-
-        if inv_votes and inv_votes[winning_inv_label] != reg_votes[winning_reg_label]:
-            main_id = survey.get("quality_scores", [])[0].get("main_id")
-            logging.warning(f"{main_id}:  Inverted evaluation - {inv_votes[winning_inv_label]} '{winning_inv_label}' does not match regular evaluation - {reg_votes[winning_reg_label]} '{winning_reg_label}'")
-            winning_reg_label = None
-
-        total = sum(inv_votes.values()) + sum(reg_votes.values())
-
-        return {
-            "value": winning_reg_label,
-            "acceptance_flag": self.LABEL_MAP.get(winning_reg_label) if winning_reg_label else None,
-            "votes": dict(reg_votes + inv_votes),
-            "total_evaluations": total,
-            "min_votes": self.min_survey_votes,
-            "source": "survey.evaluations",
         }
 
     def _get_record_metrics(self, record: SchemaDict) -> SchemaDict:

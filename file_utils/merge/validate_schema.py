@@ -202,7 +202,7 @@ def validate_survey_structure(ctx: ValidationContext, survey: Dict[str, Any]) ->
     if not ctx.check_type(survey, dict, 'survey'):
         return
 
-    required_survey_fields = ['evaluations', 'quality_scores', 'summary', 'label']
+    required_survey_fields = ['evaluations', 'quality_scores']
     if not ctx.check_required_fields(survey, required_survey_fields, 'survey'):
         return
 
@@ -211,31 +211,6 @@ def validate_survey_structure(ctx: ValidationContext, survey: Dict[str, Any]) ->
         field_value = survey.get(list_field, [])
         if field_value:
             ctx.check_type(field_value, list, f'survey.{list_field}')
-
-    # Validate summary
-    summary = survey.get('summary', {})
-    if summary:
-        ctx.check_type(summary, dict, 'survey.summary')
-
-    # Validate label structure
-    label = survey.get('label', {})
-    if label:
-        required_label_fields = ['value', 'acceptance_flag']
-        if ctx.check_nested_structure(survey, 'label', required_label_fields, 'survey'):
-            # Validate label value
-            if 'value' in label and label['value']:
-                if label['value'] not in ['Acceptable', 'Not Acceptable']:
-                    ctx.warnings.append(f"Record {ctx.record_id}: survey.label.value has unexpected value: {label['value']}")
-
-            # Validate acceptance_flag
-            if 'acceptance_flag' in label:
-                flag = label['acceptance_flag']
-                if flag is not None:
-                    if not ctx.check_type(flag, int, 'survey.label.acceptance_flag', required=False):
-                        pass  # Error already added
-                    elif flag not in [0, 1]:
-                        ctx.warnings.append(f"Record {ctx.record_id}: survey.label.acceptance_flag has unexpected value: {flag} (expected 0 or 1)")
-
 
 def validate_label_structure(ctx: ValidationContext, label: Dict[str, Any]) -> None:
     # Validate label structure
