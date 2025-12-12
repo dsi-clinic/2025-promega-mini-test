@@ -304,16 +304,17 @@ class OrganoidRecordBuilder:
                     self.record_metrics.num_metabolite_outliers += 1
 
         # Track surveys
-        survey_votes = record.get("survey", {}).get("summary", {}).get("votes", {})
-        if survey_votes:
+        survey_data = record.get("survey", {})
+        if survey_data:
             self.record_metrics.num_survey += 1
+            survey_votes = record.get("label", {}).get("votes", {})
             self.record_metrics.total_votes += sum(survey_votes.values())
             if "Acceptable" in survey_votes.keys():
                 self.record_metrics.num_acceptable_votes += survey_votes["Acceptable"]
             if "Not Acceptable" in survey_votes.keys():
                 self.record_metrics.num_not_acceptable_votes += survey_votes["Not Acceptable"]
 
-            survey_label = record.get("survey", {}).get("label", {}).get("value")
+            survey_label = record.get("label", {}).get("value")
             if not survey_label:
                 self.record_metrics.num_no_majority += 1
             else:
