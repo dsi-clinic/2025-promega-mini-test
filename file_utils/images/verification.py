@@ -9,9 +9,6 @@ from file_utils.common.organoid_patterns import OrganoidPatterns
 
 import pandas as pd
 
-log = logging.getLogger(__name__)
-
-
 class Verifier:
     """
     Wraps the verification CSV:
@@ -60,7 +57,7 @@ class Verifier:
         self.verify_map = dict(zip(vdf["main_id_norm"], blank_norm))
         self.verify_norm2orig = dict(zip(vdf["main_id_norm"], vdf["main_id_orig"]))
 
-        log.info(f"[Verifier] Loaded {len(self.verify_map)} verification entries")
+        logging.debug(f"[Verifier] Loaded {len(self.verify_map)} verification entries")
 
     @staticmethod
     def classification_label_for_verif(split_index: int | None, classification: str) -> str:
@@ -170,8 +167,8 @@ class Verifier:
 
         is_blank = (verdict == "YES")
 
-        if gen_main_id and best_key and best_key != gen_main_id:
-            log.warning(f"[Verifier] Mismatch: gen={gen_main_id} csv={best_key}")
+        if gen_main_id and best_key and best_key.upper() != gen_main_id.upper():
+            logging.warning(f"[Verifier] Mismatch: gen={gen_main_id} csv={best_key}")
 
         return {
             "main_id": main_id,

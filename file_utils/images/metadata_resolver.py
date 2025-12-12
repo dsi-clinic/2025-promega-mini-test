@@ -10,9 +10,6 @@ import pandas as pd
 
 from file_utils.common.organoid_patterns import OrganoidPatterns
 
-log = logging.getLogger(__name__)
-
-
 def _precompute_um_per_px(meta: pd.DataFrame) -> pd.DataFrame:
     cols = list(meta.columns)
     px_candidates = [c for c in cols if "Image Width" in c and "Pixel" in c]
@@ -23,7 +20,7 @@ def _precompute_um_per_px(meta: pd.DataFrame) -> pd.DataFrame:
 
     px_col = px_candidates[0]
     um_col = um_candidates[0]
-    log.info(f"[metadata] Using pixel-col={px_col!r}, micron-col={um_col!r}")
+    logging.debug(f"[metadata] Using pixel-col={px_col!r}, micron-col={um_col!r}")
 
     meta[px_col] = (
         meta[px_col]
@@ -76,7 +73,7 @@ def _split_photo_id(pid: str) -> Tuple[str, str, str]:
         m2 = re.search(r"([A-Ha-h]\s*\d{1,2})", tokens)
         wellID = m2.group(1).replace(" ", "").upper() if m2 else tokens.strip().upper()
 
-    log.debug(f"[metadata._split_photo_id] {pid!r} → batch={batchPlate!r}, day={dayID!r}, well={wellID!r}")
+    logging.debug(f"[metadata._split_photo_id] {pid!r} → batch={batchPlate!r}, day={dayID!r}, well={wellID!r}")
     return batchPlate, dayID, wellID
 
 
@@ -87,7 +84,6 @@ def load_and_clean_metadata(meta_csv: Path, sheet_name: str = "Images") -> pd.Da
       um_per_px, cellLine, treatment, and a few imaging cols.
     """
     meta = pd.read_excel(meta_csv, sheet_name=sheet_name)
-
     meta = meta.rename(
         columns={
             "Photo ID (Batch Plate Day Well)": "photoID",
@@ -102,7 +98,6 @@ def load_and_clean_metadata(meta_csv: Path, sheet_name: str = "Images") -> pd.Da
             "Treatments (AAV)": "treatment",
         }
     )
-
     meta = _precompute_um_per_px(meta)
 
     bp_list = []

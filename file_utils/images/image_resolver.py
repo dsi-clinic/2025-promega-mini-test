@@ -12,8 +12,6 @@ import numpy as np
 
 from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer
 
-log = logging.getLogger(__name__)
-
 class ImageMatchResult(NamedTuple):
     chosen: Optional[Path]
     stitched_flag: str      # "Stitched", "Split-Stitched", "Regular", "SplitAmbiguous", "No"
@@ -39,7 +37,7 @@ def list_image_files(img_folder: Path) -> list[Path]:
     files = list(dict.fromkeys(files))  # de-dup
 
     _FILE_LIST_CACHE[img_folder] = files
-    log.info(f"[image_resolver] Cached {len(files)} images for {img_folder}")
+    logging.debug(f"[image_resolver] Cached {len(files)} images for {img_folder}")
     return files
 
 
@@ -147,7 +145,7 @@ def build_search_ids(search_id: str) -> list[str]:
 
     # de-dup + strip
     search_ids = list(dict.fromkeys(s.strip() for s in search_ids))
-    log.info(f"[build_search_ids] Variants: {search_ids}")
+    logging.debug(f"[build_search_ids] Variants: {search_ids}")
     return search_ids
 
 
@@ -203,18 +201,18 @@ def find_candidates(img_folder: Path, file_photoID: str) -> list[Path]:
             patterns.append(rf"\b{re.escape(sid_well)}\s*\([^)]*\)")
             patterns.append(rf"\b{re.escape(sid_well)}(?=[\s._(]|$)")
 
-        log.debug(f"[find_candidates] Patterns for {clean_sid!r}: {patterns}")
+        logging.debug(f"[find_candidates] Patterns for {clean_sid!r}: {patterns}")
 
         for pattern in patterns:
             try:
                 search_re = re.compile(pattern, re.IGNORECASE)
             except re.error as e:
-                log.warning(f"[find_candidates] Invalid regex pattern {pattern}: {e}")
+                logging.warning(f"[find_candidates] Invalid regex pattern {pattern}: {e}")
                 continue
             these = [f for f in files if search_re.search(f.name)]
             if these:
                 candidates = these
-                log.info(f"[find_candidates] Found {len(candidates)} matches for {pattern}")
+                logging.debug(f"[find_candidates] Found {len(candidates)} matches for {pattern}")
                 break
         if candidates:
             break
@@ -223,7 +221,7 @@ def find_candidates(img_folder: Path, file_photoID: str) -> list[Path]:
     if not candidates:
         well = _extract_well_from_id(file_photoID)
         if well:
-            log.info(f"[find_candidates] Fallback by well ID: {well}")
+            logging.debug(f"[find_candidates] Fallback by well ID: {well}")
             by_well = [f for f in files if re.search(rf"\b{re.escape(well)}\b", f.name, re.IGNORECASE)]
             if not by_well:
                 by_well = [f for f in files if well.lower() in f.name.lower()]
@@ -270,13 +268,13 @@ def resolve_image(
     """
     img_folder = base_dir
     if not img_folder.exists():
-        log.warning(f"[resolve_image] Image folder does not exist: {img_folder}")
+        logging.warning(f"[resolve_image] Image folder does not exist: {img_folder}")
         return ImageMatchResult(None, "No", [], None)
 
     candidates = find_candidates(img_folder, file_photoID)
 
     if not candidates:
-        log.warning(f"[resolve_image] No candidates for {file_photoID} in {img_folder}")
+        logging.warning(f"[resolve_image] No candidates for {file_photoID} in {img_folder}")
         return ImageMatchResult(None, "No", [], None)
 
     candidates.sort(key=lambda f: extract_z_level(f.name))
