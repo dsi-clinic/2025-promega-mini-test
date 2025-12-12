@@ -237,19 +237,48 @@ def validate_survey_structure(ctx: ValidationContext, survey: Dict[str, Any]) ->
                         ctx.warnings.append(f"Record {ctx.record_id}: survey.label.acceptance_flag has unexpected value: {flag} (expected 0 or 1)")
 
 
+def validate_label_structure(ctx: ValidationContext, label: Dict[str, Any]) -> None:
+    # Validate label structure
+    if not label:
+        return
+    required_label_fields = ['value', 'acceptance_flag', 'source']
+    if ctx.check_nested_structure(label, 'label', required_label_fields, 'label'):
+        # Validate label value
+        if 'value' in label and label['value']:
+            if label['value'] not in ['Acceptable', 'Not Acceptable']:
+                ctx.warnings.append(f"Record {ctx.record_id}: label.value has unexpected value: {label['value']}")
+
+        # Validate acceptance_flag
+        if 'acceptance_flag' in label:
+            flag = label['acceptance_flag']
+            if flag is not None:
+                if not ctx.check_type(flag, int, 'survey.label.acceptance_flag', required=False):
+                    pass  # Error already added
+                elif flag not in [0, 1]:
+                    ctx.warnings.append(f"Record {ctx.record_id}: survey.label.acceptance_flag has unexpected value: {flag} (expected 0 or 1)")
+
+        # Validate source
+        if 'source' in label:
+            source = label['source']
+            if source is not None:
+                if not ctx.check_type(source, str, 'label.source', required=False):
+                    pass  # Error already added
+                elif source not in ['survey.evaluations', 'preprocessed.label', None]:
+                    ctx.warnings.append(f"Record {ctx.record_id}: label.source has unexpected value: {source} (expected 'image.label', 'survey.label', or 'preprocessed.label')")
+
+
 def validate_record_id_format(ctx: ValidationContext, record_id: str) -> None:
     """Validate record ID format."""
-    # Pattern: BA#_96_#_Dy##_A# optionally followed by _split_# (e.g., BA1_96_1_Dy03_B5 or BA4_96_1_Dy17_C12_split_1)
+    # Pattern: BA#_96_#_Dy##_A# optionally followed by _split_# (e.g., BA1_96_1_Dy03_B5 or BA4_96_1_Dy20.5_C12_split_1)
     # - [A-Z]+\d+ : Batch identifier (BA1)
     # - (_\d+)? : Optional plate number (_96)
     # - _\d+ : Additional plate identifier (_1)
-    # - _Dy\d+ : Day identifier (_Dy03)
-    # - (_\d+\.\d+)? : Optional decimal day (_20.5)
+    # - _Dy\d+(\.\d+)? : Day identifier (_Dy03 or _Dy20.5)
     # - _[A-Z]\d+ : Well identifier (_B5)
     # - (_split_\d+)? : Optional split identifier (_split_1, _split_2, etc.)
-    pattern = r'^[A-Z]+\d+(_\d+)?_\d+_Dy\d+(_\d+\.\d+)?_[A-Z]\d+(_split_\d+)?$'
+    pattern = r'^[A-Z]+\d+(_\d+)?_\d+_Dy\d+(\.\d+)?_[A-Z]\d+(_split_\d+)?$'
     if not re.match(pattern, record_id):
-        ctx.warnings.append(f"Record {record_id}: ID format may be unexpected (expected pattern: BA#_96_#_Dy##_A# or BA#_96_#_Dy##_A#_split_#)")
+        ctx.warnings.append(f"Record {record_id}: ID format may be unexpected (expected pattern: BA#_96_#_Dy##_A# or BA#_96_#_Dy##.#_A#_split_#)")
 
 
 def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = None, strict: bool = False) -> Dict[str, Any]:
@@ -336,6 +365,11 @@ def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = Non
         survey = record.get('survey', {})
         if survey:
             validate_survey_structure(ctx, survey)
+
+
+        label = record.get('label', {})
+        if label:
+            validate_label_structure(ctx, label)
 
         # 5h. Validate record ID format
         validate_record_id_format(ctx, record_id)

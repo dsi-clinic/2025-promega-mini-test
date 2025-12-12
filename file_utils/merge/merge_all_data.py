@@ -54,7 +54,7 @@ class Config:
     target_height: int = dataclasses.field(default=384, metadata={
         "help": "Target input image height (pixels)"
     })
-    validate_schema: bool = dataclasses.field(default=False, metadata={
+    no_validate: bool = dataclasses.field(default=False, metadata={
         "help": "Validate schema of generated all_data.json file"
     })
 
@@ -206,33 +206,6 @@ def load_json(path: Path | str):
         raise RuntimeError(f"Required JSON file does not exist: {path}")
     with path.open("r") as f:
         return json.load(f)
-
-# def build_survey_map(survey_data):
-#     """Build and return dictionary of survey data.
-
-#     Args:
-#         survey_data: Dictionary of survey data
-
-#     Returns:
-#         Dictionary of survey data keyed by (main_id, split_index)
-#     """
-#     survey_map = {}
-#     for key, row in survey_data.items():
-#         for category in ["evaluations", "quality_scores"]:
-#             if row.get(category):
-#                 for item in row[category]:
-#                     main_id = item.get("main_id")
-#                     split_index = item.get("split_index")
-#                     if not main_id:
-#                         continue
-#                     main_id_norm = main_id.replace(" ", "_").upper()
-#                     key = (main_id_norm, split_index)
-#                     if key not in survey_map:
-#                         survey_map[key] = {"evaluations": [], "quality_scores": []}
-#                     survey_map[key][category].append(item)
-#             print(survey_map)
-#             exit()
-#     return survey_map
 
 def normalize_manual_mask_map(manual_mask_map, data_dir, images_raw_dir, masks_manual_dir):
     """Normalize keys for storage of manual mask data and update path to data files.
@@ -439,11 +412,13 @@ def build_normalized_records(cfg, combined):
     stats_clean = sanitize_for_json(stats)
 
     # Validate the records before writing (in-memory validation)
-    if cfg.validate_schema:
+    if not cfg.no_validate:
         if not validate_data(stats_clean):
             raise RuntimeError("Data validation failed")
-        if not validate_json(records_clean):
+        valid, stats_validation = validate_json(records_clean)
+        if not valid:
             raise RuntimeError("Schema validation failed")
+        stats_clean.update(stats_validation)
 
     # Write the records and stats to JSON files
     out_file = cfg.data_dir.joinpath(cfg.ALL_DATA_JSON)
@@ -451,7 +426,7 @@ def build_normalized_records(cfg, combined):
     out_file = cfg.data_dir.joinpath(cfg.SUMMARY_JSON)
     write_json(out_file, stats_clean)
 
-    return records, stats
+    return records, stats_clean
 
 def generate_views(records, cfg, stats):
     """Generate image and survey classifier views on the data."""
@@ -512,17 +487,21 @@ def validate_data(stats: dict) -> bool:
     """Validate the data before writing."""
     logging.info("Validating data before writing...")
     try:
-        assert stats['total_records'] == EXPECTED_TOTAL_RECORDS
-        assert stats['num_organoids'] == stats['total_records']
-        assert stats['num_img_paths'] == stats["total_records"]
-        assert stats['num_labels'] == EXPECTED_NUM_LABELS
-        assert stats['num_metabolites'] + stats['num_no_metabolite'] == stats['total_records']
-        assert stats['survey_matches'] + stats['survey_not_matched'] == stats['total_records']
+        assert stats['num_records'] == EXPECTED_TOTAL_RECORDS
+
+        assert stats['num_records'] == stats['num_labels'] + stats['num_no_labels']
+        assert stats['num_labels'] == stats['num_preprocessed_labels'] + stats['num_survey_labels']
+
+        assert stats['num_records'] == stats['num_metabolites'] + stats['num_no_metabolite']
+
+        assert stats['num_records'] == stats['num_survey'] + stats['num_no_survey']
         assert stats['total_votes'] == stats['num_acceptable_votes'] + stats['num_not_acceptable_votes']
+        assert stats['num_survey'] == stats['num_majority'] + stats['num_no_majority']
+
         logging.info(f"Data validation passed")
         return True
     except AssertionError as e:
-        logging.warning(f"Data validation failed with exception: {e}")
+        logging.exception(f"Data validation failed with exception: {e}")
         return False
 
 def validate_json(records: dict) -> bool:
@@ -549,9 +528,9 @@ def validate_json(records: dict) -> bool:
 
     except Exception as e:
         valid = False
-        logging.warning(f"Schema validation failed with exception: {e}")
+        logging.exception(f"Schema validation failed with exception: {e}")
 
-    return valid
+    return valid, validation_results["stats"]
 
 def write_json(out_file, payload):
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -559,7 +538,7 @@ def write_json(out_file, payload):
         json.dump(payload, f, indent=2)
     logging.info(f"Wrote :{out_file}")
 
-def print_stats(stats, out_file):
+def print_stats(stats, out_file, no_validate: bool):
     """Print statistics in a clean, organized format."""
     logging.info("Record stats:")
     logging.info(f"  Wrote {stats['num_records']:,} merged records → {out_file}")
@@ -583,6 +562,29 @@ def print_stats(stats, out_file):
     # Manual masks
     logging.info(f"  Manual masks: {stats['num_manual_masks']:,}")
 
+    # Validation stats (only if validation was run)
+    if not no_validate:
+        logging.info("Validation stats:")
+        logging.info(f"  Records with required fields: {stats.get('records_with_required_fields', 0):,}")
+        logging.info(f"  Records with images: {stats.get('records_with_images', 0):,}")
+        logging.info(f"  Records with metabolites: {stats.get('records_with_metabolites', 0):,}")
+        logging.info(f"  Records with survey: {stats.get('records_with_survey', 0):,}")
+
+        # Day distribution (top 5)
+        day_dist = stats.get('day_distribution', {})
+        if day_dist:
+            logging.info(f"  Day distribution (top 5):")
+            sorted_days = sorted(day_dist.items(), key=lambda x: x[1], reverse=True)[:5]
+            for day, count in sorted_days:
+                logging.info(f"    {day}: {count:,}")
+
+        # Classification verification distribution
+        class_verif_dist = stats.get('classification_verification_distribution', {})
+        if class_verif_dist:
+            logging.info(f"  Classification verification distribution:")
+            for verif, count in sorted(class_verif_dist.items(), key=lambda x: x[1], reverse=True):
+                logging.info(f"    {verif}: {count:,}")
+
 def main():
     # ---------- command line arguments ----------
     cfg = get_args()
@@ -596,7 +598,7 @@ def main():
 
     # ---------- normalize ----------
     logging.info("Normalizing merged records...")
-    records, stats = build_normalized_records(cfg, combined)
+    _, stats = build_normalized_records(cfg, combined)
 
     # # ---------- emit views ----------
     # logging.info("Generating derived views...")
@@ -604,7 +606,7 @@ def main():
     # stats.update(view_stats)
 
     # ----------  print top-level data stats ----------
-    print_stats(stats, cfg.ALL_DATA_JSON)
+    print_stats(stats, cfg.ALL_DATA_JSON, cfg.no_validate)
 
 if __name__ == "__main__":
     main()

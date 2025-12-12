@@ -205,12 +205,7 @@ class OrganoidRecordBuilder:
             "variant": preprocessed.get("variant"),
             "best_z_filename": preprocessed.get("Best Z Filename"),
             "metadata_key": preprocessed.get("metadata_key"),
-        }
-        label = preprocessed.get("label")
-        label_block = {
-            "value": label,
-            "acceptance_flag": self.LABEL_MAP.get(label),
-            "source": "preprocessed",
+            "label": preprocessed.get("label"),
         }
         return {
             "raw_um_per_px": entry.get("um_per_px"),
@@ -219,7 +214,6 @@ class OrganoidRecordBuilder:
             "processed": processed_block,
             "preprocessed": preprocessing_block,
             "manual_mask_path": manual_mask_path,
-            "label": label_block,
         }
 
     def _build_surveys(self, survey: SchemaDict) -> Optional[SchemaDict]:
@@ -337,7 +331,7 @@ class OrganoidRecordBuilder:
 
         # Track labels
         label = record.get("label", {})
-        if not label:
+        if not label.get("value"):
             self.record_metrics.num_no_labels += 1
         else:
             self.record_metrics.num_labels += 1
