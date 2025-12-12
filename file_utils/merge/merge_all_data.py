@@ -18,9 +18,6 @@ from file_utils.common.organoid_patterns import OrganoidNormalizer
 from file_utils.merge.normalized_records import (
     RecordMetrics,
     OrganoidRecordBuilder,
-    ImageClassifierEmitter,
-    SurveyClassifierEmitter,
-    emit_views,
 )
 from file_utils.merge.validate_schema import validate_all_data_json
 
@@ -429,36 +426,6 @@ def build_normalized_records(cfg, combined):
 
     return records, stats_clean
 
-def generate_views(records, cfg, stats):
-    """Generate image and survey classifier views on the data."""
-    views = emit_views(
-        records,
-        [
-            ImageClassifierEmitter(),
-            SurveyClassifierEmitter(survey_day=cfg.survey_day, min_votes=cfg.min_survey_votes),
-        ],
-    )
-    payload_clean = sanitize_for_json(views)
-
-    out_file = cfg.data_dir.joinpath(cfg.IMAGE_CLASSIFIER)
-    payload_clean["image_classifier"]["metadata"]["num_img_split"] = stats["num_img_split"]
-    payload_clean["image_classifier"]["metadata"]["num_img_stitched"] = stats["num_img_stitched"]
-    payload_clean["image_classifier"]["metadata"]["num_img_no_label"] = stats["num_img_no_label"]
-    write_json(out_file, payload_clean["image_classifier"])
-
-    out_file = cfg.data_dir.joinpath(cfg.SURVEY_CLASSIFIER)
-    payload_clean["survey_classifier"]["metadata"]["num_ambiguous"] = stats["num_no_majority"]
-    payload_clean["survey_classifier"]["metadata"]["num_acceptable_votes"] = stats["num_acceptable_votes"]
-    payload_clean["survey_classifier"]["metadata"]["num_not_acceptable_votes"] = stats["num_not_acceptable_votes"]
-    write_json(out_file, payload_clean["survey_classifier"])
-
-    return {
-        "num_days_image": len(views["image_classifier"]["records"].keys()),
-        "num_days_image_skipped": views["image_classifier"]["metadata"]["total_skipped"],
-        "num_days_survey": len(views["survey_classifier"]["records"].keys()),
-        "num_days_survey_skipped": views["survey_classifier"]["metadata"]["total_skipped"],
-    }
-
 def sanitize_for_json(obj):
     """
     Recursively sanitize data to be JSON-safe.
@@ -600,11 +567,6 @@ def main():
     # ---------- normalize ----------
     logging.info("Normalizing merged records...")
     _, stats = build_normalized_records(cfg, combined)
-
-    # # ---------- emit views ----------
-    # logging.info("Generating derived views...")
-    # view_stats = generate_views(records, cfg, stats)
-    # stats.update(view_stats)
 
     # ----------  print top-level data stats ----------
     print_stats(stats, cfg.ALL_DATA_JSON, cfg.no_validate)
