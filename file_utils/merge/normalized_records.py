@@ -142,8 +142,8 @@ class OrganoidRecordBuilder:
             "id": source_id,
             "day": {
                 "id": f"Dy{formatted_day}",
-                "number": entry.get("mdl_day"),
-                "original": entry.get("dayID")
+                "number": day_value,
+                "original": entry.get("original_day")
             },
             "cell_line": entry.get("cellLine"),
             "plate": {

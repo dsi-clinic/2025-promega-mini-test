@@ -306,12 +306,13 @@ def merge_data_sources(sources: DataSources) -> tuple[dict, dict]:
         tuple[dict, dict]: Combined dictionary of all data sources and stats dictionary
     """
     combined = {}
-    for key in tqdm(sources.identifiers_map.keys(), desc="Merging data sources"):
+    for key, original_day in tqdm(sources.identifiers_map.items(), desc="Merging data sources"):
         # Match base image info
         entry = dict(sources.base_map[key])
         main_id = entry.get("main_id", "")
         if 'dayID' in entry:    # Extract numerical day from dayID
             entry['mdl_day'] = extract_mdl_day(entry['dayID'])
+        entry['original_day'] = original_day
 
         # Match processed info
         processed = sources.processed_map.get(key)
