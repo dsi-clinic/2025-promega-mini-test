@@ -37,15 +37,7 @@ from config import (
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
 
-
 class ImageMapper:
-    BA_FOLDER_MAP = {
-        "BA1": "Ba1",
-        "BA2": ["Ba2/96_1", "Ba2/96_2"],
-        "BA3": "Ba3",
-        "BA4": "Ba4",
-    }
-
     def __init__(self, base_dir: Path, meta_csv: Path, verify_csv: Path | None = None):
         self.base_dir = Path(base_dir)
         self.meta_csv = Path(meta_csv)
@@ -60,27 +52,23 @@ class ImageMapper:
             dnum = OrganoidNormalizer.extract_day_number(dy)
             by_well_days[(bp, w)].append(dnum)
 
-            parts = bp.split()
-            base_token = parts[0].upper()
-            img_sub = self.BA_FOLDER_MAP.get(base_token)
-            if isinstance(img_sub, list):
-                plate_suffix = parts[1] if len(parts) > 1 else ""
-                img_sub = next((s for s in img_sub if plate_suffix in s), img_sub[0])
+            # flattened structure 
+            img_folder = self.base_dir
 
-            img_folder = self.base_dir / img_sub / dy
             has_split = False
             if img_folder.exists():
-                # get all day files once (cached by folder)
                 day_files = list_image_files(img_folder)
-                # filter by this well only
-                well_re = re.compile(rf"\b{re.escape(w)}\b", re.IGNORECASE)
-                well_files = [f for f in day_files if well_re.search(f.name)]
 
-                # check if any file for this well is split
-                has_split = any(
-                    OrganoidNormalizer.extract_split_info(f.name)["is_split"]
-                    for f in well_files
-                )
+                # filter to this well, same as before
+                well_files = [
+                    f for f in day_files
+                    if OrganoidNormalizer.extract_well(f.name) == w
+                ]
+                if well_files:
+                    has_split = any(
+                        OrganoidNormalizer.extract_split_info(f.name)["is_split"]
+                        for f in well_files
+                    )
 
             if has_split:
                 actual_split_wells.add((bp, w, dnum))
@@ -96,7 +84,6 @@ class ImageMapper:
 
         log.info(f"[ImageMapper] Detected {len(presplit_wells)} presplit wells")
         return presplit_wells
-
 
 
     def _to_rel(self, p: Path) -> Path:
@@ -130,11 +117,9 @@ class ImageMapper:
             # resolve image(s)
             chosen, stitched_flag, all_files, stitched_groups = resolve_image(
                 base_dir=self.base_dir,
-                batch_plate=batch_plate,
                 day_id=day_id,
                 well_id=well_id,
                 file_photoID=raw_full_id,
-                ba_folder_map=self.BA_FOLDER_MAP,
             )
 
             if not all_files and stitched_flag not in ("SplitAmbiguous",):
@@ -150,7 +135,7 @@ class ImageMapper:
                 log.info(f"[ImageMapper] Expanding into {len(child_groups)} split children for {full_id}")
 
                 def pick_rep_file(files_for_child):
-                    files_for_child = sorted(files_for_child, key=extract_z_level)
+                    files_for_child = sorted(files_for_child, key=lambda f: extract_z_level(f.name))
                     stitched = [f for f in files_for_child if "(stitched)" in f.name.lower()]
                     if stitched:
                         return stitched[0]
@@ -179,7 +164,10 @@ class ImageMapper:
                         "Actual Z Value": actual_z,
                         "Classification": classification,
                         "um_per_px": float(group_df["um_per_px"].iloc[0]),
-                        "all_files": [str(self._to_rel(f)) for f in sorted(group_files, key=extract_z_level)],
+                        "all_files": [
+                            str(self._to_rel(f))
+                            for f in sorted(group_files, key=lambda f: extract_z_level(f.name))
+                        ],
                         "cellLine": group_df["cellLine"].iloc[0],
                         "treatment": group_df["treatment"].iloc[0],
                     }
@@ -216,7 +204,7 @@ class ImageMapper:
             if stitched_flag == "SplitAmbiguous" and stitched_groups:
                 log.info(f"[ImageMapper] Processing {len(stitched_groups)} stitched groups for {full_id}")
                 for identifier, group_files in stitched_groups.items():
-                    group_files.sort(key=extract_z_level)
+                    group_files.sort(key=lambda f: extract_z_level(f.name))
 
                     best_idx = find_best_focus(group_files)
                     final_file = group_files[best_idx] if 0 <= best_idx < len(group_files) else group_files[0]
@@ -239,7 +227,11 @@ class ImageMapper:
                         "Actual Z Value": actual_z,
                         "Classification": "Stitched",
                         "um_per_px": float(group_df["um_per_px"].iloc[0]),
-                        "all_files": [str(self._to_rel(f)) for f in group_files],
+                        "all_files": [
+                            str(self._to_rel(f))
+                            for f in sorted(group_files, key=lambda f: extract_z_level(f.name))
+                        ],
+
                         "cellLine": group_df["cellLine"].iloc[0],
                         "treatment": group_df["treatment"].iloc[0],
                     }
@@ -352,8 +344,8 @@ class ImageMapper:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
 
-    base_dir = RAW_IMAGE_DATA        # root with Ba1, Ba2/96_1, etc.
-    meta_xlsx = META_FILE            # Excel with the Images sheet
+    base_dir = RAW_IMAGE_DATA        # root input with raw image data
+    meta_xlsx = META_FILE            # Excel with the 'Images' sheet
     verify_csv = IMAGE_VERIFICATION_FORM  # verification CSV (blank wells)
     out_json = RAW_IMAGE_MAPPING_JSON     # where to write the mapping
 

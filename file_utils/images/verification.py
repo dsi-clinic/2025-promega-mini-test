@@ -51,7 +51,9 @@ class Verifier:
             vdf["main_id_orig"]
             .str.replace(r"\s+", "", regex=True)
             .str.replace(r"_split_(\d+)", r"_split\1", regex=True)
+            .str.lower()
         )
+
 
         blank_norm = vdf[col_blank].astype(str).str.strip().str.upper()
 

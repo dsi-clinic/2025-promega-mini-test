@@ -107,90 +107,48 @@ def classify_image_file(fname: str) -> str:
     return "Regular"
 
 
-def get_ba_subfolder(base_dir: Path, batch_plate: str, ba_folder_map: dict) -> Path:
+def build_search_ids(search_id: str) -> list[str]:
     """
-    batch_plate: e.g. 'BA2 96_1', 'BA3 Pt1'
-    BA_FOLDER_MAP: {'BA1': 'Ba1', 'BA2': ['Ba2/96_1', 'Ba2/96_2'], 'BA3': 'Ba3', ...}
+    Flat layout:
+    - Start from the exact metadata ID.
+    - If it contains BA + (96_1 / 96_2 / Pt1), also generate the other suffix variants.
+    - If it contains BA with no suffix, generate variants with all suffixes.
+    This handles metadata saying 'Pt1' while filenames say '96_1', etc.
     """
-    parts = batch_plate.split()
-    ba_token = parts[0].upper()
-    plate_suffix = parts[1] if len(parts) > 1 else ""
+    base = search_id.strip()
+    search_ids = [base]
 
-    sub = ba_folder_map[ba_token]  # can be "Ba3" or ["Ba2/96_1", "Ba2/96_2"]
+    # Look for a BA token (BA1, BA2, BA3, ...)
+    ba_match = re.search(r"\b(BA\d+)\b", base, re.IGNORECASE)
+    # Look for a plate suffix token (96_1, 96_2, Pt1)
+    suffix_match = re.search(r"\b(96_[12]|Pt1)\b", base, re.IGNORECASE)
 
-    if isinstance(sub, list):
-        # BA2 example: choose folder whose suffix matches 96_1/96_2
-        for candidate in sub:
-            if plate_suffix and plate_suffix in candidate:
-                return base_dir / candidate
-        # fallback: first
-        return base_dir / sub[0]
+    if ba_match:
+        ba_token = ba_match.group(0)  # e.g. 'BA3'
 
-    # BA3 case: you have "Ba3" and inside it, Pt1 vs 96_1 may be encoded in filenames, not folder
-    return base_dir / sub
+        if suffix_match:
+            # Case 1: metadata already has BA + suffix, e.g. 'BA3 Pt1'
+            suffix_token = suffix_match.group(0)  # e.g. 'Pt1'
+            orig = f"{ba_token} {suffix_token}"
 
-
-def build_search_ids(search_id: str, batch_plate: str) -> list[str]:
-    """
-    search_id: e.g. 'Ba2 96_1 Dy24 H4'
-    batch_plate: e.g. 'BA2 96_1', 'BA3 Pt1'
-
-    Ported from your old resolve_filename: BA3 Pt1 ↔ 96_1 and generic plate-suffix logic.
-    """
-    search_ids = [search_id]
-
-    # BA3 special case (Pt1 ↔ 96_1)
-    if "ba3" in search_id.lower() and batch_plate:
-        parts = batch_plate.split()
-        plate_suffix = parts[1] if len(parts) > 1 else ""
-        if "96_1" in plate_suffix.lower() and "96_1" not in search_id.lower():
-            search_ids = [
-                search_id,
-                OrganoidPatterns.BA_SUBSTITUTE.sub("BA3 96_1", search_id),
-                OrganoidPatterns.BA_SUBSTITUTE.sub("BA3 Pt1", search_id),
-            ]
-            log.info(f"[build_search_ids] BA3 variants: {search_ids}")
-        elif "pt1" in plate_suffix.lower() and "pt1" not in search_id.lower():
-            search_ids = [
-                search_id,
-                OrganoidPatterns.BA_SUBSTITUTE.sub("BA3 Pt1", search_id),
-                OrganoidPatterns.BA_SUBSTITUTE.sub("BA3 96_1", search_id),
-            ]
-            log.info(f"[build_search_ids] BA3 variants: {search_ids}")
-
-    # General BA plate-suffix logic (BA2 96_1 ↔ 96_2 ↔ Pt1)
-    if batch_plate:
-        plate_suffix_match = OrganoidPatterns.PLATE_PATTERN.search(batch_plate)
-        ba_match = OrganoidPatterns.BATCH_FLEXIBLE.search(search_id)
-        if ba_match and plate_suffix_match:
-            base_id = search_id.strip()
-            ba_part = ba_match.group(0)
-            plate_suffix = plate_suffix_match.group(1)
-            search_ids = [base_id]
-            # If ID doesn't already specify 96_1/96_2/Pt1, add them
-            if not re.search(r"\b(96_[12]|Pt1)\b", base_id, re.IGNORECASE):
-                search_ids.append(
-                    re.sub(
-                        rf"{ba_part}\b",
-                        f"{ba_part} {plate_suffix}",
-                        base_id,
-                        flags=re.IGNORECASE,
-                    )
-                )
-            alt_suffix = "Pt1" if plate_suffix.lower().startswith("96_") else "96_1"
-            if not re.search(rf"\b{re.escape(alt_suffix)}\b", base_id, re.IGNORECASE):
-                search_ids.append(
-                    re.sub(
-                        rf"{ba_part}\b",
-                        f"{ba_part} {alt_suffix}",
-                        base_id,
-                        flags=re.IGNORECASE,
-                    )
-                )
-            log.info(f"[build_search_ids] General variants: {search_ids}")
+            for alt in ("96_1", "96_2", "Pt1"):
+                if alt.lower() == suffix_token.lower():
+                    continue  # already have this one
+                new = f"{ba_token} {alt}"
+                alt_id = base.replace(orig, new, 1)
+                search_ids.append(alt_id)
+        else:
+            # Case 2: metadata has BA but no suffix, e.g. 'BA3 Dy24 H4'
+            orig_ba = ba_token
+            for alt in ("96_1", "96_2", "Pt1"):
+                new = f"{orig_ba} {alt}"
+                alt_id = base.replace(orig_ba, new, 1)
+                search_ids.append(alt_id)
 
     # de-dup + strip
-    return list(dict.fromkeys(sid.strip() for sid in search_ids))
+    search_ids = list(dict.fromkeys(s.strip() for s in search_ids))
+    log.info(f"[build_search_ids] Variants: {search_ids}")
+    return search_ids
 
 
 def _extract_well_from_id(s: str) -> str:
@@ -203,29 +161,27 @@ def _extract_well_from_id(s: str) -> str:
     return f"{m.group(1).upper()}{m.group(2)}"
 
 
-def find_candidates(img_folder: Path, file_photoID: str, batch_plate: str) -> list[Path]:
+def find_candidates(img_folder: Path, file_photoID: str) -> list[Path]:
     files = list_image_files(img_folder)
     if not files:
         return []
 
-    search_ids = build_search_ids(file_photoID, batch_plate)
+    search_ids = build_search_ids(file_photoID)
     candidates: list[Path] = []
 
     for sid in search_ids:
         clean_sid = sid.strip()
-
         sid_well = _extract_well_from_id(clean_sid)
 
         patterns: list[str] = []
-        # core ID patterns
         END_CHARS = r"\s._Z()\-%#"
 
+        # core ID patterns
         patterns.append(rf"\b{re.escape(clean_sid)}(?=[{END_CHARS}]|$)")
         patterns.append(rf"{re.escape(clean_sid)}(?=[{END_CHARS}]|$)")
 
-
-        # row-only: e.g. 'Ba2 96_1 Dy24 H'
-        m_row_only = re.search(r'\b([A-Ha-h])$', clean_sid)
+        # row-only: e.g. 'Ba2 Dy24 H'
+        m_row_only = re.search(r"\b([A-Ha-h])$", clean_sid)
         if m_row_only:
             patterns.append(
                 rf"\b{re.escape(clean_sid)}\s*(?:[1-9]|1[0-2])(?=[\s._\-()%]|$)"
@@ -276,7 +232,6 @@ def find_candidates(img_folder: Path, file_photoID: str, batch_plate: str) -> li
     return candidates
 
 
-
 def group_by_split(candidates: list[Path]) -> dict[int | None, list[Path]]:
     groups: dict[int | None, list[Path]] = {}
     for f in candidates:
@@ -303,31 +258,22 @@ def choose_best_in_group(files: list[Path]) -> tuple[Path, str, list[Path]]:
 
 def resolve_image(
     base_dir: Path,
-    batch_plate: str,
     day_id: str,
     well_id: str,
     file_photoID: str,
-    ba_folder_map: dict,
 ) -> ImageMatchResult:
     """
-    Main entrypoint.
+    Main entrypoint for FLAT layout.
 
-    Returns:
-        ImageMatchResult(
-            chosen,        # the single "representative" file, or None
-            stitched_flag, # "Stitched", "Split-Stitched", "Regular", "SplitAmbiguous", "No"
-            all_files,     # all candidates that matched this ID
-            stitched_groups, # used when multiple split groups exist and caller must expand
-        )
+    All images live directly in `base_dir` (possibly with multiple days mixed),
+    and day/BA/well info is encoded in the filename itself.
     """
-    img_folder = get_ba_subfolder(base_dir, batch_plate, ba_folder_map) / day_id
+    img_folder = base_dir
     if not img_folder.exists():
         log.warning(f"[resolve_image] Image folder does not exist: {img_folder}")
         return ImageMatchResult(None, "No", [], None)
 
-    well_id_strict = well_id or _extract_well_from_id(file_photoID)
-
-    candidates = find_candidates(img_folder, file_photoID, batch_plate)
+    candidates = find_candidates(img_folder, file_photoID)
 
     if not candidates:
         log.warning(f"[resolve_image] No candidates for {file_photoID} in {img_folder}")
@@ -337,7 +283,7 @@ def resolve_image(
     groups = group_by_split(candidates)
     split_groups = {k: v for k, v in groups.items() if k is not None}
 
-    # Case: explicit split index requested in photoID
+    # explicit split index requested in photoID
     req_info = OrganoidNormalizer.extract_split_info(file_photoID)
     wanted = req_info.get("split_index")
 
@@ -345,15 +291,18 @@ def resolve_image(
         chosen, label, _ = choose_best_in_group(groups[wanted])
         return ImageMatchResult(chosen, f"Split-{label}", candidates, None)
 
+    # exactly one split group
     if len(split_groups) == 1:
         k, fs = next(iter(split_groups.items()))
         chosen, label, _ = choose_best_in_group(fs)
         return ImageMatchResult(chosen, f"Split-{label}", candidates, None)
 
+    # non-split group available
     if None in groups and groups[None]:
         chosen, label, _ = choose_best_in_group(groups[None])
         return ImageMatchResult(chosen, label, candidates, None)
 
+    # multiple split groups and no non-split ⇒ let caller expand
     if len(split_groups) > 1:
         stitched_groups = {
             f"split_{k}": sorted(v, key=lambda f: extract_z_level(f.name))
@@ -361,5 +310,5 @@ def resolve_image(
         }
         return ImageMatchResult(None, "SplitAmbiguous", candidates, stitched_groups)
 
-    # fallback: just take first candidate
+    # fallback: first candidate
     return ImageMatchResult(candidates[0], "Regular", candidates, None)
