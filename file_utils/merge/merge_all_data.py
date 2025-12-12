@@ -34,6 +34,7 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
 EXPECTED_TOTAL_RECORDS = 5168
 EXPECTED_NUM_LABELS = 301
 LABEL_MAP = {"Accepted": 1, "Not Accepted": 0, "Acceptable": 1, "Not Acceptable": 0}
+LABEL_MAP_VALUES = {"Accepted": "Acceptable", "Not Accepted": "Not Acceptable"}
 
 # ---------- helpers ----------
 @dataclasses.dataclass
@@ -343,7 +344,7 @@ def merge_data_sources(sources: DataSources) -> tuple[dict, dict]:
         elif preprocessed:
             value = preprocessed.get("label", {})
             entry["label"] = {
-                "value": value,
+                "value": LABEL_MAP_VALUES.get(value),
                 "acceptance_flag": LABEL_MAP.get(value),
                 "source": "preprocessed.label",
             }
