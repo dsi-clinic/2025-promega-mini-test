@@ -3,9 +3,10 @@ import argparse
 import dataclasses
 import datetime
 import json
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 import random
+from typing import Any, Dict, List, Mapping
 
 # Third party
 import dotenv
@@ -25,18 +26,27 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, GlobalAveragePooling2D
 
 # Application
+from file_utils.common.json_views import BaseViewEmitter
 from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer
+from file_utils.merge.normalized_records import OrganoidRecord
 
 # --- Constants ---
 METRICS_TO_COMBINE = ['loss', 'val_loss', 'accuracy', 'val_accuracy', 'auc',
                           'val_auc', 'precision', 'val_precision', 'recall',
                           'val_recall']
+SCHEMA_DICT = Dict[str, Any]
 
 # --- Classes ---
 @dataclasses.dataclass
 class Config:
     out_dir: Path = dataclasses.field(metadata={
         "help": "Path to output directory where results will be saved"
+    })
+    all_data_json: Path = dataclasses.field(default=None, metadata={
+        "help": "Path to all data JSON file"
+    })
+    survey_classifier_json: Path = dataclasses.field(default=None, metadata={
+        "help": "Path to survey classifier JSON file (defaults to out_dir/../identifiers/survey_classifier.json)"
     })
     batch_size: int = dataclasses.field(default=8, metadata={
         "help": "Training batch size"
@@ -63,17 +73,57 @@ class Config:
         "help": "Random seed for reproducibility"
     })
     def __post_init__(self):
-        self.out_dir.mkdir(parents=True, exist_ok=True)
-        self.json_file = self.out_dir.parent.joinpath("json", "survey_classifier.json")
         self.target_size: tuple = (self.target_width, self.target_height)
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.survey_classifier_json is None:
+            self.survey_classifier_json = self.out_dir.parent.joinpath("identifiers", "survey_classifier.json")
+        else:
+            self.survey_classifier_json = Path(self.survey_classifier_json)
+
+        if self.all_data_json is None:
+            self.all_data_json = self.out_dir.parent.joinpath("identifiers", "all_data.json")
+        else:
+            self.all_data_json = Path(self.all_data_json)
+
+class SurveyClassifierEmitter(BaseViewEmitter):
+    """Build view payload for the human-survey grounded classifier."""
+
+    name = "survey_classifier"
+
+    def __init__(self, survey_day: int = 30, min_votes: int = 4):
+        self.survey_day = f"Dy{survey_day:02d}"
+        self.min_votes = min_votes
+        self._records_by_day: Dict[str, List[SCHEMA_DICT]] = defaultdict(list)
+        self._skipped_records_by_day: Dict[str, List[str]] = defaultdict(list)
+
+    def process(self, record: SCHEMA_DICT) -> None:
+        if record.get("day", {}).get("id") != self.survey_day:
+            return
+
+        evals = record.get("survey", {}).get("evaluations")
+        img_path = record.get("images", {}).get("processed", {}).get("img_path")
+        mask_path = record.get("images", {}).get("processed", {}).get("mask_path")
+        label = record.get("label", {}).get("acceptance_flag")
+
+        if not evals or not record.get("day", {}).get("id") or not img_path or not mask_path \
+            or label not in self.label_list:
+            self._skipped_records_by_day[record.get("day", {}).get("id")].append(record.get("id"))
+            return
+
+        payload = {
+            "id": record.get("id"),
+            "img_path": img_path,
+            "mask_path": mask_path,
+            "label": label,
+        }
+        self._records_by_day[record.get("day", {}).get("id")].append(payload)
 
 # --- Functions ---
 def get_args():
     """Retrieve and return command line arguments via the Config class"""
     arg_parser = create_args()
     args = arg_parser.parse_args()
-    for key,val in vars(args).items():
-        print(f"{key}: {val}")
     cfg = Config(**vars(args))
     return cfg
 
@@ -112,6 +162,16 @@ def set_seed(seed):
     tf.random.set_seed(seed)
     tf.keras.utils.set_random_seed(seed)
 
+def load_survey_classifier_views(all_data_json: Path) -> Mapping[str, SCHEMA_DICT]:
+    """Load survey classifier views from all data (records) JSON file."""
+    with open(all_data_json) as f:
+        records = json.load(f)
+
+    emitter = SurveyClassifierEmitter()
+    for record in records.values():
+        emitter.process(record)
+    return emitter.finalize()
+
 def extract_day_data(all_data, target_day):
     """Extract survey data for a particular day."""
 
@@ -133,11 +193,7 @@ def extract_day_data(all_data, target_day):
         raise RuntimeError("Error: No survey data found.")
 
     print(f"✓ Loaded {len(imgs)} total records from survey_classifier.json")
-    total_votes = all_data.get("metadata", 0).get("num_acceptable_votes") + all_data.get("metadata", 0).get("num_not_acceptable_votes")
-    print(f"✓ Found {total_votes} Dy30 votes with clear majority labels (4+ votes)")
     print(f"⚠ Skipped {all_data.get('metadata', '').get('total_skipped')} records without processed image paths, evalutations, or labels")
-    print(f"⚠ Skipped {all_data.get('metadata', '').get('num_ambiguous')} records with ambiguous labels (no clear majority)")
-    print(f"✓ Successfully prepared {len(imgs)} organoids for training")
 
     return imgs, labels, masks
 
@@ -583,6 +639,8 @@ def main():
     start_time = datetime.datetime.now()
     # --- 1. command line arguments and setup ---
     cfg = get_args()
+    for key,val in vars(cfg).items():
+        print(f"{key}: {val}")
 
     # --- Set seeds and deterministic operations ---
     set_seed(cfg.seed)
@@ -596,12 +654,14 @@ def main():
         print("TensorFlow is using the CPU.")
 
     # --- 2. Load data (unified data source) ---
-    print(f"--- Loading data from: {cfg.json_file} ---")
-    with open(cfg.json_file) as f:
-        all_data = json.load(f)
+    print(f"--- Loading data from: {cfg.all_data_json} ---")
+    survey_classifier_views = load_survey_classifier_views(cfg.all_data_json)
+    with open(cfg.survey_classifier_json, "w") as f:
+        json.dump(survey_classifier_views, f, indent=2)
+    print(f"Saved survey classifier views to {cfg.survey_classifier_json}")
 
     # --- 3. Extract Dy30 data with survey ---
-    image_paths, indexed_labels, mask_paths = extract_day_data(all_data, cfg.target_day)
+    image_paths, indexed_labels, mask_paths = extract_day_data(survey_classifier_views, cfg.target_day)
 
     # --- 4. Prepare data for training ---
     print_class_distribution(indexed_labels)
