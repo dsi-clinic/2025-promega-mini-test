@@ -56,7 +56,7 @@ class ImageMapper:
         """
         identifiers = load_identifiers(self.identifiers)
         cleaned = load_and_clean_metadata(self.meta_csv)
-        # cleaned = cleaned.head(250)
+        # cleaned = cleaned.head(250) # TO REMOVE
 
         grouped = cleaned.groupby(["dayID", "batchPlate", "wellID"])
         presplit_wells = self._compute_presplit_wells(grouped)
@@ -175,6 +175,8 @@ class ImageMapper:
         ba_str = " ".join([parts[0].upper(), *parts[1:]])
         raw_full_id = f"{ba_str} {day_id} {well_id}"
         full_id = clean_id_for_json(raw_full_id)
+        full_id = full_id.replace("Dy20", "Dy20.5")    # Account for Day 20/21 normalization
+        full_id = full_id.replace("Dy21", "Dy20.5")
 
         # resolve image(s)
         chosen, stitched_flag, all_files, stitched_groups = resolve_image(
