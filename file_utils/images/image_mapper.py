@@ -41,10 +41,11 @@ logging.basicConfig(
 )
 
 class ImageMapper:
-    def __init__(self, base_dir: pathlib.Path, meta_csv: pathlib.Path, verify_csv: pathlib.Path | None = None):
+    def __init__(self, base_dir: pathlib.Path, meta_csv: pathlib.Path, verify_csv: pathlib.Path | None = None, identifiers: pathlib.Path | None = None):
         self.base_dir = pathlib.Path(base_dir)
         self.meta_csv = pathlib.Path(meta_csv)
         self.verifier = Verifier(verify_csv)
+        self.identifiers = pathlib.Path(identifiers)
 
     def make_mapping_json(self, out_json: pathlib.Path) -> None:
         """
@@ -53,8 +54,10 @@ class ImageMapper:
         Args:
             out_json: the path to the output JSON file
         """
+        identifiers = load_identifiers(self.identifiers)
         cleaned = load_and_clean_metadata(self.meta_csv)
         # cleaned = cleaned.head(250)
+
         grouped = cleaned.groupby(["dayID", "batchPlate", "wellID"])
         presplit_wells = self._compute_presplit_wells(grouped)
 
@@ -62,18 +65,22 @@ class ImageMapper:
         total_groups = len(grouped)
         stitched_count = 0
         found_count = 0
+        skipped = 0
+        id_found = 0
 
         logging.info(f"[ImageMapper] Processing {total_groups} unique (day,batchPlate,well) groups")
         logging_level = logging.getLevelName(logging.getLogger().level)
         iterator = grouped if logging_level == "DEBUG" else tqdm(grouped, desc="Processing groups")
 
         for (day_id, batch_plate, well_id), group_df in iterator:
-            fc, sc, mapped_entries = self.process_batches(batch_plate, day_id, well_id, presplit_wells, group_df)
+            fc, sc, sk, idf, mapped_entries = self.process_batches(identifiers, batch_plate, day_id, well_id, presplit_wells, group_df)
             mapping.update(mapped_entries)
             found_count += fc
             stitched_count += sc
+            skipped += sk
+            id_found += idf
 
-        self.write_output(out_json, mapping, total_groups, found_count, stitched_count)
+        self.write_output(out_json, mapping, total_groups, found_count, stitched_count, skipped, id_found)
 
     def _compute_presplit_wells(self, grouped) -> set[Tuple[str, str, str]]:
         """
@@ -139,10 +146,12 @@ class ImageMapper:
         except ValueError:
             return pathlib.Path(os.path.relpath(p, self.base_dir))
 
-    def process_batches(self, batch_plate: str, day_id: str, well_id: str, presplit_wells: set[Tuple[str, str, str]], group_df: pd.DataFrame) -> Tuple[int, int]:
+    def process_batches(self, identifiers: dict, batch_plate: str, day_id: str, well_id: str,
+        presplit_wells: set[Tuple[str, str, str]], group_df: pd.DataFrame) -> Tuple[int, int, int, int, Dict[str, Dict[str, Any]]]:
         """Process batch plate, day, well group and add to mapping dictionary
 
         Args:
+            identifiers: the identifiers dictionary
             batch_plate: batch plate string
             day_id: day identifier
             well_id: well identifier
@@ -152,18 +161,20 @@ class ImageMapper:
         Returns:
             found_count: number of files found
             stitched_count: number of stitched images found
+            skipped: number of identifiers not found
+            id_found: number of identifiers found
+            mapping: the mapping dictionary
         """
         found_count = 0
         stitched_count = 0
+        skipped = 0
+        id_found = 0
         mapping: Dict[str, Dict[str, Any]] = {}
 
         parts = batch_plate.split()
         ba_str = " ".join([parts[0].upper(), *parts[1:]])
         raw_full_id = f"{ba_str} {day_id} {well_id}"
         full_id = clean_id_for_json(raw_full_id)
-
-        # Match mapper identifier to main identifiers
-
 
         # resolve image(s)
         chosen, stitched_flag, all_files, stitched_groups = resolve_image(
@@ -174,7 +185,7 @@ class ImageMapper:
         )
 
         if not all_files and stitched_flag not in ("SplitAmbiguous",):
-            return found_count, stitched_count, mapping
+            return found_count, stitched_count, skipped, id_found, mapping
 
         # regroup on all_files (always every match)
         split_groups_all = group_by_split(all_files)
@@ -183,26 +194,28 @@ class ImageMapper:
         # ---------- CASE A: split children ----------
         if len(child_groups) >= 1:
             logging.debug(f"[ImageMapper] Expanding into {len(child_groups)} split children for {full_id}")
-            found_count, stitched_count, mapping = self.define_entry_split(child_groups, full_id, day_id, ba_str, batch_plate, well_id, group_df, presplit_wells)
+            found_count, stitched_count, skipped, id_found, mapping = self.define_entry_split(identifiers, child_groups, full_id, day_id, ba_str, batch_plate, well_id, group_df, presplit_wells)
 
         # ---------- CASE B: multiple stitched groups ----------
         elif stitched_flag == "SplitAmbiguous" and stitched_groups:
             logging.debug(f"[ImageMapper] Processing {len(stitched_groups)} stitched groups for {full_id}")
-            found_count, stitched_count, mapping = self.define_entry_multiple_stitched(stitched_groups, full_id, day_id, ba_str, batch_plate, well_id, group_df, presplit_wells)
+            found_count, stitched_count, skipped, id_found, mapping = self.define_entry_multiple_stitched(identifiers, stitched_groups, full_id, day_id, ba_str, batch_plate, well_id, group_df, presplit_wells)
 
         # ---------- CASE C: single stitched or regular ----------
         else:
-            found_count, stitched_count, mapping = self.define_entry_regular(all_files, full_id, day_id, ba_str, batch_plate, well_id, group_df, presplit_wells, stitched_flag, chosen)
+            found_count, stitched_count, skipped, id_found, mapping = self.define_entry_regular(identifiers, all_files, full_id, day_id, ba_str, batch_plate, well_id, group_df, presplit_wells, stitched_flag, chosen)
 
-        return found_count, stitched_count, mapping
+        return found_count, stitched_count, skipped, id_found, mapping
 
-    def define_entry_split(self, child_groups: dict, full_id: str, day_id: str, ba_str: str, batch_plate: str,
-        well_id: str, group_df: pd.DataFrame, presplit_wells: set[Tuple[str, str, str]]) \
-        -> Tuple[int, int, Dict[str, Dict[str, Any]]]:
+    def define_entry_split(self, identifiers: dict, child_groups: dict, full_id: str,
+        day_id: str, ba_str: str, batch_plate: str, well_id: str, group_df: pd.DataFrame,
+        presplit_wells: set[Tuple[str, str, str]]) \
+        -> Tuple[int, int, int, int, Dict[str, Dict[str, Any]]]:
         """
         Define the entry for a split image.
 
         Args:
+            identifiers: the identifiers dictionary
             child_groups: the child groups
             full_id: the full identifier
             day_id: the day identifier
@@ -215,15 +228,25 @@ class ImageMapper:
         Returns:
             found_count: number of groups successfully processed (always 1 for splits)
             stitched_count: number of stitched images found (0 for splits)
+            skipped: number of identifiers not found
+            id_found: number of identifiers found
             mapping: the mapping dictionary
         """
         mapping: Dict[str, Dict[str, Any]] = {}
         found_count = 1  # One group was successfully processed (regardless of split children count)
         stitched_count = 0
+        skipped = 0
+        id_found = 0
 
         for child_idx, group_files in sorted(child_groups.items()):
             final_file = pick_rep_file(group_files)
             clean_child_key = f"{full_id} split_{int(child_idx)}"
+            id_found += 1
+
+            if clean_child_key not in identifiers:
+                skipped += 1
+                logging.warning(f"Skipping {clean_child_key} not in identifiers")
+                continue
 
             actual_z = extract_z_level(final_file.name)
             classification = classify_image_file(final_file.name)
@@ -253,15 +276,16 @@ class ImageMapper:
             entry["verification"] = verification
             mapping[clean_child_key] = entry
 
-        return found_count, stitched_count, mapping
+        return found_count, stitched_count, skipped, id_found, mapping
 
-    def define_entry_multiple_stitched(self, stitched_groups: dict, full_id: str, day_id: str, ba_str: str,
+    def define_entry_multiple_stitched(self, identifiers: dict, stitched_groups: dict, full_id: str, day_id: str, ba_str: str,
         batch_plate: str, well_id: str, group_df: pd.DataFrame, presplit_wells: set[Tuple[str, str, str]]) \
-        -> Tuple[int, int, Dict[str, Dict[str, Any]]]:
+        -> Tuple[int, int, int, int, Dict[str, Dict[str, Any]]]:
         """
         Define the entry for a multiple stitched images.
 
         Args:
+            identifiers: the identifiers dictionary
             stitched_groups: the stitched groups
             full_id: the full identifier
             day_id: the day identifier
@@ -274,11 +298,15 @@ class ImageMapper:
         Returns:
             found_count: number of files found
             stitched_count: number of stitched images found
+            skipped: number of identifiers not found
+            id_found: number of identifiers found
             mapping: the mapping dictionary
         """
         mapping: Dict[str, Dict[str, Any]] = {}
         found_count = 1  # One group was successfully processed (regardless of stitched group count)
         stitched_count = 0
+        skipped = 0
+        id_found = 0
         for identifier, group_files in stitched_groups.items():
             group_files.sort(key=lambda f: extract_z_level(f.name))
 
@@ -287,6 +315,12 @@ class ImageMapper:
 
             safe_identifier = re.sub(r"[^\w\s]", "", identifier).strip().replace(" ", "_")
             clean_stitched_id = f"{full_id} stitched_{safe_identifier}"
+
+            id_found += 1
+            if clean_stitched_id not in identifiers:
+                skipped += 1
+                logging.warning(f"Skipping {clean_stitched_id} not in identifiers")
+                continue
 
             actual_z = extract_z_level(final_file.name)
 
@@ -319,15 +353,16 @@ class ImageMapper:
 
             mapping[clean_stitched_id] = entry
 
-        return found_count, stitched_count, mapping
+        return found_count, stitched_count, skipped, id_found, mapping
 
-    def define_entry_regular(self, all_files: list[pathlib.Path], full_id: str, day_id: str, ba_str: str,
+    def define_entry_regular(self, identifiers: dict, all_files: list[pathlib.Path], full_id: str, day_id: str, ba_str: str,
         batch_plate: str, well_id: str, group_df: pd.DataFrame, presplit_wells: set[Tuple[str, str, str]],
         stitched_flag: str, chosen: pathlib.Path) -> Tuple[int, int, Dict[str, Dict[str, Any]]]:
         """
         Define the entry for a regular image.
 
         Args:
+            identifiers: the identifiers dictionary
             all_files: the list of all files
             full_id: the full identifier
             day_id: the day identifier
@@ -342,14 +377,23 @@ class ImageMapper:
         Returns:
             found_count: number of files found
             stitched_count: number of stitched images found
+            skipped: number of identifiers not found
+            id_found: number of identifiers found
             mapping: the mapping dictionary
         """
         mapping: Dict[str, Dict[str, Any]] = {}
         found_count = 0
         stitched_count = 0
+        skipped = 0
+        id_found =  1
+
+        if full_id not in identifiers:
+            skipped += 1
+            logging.warning(f"Skipping {full_id} not in identifiers")
+            return found_count, stitched_count, skipped, id_found, mapping
 
         if not all_files:
-            return found_count, stitched_count, mapping
+            return found_count, stitched_count, skipped, id_found, mapping
 
         found_count += 1
         if stitched_flag == "Stitched":
@@ -388,7 +432,7 @@ class ImageMapper:
         entry["verification"] = verification
 
         mapping[full_id] = entry
-        return found_count, stitched_count, mapping
+        return found_count, stitched_count, skipped, id_found, mapping
 
     def define_verification_data(self, ba_str: str, day_id: str, well_id: str,
         split_idx: int | None, classification: str, is_presplit: bool) -> dict:
@@ -422,13 +466,15 @@ class ImageMapper:
         )
         return verification
 
-    def write_output(self, out_json: pathlib.Path, mapping: dict, total_groups: int, found_count: int, stitched_count: int):
+    def write_output(self, out_json: pathlib.Path, mapping: dict, total_groups: int, found_count: int, stitched_count: int, skipped: int, id_found: int):
         """
         Write the mapping dictionary to a JSON file.
 
         Args:
             out_json: the path to the output JSON file
             mapping: the mapping dictionary
+            skipped: number of identifiers not found
+            id_found: number of identifiers found
         """
         logging.info("=== MAPPING SUMMARY ===")
         logging.info(f"Total groups processed: {total_groups}")
@@ -437,6 +483,8 @@ class ImageMapper:
         logging.info(f"Stitched images detected: {stitched_count}")
         if total_groups:
             logging.info(f"Success rate: {found_count/total_groups*100:.1f}%")
+        logging.info(f"Total identifiers found: {id_found}")
+        logging.info(f"Total identifiers skipped: {skipped}")
 
         wrapped = {
             "_base_folder": str(self.base_dir.resolve()),
@@ -446,6 +494,15 @@ class ImageMapper:
         out_json.parent.mkdir(parents=True, exist_ok=True)
         out_json.write_text(json.dumps(wrapped, indent=2))
         logging.info(f"[ImageMapper] Wrote mapping JSON to {out_json}")
+
+def load_identifiers(identifiers_file: pathlib.Path) -> dict:
+    """Load identifiers from a JSON file.
+
+    Args:
+        identifiers_file: the path to the identifiers file
+    """
+    with open(identifiers_file, "r") as f:
+        return json.load(f).keys()
 
 def pick_rep_file(files_for_child):
     files_for_child = sorted(files_for_child, key=lambda f: extract_z_level(f.name))
@@ -470,6 +527,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument('--verify-csv', type=pathlib.Path, help='The file containing the image verification data')
     parser.add_argument('--meta-xlsx', type=pathlib.Path, help='The file containing the metadata')
     parser.add_argument('--out-file', type=pathlib.Path, help='The file to save the formatted image mapping to')
+    parser.add_argument('--identifiers', type=pathlib.Path, help='The file containing the identifiers to map to')
     args = parser.parse_args()
     return args
 
@@ -484,6 +542,7 @@ def main():
         base_dir=args.base_dir,
         meta_csv=args.meta_xlsx,
         verify_csv=args.verify_csv,
+        identifiers=args.identifiers,
     )
     mapper.make_mapping_json(args.out_file)
 
