@@ -67,7 +67,7 @@ class Config:
     IMAGES_DIR: typing.ClassVar[str] = "images"
     IMAGES_RAW_DIR: typing.ClassVar[str] = f"{IMAGES_DIR}/raw_images"
     PREPROCESSED_DIR: typing.ClassVar[str] = f"{IMAGES_DIR}/preprocessed_json"
-    ORIGINAL_MAPPING_JSON: typing.ClassVar[str] = f"{IMAGES_DIR}/image_mapping.json"
+    ORIGINAL_MAPPING_JSON: typing.ClassVar[str] = f"{IMAGES_DIR}/image_map.json"
     MANUAL_THRESHOLD_MAPPING_JSON: typing.ClassVar[str] = f"{IMAGES_DIR}/image_mapping_thresholded_and_manual.json"
 
     MASKS_DIR: typing.ClassVar[str] = f"{IMAGES_DIR}/masks"
@@ -402,7 +402,7 @@ def build_normalized_records(cfg, combined):
         record_metrics = RecordMetrics()
     )
 
-    records = { source_id.replace(" ", "_"): builder.build(source_id, entry) for source_id, entry in combined.items() }
+    records = { source_id: builder.build(source_id, entry) for source_id, entry in combined.items() }
     stats = builder.record_metrics.to_dict()
 
     logging.info("Sanitizing data for JSON...")
