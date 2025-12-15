@@ -242,6 +242,7 @@ def build_processed_files_map(found_files, data_dir, infer_resized_dir, masks_pr
     """Build and return a dictionary of processed file JSON data.
 
     Also update hardcoded paths to point to input files on the file system.
+    Normalizes day identifiers in keys (Dy20/Dy21 -> Dy20.5) to match identifiers_map.
 
     Args:
         found_files: List of processed JSON files to load
@@ -252,7 +253,7 @@ def build_processed_files_map(found_files, data_dir, infer_resized_dir, masks_pr
     processed_map = {}
     for p in found_files:
         raw = load_json(p)
-        for batch_data in raw.values():
+        for key, batch_data in raw.items():
             img_path = data_dir.joinpath(infer_resized_dir, Path(batch_data["img_path"]).name)
             check_existence(img_path)
             batch_data["img_path"] = str(img_path)
@@ -261,12 +262,16 @@ def build_processed_files_map(found_files, data_dir, infer_resized_dir, masks_pr
             check_existence(mask_path)
             batch_data["mask_path"] = str(mask_path)
 
-        processed_map.update(raw)
+            # Normalize day identifiers in key (Dy20/Dy21 -> Dy20.5)
+            normalized_key = normalize_day_in_key(key)
+            processed_map[normalized_key] = batch_data
 
     return processed_map
 
 def build_preprocessed_map(files, data_dir, infer_resized_dir, masks_predicted_dir, masks_overlays_dir):
     """Build and return a dictionary of preprocessed JSON data.
+
+    Normalizes day identifiers in metadata_key (Dy20/Dy21 -> Dy20.5) to match identifiers_map.
 
     Args:
         files: List of preprocessed JSON files to load
@@ -291,8 +296,10 @@ def build_preprocessed_map(files, data_dir, infer_resized_dir, masks_predicted_d
             check_existence(overlay_path)
             batch_data["overlay_path"] = str(overlay_path)
 
+            # Normalize day identifiers in metadata_key (Dy20/Dy21 -> Dy20.5)
             main_id = batch_data["metadata_key"]
-            preprocessed_map[main_id] = batch_data
+            normalized_main_id = normalize_day_in_key(main_id)
+            preprocessed_map[normalized_main_id] = batch_data
 
     return preprocessed_map
 
@@ -372,6 +379,16 @@ def normalized_parent_key(id_like: str) -> str:
         return OrganoidNormalizer.normalize_key(id_like)
     except ValueError:
         return OrganoidNormalizer.clean_string(id_like).upper()
+
+def normalize_day_in_key(key: str) -> str:
+    """Normalize day identifiers in keys (Dy20/Dy21 -> Dy20.5)."""
+    if not key:
+        return key
+    # Replace Dy20 and Dy21 with Dy20.5 in the key
+    # Match "Dy20" or "Dy21" but not "Dy20.5" or "Dy20." (already normalized)
+    key = re.sub(r'\bDy20\b(?!\.)', 'Dy20.5', key)
+    key = re.sub(r'\bDy21\b(?!\.)', 'Dy20.5', key)
+    return key
 
 def extract_mdl_day(day_id: str) -> float:
     """Extract numerical day from dayID (e.g., 'Dy17' -> 17.0, 'Dy20' or 'Dy21' -> 20.5)"""
