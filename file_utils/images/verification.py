@@ -8,6 +8,7 @@ from typing import Dict, Tuple
 from file_utils.common.organoid_patterns import OrganoidPatterns
 
 import pandas as pd
+from tqdm import tqdm
 
 class Verifier:
     """
@@ -168,7 +169,8 @@ class Verifier:
         is_blank = (verdict == "YES")
 
         if gen_main_id and best_key and best_key.upper() != gen_main_id.upper():
-            logging.warning(f"[Verifier] Mismatch: gen={gen_main_id} csv={best_key}")
+            # logging.warning(f"[Verifier] Mismatch: gen={gen_main_id} csv={best_key}")
+            tqdm.write(f"WARNING: [Verifier] Mismatch: gen={gen_main_id} csv={best_key}", file=None)
 
         return {
             "main_id": main_id,
