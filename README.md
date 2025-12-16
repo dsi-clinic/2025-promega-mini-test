@@ -31,34 +31,26 @@ flowchart TD
 
     %% ========= FILE_UTILS PROCESSING ========= %%
     subgraph B[file_utils - Data Mapping & Integration]
-        B1[file_utils/images/scripts<br/>image_mapper_main.py<br/>Image metadata → JSON]
-        B1b[file_utils/common/organoid_patterns.py<br/>Pattern normalization helpers]
-        B2[file_utils/metabolites/metabolite_mapper.py<br/>Metabolite Excel → JSON]
-        B3[file_utils/surveys/surveys_mapper.py<br/>Survey Excel → JSON]
-        B4[file_utils/merge/merge_all_data.py<br/>Merge image + metabolite + survey JSON → all_data.json]
+        B1[image_mapper_main.py</br>Image metadata → JSON]
+        B1b[organoid_patterns.py<br/>Pattern normalization helpers]
+        B2[metabolite_mapper.py<br/>Metabolite Excel → JSON]
+        B3[surveys_mapper.py<br/>Survey Excel → JSON]
+        B4[merge_all_data.py<br/>image + metabolite + survey → all_data.json]
     end
 
     %% ========= ANALYSIS PIPELINE ========= %%
     subgraph C[analysis - Downstream Analysis & ML]
         subgraph C1[analysis/images]
-            C11[resize<br/>Standardize image size + pixel scale]
-            C12[metrics/shape_metrics<br/>Organoid shape features]
-            C13[segmentation_mmseg<br/>MMSeg training & inference]
-            C14[classifier<br/>Image classifiers – ViT / CNN]
-            C15[series/preprocess<br/>Filter complete time series + normalize masks]
+            C10[classifier<br/>Image classifiers – ViT / CNN]
         end
 
         subgraph C2[analysis/metabolites]
-            C21[classifier<br/>Metabolite-based classifiers]
+            C20[classifier<br/>Metabolite-based classifiers]
         end
 
         subgraph C3[analysis/surveys]
-            C31[agreement_aggregations<br/>Survey agreement analysis]
-            C32[classifier<br/>Survey-based classifiers]
-            C33[simulations<br/>Reliability simulations]
+            C30[classifier<br/>Survey-based classifiers]
         end
-
-        C4[multimodal<br/>CNN fusion of image + metabolite + survey features]
     end
 
     %% ========= DATA FLOW ========= %%
@@ -71,15 +63,9 @@ flowchart TD
     B3 --> B4
 
     %% From merged data to analyses
-    B4 --> C11
-    C11 --> C13
-    C13 --> C14
-    C14 --> C15
-    C15 --> C4
-
-    B4 --> C21
-    B4 --> C31
-    B4 --> C4
+    B4 --> C10
+    B4 --> C20
+    B4 --> C30
 ```
 
 ## Setup and Installation
