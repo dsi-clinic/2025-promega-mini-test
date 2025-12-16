@@ -30,12 +30,12 @@ flowchart TD
     A3([Survey Excels])
 
     %% ========= FILE_UTILS PROCESSING ========= %%
-    subgraph B[file_utils - Data Mapping & Integration]
-        B1[image_mapper_main.py</br>Image metadata → JSON]
+    subgraph B[file_utils - Data Mapping &<br/>Integration]
+        B1[image_mapper_main.py<br/>Image metadata → JSON]
         B1b[organoid_patterns.py<br/>Pattern normalization helpers]
         B2[metabolite_mapper.py<br/>Metabolite Excel → JSON]
         B3[surveys_mapper.py<br/>Survey Excel → JSON]
-        B4[merge_all_data.py<br/>image + metabolite + survey → all_data.json]
+        B4[merge_all_data.py<br/>image + metabolite + survey →<br/>all_data.json]
     end
 
     %% ========= ANALYSIS PIPELINE ========= %%
@@ -127,7 +127,7 @@ See the [**Data Processing Pipeline**](#data-processing-pipeline) section below 
 2. Map metabolite data from Excel files
 3. Map survey data from Excel files
 4. Map image files and metadata
-5. <Placeholder for additional pre-processing steps>
+5. *Placeholder for additional pre-processing steps*
 6. Generate unified `all_data.json` file
 7. Run image classifier training
 8. Run survey classifier training
@@ -679,7 +679,7 @@ python3 -m file_utils.images.image_mapper \
 
 **Output**: `image_map.json` - Complete image file mapping with metadata
 
-### STEP 5: <Placeholder for other pre-processing steps>
+### STEP 5: *Placeholder for other pre-processing steps*
 
 Placeholder for other pre-processing steps
 
