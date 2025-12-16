@@ -2,6 +2,52 @@
 
 This repository contains a comprehensive system for analyzing organoid quality using multimodal data including images, metabolites, and survey assessments for time series prediction.
 
+Table of Contents
+=================
+
+* [Promega Organoid Analysis System](#promega-organoid-analysis-system)
+   * [Recent Changes (November 2025)](#recent-changes-november-2025)
+      * [Data Reorganization](#data-reorganization)
+      * [Classifier Updates](#classifier-updates)
+   * [Project Structure](#project-structure)
+   * [Setup Promega Code](#setup-promega-code)
+   * [Run Promega Code](#run-promega-code)
+      * [1. Activate Environment](#1-activate-environment)
+      * [2. Run Data Processing Pipeline Analysis](#2-run-data-processing-pipeline-analysis)
+         * [2a. Prepare to run on Cluster](#2a-prepare-to-run-on-cluster)
+         * [2b. Image Classifier](#2b-image-classifier)
+         * [2c. Survey Classifier](#2c-survey-classifier)
+   * [Data Processing Pipeline](#data-processing-pipeline)
+      * [Overview](#overview)
+      * [Prerequisites](#prerequisites)
+      * [STEP 1: Retrieve Main Identifiers](#step-1-retrieve-main-identifiers)
+      * [STEP 2: Map Metabolite Data](#step-2-map-metabolite-data)
+      * [STEP 3: Map Survey Data](#step-3-map-survey-data)
+      * [STEP 4: Map image data](#step-4-map-image-data)
+      * [STEP 5: <em>Placeholder for other pre-processing steps</em>](#step-5-placeholder-for-other-pre-processing-steps)
+      * [STEP 6: Generate All Data JSON File](#step-6-generate-all-data-json-file)
+         * [Schema Validation (file_utils/merge/validate_schema.py) <em>(optional)</em>](#schema-validation-file_utilsmergevalidate_schemapy-optional)
+      * [STEP 7: Image Classifier Training](#step-7-image-classifier-training)
+      * [STEP 8: Survey Classifier Training](#step-8-survey-classifier-training)
+   * [Data](#data)
+      * [Main data file structure](#main-data-file-structure)
+      * [Input Data Types](#input-data-types)
+      * [1. Image Data](#1-image-data)
+      * [2. Metabolite Data](#2-metabolite-data)
+      * [3. Survey Data](#3-survey-data)
+      * [4. Generated JSON Files](#4-generated-json-files)
+   * [Resource Requirements](#resource-requirements)
+      * [Cluster Resources (SLURM)](#cluster-resources-slurm)
+      * [Local Development](#local-development)
+   * [Local development and testing](#local-development-and-testing)
+      * [Test dataset](#test-dataset)
+      * [Example execution](#example-execution)
+      * [Development Guidelines](#development-guidelines)
+   * [Current Status](#current-status)
+   * [Known Issues &amp; Future Improvements](#known-issues--future-improvements)
+
+---
+
 ## Recent Changes (November 2025)
 
 ### Data Reorganization
