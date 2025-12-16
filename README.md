@@ -8,8 +8,8 @@ This repository contains a comprehensive system for analyzing organoid quality u
 The data pipeline has been reorganized to use a normalized records structure:
 
 - **Normalized Records System**: Introduced `file_utils/merge/normalized_records.py` with `OrganoidRecord`, `OrganoidRecordBuilder`, and `RecordMetrics` to canonicalize organoid data
-- **Unified Data Structure**: `all_data.json` now uses a `records` map with standardized organoid IDs plus a `stats` block containing metadata (totals, vote counts, metabolite outliers, skipped items)
-- **View-Specific Outputs**: The merge process generates specialized views:
+- **Unified Data Structure**: `all_data.json` now uses a `records` map with standardized organoid IDs plus a `summary.json` file containing metadata (totals, vote counts, metabolite outliers, skipped items)
+- **View-Specific Outputs**: The merge process generates a main data file from which specialized views can be created by the image and survey classifiers:
   - `all_data.json` - Complete unified dataset with all organoid records
   - `image_classifier.json` - Day-indexed records optimized for image classifier training
   - `survey_classifier.json` - Day-indexed records optimized for survey classifier training
@@ -28,7 +28,6 @@ flowchart TD
     A1([Raw Images])
     A2([Metabolite Excels])
     A3([Survey Excels])
-    A4([Config & Env Vars<br/>config.py / core_env.yaml])
 
     %% ========= FILE_UTILS PROCESSING ========= %%
     subgraph B[file_utils - Data Mapping & Integration]
@@ -101,22 +100,7 @@ For local development with full code access:
    # /net/projects2/promega
 
    # For local development, create a conda environment:
-   conda create -n promega python=3.10
-   conda activate promega
-   pip install -r requirements.txt  # If available, or install manually:
-   # torch, torchvision, timm, tensorflow, keras, numpy, scikit-learn,
-   # pillow, matplotlib, rich, python-dotenv
-   ```
-
-3. **Configure environment variables** (optional):
-   Create a `.env` file in the project root:
-   ```bash
-   BASE_PATH=/path/to/raw/data
-   OUTPUT_FOLDER=/path/to/output
-   SURVEY_RESULTS=/path/to/survey/excel/files
-   METABOLITE_DATA_DIR=/path/to/metabolite/excel/files
-   TARGET_WIDTH=512
-   TARGET_HEIGHT=384
+   micromamba create -n promega -f core_env.yaml
    ```
 
 ### Runtime Setup (Cluster Only)
@@ -143,50 +127,48 @@ For running existing code on the cluster without development:
 **Local Development**:
 ```bash
 # Activate your local conda environment
-conda activate promega  # or your environment name
+micromamba activate promega  # or your environment name
 ```
 
-### 2. Generate Master Data File
+### 2. Run Data Processing Pipeline
 
-**On Cluster**:
-```bash
-# From the project root directory, run:
-cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY  # Replace with your actual path
-/net/projects2/promega/bin/python file_utils/merge/merge_all_data.py \
-    --in-dir /net/projects2/promega/data-analysis \
-    --out-dir /net/projects2/promega/data-analysis/output
+The data processing pipeline consists of several sequential steps. **Follow these steps in order** to generate the master data files needed for analysis.
 
-# This generates:
-# - all_data.json (5,168+ merged records)
-# - image_classifier.json (day-indexed view for image training)
-# - survey_classifier.json (day-indexed view for survey training)
-# Output location: /net/projects2/promega/data-analysis/output/json/
-```
+See the [**Data Processing Pipeline**](#data-processing-pipeline) section below for detailed step-by-step instructions.
 
-**Local Development**:
-```bash
-# From project root:
-python file_utils/merge/merge_all_data.py \
-    --in-dir /path/to/input/data \
-    --out-dir ./data/output
-```
+**Quick Overview**:
+1. Retrieve main identifiers from verification CSV
+2. Map metabolite data from Excel files
+3. Map survey data from Excel files
+4. Map image files and metadata
+5. <Placeholder for additional pre-processing steps>
+6. Generate unified `all_data.json` file
+7. Run image classifier training
+8. Run survey classifier training
 
 ### ⚠️ IMPORTANT: Update Paths Before Running Analysis
 
 **Before submitting any jobs**, you must update the hardcoded paths in the SLURM scripts to match your setup:
 
-Replace `/home/tonyluo/minitest` with `/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY` in:
+Replace:
+- `/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY` with the path to the GitHub repo directory on your machine
+- `/path/to/data`  with the path to the pre-processed images (Image classifier) or survey directory (Survey classifier)
+- `/path/to/all_data.json` with the path to the main data JSON file (Image classifier only)
 
+Locations:
 1. **`analysis/images/classifier/run_accuracy.s`**
    - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
+   - Line 15: `DATA_DIR=/path/to/data/images`
+   - Line 16: `ALL_DATA_JSON=/path/to/all_data.json`
 
 2. **`analysis/surveys/classifier/run_survey_classifier.s`**
-   - Line 12: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
+   - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
+   - Line 15: `DATA_DIR=/path/to/data/surveys`
 
 Example:
 ```bash
 # If your username is jsmith and you cloned to /home/jsmith/promega-analysis
-# Change: PROJ_ROOT=/home/tonyluo/minitest
+# Change: PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY
 # To:     PROJ_ROOT=/home/jsmith/promega-analysis
 ```
 
@@ -212,7 +194,7 @@ tail -f logs/soft-label_<JOBID>.out
 ```
 
 The image classifier will train models for each day (Dy3, Dy6, Dy8, etc.) sequentially.
-Results are saved in `outputs_512x384_Regular_image_with_train_augment_with_auroc/vit/DyXX/`
+Results are saved in `DATA_DIR` which is defined in `run_accuracy.s`
 
 ##### 3b. Survey Classifier
 ```bash
@@ -228,7 +210,7 @@ cat logs/survey_<JOBID>.out
 ```
 
 The survey classifier trains a ResNet50V2+CNN dual-input model on Day 30 organoids using survey evaluation labels.
-Results include trained model (`.h5`), training curves, and confusion matrix.
+Results include trained model (`.h5`), training curves, and confusion matrix. Results are saved in `DATA_DIR` which is defined in `run_survey_classifier.s`
 
 #### Local Development
 
@@ -264,22 +246,6 @@ python simple_classifier.py \
 ```
 
 **Note**: Local development requires GPU access for training. For CPU-only testing, use very small batch sizes and epochs, or test with a subset of data.
-
-**Note**: Before submitting jobs, update the SLURM scripts:
-- `analysis/images/classifier/run_accuracy.s` - Update `PROJ_ROOT` variable (line 13)
-- `analysis/surveys/classifier/run_survey_classifier.s` - Update `PROJ_ROOT` variable (line 13)
-
-## Configuration System
-
-The system uses a centralized `config.py` file that loads configuration from environment variables. Key variables:
-
-- `BASE_PATH` - Root directory for raw data
-- `OUTPUT_FOLDER` - Location for processed outputs
-- `SURVEY_RESULTS` - Directory containing Excel survey files
-- `METABOLITE_DATA_DIR` - Directory for metabolite Excel files
-- `TARGET_WIDTH` / `TARGET_HEIGHT` - Image processing dimensions
-
-Create a `.env` file in the project root with these variables set to your local paths.
 
 ## Command Line Arguments
 
@@ -614,8 +580,248 @@ All cluster users have read access to `/net/projects2/promega/data-analysis/`
 
 ## Data Processing Pipeline
 
+This section provides detailed step-by-step instructions for processing raw data into the unified dataset used for analysis.
+
+### Prerequisites
+
+Before starting, ensure you have:
+- Python environment set up (see [Setup and Installation](#setup-and-installation))
+- Required input data files:
+  - Image verification CSV file
+  - Metabolite Excel files
+  - Survey Excel files
+  - Raw image files (TIFF format)
+  - Sample tracing Excel file (metadata)
+
+### STEP 1: Retrieve Main Identifiers
+
+Extract and normalize main identifiers from the image verification CSV file.
+
+**Command**:
+```bash
+python3 -m file_utils.identifiers.retrieve_main_identifiers \
+    --csv-file <path/to/image_verification.csv> \
+    --out-file <path/to/main_identifiers.json>
+```
+
+**What it does**:
+- Processes filename bases from the CSV file
+- Normalizes identifiers (e.g., `Ba4` → `BA4`, handles split markers)
+- Outputs normalized identifiers to JSON file
+
+**Output**: `main_identifiers.json` - Normalized identifier list used by subsequent mappers
+
+**Important Assumptions**:
+- Batch 1 Day 20 and Day 21 from other batches are normalized to Day 20.5
+
+### STEP 2: Map Metabolite Data
+
+Process metabolite Excel files and map them to main identifiers.
+
+**Command**:
+```bash
+python -m file_utils.metabolites.metabolite_mapper \
+    --in-file <path/to/metabolite_data.xlsx> \
+    --identifiers <path/to/main_identifiers.json> \
+    --out-file <path/to/metabolite_map.json>
+```
+
+**What it does**:
+- Reads metabolite concentration data from Excel file
+- Maps metabolite data to normalized identifiers
+- Handles day normalization (Day 20/21 → Day 20.5)
+- Duplicates metabolite data across splits with the same main identifier
+
+**Output**: `metabolite_map.json` - Metabolite data mapped to identifiers
+
+**Important Assumptions**:
+- Batch 1 Day 20 and Day 21 from other batches are treated as Day 20.5
+- Metabolite data can be duplicated across splits with the same main identifier
+- Split information in main identifiers may not match metabolite spreadsheet identifiers
+
+### STEP 3: Map Survey Data
+
+Process survey Excel files and map evaluations to identifiers.
+
+**Command**:
+```bash
+python -m file_utils.surveys.surveys_mapper \
+    --in-dir <path/to/survey/excel/files> \
+    --out-file <path/to/survey_map.json> \
+    --identifiers <path/to/main_identifiers.json>
+```
+
+**What it does**:
+- Processes survey Excel files from input directory
+- Extracts evaluation data (employee, evaluation, quality scores)
+- Maps survey data to normalized identifiers
+- Handles cases where multiple organoids are assigned to one identifier
+- Computes labels: Uses majority voting (4+ votes) to determine labels
+
+**Output**: `survey_map.json` - Survey evaluation data mapped to identifiers
+
+**Note**: The survey map includes an `organoid_id` key layer to handle cases with multiple organoids per identifier.
+
+### STEP 4: Map image data
+
+Map raw image files to metadata and create image mapping JSON.
+
+**Command**:
+```bash
+python3 -m file_utils.images.image_mapper \
+    --base-dir <path/to/raw_images> \
+    --verify-csv <path/to/image_verification.csv> \
+    --meta-xlsx <path/to/Sample-Tracing.xlsx> \
+    --identifiers <path/to/main_identifiers.json> \
+    --out-file <path/to/image_map.json>
+```
+
+**What it does**:
+1. **Loads metadata**: Creates DataFrame from Sample-Tracing Excel, adds pixel scale (`um_per_px`), extracts batch/plate/day/well
+2. **Groups data**: Groups metadata by day, batch plate, and well
+3. **Computes pre-split wells**: Tracks split organoids and aggregates pre-split observations
+4. **Processes each group**:
+   - Gets identifier and compares to main identifiers
+   - Resolves images:
+     - Finds candidate raw image files matching identifier
+     - Sorts by Z-level
+     - Handles split indexes and stitched images
+     - Selects best focus image
+   - Creates entries with classification (SplitStitched, SplitPartial, Split, Duplicate, Regular)
+   - Adds verification metadata (split, stitched, blank flags)
+5. **Saves mapping**: Writes complete image mapping to JSON file
+
+**Output**: `image_map.json` - Complete image file mapping with metadata
+
+### STEP 5: <Placeholder for other pre-processing steps>
+
+Placeholder for other pre-processing steps
+
+### STEP 6: Generate All Data JSON File
+
+Merge all mapped data sources into unified `all_data.json` file.
+
+**Command**:
+```bash
+python3 -m file_utils.merge.merge_all_data \
+    --data-dir <path/to/data/directory>
+```
+
+**Alternative (with explicit input/output)**:
+```bash
+python3 -m file_utils.merge.merge_all_data \
+    --in-dir <path/to/input> \
+    --out-dir <path/to/output>
+```
+
+**What it does**:
+1. **Builds survey map**: Normalizes keys and aggregates survey evaluations
+2. **Builds manual mask map**: Normalizes keys and updates paths
+3. **Loads processed images**: Aggregates `image_mapping*_processed.json` files
+   - Normalizes day identifiers (Dy20/Dy21 → Dy20.5) in keys
+   - Updates hardcoded paths to actual file locations
+4. **Loads preprocessed images**: Aggregates preprocessed JSON files
+   - Normalizes day identifiers in metadata keys
+5. **Merges data sources**: For each identifier:
+   - Combines base image info, processed images, preprocessed images
+   - Adds survey data, metabolite data, manual masks
+   - Determines labels (survey label takes priority, then preprocessed label)
+   - Extracts numerical day (handles Day 20/21 → 20.5 normalization)
+6. **Builds normalized records**: Creates canonical organoid records with standardized structure
+7. **Validates schema**: Ensures data integrity (if `--validate-schema` flag used)
+8. **Generates view-specific outputs**:
+   - `all_data.json` - Complete unified dataset
+   - `image_classifier.json` - Day-indexed view for image training
+   - `survey_classifier.json` - Day-indexed view for survey training
+
+**Output Files**:
+- `all_data.json` - Complete dataset with all organoid records
+- `summary.json` - Statistics and metadata
+
+**Important Assumptions**:
+- Survey label takes priority when populating the `label` field
+- Image label is taken from preprocessed JSON data if survey label unavailable
+- Day 20 and Day 21 are normalized to Day 20.5
+
+### STEP 7: Image Classifier Training
+
+Train image classification models for each day.
+
+**On Cluster (SLURM)**:
+```bash
+cd analysis/images/classifier
+sbatch run_accuracy.s
+```
+
+**Local Development**:
+```bash
+python3 -m analysis.images.classifier.train_model_accuracy \
+    --epoch1 <num_epochs_phase1> \
+    --epoch2 <num_epochs_phase2> \
+    --val-frac <validation_fraction> \
+    --test-frac <test_fraction> \
+    --deterministic \
+    --data-dir <path/to/data>
+```
+
+**What it does**:
+1. **Loads data**: Reads `all_data.json`
+2. **Preprocesses**: Extracts image paths, mask paths, and labels; saves to `image_classifier.json`
+3. **Splits data**: Creates train/validation/test sets
+4. **Trains models**: For each model backbone (ViT, ResNet, CNN):
+   - **Phase 1**: Freezes backbone, trains classifier head (default: 100 epochs)
+   - **Phase 2**: Unfreezes backbone, fine-tunes entire model (default: 300 epochs)
+   - Uses early stopping to prevent overfitting
+   - Calculates class weights for imbalanced data
+5. **Evaluates**: Computes accuracy, F1 score, and AUC-ROC on validation and test sets
+6. **Saves results**: Model checkpoints, training curves, metrics, and summaries
+
+**Output**: Trained models, metrics, and plots saved to output directory
+
+### STEP 8: Survey Classifier Training
+
+Train survey-based classification model on Day 30 organoids.
+
+**On Cluster (SLURM)**:
+```bash
+cd analysis/surveys/classifier
+sbatch run_survey_classifier.s
+```
+
+**Local Development**:
+```bash
+python3 -m analysis.surveys.classifier.simple_classifier \
+    --epoch1 <num_epochs_phase1> \
+    --epoch2 <num_epochs_phase2> \
+    --deterministic \
+    --data-dir <path/to/data>
+```
+
+**What it does**:
+1. **Loads data**: Reads from `all_data.json`
+2. **Filters**: Keeps only Day 30 records with survey evaluations
+3. **Preprocesses**: Extracts image paths, mask paths, and labels; saves to `survey_classifier.json`
+4. **Creates datasets**: TensorFlow datasets with augmentation for training
+5. **Builds model**: Dual-input ResNet50V2 + CNN model:
+   - Image input: Pretrained ResNet50V2 backbone
+   - Mask input: Custom CNN for mask features
+   - Combined classification head
+6. **Trains model**:
+   - **Phase 1**: Frozen ResNet50V2 backbone (default: 50 epochs)
+   - **Phase 2**: Unfreezes last 10 layers, fine-tunes (default: 150 epochs)
+7. **Evaluates**: Computes accuracy, confusion matrix, and training curves
+8. **Saves**: Model weights, training history, and visualizations
+
+**Output**: Trained model (`.h5`), training curves, confusion matrix, metrics
+
+---
+
+## Pipeline Overview
+
+The complete pipeline flow:
+
 1. **Individual Mappers**: Process raw data sources
-   - `file_utils/images/image_mapper_main.py` - Maps image files to metadata
+   - `file_utils/images/image_mapper.py` - Maps image files to metadata
    - `file_utils/metabolites/metabolite_mapper.py` - Processes metabolite Excel data
    - `file_utils/surveys/surveys_mapper.py` - Processes survey Excel data
 
@@ -625,7 +831,7 @@ All cluster users have read access to `/net/projects2/promega/data-analysis/`
 3. **Analysis**: Uses normalized JSON files as single source of truth
    - All analysis code in `analysis/` directory
    - No direct access to raw data files
-   - Standardized organoid key format: `"BA1_96_1_Dy03_A1"`
+   - Standardized organoid key format: `"BA1 96_1 Dy03 A1"`
 
 ## Data Structure
 
@@ -695,23 +901,10 @@ The view-specific files (`image_classifier.json`, `survey_classifier.json`) use 
 }
 ```
 
-## Key Features
-
-- **Multimodal Data Integration**: Images, metabolites, and surveys in one structure
-- **Time Series Analysis**: Organoid quality tracking across days (Dy3, Dy6, Dy8, etc.)
-- **Standardized Processing**: Consistent image resolutions and metadata
-- **Normalized Records**: Canonical organoid representation with metadata tracking
-- **View-Specific Outputs**: Optimized JSON views for different analysis tasks
-- **Environment-Based Configuration**: No hardcoded paths
-- **Comprehensive Analysis Tools**: Classification, segmentation, and statistical analysis
-- **Reproducible Training**: Deterministic mode and seed control for consistent results
-
 ## Development Guidelines
 
 - **Environment**: Always activate conda environment first: `conda activate /net/projects2/promega` (cluster) or your local environment
-- **Configuration**: Use `config.py` for all path and setting management
 - **Data Access**: Use normalized JSON files (`all_data.json`, `image_classifier.json`, `survey_classifier.json`) as single source of truth
-- **Analysis Location**: Place all analysis code in `analysis/` directory
 - **Execution**: Run everything from project root directory
 - **Reproducibility**: Use `--deterministic` and `--seed` flags for reproducible experiments
 

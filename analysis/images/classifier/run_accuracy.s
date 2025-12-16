@@ -40,7 +40,7 @@ ls -la "${PY}"
 # Use python directly from conda environment
 export PYTHONPATH=.
 "${CONDA_PREFIX}/bin/python" -u "${PY}" \
-  --data_dir "${DATA_DIR}" \
+  --data-dir "${DATA_DIR}" \
   --all-data-json "${ALL_DATA_JSON}" \
   --batch-size 16 \
   --val-frac 0.10 \
