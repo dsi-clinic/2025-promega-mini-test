@@ -142,7 +142,7 @@ def validate_images_structure(ctx: ValidationContext, images: Dict[str, Any]) ->
     if images:
         ctx.stats['records_with_images'] += 1
 
-        required_images_fields = ['processed', 'raw_images', 'preprocessed']
+        required_images_fields = ['processed', 'raw_images']
         ctx.check_required_fields(images, required_images_fields, 'images')
 
         # Validate processed structure
@@ -156,12 +156,6 @@ def validate_images_structure(ctx: ValidationContext, images: Dict[str, Any]) ->
         raw_images = images.get('raw_images', [])
         if raw_images:
             ctx.check_type(raw_images, list, 'images.raw_images')
-
-        # Validate preprocessed
-        preprocessed = images.get('preprocessed', {})
-        if preprocessed:
-            ctx.check_type(preprocessed, dict, 'images.preprocessed')
-
 
 def validate_metabolites_structure(ctx: ValidationContext, metabolites: Dict[str, Any]) -> None:
     """Validate metabolites structure."""
@@ -245,15 +239,17 @@ def validate_label_structure(ctx: ValidationContext, label: Dict[str, Any]) -> N
 def validate_record_id_format(ctx: ValidationContext, record_id: str) -> None:
     """Validate record ID format."""
     # Pattern: BA#_96_#_Dy##_A# optionally followed by _split_# (e.g., BA1_96_1_Dy03_B5 or BA4_96_1_Dy20.5_C12_split_1)
+    # Also allows spaces as separators (e.g., BA1 96_1 Dy03 B5 or BA4 96_1 Dy20.5 C12 split_1)
     # - [A-Z]+\d+ : Batch identifier (BA1)
-    # - (_\d+)? : Optional plate number (_96)
-    # - _\d+ : Additional plate identifier (_1)
-    # - _Dy\d+(\.\d+)? : Day identifier (_Dy03 or _Dy20.5)
-    # - _[A-Z]\d+ : Well identifier (_B5)
-    # - (_split_\d+)? : Optional split identifier (_split_1, _split_2, etc.)
-    pattern = r'^[A-Z]+\d+(_\d+)?_\d+_Dy\d+(\.\d+)?_[A-Z]\d+(_split_\d+)?$'
+    # - [_\s]\d+)? : Optional plate number (_96 or  96)
+    # - [_\s]\d+ : Additional plate identifier (_1 or  1)
+    # - [_\s]Dy\d+(\.\d+)? : Day identifier (_Dy03 or  Dy03 or _Dy20.5 or  Dy20.5)
+    # - [_\s][A-Z]\d+ : Well identifier (_B5 or  B5)
+    # - ([_\s]split[_\s]\d+)? : Optional split identifier (_split_1,  split_1, _split_2, etc.)
+    # Use [_\s]+ to match one or more underscores or spaces
+    pattern = r'^[A-Z]+\d+([_\s]\d+)?[_\s]\d+[_\s]Dy\d+(\.\d+)?[_\s][A-Z]\d+([_\s]split[_\s]\d+)?$'
     if not re.match(pattern, record_id):
-        ctx.warnings.append(f"Record {record_id}: ID format may be unexpected (expected pattern: BA#_96_#_Dy##_A# or BA#_96_#_Dy##.#_A#_split_#)")
+        ctx.warnings.append(f"Record {record_id}: ID format may be unexpected (expected pattern: BA#_96_#_Dy##_A# or BA# 96_# Dy## A# optionally with _split_# or  split #)")
 
 
 def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = None, strict: bool = False) -> Dict[str, Any]:

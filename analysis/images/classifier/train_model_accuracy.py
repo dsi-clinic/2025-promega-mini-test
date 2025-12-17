@@ -46,8 +46,8 @@ SCHEMA_DICT = Dict[str, Any]
 # ---------- Classes ----------
 @dataclasses.dataclass
 class Config:
-    out_dir: Path = dataclasses.field(metadata={
-        "help": "Path to output directory where results will be saved"
+    data_dir: Path = dataclasses.field(metadata={
+        "help": "Path to data directory containing organoid data"
     })
     all_data_json: Path = dataclasses.field(default=None, metadata={
         "help": "Path to all data JSON file"
@@ -107,17 +107,20 @@ class Config:
             raise ValueError("train_bs must be > 0")
 
         # Set up
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.out_dir = self.data_dir / "results"
         self.out_dir.mkdir(parents=True, exist_ok=True)
+
         self.val_batch_size = int(self.val_batch_size) if self.val_batch_size is not None else self.batch_size
         self.target_size: tuple = (self.target_height, self.target_width)  # (H, W) format for PyTorch/timm
 
         if self.all_data_json is None:
-            self.all_data_json = self.out_dir.parent.joinpath("identifiers", "all_data.json")
+            self.all_data_json = self.data_dir.parent.joinpath("identifiers", "all_data.json")
         else:
             self.all_data_json = Path(self.all_data_json)
 
         if self.image_classifier_json is None:
-            self.image_classifier_json = self.out_dir.parent.joinpath("identifiers", "image_classifier.json")
+            self.image_classifier_json = self.data_dir.parent.joinpath("identifiers", "image_classifier.json")
         else:
             self.image_classifier_json = Path(self.image_classifier_json)
 
@@ -935,6 +938,10 @@ def main():
     with open(cfg.image_classifier_json, "w") as f:
         json.dump(image_classifier_views, f, indent=2)
     print(f"Saved image classifier views to {cfg.image_classifier_json}")
+
+    total_records = sum(len(day_data.get("img_path", [])) for day_data in image_classifier_views.get('records', {}).values())
+    print(f"Loaded {total_records} image classifier views from image_classifier.json")
+    print(f"Skipped {image_classifier_views.get('metadata', '').get('total_skipped')} records without processed image paths, evalutations, or labels")
 
     # Collect results: pick the best backbone per day by **validation accuracy**
     per_day_best, per_model_results = collect_results(image_classifier_views, cfg)

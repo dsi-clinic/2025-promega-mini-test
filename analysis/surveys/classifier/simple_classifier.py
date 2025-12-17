@@ -39,8 +39,8 @@ SCHEMA_DICT = Dict[str, Any]
 # --- Classes ---
 @dataclasses.dataclass
 class Config:
-    out_dir: Path = dataclasses.field(metadata={
-        "help": "Path to output directory where results will be saved"
+    data_dir: Path = dataclasses.field(metadata={
+        "help": "Path to data directory containing organoid data"
     })
     all_data_json: Path = dataclasses.field(default=None, metadata={
         "help": "Path to all data JSON file"
@@ -74,15 +74,17 @@ class Config:
     })
     def __post_init__(self):
         self.target_size: tuple = (self.target_width, self.target_height)
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.out_dir = self.data_dir / "results"
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
         if self.survey_classifier_json is None:
-            self.survey_classifier_json = self.out_dir.parent.joinpath("identifiers", "survey_classifier.json")
+            self.survey_classifier_json = self.data_dir.parent.joinpath("identifiers", "survey_classifier.json")
         else:
             self.survey_classifier_json = Path(self.survey_classifier_json)
 
         if self.all_data_json is None:
-            self.all_data_json = self.out_dir.parent.joinpath("identifiers", "all_data.json")
+            self.all_data_json = self.data_dir.parent.joinpath("identifiers", "all_data.json")
         else:
             self.all_data_json = Path(self.all_data_json)
 

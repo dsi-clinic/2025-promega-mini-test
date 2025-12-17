@@ -176,6 +176,7 @@ class OrganoidRecordBuilder:
             "path": entry.get("Best Z Filename"),
             "actual_z_value": entry.get("Actual Z Value"),
         }
+
         processed_block = {
             "main_id": processed.get("main_id"),
             "img_path": processed.get("img_path"),
@@ -200,19 +201,21 @@ class OrganoidRecordBuilder:
             },
             "is_stitched": processed.get("is_stitched"),
             "calibration_source": processed.get("calibration_source"),
-        }
-        preprocessing_block =  {
             "variant": preprocessed.get("variant"),
             "best_z_filename": preprocessed.get("Best Z Filename"),
             "metadata_key": preprocessed.get("metadata_key"),
             "label": preprocessed.get("label"),
         }
+
+        pre_split_days = entry.get("pre_split_days", [])
+        if pre_split_days:
+            processed_block["pre_split_days"] = pre_split_days
+
         return {
             "raw_um_per_px": entry.get("um_per_px"),
             "raw_images": raw_images,
             "best_z": best_z,
             "processed": processed_block,
-            "preprocessed": preprocessing_block,
             "manual_mask_path": manual_mask_path,
         }
 
