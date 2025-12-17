@@ -142,7 +142,7 @@ def validate_images_structure(ctx: ValidationContext, images: Dict[str, Any]) ->
     if images:
         ctx.stats['records_with_images'] += 1
 
-        required_images_fields = ['processed', 'raw_images', 'preprocessed']
+        required_images_fields = ['processed', 'raw_images']
         ctx.check_required_fields(images, required_images_fields, 'images')
 
         # Validate processed structure
@@ -156,12 +156,6 @@ def validate_images_structure(ctx: ValidationContext, images: Dict[str, Any]) ->
         raw_images = images.get('raw_images', [])
         if raw_images:
             ctx.check_type(raw_images, list, 'images.raw_images')
-
-        # Validate preprocessed
-        preprocessed = images.get('preprocessed', {})
-        if preprocessed:
-            ctx.check_type(preprocessed, dict, 'images.preprocessed')
-
 
 def validate_metabolites_structure(ctx: ValidationContext, metabolites: Dict[str, Any]) -> None:
     """Validate metabolites structure."""
