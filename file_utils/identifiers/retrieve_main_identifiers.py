@@ -32,20 +32,8 @@ logging.basicConfig(format="%(asctime)s,%(msecs)d %(levelname)s %(message)s",
                     datefmt="%Y-%m-%dT%H:%M:%S",
                     level=logging.INFO)
 
-def parse_batch_day_from_key(key: str):
-    """Parse batch and day from a key string.
-
-    Args:
-        key: The key string to parse
-
-    Returns:
-        batch: The batch number
-        day: The day number
-    """
-    key_array = key.split(" ")
-    batch = key_array[0].replace("BA", "")
-    day = key_array[2].replace("Dy", "")
-    return int(batch), int(day)
+# Constants
+DAY_20_21 = 20.5
 
 def main():
     parser = argparse.ArgumentParser(description="Retrieve main identifiers from a CSV file")
@@ -56,7 +44,7 @@ def main():
     df = pd.read_csv(args.csv_file)
     filename_bases = df["filename base"].tolist()
 
-    main_ids = []
+    main_ids = {}
     for fb in filename_bases:
         # Check for specific patterns first (before general patterns)
         if "-2-%(stitched)" in fb:
@@ -72,16 +60,14 @@ def main():
         fb = fb.replace("Ba", "BA")
         fb = fb.rstrip("%")
 
-        # Update batch 1 day 20 to day 21 to match other batches
-        batch, day = parse_batch_day_from_key(fb)
-        if batch == 1 and day == 20:
-            day = 21
-            fb = fb.replace(f"Dy20", f"Dy{day}")
-        main_ids.append(fb)
+        # Update batch 1 day 20 to and other batches day 21 to 20.5
+        day = int(fb.split(" ")[2].replace("Dy", ""))
+        if day == 20 or day == 21:
+            fb = fb.replace(f"Dy{day}", f"Dy{DAY_20_21}")
+        main_ids[fb] = day
 
     logging.info(f"Found {len(main_ids)} main identifiers")
 
-    main_ids.sort()
     with open(args.out_file, "w") as jf:
         json.dump(main_ids, jf, indent=2)
     logging.info(f"Saved main identifiers to: {args.out_file}")

@@ -142,7 +142,7 @@ def validate_images_structure(ctx: ValidationContext, images: Dict[str, Any]) ->
     if images:
         ctx.stats['records_with_images'] += 1
 
-        required_images_fields = ['processed', 'raw_images', 'preprocessed']
+        required_images_fields = ['processed', 'raw_images']
         ctx.check_required_fields(images, required_images_fields, 'images')
 
         # Validate processed structure
@@ -156,12 +156,6 @@ def validate_images_structure(ctx: ValidationContext, images: Dict[str, Any]) ->
         raw_images = images.get('raw_images', [])
         if raw_images:
             ctx.check_type(raw_images, list, 'images.raw_images')
-
-        # Validate preprocessed
-        preprocessed = images.get('preprocessed', {})
-        if preprocessed:
-            ctx.check_type(preprocessed, dict, 'images.preprocessed')
-
 
 def validate_metabolites_structure(ctx: ValidationContext, metabolites: Dict[str, Any]) -> None:
     """Validate metabolites structure."""
@@ -202,7 +196,7 @@ def validate_survey_structure(ctx: ValidationContext, survey: Dict[str, Any]) ->
     if not ctx.check_type(survey, dict, 'survey'):
         return
 
-    required_survey_fields = ['evaluations', 'quality_scores', 'summary', 'label']
+    required_survey_fields = ['evaluations', 'quality_scores']
     if not ctx.check_required_fields(survey, required_survey_fields, 'survey'):
         return
 
@@ -212,44 +206,50 @@ def validate_survey_structure(ctx: ValidationContext, survey: Dict[str, Any]) ->
         if field_value:
             ctx.check_type(field_value, list, f'survey.{list_field}')
 
-    # Validate summary
-    summary = survey.get('summary', {})
-    if summary:
-        ctx.check_type(summary, dict, 'survey.summary')
-
+def validate_label_structure(ctx: ValidationContext, label: Dict[str, Any]) -> None:
     # Validate label structure
-    label = survey.get('label', {})
-    if label:
-        required_label_fields = ['value', 'acceptance_flag']
-        if ctx.check_nested_structure(survey, 'label', required_label_fields, 'survey'):
-            # Validate label value
-            if 'value' in label and label['value']:
-                if label['value'] not in ['Acceptable', 'Not Acceptable']:
-                    ctx.warnings.append(f"Record {ctx.record_id}: survey.label.value has unexpected value: {label['value']}")
+    if not label:
+        return
+    required_label_fields = ['value', 'acceptance_flag', 'source']
+    if ctx.check_nested_structure(label, 'label', required_label_fields, 'label'):
+        # Validate label value
+        if 'value' in label and label['value']:
+            if label['value'] not in ['Acceptable', 'Not Acceptable']:
+                ctx.warnings.append(f"Record {ctx.record_id}: label.value has unexpected value: {label['value']}")
 
-            # Validate acceptance_flag
-            if 'acceptance_flag' in label:
-                flag = label['acceptance_flag']
-                if flag is not None:
-                    if not ctx.check_type(flag, int, 'survey.label.acceptance_flag', required=False):
-                        pass  # Error already added
-                    elif flag not in [0, 1]:
-                        ctx.warnings.append(f"Record {ctx.record_id}: survey.label.acceptance_flag has unexpected value: {flag} (expected 0 or 1)")
+        # Validate acceptance_flag
+        if 'acceptance_flag' in label:
+            flag = label['acceptance_flag']
+            if flag is not None:
+                if not ctx.check_type(flag, int, 'survey.label.acceptance_flag', required=False):
+                    pass  # Error already added
+                elif flag not in [0, 1]:
+                    ctx.warnings.append(f"Record {ctx.record_id}: survey.label.acceptance_flag has unexpected value: {flag} (expected 0 or 1)")
+
+        # Validate source
+        if 'source' in label:
+            source = label['source']
+            if source is not None:
+                if not ctx.check_type(source, str, 'label.source', required=False):
+                    pass  # Error already added
+                elif source not in ['survey.evaluations', 'preprocessed.label', None]:
+                    ctx.warnings.append(f"Record {ctx.record_id}: label.source has unexpected value: {source} (expected 'image.label', 'survey.label', or 'preprocessed.label')")
 
 
 def validate_record_id_format(ctx: ValidationContext, record_id: str) -> None:
     """Validate record ID format."""
-    # Pattern: BA#_96_#_Dy##_A# optionally followed by _split_# (e.g., BA1_96_1_Dy03_B5 or BA4_96_1_Dy17_C12_split_1)
+    # Pattern: BA#_96_#_Dy##_A# optionally followed by _split_# (e.g., BA1_96_1_Dy03_B5 or BA4_96_1_Dy20.5_C12_split_1)
+    # Also allows spaces as separators (e.g., BA1 96_1 Dy03 B5 or BA4 96_1 Dy20.5 C12 split_1)
     # - [A-Z]+\d+ : Batch identifier (BA1)
-    # - (_\d+)? : Optional plate number (_96)
-    # - _\d+ : Additional plate identifier (_1)
-    # - _Dy\d+ : Day identifier (_Dy03)
-    # - (_\d+\.\d+)? : Optional decimal day (_20.5)
-    # - _[A-Z]\d+ : Well identifier (_B5)
-    # - (_split_\d+)? : Optional split identifier (_split_1, _split_2, etc.)
-    pattern = r'^[A-Z]+\d+(_\d+)?_\d+_Dy\d+(_\d+\.\d+)?_[A-Z]\d+(_split_\d+)?$'
+    # - [_\s]\d+)? : Optional plate number (_96 or  96)
+    # - [_\s]\d+ : Additional plate identifier (_1 or  1)
+    # - [_\s]Dy\d+(\.\d+)? : Day identifier (_Dy03 or  Dy03 or _Dy20.5 or  Dy20.5)
+    # - [_\s][A-Z]\d+ : Well identifier (_B5 or  B5)
+    # - ([_\s]split[_\s]\d+)? : Optional split identifier (_split_1,  split_1, _split_2, etc.)
+    # Use [_\s]+ to match one or more underscores or spaces
+    pattern = r'^[A-Z]+\d+([_\s]\d+)?[_\s]\d+[_\s]Dy\d+(\.\d+)?[_\s][A-Z]\d+([_\s]split[_\s]\d+)?$'
     if not re.match(pattern, record_id):
-        ctx.warnings.append(f"Record {record_id}: ID format may be unexpected (expected pattern: BA#_96_#_Dy##_A# or BA#_96_#_Dy##_A#_split_#)")
+        ctx.warnings.append(f"Record {record_id}: ID format may be unexpected (expected pattern: BA#_96_#_Dy##_A# or BA# 96_# Dy## A# optionally with _split_# or  split #)")
 
 
 def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = None, strict: bool = False) -> Dict[str, Any]:
@@ -336,6 +336,11 @@ def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = Non
         survey = record.get('survey', {})
         if survey:
             validate_survey_structure(ctx, survey)
+
+
+        label = record.get('label', {})
+        if label:
+            validate_label_structure(ctx, label)
 
         # 5h. Validate record ID format
         validate_record_id_format(ctx, record_id)
