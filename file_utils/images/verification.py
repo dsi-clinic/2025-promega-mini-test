@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import logging
 import re
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 from file_utils.common.organoid_patterns import OrganoidPatterns
 
 import pandas as pd
@@ -20,11 +20,17 @@ class Verifier:
     def __init__(self, verify_csv: Path):
         self.verify_map: Dict[str, str] = {}
         self.verify_norm2orig: Dict[str, str] = {}
+        self.verify_splits: Dict[str, List[str]] = {}
         self._load_csv(verify_csv)
 
     def _load_csv(self, verify_csv: Path) -> None:
         vdf = pd.read_csv(verify_csv)
         vdf.columns = [c.strip() for c in vdf.columns]
+
+        for value in vdf.to_dict(orient="records"):
+            if "_split" in value["main id"]:
+                record_id = Verifier._extract_up_to_well(value["filename base"])
+                self.verify_splits.setdefault(record_id, []).append(value["main id"])
 
         # main id column
         if any(c.lower() == "main id" for c in vdf.columns):
@@ -59,6 +65,20 @@ class Verifier:
         self.verify_norm2orig = dict(zip(vdf["main_id_norm"], vdf["main_id_orig"]))
 
         logging.debug(f"[Verifier] Loaded {len(self.verify_map)} verification entries")
+
+    @staticmethod
+    def _extract_up_to_well(s: str) -> str:
+        """
+        Extract the string up to the well ID.
+
+        Args:
+            s: The string to extract the up to the well ID from.
+
+        Returns:
+            The string up to the well ID.
+        """
+        match = re.search(r'[A-H]\d{1,2}', s)
+        return s[:match.end()] if match else s
 
     @staticmethod
     def classification_label_for_verif(split_index: int | None, classification: str) -> str:

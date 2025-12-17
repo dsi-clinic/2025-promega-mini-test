@@ -137,37 +137,22 @@ class ImageMapper:
         df_keys = pd.DataFrame(keys, columns=["dayID", "batchPlate", "wellID"])
         df_keys["dnum"] = df_keys["dayID"].apply(OrganoidNormalizer.extract_day_number)
 
-        # Scan image files ONCE, compute which wells ever have split images
-        has_split_by_well = defaultdict(bool)
-        if self.base_dir.exists():
-            for f in list_image_files(self.base_dir):
-                w = OrganoidNormalizer.extract_well(f.name)
-                if not has_split_by_well[w]:
-                    if OrganoidNormalizer.extract_split_info(f.name)["is_split"]:
-                        has_split_by_well[w] = True
+        presplit_wells: set[Tuple[str, str, str]] = set()
+        for split_key in self.verifier.verify_splits.keys():
+            batch, plate, day, well = split_key.split(" ")
+            batch_plate = f"{batch} {plate}"
+            split_day_num = OrganoidNormalizer.extract_day_number(day)
 
-        df_keys["well_has_split"] = df_keys["wellID"].map(has_split_by_well).fillna(False)
-
-        # First split day per (batchPlate, wellID)
-        first_split = (
-            df_keys.loc[df_keys["well_has_split"]]
-            .groupby(["batchPlate", "wellID"], as_index=False)["dnum"]
-            .min()
-            .rename(columns={"dnum": "first_split"})
-        )
-
-        if first_split.empty:
-            logging.info("[ImageMapper] Detected 0 presplit wells")
-            return set()
-
-        # Mark presplit rows: day number < first_split day for that (batchPlate, wellID)
-        out = df_keys.merge(first_split, on=["batchPlate", "wellID"], how="inner")
-        out = out[out["dnum"] < out["first_split"]]
-
-        presplit_wells = {
-            (f"Dy{int(d):02d}", bp, w)
-            for d, bp, w in out[["dnum", "batchPlate", "wellID"]].itertuples(index=False, name=None)
-        }
+            # Query DataFrame: find all days before split day for this batch/plate/well
+            mask = (
+                (df_keys["batchPlate"].str.upper() == batch_plate.upper()) &
+                (df_keys["wellID"] == well) &
+                (df_keys["dnum"].notna()) &
+                (df_keys["dnum"] < split_day_num)
+            )
+            presplit_rows = df_keys[mask]
+            for _, row in presplit_rows.iterrows():
+                presplit_wells.add((row["dayID"], row["batchPlate"], row["wellID"]))
 
         logging.info(f"[ImageMapper] Detected {len(presplit_wells)} presplit wells")
         return presplit_wells
