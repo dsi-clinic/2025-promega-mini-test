@@ -15,9 +15,8 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S',
                     level=logging.INFO)
 
-
-class MetaboliteError(Exception):
-    pass
+# Constants
+DAY_20_21 = 20.5
 
 def get_args() -> argparse.Namespace:
     """Get arguments from the command line.
@@ -84,6 +83,10 @@ def get_organoid_id(row: pd.Series) -> str:
     ba = f"BA{batch} 96_{plate}"  # e.g. "BA2 96_1"
     day = f'Dy{int(row["day"]):02d}'  # e.g. "Dy28"
     well = row["96 well"].strip().upper()  # e.g. "A5"
+
+    # Handle day 20 and 21 cases
+    if day == "Dy20" or day == "Dy21":
+        day = f"Dy{DAY_20_21}"
 
     organoid_id = f"{ba} {day} {well}"
     return organoid_id
