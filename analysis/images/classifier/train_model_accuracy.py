@@ -10,6 +10,7 @@ import random
 import re
 from collections import defaultdict
 from pathlib import Path
+from typing import Any, Dict, List, Mapping, Tuple
 
 # Third party imports
 import dotenv
@@ -28,6 +29,9 @@ from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms as T
 
+from file_utils.common.json_views import BaseViewEmitter
+from file_utils.merge.normalized_records import OrganoidRecord
+
 # -------- Config defaults --------
 BACKBONES = {
     "vit": "vit_base_patch16_224",   # we will set img_size=(384,512) at create_model
@@ -35,14 +39,21 @@ BACKBONES = {
     "cnn": "cnn",
 }
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+SCHEMA_DICT = Dict[str, Any]
 
 # -------------------------------------------------------------
 
 # ---------- Classes ----------
 @dataclasses.dataclass
 class Config:
-    out_dir: Path = dataclasses.field(metadata={
-        "help": "Path to output directory where results will be saved"
+    data_dir: Path = dataclasses.field(metadata={
+        "help": "Path to data directory containing organoid data"
+    })
+    all_data_json: Path = dataclasses.field(default=None, metadata={
+        "help": "Path to all data JSON file"
+    })
+    image_classifier_json: Path = dataclasses.field(default=None, metadata={
+        "help": "Path to image classifier JSON file (defaults to out_dir/../identifiers/image_classifier.json)"
     })
     epoch1: int = dataclasses.field(default=100, metadata={
         "help": "Number of training epochs for phase 1 (frozen backbone)"
@@ -94,11 +105,54 @@ class Config:
             raise ValueError("Sum of val-frac and test-frac too large.")
         if self.batch_size <= 0:
             raise ValueError("train_bs must be > 0")
+
         # Set up
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.out_dir = self.data_dir / "results"
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        self.json_file = self.out_dir.parent.joinpath("json", "image_classifier.json")
+
         self.val_batch_size = int(self.val_batch_size) if self.val_batch_size is not None else self.batch_size
         self.target_size: tuple = (self.target_height, self.target_width)  # (H, W) format for PyTorch/timm
+
+        if self.all_data_json is None:
+            self.all_data_json = self.data_dir.parent.joinpath("identifiers", "all_data.json")
+        else:
+            self.all_data_json = Path(self.all_data_json)
+
+        if self.image_classifier_json is None:
+            self.image_classifier_json = self.data_dir.parent.joinpath("identifiers", "image_classifier.json")
+        else:
+            self.image_classifier_json = Path(self.image_classifier_json)
+
+class ImageClassifierEmitter(BaseViewEmitter):
+    """Build view payload for the image classifier training script."""
+
+    name = "image_classifier"
+
+    def __init__(self):
+        self._records_by_day: Dict[str, List[SCHEMA_DICT]] = defaultdict(list)
+        self._skipped_records_by_day: Dict[str, List[str]] = defaultdict(list)
+
+    def process(self, record: OrganoidRecord) -> None:
+        label = record.get("label", {}).get("acceptance_flag")
+        img_path = record.get("images", {}).get("processed", {}).get("img_path")
+        mask_path = record.get("images", {}).get("processed", {}).get("mask_path")
+        overlay_path = record.get("images", {}).get("processed", {}).get("overlay_path")
+
+        if label not in self.label_list or not img_path or not mask_path \
+            or not record.get("day", {}).get("id"):
+
+            self._skipped_records_by_day[record.get("day", {}).get("id")].append(record.get("id"))
+            return
+
+        payload = {
+            "id": record.get("id"),
+            "img_path": img_path,
+            "label": label,
+            "mask_path": mask_path,
+            "overlay_path": overlay_path,
+        }
+        self._records_by_day[record.get("day", {}).get("id")].append(payload)
 
 class EarlyStopping:
     def __init__(self, patience=20, min_delta=1e-4):
@@ -155,7 +209,6 @@ class OrganoidDataset(Dataset):
 
         return img, label
 
-
 class SmallCNNBackbone(nn.Module):
     """Simple CNN feature extractor used when backbone_key == 'cnn'."""
 
@@ -187,7 +240,6 @@ class SmallCNNBackbone(nn.Module):
     def forward(self, x):
         x = self.features(x)
         return self.proj(x)
-
 
 class MaskBranch(nn.Module):
     """Compact branch to encode binary masks into a feature vector."""
@@ -328,8 +380,6 @@ def get_args():
     """Retrieve and return command line arguments via the Config class"""
     arg_parser = create_args()
     args = arg_parser.parse_args()
-    for key,val in vars(args).items():
-        print(f"{key}: {val}")
     cfg = Config(**vars(args))
     return cfg
 
@@ -338,13 +388,19 @@ def day_to_int(day_str: str) -> int:
     m = re.search(r"[Dd][Yy](\d+)", day_str)
     return int(m.group(1)) if m else -1
 
-# ---------- Train/Eval ----------
-def collect_results(cfg):
-    # Load JSON file data
-    with open(cfg.json_file) as jf:
-        json_data = json.load(jf)
+def load_image_classifier_views(all_data_json: Path):
+    """Load image classifier views from all data (records) JSON file."""
+    with open(all_data_json) as f:
+        records = json.load(f)
 
-    # Collect results: pick the best backbone per day by **validation accuracy**
+    emitter = ImageClassifierEmitter()
+    for record in records.values():
+        emitter.process(record)
+    return emitter.finalize()
+
+# ---------- Train/Eval ----------
+def collect_results(json_data: Mapping[str, SCHEMA_DICT], cfg: Config) -> Tuple[Dict[str, Dict[str, Dict[str, Any]]], Dict[str, Dict[str, Dict[str, Any]]]]:
+    """Collect results: pick the best backbone per day by **validation accuracy**."""
     per_day_best = {}
     per_model_results = {bk: {} for bk in BACKBONES}
     for day, data in json_data["records"].items():
@@ -870,12 +926,25 @@ def main():
     start = datetime.datetime.now()
     # Set up for model training
     cfg = get_args()
+    for key,val in vars(cfg).items():
+        print(f"{key}: {val}")
+
     set_deterministic(cfg.deterministic)
     set_seed(cfg.seed, cfg.deterministic)
     print_config_stats(cfg)
 
+    # Load image classifier views
+    image_classifier_views = load_image_classifier_views(cfg.all_data_json)
+    with open(cfg.image_classifier_json, "w") as f:
+        json.dump(image_classifier_views, f, indent=2)
+    print(f"Saved image classifier views to {cfg.image_classifier_json}")
+
+    total_records = sum(len(day_data.get("img_path", [])) for day_data in image_classifier_views.get('records', {}).values())
+    print(f"Loaded {total_records} image classifier views from image_classifier.json")
+    print(f"Skipped {image_classifier_views.get('metadata', '').get('total_skipped')} records without processed image paths, evalutations, or labels")
+
     # Collect results: pick the best backbone per day by **validation accuracy**
-    per_day_best, per_model_results = collect_results(cfg)
+    per_day_best, per_model_results = collect_results(image_classifier_views, cfg)
 
     # ---- Build 4-column table (based on TEST)
     rows = build_results_table(per_day_best, cfg)

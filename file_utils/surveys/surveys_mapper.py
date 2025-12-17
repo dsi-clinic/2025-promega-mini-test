@@ -21,6 +21,7 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
                     level=logging.INFO)
 
 # Constants
+DAY_20_21 = 20.5
 LABEL_MAP = {"Accepted": 1, "Not Accepted": 0, "Acceptable": 1, "Not Acceptable": 0}
 
 def get_args() -> argparse.Namespace:
@@ -241,6 +242,10 @@ def construct_identifiers(image_id: str, split_index: int | None, is_stitched: b
     record_id = image_id_clean
     if split_index is not None:
         record_id = f"{record_id} split_{split_index}"
+        day = record_id.split(" ")[2]
+        if day == "Dy20" or day == "Dy21":
+            day = f"Dy{DAY_20_21}"
+            record_id = record_id.replace(day, f"Dy{DAY_20_21}")
 
     # Main image identifier
     main_id_base = re.sub(r"\s+", "_", image_id_clean.strip()) if image_id_clean else None
