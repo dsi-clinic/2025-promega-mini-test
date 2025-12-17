@@ -9,7 +9,7 @@ import os
 import pathlib
 import re
 from collections import defaultdict
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 
 import pandas as pd
 from tqdm import tqdm
@@ -27,7 +27,6 @@ from file_utils.images.image_resolver import (
     extract_z_level,
     find_best_focus,
     classify_image_file,
-    list_image_files,
 )
 
 # Constants
@@ -88,7 +87,7 @@ class ImageMapper:
         cleaned = load_and_clean_metadata(self.meta_csv)
 
         grouped = cleaned.groupby(["dayID", "batchPlate", "wellID"])
-        presplit_wells = self._compute_presplit_wells(grouped)
+        presplit_wells, presplit_days = self._compute_presplit_wells(grouped)
 
         mapping: Dict[str, Dict[str, Any]] = {}
         total_groups = len(grouped)
@@ -111,7 +110,8 @@ class ImageMapper:
 
         for (day_id, batch_plate, well_id), group_df in iterator:
             batch_stats, mapped_entries = self.process_batches(
-                identifiers, batch_plate, day_id, well_id, presplit_wells, group_df
+                identifiers, batch_plate, day_id, well_id, presplit_wells,
+                presplit_days, group_df
             )
             mapping.update(mapped_entries)
             stats += batch_stats
@@ -138,6 +138,7 @@ class ImageMapper:
         df_keys["dnum"] = df_keys["dayID"].apply(OrganoidNormalizer.extract_day_number)
 
         presplit_wells: set[Tuple[str, str, str]] = set()
+        pre_split_days: Dict[str, List[str]] = defaultdict(list)
         for split_key in self.verifier.verify_splits.keys():
             batch, plate, day, well = split_key.split(" ")
             batch_plate = f"{batch} {plate}"
@@ -153,9 +154,10 @@ class ImageMapper:
             presplit_rows = df_keys[mask]
             for _, row in presplit_rows.iterrows():
                 presplit_wells.add((row["dayID"], row["batchPlate"], row["wellID"]))
+                pre_split_days[split_key].append(row["dayID"])
 
         logging.info(f"[ImageMapper] Detected {len(presplit_wells)} presplit wells")
-        return presplit_wells
+        return presplit_wells, pre_split_days
 
     def _to_rel(self, p: pathlib.Path) -> pathlib.Path:
         """Convert absolute path to relative path from base_dir."""
@@ -246,6 +248,7 @@ class ImageMapper:
         day_id: str,
         well_id: str,
         presplit_wells: set[Tuple[str, str, str]],
+        presplit_days: Dict[str, List[str]],
         group_df: pd.DataFrame
     ) -> Tuple[ProcessingStats, Dict[str, Dict[str, Any]]]:
         """
@@ -257,8 +260,8 @@ class ImageMapper:
             day_id: day identifier
             well_id: well identifier
             presplit_wells: set of presplit wells
+            presplit_days: dictionary of presplit days
             group_df: dataframe containing group data
-
         Returns:
             Tuple of (ProcessingStats, mapping dictionary)
         """
@@ -288,7 +291,7 @@ class ImageMapper:
             logging.debug(f"[ImageMapper] Expanding into {len(child_groups)} split children for {full_id}")
             stats, mapping = self._define_entry_split(
                 identifiers, child_groups, full_id, day_id, ba_str,
-                batch_plate, well_id, group_df, presplit_wells
+                batch_plate, well_id, group_df, presplit_wells, presplit_days
             )
 
         # CASE B: multiple stitched groups
@@ -319,7 +322,8 @@ class ImageMapper:
         batch_plate: str,
         well_id: str,
         group_df: pd.DataFrame,
-        presplit_wells: set[Tuple[str, str, str]]
+        presplit_wells: set[Tuple[str, str, str]],
+        presplit_days: Dict[str, List[str]],
     ) -> Tuple[ProcessingStats, Dict[str, Dict[str, Any]]]:
         """
         Define entries for split images.
@@ -334,7 +338,7 @@ class ImageMapper:
             well_id: the well identifier
             group_df: the group dataframe
             presplit_wells: the presplit wells
-
+            presplit_days: the presplit days
         Returns:
             Tuple of (ProcessingStats, mapping dictionary)
         """
@@ -363,6 +367,10 @@ class ImageMapper:
             entry["verification"] = self._get_verification_data(
                 ba_str, day_id, well_id, split_idx, classification, is_presplit
             )
+
+            # Presplit days: Construct lookup key matching verify_splits format: "Ba2 96_1 Dy21 E7"
+            lookup_key = f"{batch_plate.replace('BA', 'Ba')} {day_id} {well_id}"
+            entry["pre_split_days"] = presplit_days.get(lookup_key, [])
 
             mapping[clean_child_key] = entry
 
