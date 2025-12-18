@@ -12,6 +12,7 @@ set -euo pipefail
 # ====== adjust these paths ======
 PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY
 PY=${PROJ_ROOT}/analysis/surveys/classifier/simple_classifier.py
+DATA_DIR=/path/to/data/surveys
 CONDA_PREFIX=/net/projects2/promega
 # ================================
 
@@ -28,6 +29,6 @@ nvidia-smi || true
 
 # Run the survey classifier
 export PYTHONPATH=.
-"${CONDA_PREFIX}/bin/python" -u "${PY}"
+"${CONDA_PREFIX}/bin/python" -u "${PY}" --data-dir "${DATA_DIR}" --deterministic
 
 echo "Survey classifier completed successfully"

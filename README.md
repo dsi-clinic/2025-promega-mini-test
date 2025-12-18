@@ -2,6 +2,72 @@
 
 This repository contains a comprehensive system for analyzing organoid quality using multimodal data including images, metabolites, and survey assessments for time series prediction.
 
+Table of Contents
+=================
+
+* [Promega Organoid Analysis System](#promega-organoid-analysis-system)
+   * [Recent Changes (November 2025)](#recent-changes-november-2025)
+      * [Data Reorganization](#data-reorganization)
+      * [Classifier Updates](#classifier-updates)
+   * [Project Structure](#project-structure)
+   * [Setup Promega Code](#setup-promega-code)
+   * [Run Promega Code](#run-promega-code)
+      * [1. Activate Environment](#1-activate-environment)
+      * [2. Run Data Processing Pipeline Analysis](#2-run-data-processing-pipeline-analysis)
+         * [2a. Prepare to run on Cluster](#2a-prepare-to-run-on-cluster)
+         * [2b. Image Classifier](#2b-image-classifier)
+         * [2c. Survey Classifier](#2c-survey-classifier)
+   * [Data Processing Pipeline](#data-processing-pipeline)
+      * [Overview](#overview)
+      * [Prerequisites](#prerequisites)
+      * [STEP 1: Retrieve Main Identifiers](#step-1-retrieve-main-identifiers)
+      * [STEP 2: Map Metabolite Data](#step-2-map-metabolite-data)
+      * [STEP 3: Map Survey Data](#step-3-map-survey-data)
+      * [STEP 4: Map image data](#step-4-map-image-data)
+      * [STEP 5: <em>Placeholder for other pre-processing steps</em>](#step-5-placeholder-for-other-pre-processing-steps)
+      * [STEP 6: Generate All Data JSON File](#step-6-generate-all-data-json-file)
+         * [Schema Validation (file_utils/merge/validate_schema.py) <em>(optional)</em>](#schema-validation-file_utilsmergevalidate_schemapy-optional)
+      * [STEP 7: Image Classifier Training](#step-7-image-classifier-training)
+      * [STEP 8: Survey Classifier Training](#step-8-survey-classifier-training)
+   * [Data](#data)
+      * [Main data file structure](#main-data-file-structure)
+      * [Input Data Types](#input-data-types)
+      * [1. Image Data](#1-image-data)
+      * [2. Metabolite Data](#2-metabolite-data)
+      * [3. Survey Data](#3-survey-data)
+      * [4. Generated JSON Files](#4-generated-json-files)
+   * [Resource Requirements](#resource-requirements)
+      * [Cluster Resources (SLURM)](#cluster-resources-slurm)
+      * [Local Development](#local-development)
+   * [Local development and testing](#local-development-and-testing)
+      * [Test dataset](#test-dataset)
+      * [Example execution](#example-execution)
+      * [Development Guidelines](#development-guidelines)
+   * [Current Status](#current-status)
+   * [Known Issues &amp; Future Improvements](#known-issues--future-improvements)
+
+---
+
+## Recent Changes (November 2025)
+
+### Data Reorganization
+The data pipeline has been reorganized to use a normalized records structure:
+
+- **Normalized Records System**: Introduced `file_utils/merge/normalized_records.py` with `OrganoidRecord`, `OrganoidRecordBuilder`, and `RecordMetrics` to canonicalize organoid data
+- **Unified Data Structure**: `all_data.json` now uses a `records` map with standardized organoid IDs plus a `summary.json` file containing metadata (totals, vote counts, metabolite outliers, skipped items)
+- **View-Specific Outputs**: The merge process generates a main data file from which specialized views can be created by the image and survey classifiers:
+  - `all_data.json` - Complete unified dataset with all organoid records
+  - `image_classifier.json` - Day-indexed records optimized for image classifier training
+  - `survey_classifier.json` - Day-indexed records optimized for survey classifier training
+- **Enhanced Logging**: Rich-based structured logging throughout the merge process
+- **Metadata Tracking**: Each view includes metadata about skipped records, vote counts, and data quality metrics
+
+### Classifier Updates
+- **Image Classifier** and **Survey Classifier**: Updated to read from new normalized JSON structure (`records` map instead of flat files)
+- **Deterministic Training**: Added support for reproducible training runs with deterministic operations and seed control
+
+---
+
 ## Project Structure
 
 ```mermaid
@@ -10,38 +76,29 @@ flowchart TD
     A1([Raw Images])
     A2([Metabolite Excels])
     A3([Survey Excels])
-    A4([Config & Env Vars<br/>config.py / core_env.yaml])
 
     %% ========= FILE_UTILS PROCESSING ========= %%
-    subgraph B[file_utils - Data Mapping & Integration]
-        B1[file_utils/images/scripts<br/>image_mapper_main.py<br/>Image metadata → JSON]
-        B1b[file_utils/common/organoid_patterns.py<br/>Pattern normalization helpers]
-        B2[file_utils/metabolites/metabolite_mapper.py<br/>Metabolite Excel → JSON]
-        B3[file_utils/surveys/surveys_mapper.py<br/>Survey Excel → JSON]
-        B4[file_utils/merge/merge_all_data.py<br/>Merge image + metabolite + survey JSON → all_data.json]
+    subgraph B[file_utils - Data Mapping &<br/>Integration]
+        B1[image_mapper_main.py<br/>Image metadata → JSON]
+        B1b[organoid_patterns.py<br/>Pattern normalization helpers]
+        B2[metabolite_mapper.py<br/>Metabolite Excel → JSON]
+        B3[surveys_mapper.py<br/>Survey Excel → JSON]
+        B4[merge_all_data.py<br/>image + metabolite + survey →<br/>all_data.json]
     end
 
     %% ========= ANALYSIS PIPELINE ========= %%
     subgraph C[analysis - Downstream Analysis & ML]
         subgraph C1[analysis/images]
-            C11[resize<br/>Standardize image size + pixel scale]
-            C12[metrics/shape_metrics<br/>Organoid shape features]
-            C13[segmentation_mmseg<br/>MMSeg training & inference]
-            C14[classifier<br/>Image classifiers – ViT / CNN]
-            C15[series/preprocess<br/>Filter complete time series + normalize masks]
+            C10[classifier<br/>Image classifiers – ViT / CNN]
         end
 
         subgraph C2[analysis/metabolites]
-            C21[classifier<br/>Metabolite-based classifiers]
+            C20[classifier<br/>Metabolite-based classifiers]
         end
 
         subgraph C3[analysis/surveys]
-            C31[agreement_aggregations<br/>Survey agreement analysis]
-            C32[classifier<br/>Survey-based classifiers]
-            C33[simulations<br/>Reliability simulations]
+            C30[classifier<br/>Survey-based classifiers]
         end
-
-        C4[multimodal<br/>CNN fusion of image + metabolite + survey features]
     end
 
     %% ========= DATA FLOW ========= %%
@@ -54,20 +111,37 @@ flowchart TD
     B3 --> B4
 
     %% From merged data to analyses
-    B4 --> C11
-    C11 --> C13
-    C13 --> C14
-    C14 --> C15
-    C15 --> C4
-
-    B4 --> C21
-    B4 --> C31
-    B4 --> C4
+    B4 --> C10
+    B4 --> C20
+    B4 --> C30
 ```
 
-## Quick Start
+---
 
-### 1. Environment Setup
+## Setup Promega Code
+
+For local development with full code access:
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd 2025-promega-mini-test
+   ```
+
+2. **Set up Python environment**:
+   ```bash
+   # On cluster, use the shared conda environment:
+   # /net/projects2/promega
+
+   # For local development, create a conda environment:
+   micromamba create -n promega -f core_env.yaml
+   ```
+
+## Run Promega Code
+
+### 1. Activate Environment
+
+**On Cluster**:
 ```bash
 # The conda environment is located at:
 /net/projects2/promega
@@ -75,40 +149,59 @@ flowchart TD
 # You don't need to activate it manually - the SLURM scripts will use it
 ```
 
-### 2. Generate Master Data File
+**Local Development**:
 ```bash
-# From the project root directory, run:
-cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY  # Replace with your actual path
-/net/projects2/promega/bin/python file_utils/merge/merge_all_data.py
-
-# This generates all_data.json with 5,168+ merged records
-# Output: /net/projects2/promega/data-analysis/output/all_data.json
+# Activate your local conda environment
+micromamba activate promega  # or your environment name
 ```
 
-### ⚠️ IMPORTANT: Update Paths Before Running Analysis
+### 2. Run Data Processing Pipeline *Analysis*
+
+The data processing pipeline consists of several sequential steps to generate the master data files needed for analysis. See the [**Data Processing Pipeline**](#data-processing-pipeline) section below for details of each step.
+
+**Quick Overview**:
+1. Retrieve main identifiers from verification CSV
+2. Map metabolite data from Excel files
+3. Map survey data from Excel files
+4. Map image files and metadata
+5. *Placeholder for additional pre-processing steps*
+6. Generate unified `all_data.json` file
+7. Run image classifier training
+8. Run survey classifier training
+
+This section will cover the analysis which includes the image and survey classifiers.
+
+#### 2a. Prepare to run on Cluster
+
+**Important**: Analysis must be run on computation nodes (not login nodes) using SLURM job submission. A GPU is required when running on the cluster.
+
+**⚠️ IMPORTANT: Update Paths Before Running Analysis**
 
 **Before submitting any jobs**, you must update the hardcoded paths in the SLURM scripts to match your setup:
 
-Replace `/home/tonyluo/minitest` with `/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY` in:
+Replace:
+- `/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY` with the path to the GitHub repo directory on your machine
+- `/path/to/data`  with the path to the pre-processed images (Image classifier) or survey directory (Survey classifier)
+- `/path/to/all_data.json` with the path to the main data JSON file (Image classifier only)
 
+Locations:
 1. **`analysis/images/classifier/run_accuracy.s`**
    - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
+   - Line 15: `DATA_DIR=/path/to/data/images`
+   - Line 16: `ALL_DATA_JSON=/path/to/all_data.json`
 
 2. **`analysis/surveys/classifier/run_survey_classifier.s`**
-   - Line 12: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
+   - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
+   - Line 15: `DATA_DIR=/path/to/data/surveys`
 
 Example:
 ```bash
 # If your username is jsmith and you cloned to /home/jsmith/promega-analysis
-# Change: PROJ_ROOT=/home/tonyluo/minitest
+# Change: PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY
 # To:     PROJ_ROOT=/home/jsmith/promega-analysis
 ```
 
-### 3. Run Analysis on GPU Computation Nodes
-
-**Important**: Analysis must be run on computation nodes (not login nodes) using SLURM job submission.
-
-#### 3a. Image Classifier (GPU Required)
+#### 2b. Image Classifier
 ```bash
 # Navigate to classifier directory
 cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/images/classifier
@@ -124,11 +217,11 @@ tail -f logs/soft-label_<JOBID>.out
 ```
 
 The image classifier will train models for each day (Dy3, Dy6, Dy8, etc.) sequentially.
-Results are saved in `outputs_512x384_Regular_image_with_train_augment_with_auroc/vit/DyXX/`
+Results are saved in `DATA_DIR` which is defined in `run_accuracy.s`
 
-#### 3b. Survey Classifier (GPU Required)
+#### 2c. Survey Classifier
 ```bash
-# Navigate to survey classifier directory  
+# Navigate to survey classifier directory
 cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/surveys/classifier
 
 # Submit the survey classifier job
@@ -140,98 +233,723 @@ cat logs/survey_<JOBID>.out
 ```
 
 The survey classifier trains a ResNet50V2+CNN dual-input model on Day 30 organoids using survey evaluation labels.
-Results include trained model (`.h5`), training curves, and confusion matrix.
+Results include trained model (`.h5`), training curves, and confusion matrix. Results are saved in `DATA_DIR` which is defined in `run_survey_classifier.s`
 
-**Recent Updates** (Oct 2025):
-- Now uses `all_data.json` as single data source (no separate mapping files needed)
-- Computes labels directly from survey evaluations in `all_data.json`
-- GPU-compatible metrics (AUC, Precision, Recall)
-- See `analysis/surveys/classifier/CHANGES.md` for detailed changes
-
-**Note**: Before submitting jobs, update the SLURM scripts:
-- `analysis/images/classifier/run_accuracy.s` - Update `PROJ_ROOT` variable (line 13)
-- `analysis/surveys/classifier/run_survey_classifier.s` - Update `PROJ_ROOT` variable (line 13)
-
-## Configuration System
-
-The system uses a centralized `config.py` file that loads configuration from environment variables. Key variables:
-
-- `BASE_PATH` - Root directory for raw data
-- `OUTPUT_FOLDER` - Location for processed outputs  
-- `SURVEY_RESULTS` - Directory containing Excel survey files
-- `METABOLITE_DATA_DIR` - Directory for metabolite Excel files
-- `TARGET_WIDTH` / `TARGET_HEIGHT` - Image processing dimensions
-
-Create a `.env` file in the project root with these variables set to your local paths.
+---
 
 ## Data Processing Pipeline
 
+This section provides detailed step-by-step instructions for processing raw data into the unified dataset used for analysis.
+
+### Overview
+
+The complete pipeline flow:
+
 1. **Individual Mappers**: Process raw data sources
-   - `file_utils/images/image_mapper_main.py` - Maps image files to metadata
+   - `file_utils/images/image_mapper.py` - Maps image files to metadata
    - `file_utils/metabolites/metabolite_mapper.py` - Processes metabolite Excel data
    - `file_utils/surveys/surveys_mapper.py` - Processes survey Excel data
 
 2. **Master Merger**: Combines all data sources
-   - `file_utils/merge/merge_all_data.py` - Creates unified `all_data.json`
+   - `file_utils/merge/merge_all_data.py` - Creates unified `all_data.json` and view-specific JSON files
 
-3. **Reproducible Data Splits**: Creates train/validation splits for ML models
-   - `split_data_reproducible.py` - Splits data by organoid (prevents data leakage) and extracts metabolite features
-   - Extracts both `concentration_uM` and `initial_concentration` for each metabolite (e.g., `GlucoseGlo_concentration_uM`, `GlucoseGlo_initial_concentration`)
-   - Outputs saved to `data_splits/` directory
-   - Usage: `python3 split_data_reproducible.py --mode base`
-
-4. **Analysis**: Uses `all_data.json` as single source of truth
+3. **Analysis**: Uses normalized JSON files as single source of truth
    - All analysis code in `analysis/` directory
    - No direct access to raw data files
-   - Standardized organoid key format: `"BA1 96_1 Dy30 A1"`
+   - Standardized organoid key format: `"BA1 96_1 Dy03 A1"`
 
-## Data Structure
+### Prerequisites
+
+Before starting, ensure you have:
+- Python environment set up (see [Setup Promega Code](#setup-promega-code))
+- Required input data files:
+  - Image verification CSV file
+  - Metabolite Excel files
+  - Survey Excel files
+  - Raw image files (TIFF format)
+  - Sample tracing Excel file (metadata)
+
+Starting data directory:
+
+```bash
+.
+├── images
+│   ├── image_mapping_thresholded_and_manual.json
+│   ├── image_verification.csv
+│   ├── infer_resized_512x384
+│   │   ├── BA1_96_1_Dy03_A10_nosplit_nostitch.png
+│   │   ├── BA1_96_1_Dy03_A11_nosplit_nostitch.png
+│   │   ├── BA1_96_1_Dy03_A12_nosplit_nostitch.png
+│   │   ├── ...
+│   │   ├── image_mapping_ba196_1_Dy03_processed.json
+│   │   ├── image_mapping_ba196_1_Dy06_processed.json
+│   │   ├── image_mapping_ba196_1_Dy08_processed.json
+│   │   ├── ...
+│   ├── preprocessed_json
+│   │   ├── Dy10.json
+│   │   ├── Dy13.json
+│   │   ├── Dy15.json
+│   │   ├── Dy17.json
+│   │   ├── Dy20_5.json
+│   │   ├── Dy24.json
+│   │   ├── Dy28.json
+│   │   ├── Dy30.json
+│   │   ├── Dy3.json
+│   │   ├── Dy6.json
+│   │   └── Dy8.json
+│   ├── raw_images
+│   │   ├── Ba1 96_1 Dy03 A10 Z0.tif
+│   │   ├── Ba1 96_1 Dy03 A10 Z1.tif
+│   │   ├── Ba1 96_1 Dy03 A10 Z2.tif
+│   │   ├── ...
+│   └── Sample-Tracing.xlsx
+├── masks
+│   ├── image_overlays
+│   │   ├── BA1_96_1_Dy03_A10_nosplit_nostitch_overlay.png
+│   │   ├── BA1_96_1_Dy03_A11_nosplit_nostitch_overlay.png
+│   │   ├── BA1_96_1_Dy03_A12_nosplit_nostitch_overlay.png
+│   │   ├── ...
+│   ├── manual
+│   │   ├── Mask_M Ba1 96_1 Dy03 A10 Z2.tif
+│   │   ├── Mask_M Ba1 96_1 Dy03 A11 Z2.tif
+│   │   ├── Mask_M Ba1 96_1 Dy03 A12 Z2.tif
+│   │   ├── ...
+│   └── predicted
+│       ├── BA1_96_1_Dy03_A10_nosplit_nostitch_predmask.png
+│       ├── BA1_96_1_Dy03_A11_nosplit_nostitch_predmask.png
+│       ├── BA1_96_1_Dy03_A12_nosplit_nostitch_predmask.png
+│       ├── ...
+├── metabolite
+│   ├── metabolite_data_07_23_25.xlsx
+├── survey
+│   ├── Image Classification Form - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form A) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form A) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form A) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form B) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form B) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form B) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form C) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form C) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form C) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+```
+
+**NOTE** Other pre-processing steps are in progress and this will change as those steps are refined. Current requirements:\
+- Images:
+   - resized 512 x 384 images with "processed" JSON files
+   - "pre-processed" JSON files located at `analysis/images/classifier/data/preprocessed/512x384/majority`
+   - `image_mapping_thresholded_and_manual.json`
+   - `image_verification.csv`
+   - `Sample-Tracing.xlsx`
+- Masks:
+   - overlays
+   - manual
+   - predicted
+- Metabolite:
+   - `metabolite_data_07_23_25.xlsx`
+- Survey:
+   - Image Classification Form - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form A) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form A) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form A) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form B) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form B) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form B) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form C) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form C) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form C) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+
+### STEP 1: Retrieve Main Identifiers
+
+Extract and normalize main identifiers from the image verification CSV file.
+
+**Command**:
+```bash
+python3 -m file_utils.identifiers.retrieve_main_identifiers \
+    --csv-file <path/to/image_verification.csv> \
+    --out-file <path/to/main_identifiers.json>
+```
+
+**What it does**:
+- Extracts and normalizes main identifiers from image filename bases in a CSV file. The script processes filename bases by:
+  - Replacing split markers: `(1)%` → `split_1`, `(2)%` → `split_2`, `-2-%(stitched)` → `split_2`
+  - Removing stitched markers: `(stitched)` → removed
+  - Normalizing case: `Ba` → `BA`
+  - Stripping trailing `%` characters
+
+**Required Arguments**:
+- `--csv-file`: Path to CSV file containing a `filename base` column
+- `--out-file`: Path to output JSON file where normalized identifiers will be saved
+
+**Optional Arguments**: None
+
+**Output**: `main_identifiers.json` - Normalized identifier list used by subsequent mappers
+
+**Input/Output Example**:
+- Input filename base: `"Ba4 96_1 Dy28 C12(1)%"`
+- Output identifier: `"BA4 96_1 Dy28 C12 split_1"`
+
+**Important Assumptions**:
+- Batch 1 Day 20 and Day 21 from other batches are normalized to Day 20.5
+
+### STEP 2: Map Metabolite Data
+
+Process metabolite Excel files and map them to main identifiers.
+
+**Command**:
+```bash
+python -m file_utils.metabolites.metabolite_mapper \
+    --in-file <path/to/metabolite_data.xlsx> \
+    --identifiers <path/to/main_identifiers.json> \
+    --out-file <path/to/metabolite_map.json>
+```
+
+**What it does**:
+- Reads metabolite concentration data from Excel file
+- Maps metabolite data to normalized identifiers
+- Handles day normalization (Day 20/21 → Day 20.5)
+- Duplicates metabolite data across splits with the same main identifier
+
+**Required Arguments**:
+- `--in-file`: Path to Excel file containing metabolite data
+- `--identifiers`: Path to main identifiers JSON file
+- `--out-file`: Path to output JSON file where metabolite map will be saved
+
+**Optional Arguments**: None
+
+**Output**: `metabolite_map.json` - Metabolite data mapped to identifiers
+
+**Important Assumptions**:
+- Batch 1 Day 20 and Day 21 from other batches are treated as Day 20.5
+- Metabolite data can be duplicated across splits with the same main identifier
+- Split information in main identifiers may not match metabolite spreadsheet identifiers
+
+### STEP 3: Map Survey Data
+
+Process survey Excel files and map evaluations to identifiers.
+
+**Command**:
+```bash
+python -m file_utils.surveys.surveys_mapper \
+    --in-dir <path/to/survey/excel/files> \
+    --out-file <path/to/survey_map.json> \
+    --identifiers <path/to/main_identifiers.json>
+```
+
+**What it does**:
+- Processes survey Excel files from input directory
+- Extracts evaluation data (employee, evaluation, quality scores)
+- Maps survey data to normalized identifiers
+- Handles cases where multiple organoids are assigned to one identifier
+- Computes labels: Uses majority voting (4+ votes) to determine labels
+
+**Required Arguments**:
+- `--in-dir`: Path to directory containing survey Excel files
+- `--identifiers`: Path to main identifiers JSON file
+- `--out-file`: Path to output JSON file where survey map will be saved
+
+**Optional Arguments**:
+- `--min-survey-votes`: Minimum number of votes required to determine a majority (default: 4)
+
+**Output**: `survey_map.json` - Survey evaluation data mapped to identifiers
+
+**Note**: The survey map includes an `organoid_id` key layer to handle cases with multiple organoids per identifier.
+
+### STEP 4: Map image data
+
+Map raw image files to metadata and create image mapping JSON.
+
+**Command**:
+```bash
+python3 -m file_utils.images.image_mapper \
+    --base-dir <path/to/raw_images> \
+    --verify-csv <path/to/image_verification.csv> \
+    --meta-xlsx <path/to/Sample-Tracing.xlsx> \
+    --identifiers <path/to/main_identifiers.json> \
+    --out-file <path/to/image_map.json>
+```
+
+**What it does**:
+1. **Loads metadata**: Creates DataFrame from Sample-Tracing Excel, adds pixel scale (`um_per_px`), extracts batch/plate/day/well
+2. **Groups data**: Groups metadata by day, batch plate, and well
+3. **Computes pre-split wells**: Tracks split organoids and aggregates pre-split observations
+4. **Processes each group**:
+   - Gets identifier and compares to main identifiers
+   - Resolves images:
+     - Finds candidate raw image files matching identifier
+     - Sorts by Z-level
+     - Handles split indexes and stitched images
+     - Selects best focus image
+   - Creates entries with classification (SplitStitched, SplitPartial, Split, Duplicate, Regular)
+   - Adds verification metadata (split, stitched, blank flags)
+5. **Saves mapping**: Writes complete image mapping to JSON file
+
+**Required Arguments**:
+- `--base-dir`: Path to base directory containing raw images
+- `--meta-xlsx`: Path to Sample-Tracing Excel file containing metadata
+- `--out-file`: Path to output JSON file where image mapping will be saved
+
+**Optional Arguments**:
+- `--verify-csv`: Path to CSV file containing image verification data
+- `--identifiers`: Path to main identifiers JSON file
+
+**Output**: `image_map.json` - Complete image file mapping with metadata
+
+### STEP 5: *Placeholder for other pre-processing steps*
+
+Placeholder for other pre-processing steps
+
+### STEP 6: Generate All Data JSON File
+
+**Entry Point**: `python file_utils/merge/merge_all_data.py`
+
+Merge all mapped data sources into unified `all_data.json` file.
+
+**Command**:
+```bash
+python3 -m file_utils.merge.merge_all_data \
+    --data-dir <path/to/data/directory>
+```
+
+**What it does**:
+1. **Builds survey map**: Normalizes keys and aggregates survey evaluations
+2. **Builds manual mask map**: Normalizes keys and updates paths
+3. **Loads processed images**: Aggregates `image_mapping*_processed.json` files
+   - Normalizes day identifiers (Dy20/Dy21 → Dy20.5) in keys
+   - Updates hardcoded paths to actual file locations
+4. **Loads preprocessed images**: Aggregates preprocessed JSON files
+   - Normalizes day identifiers in metadata keys
+5. **Merges data sources**: For each identifier:
+   - Combines base image info, processed images, preprocessed images
+   - Adds survey data, metabolite data, manual masks
+   - Determines labels (survey label takes priority, then preprocessed label)
+   - Extracts numerical day (handles Day 20/21 → 20.5 normalization)
+6. **Builds normalized records**: Creates canonical organoid records with standardized structure
+7. **Validates schema**: Ensures data integrity (if `--validate-schema` flag used)
+8. **Generates view-specific outputs**:
+   - `all_data.json` - Complete unified dataset
+   - `image_classifier.json` - Day-indexed view for image training
+   - `survey_classifier.json` - Day-indexed view for survey training
+
+**Required Arguments**:
+- `--data-dir`: Path to data directory containing organoid data (must contain subdirectories: `identifiers/`, `images/`, `metabolite/`, `survey/`)
+
+**Optional Arguments**:
+- `--min-survey-votes`: Minimum votes for survey label (default: 4)
+- `--survey-day`: Day that survey was conducted (default: 30)
+- `--target-width`: Target image width in pixels (default: 512)
+- `--target-height`: Target image height in pixels (default: 384)
+- `--no-validate`: Skip schema validation of generated `all_data.json` file (default: False, validation runs by default)
+
+**Output Files**:
+- `all_data.json` - Complete dataset with all organoid records
+- `summary.json` - Statistics and metadata
+
+**Important Assumptions**:
+- Survey label takes priority when populating the `label` field
+- Image label is taken from preprocessed JSON data if survey label unavailable
+- Day 20 and Day 21 are normalized to Day 20.5
+
+#### Schema Validation (`file_utils/merge/validate_schema.py`) *(optional)*
+
+**Entry Point**: `python file_utils/merge/validate_schema.py`
+
+**Required Arguments**:
+- `json_file`: Path to `all_data.json` file to validate
+
+**Optional Arguments**:
+- `--sample`: Number of records to sample for validation (default: validate all records)
+- `--strict`: Treat warnings as errors (default: False)
+- `--quiet`: Suppress validation report output, only show errors (default: False)
+- `--log-level`: Set logging level - DEBUG, INFO, WARNING, ERROR (default: INFO)
+
+**Example**:
+```bash
+# Validate entire file
+python file_utils/merge/validate_schema.py data/output/json/all_data.json
+
+# Validate sample of 100 records
+python file_utils/merge/validate_schema.py data/output/json/all_data.json --sample 100
+
+# Strict mode (treat warnings as errors)
+python file_utils/merge/validate_schema.py data/output/json/all_data.json --strict
+
+# Quiet mode (only show errors)
+python file_utils/merge/validate_schema.py data/output/json/all_data.json --quiet
+```
+
+### STEP 7: Image Classifier Training
+
+**Entry Point**: `python train_model_accuracy.py`
+
+Train image classification models for each day.
+
+**On Cluster (SLURM)**:
+```bash
+cd analysis/images/classifier
+sbatch run_accuracy.s
+```
+
+**Local Development**:
+```bash
+python3 -m analysis.images.classifier.train_model_accuracy \
+    --epoch1 <num_epochs_phase1> \
+    --epoch2 <num_epochs_phase2> \
+    --val-frac <validation_fraction> \
+    --test-frac <test_fraction> \
+    --deterministic \
+    --data-dir <path/to/data>
+```
+
+**What it does**:
+1. **Loads data**: Reads `all_data.json` or `image_classifier.json`
+2. **Preprocesses**: Extracts image paths, mask paths, and labels; saves to `image_classifier.json` if not provided
+3. **Splits data**: Creates train/validation/test sets
+4. **Trains models**: For each model backbone (ViT, ResNet, CNN):
+   - **Phase 1**: Freezes backbone, trains classifier head (default: 100 epochs)
+   - **Phase 2**: Unfreezes backbone, fine-tunes entire model (default: 300 epochs)
+   - Uses early stopping to prevent overfitting
+   - Calculates class weights for imbalanced data
+5. **Evaluates**: Computes accuracy, F1 score, and AUC-ROC on validation and test sets
+6. **Saves results**: Model checkpoints, training curves, metrics, and summaries
+
+**Required Arguments**:
+- `--data-dir`: Path to data directory containing organoid data
+
+**Optional Arguments**:
+- `--all-data-json`: Path to `all_data.json` file (default: `data_dir/../identifiers/all_data.json`)
+- `--image-classifier-json`: Path to `image_classifier.json` file (default: `out_dir/../identifiers/image_classifier.json`)
+- `--epoch1`: Number of training epochs for phase 1 (frozen backbone) (default: 100)
+- `--epoch2`: Number of training epochs for phase 2 (unfrozen backbone) (default: 300)
+- `--batch-size`: Training batch size (default: 16)
+- `--val-batch-size`: Validation/Test batch size (default: same as `batch-size`)
+- `--test-frac`: Fraction of data used for testing (default: 0.1)
+- `--val-frac`: Fraction of data used for validation (default: 0.1)
+- `--use-mask`: Include mask tensors and a mask branch in the classifier (default: False)
+- `--input-path-key`: JSON field to use as image input - `'img_path'` or `'overlay_path'` (default: `'img_path'`)
+- `--target-width`: Target input image width in pixels (default: 512)
+- `--target-height`: Target input image height in pixels (default: 384)
+- `--num-workers`: Number of subprocesses for data loading, 0 = main process (default: 0)
+- `--seed`: Random seed for reproducibility (default: 1)
+- `--deterministic`: Use deterministic operations for reproducibility (default: False)
+
+**Output**: Trained models, metrics, and plots saved to output directory
+
+### STEP 8: Survey Classifier Training
+
+**Entry Point**: `python simple_classifier.py`
+
+Train survey-based classification model on Day 30 organoids.
+
+**On Cluster (SLURM)**:
+```bash
+cd analysis/surveys/classifier
+sbatch run_survey_classifier.s
+```
+
+**Local Development**:
+```bash
+python3 -m analysis.surveys.classifier.simple_classifier \
+    --epoch1 <num_epochs_phase1> \
+    --epoch2 <num_epochs_phase2> \
+    --deterministic \
+    --data-dir <path/to/data>
+```
+
+**What it does**:
+1. **Loads data**: Reads from `all_data.json` or `survey_classifier.json`
+2. **Filters**: Keeps only Day 30 records with survey evaluations
+3. **Preprocesses**: Extracts image paths, mask paths, and labels; saves to `survey_classifier.json` if not provided
+4. **Creates datasets**: TensorFlow datasets with augmentation for training
+5. **Builds model**: Dual-input ResNet50V2 + CNN model:
+   - Image input: Pretrained ResNet50V2 backbone
+   - Mask input: Custom CNN for mask features
+   - Combined classification head
+6. **Trains model**:
+   - **Phase 1**: Frozen ResNet50V2 backbone (default: 50 epochs)
+   - **Phase 2**: Unfreezes last 10 layers, fine-tunes (default: 150 epochs)
+7. **Evaluates**: Computes accuracy, confusion matrix, and training curves
+8. **Saves**: Model weights, training history, and visualizations
+
+**Required Arguments**:
+- `--data-dir`: Path to data directory containing organoid data
+
+**Optional Arguments**:
+- `--all-data-json`: Path to `all_data.json` file (default: `data_dir/../identifiers/all_data.json`)
+- `--survey-classifier-json`: Path to `survey_classifier.json` file (default: `out_dir/../identifiers/survey_classifier.json`)
+- `--batch-size`: Training batch size (default: 8)
+- `--epoch1`: Number of training epochs for phase 1 (frozen backbone) (default: 50)
+- `--epoch2`: Number of training epochs for phase 2 (unfrozen backbone) (default: 150)
+- `--target-day`: Target day for training (default: `"Dy30"`)
+- `--target-width`: Target input image width in pixels (default: 224)
+- `--target-height`: Target input image height in pixels (default: 224)
+- `--deterministic`: Use deterministic operations for reproducibility (default: False)
+- `--seed`: Random seed for reproducibility (default: 1)
+
+**Output**: Trained model (`.h5`), training curves, confusion matrix, metrics
+
+---
+
+## Data
+
+### Main data file structure
 
 The `all_data.json` file contains unified organoid data with structure:
 ```json
 {
-  "BA1 96_1 Dy03 A1": {
-    "dayID": "Dy03",
-    "BA": "BA1 96_1", 
-    "wellID": "A1",
-    "day_num": 3,
-    "mdl_day": 3.0,
-    "Best Z Filename": "/path/to/image.tif",
-    "256x192": { "img_path": "...", "mask_path": "..." },
-    "512x384": { "img_path": "...", "mask_path": "..." },
-    "metabolites": { "GlucoseGlo": {...}, "ATP": {...} },
-    "survey": { "evaluations": [...], "quality_scores": [...] }
+  "schema_version": 1,
+  "generated_at": "2025-11-24T16:34:36.725704+00:00",
+  "stats": {
+    "total_records": 5168,
+    "survey_matches": 393,
+    "num_acceptable_votes": 1356,
+    "num_not_acceptable_votes": 749,
+    ...
+  },
+  "records": {
+    "BA1_96_1_Dy03_A1": {
+      "id": "BA1 96_1 Dy03 A1",
+      "day": {
+        "id": "Dy3",
+        "number": 3.0,
+        "original": "Dy03"
+      },
+      "cell_line": "GM23279A",
+      "images": {
+        "processed": {
+          "img_path": "/path/to/image.png",
+          "mask_path": "/path/to/mask.png",
+          "overlay_path": "/path/to/overlay.png"
+        }
+      },
+      "metabolites": {
+        "GlucoseGlo": {
+          "concentration_uM": 9.827,
+          "is_outlier": false
+        },
+        ...
+      },
+      "survey": {
+        "evaluations": [...],
+        "label": {
+          "value": "Acceptable",
+          "acceptance_flag": 1
+        }
+      }
+    }
   }
 }
 ```
 
-## Key Features
+The view-specific files (`image_classifier.json`, `survey_classifier.json`) use a day-indexed structure:
+```json
+{
+  "metadata": {
+    "total_skipped": 2041,
+    ...
+  },
+  "records": {
+    "Dy3": {
+      "img_path": ["/path/to/img1.png", ...],
+      "mask_path": ["/path/to/mask1.png", ...],
+      "label": [1, 0, 1, ...]
+    },
+    "Dy6": {...},
+    ...
+  }
+}
+```
 
-- **Multimodal Data Integration**: Images, metabolites, and surveys in one structure
-- **Time Series Analysis**: Organoid quality tracking across days (Dy3, Dy6, Dy8, etc.)
-- **Standardized Processing**: Consistent image resolutions and metadata
-- **Environment-Based Configuration**: No hardcoded paths
-- **Comprehensive Analysis Tools**: Classification, segmentation, and statistical analysis
+### Input Data Types
 
-## Development Guidelines
+The system processes three main types of input data:
 
-- **Environment**: Always activate conda environment first: `conda activate /net/projects2/promega`
-- **Configuration**: Use `config.py` for all path and setting management
-- **Data Access**: Use `all_data.json` as single source of truth
-- **Analysis Location**: Place all analysis code in `analysis/` directory
+### 1. Image Data
+- **Raw Images**: Multi-Z-stack TIFF files (`.tif`) from microscopy
+- **Processed Images**: Resized PNG files at multiple resolutions:
+  - `256x192`: Lower resolution for quick processing
+  - `512x384`: Standard resolution for training (default)
+- **Masks**: Segmentation masks (predicted or manual) as PNG files
+- **Overlays**: Image-mask overlay visualizations
+
+**Location on Cluster**: `/net/projects2/promega/data-analysis/output/infer_resized_512x384/`
+
+**Structure**:
+```
+images/
+├── raw_images/          # Original TIFF files
+├── infer_resized_512x384/  # Processed PNG files
+└── ...
+masks/
+├── predicted/           # ML-generated masks
+├── manual/              # Human-annotated masks
+└── image_overlays/      # Visualization overlays
+```
+
+### 2. Metabolite Data
+- **Format**: Excel spreadsheets (`.xlsx`)
+- **Content**: Chemical assay measurements for 6 metabolites:
+  - BCAAGlo, GlucoseGlo, GlutamateGlo, LactateGlo, MalateGlo, PyruvateGlo
+- **Fields**: Concentration values, initial concentrations, outlier flags, well mappings
+
+**Location on Cluster**: `/net/projects2/promega/data-analysis/metabolite_data/`
+
+**Example File**: `metabolite_data_07_23_25.xlsx`
+
+### 3. Survey Data
+- **Format**: Excel spreadsheets (`.xlsx`)
+- **Content**: Quality assessment evaluations from human raters
+- **Structure**: Individual votes (5 per organoid) with "Acceptable" or "Not Acceptable" labels
+- **Processing**: Majority voting (4+ votes) determines final label
+
+**Location on Cluster**: `/net/projects2/promega/data-analysis/results_surveys/`
+
+**Example File**: `organoid_surveys_aggregated.json` (generated from Excel)
+
+### 4. Generated JSON Files
+
+After running the merge process, the following JSON files are generated:
+
+- **`all_data.json`**: Complete unified dataset with all organoid records
+  - Structure: `{"schema_version": 1, "generated_at": "...", "stats": {...}, "records": {...}}`
+  - Records keyed by organoid ID: `"BA1_96_1_Dy03_A1"`
+
+- **`image_classifier.json`**: Day-indexed view for image classifier training
+  - Structure: `{"metadata": {...}, "records": {"Dy3": {...}, "Dy6": {...}, ...}}`
+  - Each day contains arrays: `img_path`, `mask_path`, `label`
+
+- **`survey_classifier.json`**: Day-indexed view for survey classifier training
+  - Structure: `{"metadata": {...}, "records": {"Dy30": {...}}}`
+  - Contains arrays: `img_path`, `mask_path`, `label` (computed from survey evaluations)
+
+---
+
+## Resource Requirements
+
+### Cluster Resources (SLURM)
+
+**Image Classifier**:
+- **GPU**: 1x A100 (required)
+- **Memory**: 32GB RAM
+- **Time**: ~2 hours per job
+- **Storage**: ~10GB for model checkpoints and outputs per training run
+
+**Survey Classifier**:
+- **GPU**: 1x A100 (required)
+- **Memory**: 32GB RAM
+- **Time**: ~2 hours per job
+- **Storage**: ~5GB for model checkpoints and outputs
+
+**Data Merge**:
+- **CPU**: Standard compute node (no GPU needed)
+- **Memory**: 8GB RAM (sufficient for 5,168 records)
+- **Time**: ~5-10 minutes
+- **Storage**:
+  - Input: ~50GB (raw images, processed images, masks)
+  - Output: ~500MB (JSON files)
+
+### Local Development
+
+**Minimum Requirements**:
+- **GPU**: NVIDIA GPU with CUDA support (recommended) or CPU-only for small-scale testing
+- **Memory**: 16GB RAM minimum, 32GB recommended
+- **Storage**:
+  - Code: ~500MB
+  - Data: Depends on subset size (see Test Data section)
+  - Models: ~2-5GB per training run
+
+**Recommended for Full Training**:
+- **GPU**: NVIDIA GPU with 8GB+ VRAM (RTX 3070/3080, A100, etc.)
+- **Memory**: 32GB+ RAM
+- **Storage**: 100GB+ free space
+
+---
+
+## Local development and testing
+
+### Test dataset
+
+Currently, there is **no dedicated test dataset** for quick local development. However, you can:
+
+1. **Use a subset of the full dataset**:
+   ```python
+   # In your training script, filter to a single day with fewer samples
+   # Example: Use only Dy3 which typically has fewer organoids
+   python train_model_accuracy.py --out-dir ./test_outputs --epoch1 5 --epoch2 10
+   ```
+
+2. **Reduce data size for testing**:
+   - Train on a single day instead of all days
+   - Use smaller batch sizes (4-8 instead of 16)
+   - Reduce number of epochs (5-10 instead of 100-300)
+
+3. **Create a minimal test set** (manual):
+   - Copy 10-20 images and corresponding masks to a test directory
+   - Create a minimal JSON file with just those records
+   - Point your training script to this test data
+
+### Example execution
+
+```bash
+# Image Classifier
+cd analysis/images/classifier
+python train_model_accuracy.py \
+    --out-dir ./outputs \
+    --batch-size 8 \
+    --epoch1 10 \
+    --epoch2 20 \
+    --test-frac 0.1 \
+    --val-frac 0.1 \
+    --target-width 512 \
+    --target-height 384 \
+    --seed 1 \
+    --deterministic
+
+# Survey Classifier
+cd analysis/surveys/classifier
+python simple_classifier.py \
+    --out-dir ./outputs \
+    --batch-size 8 \
+    --epoch1 10 \
+    --epoch2 20 \
+    --target-day Dy30 \
+    --target-width 224 \
+    --target-height 224 \
+    --seed 1 \
+    --deterministic
+```
+
+1. **Start with minimal configuration**
+2. **Use deterministic mode** for reproducible debugging:
+   ```bash
+   --deterministic --seed 1
+   ```
+
+**Note**: Local development requires GPU access for training. For CPU-only testing, use very small batch sizes and epochs, or test with a subset of data.
+
+---
+
+### Development Guidelines
+
+- **Environment**: Always activate conda environment first: `conda activate /net/projects2/promega` (cluster) or your local environment
+- **Data Access**: Use normalized JSON files (`all_data.json`, `image_classifier.json`, `survey_classifier.json`) as single source of truth
 - **Execution**: Run everything from project root directory
+- **Reproducibility**: Use `--deterministic` and `--seed` flags for reproducible experiments
+
+---
 
 ## Current Status
 
-✅ **Fully Functional System** (Updated August 2025)
+✅ **Fully Functional System** (Updated November 2025)
+- Data reorganization completed with normalized records structure
 - All immediate code quality fixes completed
-- Working data generation pipeline producing complete 4,276-record dataset (9.5MB)
+- Working data generation pipeline producing complete 5,168-record dataset
 - Multimodal data integration (images, metabolites, surveys) operational
 - Centralized configuration and pattern management implemented
 - Comprehensive error handling and validation added
+- View-specific JSON outputs for optimized classifier training
+- Deterministic training support for reproducible experiments
 
 ## Known Issues & Future Improvements
 
 See `CLAUDE.md` for detailed code analysis and recommended architectural enhancements.
-
-
