@@ -29,6 +29,6 @@ nvidia-smi || true
 
 # Run the survey classifier
 export PYTHONPATH=.
-"${CONDA_PREFIX}/bin/python" -u "${PY}" --data-dir "${DATA_DIR}"
+"${CONDA_PREFIX}/bin/python" -u "${PY}" --data-dir "${DATA_DIR}" --deterministic
 
 echo "Survey classifier completed successfully"

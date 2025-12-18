@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=soft-label
+#SBATCH --job-name=image-classifier
 #SBATCH --partition=general
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=32G
@@ -44,6 +44,7 @@ export PYTHONPATH=.
   --all-data-json "${ALL_DATA_JSON}" \
   --batch-size 16 \
   --val-frac 0.10 \
-  --test-frac 0.10
+  --test-frac 0.10 \
+  --deterministic
 
 echo "Done."
