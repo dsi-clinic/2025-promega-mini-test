@@ -411,7 +411,7 @@ def main():
     args.out_file.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out_file, "w") as f:
         json.dump(data, f, indent=2)
-    print(f" Wrote: {args.out_file}")
+    logging.info(f" Wrote: {args.out_file}")
 
 
 if __name__ == "__main__":
