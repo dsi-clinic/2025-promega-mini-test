@@ -155,7 +155,7 @@ For local development with full code access:
 micromamba activate promega  # or your environment name
 ```
 
-### 2. Run Data Processing Pipeline Analysis
+### 2. Run Data Processing Pipeline *Analysis*
 
 The data processing pipeline consists of several sequential steps to generate the master data files needed for analysis. See the [**Data Processing Pipeline**](#data-processing-pipeline) section below for details of each step.
 
@@ -268,6 +268,96 @@ Before starting, ensure you have:
   - Survey Excel files
   - Raw image files (TIFF format)
   - Sample tracing Excel file (metadata)
+
+Starting data directory:
+
+```bash
+.
+├── images
+│   ├── image_mapping_thresholded_and_manual.json
+│   ├── image_verification.csv
+│   ├── infer_resized_512x384
+│   │   ├── BA1_96_1_Dy03_A10_nosplit_nostitch.png
+│   │   ├── BA1_96_1_Dy03_A11_nosplit_nostitch.png
+│   │   ├── BA1_96_1_Dy03_A12_nosplit_nostitch.png
+│   │   ├── ...
+│   │   ├── image_mapping_ba196_1_Dy03_processed.json
+│   │   ├── image_mapping_ba196_1_Dy06_processed.json
+│   │   ├── image_mapping_ba196_1_Dy08_processed.json
+│   │   ├── ...
+│   ├── preprocessed_json
+│   │   ├── Dy10.json
+│   │   ├── Dy13.json
+│   │   ├── Dy15.json
+│   │   ├── Dy17.json
+│   │   ├── Dy20_5.json
+│   │   ├── Dy24.json
+│   │   ├── Dy28.json
+│   │   ├── Dy30.json
+│   │   ├── Dy3.json
+│   │   ├── Dy6.json
+│   │   └── Dy8.json
+│   ├── raw_images
+│   │   ├── Ba1 96_1 Dy03 A10 Z0.tif
+│   │   ├── Ba1 96_1 Dy03 A10 Z1.tif
+│   │   ├── Ba1 96_1 Dy03 A10 Z2.tif
+│   │   ├── ...
+│   └── Sample-Tracing.xlsx
+├── masks
+│   ├── image_overlays
+│   │   ├── BA1_96_1_Dy03_A10_nosplit_nostitch_overlay.png
+│   │   ├── BA1_96_1_Dy03_A11_nosplit_nostitch_overlay.png
+│   │   ├── BA1_96_1_Dy03_A12_nosplit_nostitch_overlay.png
+│   │   ├── ...
+│   ├── manual
+│   │   ├── Mask_M Ba1 96_1 Dy03 A10 Z2.tif
+│   │   ├── Mask_M Ba1 96_1 Dy03 A11 Z2.tif
+│   │   ├── Mask_M Ba1 96_1 Dy03 A12 Z2.tif
+│   │   ├── ...
+│   └── predicted
+│       ├── BA1_96_1_Dy03_A10_nosplit_nostitch_predmask.png
+│       ├── BA1_96_1_Dy03_A11_nosplit_nostitch_predmask.png
+│       ├── BA1_96_1_Dy03_A12_nosplit_nostitch_predmask.png
+│       ├── ...
+├── metabolite
+│   ├── metabolite_data_07_23_25.xlsx
+├── survey
+│   ├── Image Classification Form - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form A) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form A) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form A) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form B) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form B) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form B) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form C) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form C) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+│   ├── Organoid Classification (Form C) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+```
+
+**NOTE** Other pre-processing steps are in progress and this will change as those steps are refined. Current requirements:\
+- Images:
+   - resized 512 x 384 images with "processed" JSON files
+   - "pre-processed" JSON files located at `analysis/images/classifier/data/preprocessed/512x384/majority`
+   - `image_mapping_thresholded_and_manual.json`
+   - `image_verification.csv`
+   - `Sample-Tracing.xlsx`
+- Masks:
+   - overlays
+   - manual
+   - predicted
+- Metabolite:
+   - `metabolite_data_07_23_25.xlsx`
+- Survey:
+   - Image Classification Form - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form A) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form A) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form A) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form B) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form B) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form B) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form C) - Part 1 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form C) - Part 2 of 3 - Excel Report(2025-06-13).xlsx
+   - Organoid Classification (Form C) - Part 3 of 3 - Excel Report(2025-06-13).xlsx
 
 ### STEP 1: Retrieve Main Identifiers
 
