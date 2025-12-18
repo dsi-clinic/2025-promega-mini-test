@@ -17,6 +17,7 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
 
 # Constants
 DAY_20_21 = 20.5
+EXPECTED_NUM_RECORDS = 5168
 
 def get_args() -> argparse.Namespace:
     """Get arguments from the command line.
@@ -176,6 +177,9 @@ def main():
         logging.warning("Found %d identifiers with no metabolite data", len(missing_metabolite_data))
         logging.info("Sample of missing identifiers: %s", list(missing_metabolite_data)[:10])
 
+    assert len(metabolite_map) + len(missing_metabolite_data) == EXPECTED_NUM_RECORDS, \
+        f"Expected {EXPECTED_NUM_RECORDS} metabolite map, but found " \
+        + f"{len(metabolite_map)} + {len(missing_metabolite_data)}"
 
 if __name__ == "__main__":
     main()
