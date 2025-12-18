@@ -23,6 +23,7 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
 # Constants
 DAY_20_21 = 20.5
 LABEL_MAP = {"Accepted": 1, "Not Accepted": 0, "Acceptable": 1, "Not Acceptable": 0}
+EXPECTED_NUM_SURVEYS = 393
 
 def get_args() -> argparse.Namespace:
     """Get arguments from the command line.
@@ -405,6 +406,7 @@ def main():
 
     data = process_organoid_files(args.in_dir, args.identifiers, args.min_survey_votes)
     logging.info("Final organoid count: %d", len(data))
+    assert len(data) == EXPECTED_NUM_SURVEYS, f"Expected {EXPECTED_NUM_SURVEYS} surveys, but found {len(data)}"
 
     args.out_file.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out_file, "w") as f:
