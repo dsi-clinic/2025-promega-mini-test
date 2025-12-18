@@ -34,6 +34,7 @@ logging.basicConfig(format="%(asctime)s,%(msecs)d %(levelname)s %(message)s",
 
 # Constants
 DAY_20_21 = 20.5
+EXPECTED_NUM_RECORDS = 5168
 
 def main():
     parser = argparse.ArgumentParser(description="Retrieve main identifiers from a CSV file")
@@ -67,7 +68,9 @@ def main():
         main_ids[fb] = day
 
     logging.info(f"Found {len(main_ids)} main identifiers")
+    assert len(main_ids) == EXPECTED_NUM_RECORDS, f"Expected {EXPECTED_NUM_RECORDS} main identifiers, but found {len(main_ids)}"
 
+    args.out_file.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out_file, "w") as jf:
         json.dump(main_ids, jf, indent=2)
     logging.info(f"Saved main identifiers to: {args.out_file}")
