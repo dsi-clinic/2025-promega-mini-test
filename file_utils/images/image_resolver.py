@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Optional, NamedTuple
 import re
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 
 import cv2
 import numpy as np
@@ -53,20 +55,81 @@ def _load_gray_resized(path: Path, size: tuple[int, int] = _FAST_EVAL_SIZE) -> O
     return img
 
 
-def find_best_focus(files: list[Path]) -> int:
-    """Return index of file with highest Laplacian variance; 0 if no good read."""
+def _compute_laplacian_variance(path: Path, size: tuple[int, int] = _FAST_EVAL_SIZE) -> float:
+    """
+    Compute Laplacian variance for a single image file.
+
+    Args:
+        path: Path to the image file
+        size: Target size for resizing
+
+    Returns:
+        Laplacian variance value, or -1.0 if image cannot be loaded
+    """
+    gray = _load_gray_resized(path, size)
+    if gray is None:
+        return -1.0
+    var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    return var
+
+
+def find_best_focus(files: list[Path], max_workers: Optional[int] = None) -> int:
+    """
+    Return index of file with highest Laplacian variance; 0 if no good read.
+
+    Uses parallel processing to speed up image loading and focus computation.
+
+    Args:
+        files: List of image file paths to evaluate
+        max_workers: Maximum number of worker threads. If None, uses os.cpu_count()
+
+    Returns:
+        Index of the file with best focus, or 0 if no valid images found
+    """
     if not files:
         return -1
+
+    # For small lists, use sequential processing to avoid overhead
+    if len(files) <= 3:
+        best_i = -1
+        best_var = -1.0
+        for i, f in enumerate(files):
+            gray = _load_gray_resized(f)
+            if gray is None:
+                continue
+            var = cv2.Laplacian(gray, cv2.CV_64F).var()
+            if var > best_var:
+                best_var = var
+                best_i = i
+        return best_i if best_i >= 0 else 0
+
+    # Parallel processing for larger lists
+    if max_workers is None:
+        max_workers = os.cpu_count() or 1
+    logging.debug(f"[find_best_focus] Using {max_workers} workers")
+
     best_i = -1
     best_var = -1.0
-    for i, f in enumerate(files):
-        gray = _load_gray_resized(f)
-        if gray is None:
-            continue
-        var = cv2.Laplacian(gray, cv2.CV_64F).var()
-        if var > best_var:
-            best_var = var
-            best_i = i
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks with their indices
+        future_to_index = {
+            executor.submit(_compute_laplacian_variance, f): i
+            for i, f in enumerate(files)
+        }
+
+        # Collect results as they complete
+        for future in as_completed(future_to_index):
+            i = future_to_index[future]
+            try:
+                var = future.result()
+                if var > best_var:
+                    best_var = var
+                    best_i = i
+            except Exception as e:
+                logging.debug(f"[find_best_focus] Error processing {files[i]}: {e}")
+                continue
+
     return best_i if best_i >= 0 else 0
 
 
