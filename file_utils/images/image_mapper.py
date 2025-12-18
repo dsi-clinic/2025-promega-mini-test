@@ -33,6 +33,7 @@ from file_utils.images.image_resolver import (
 DAY_20_21 = "Dy20.5"
 STITCHED_FLAG = "Stitched"
 SPLIT_AMBIGUOUS_FLAG = "SplitAmbiguous"
+EXPECTED_NUM_RECORDS = 5168
 
 logging.basicConfig(
     level=logging.INFO,
@@ -566,6 +567,8 @@ class ImageMapper:
             logging.info(f"Success rate: {stats.found_count/total_groups*100:.1f}%")
         logging.info(f"Total identifiers found: {stats.id_found}")
         logging.info(f"Total identifiers skipped: {stats.skipped}")
+
+        assert len(mapping) == EXPECTED_NUM_RECORDS, f"Expected {EXPECTED_NUM_RECORDS} records, but found {len(mapping)}"
 
         wrapped = {
             "_base_folder": str(self.base_dir.resolve()),
