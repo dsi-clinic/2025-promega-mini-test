@@ -39,6 +39,9 @@ class Config:
     data_dir: Path = dataclasses.field(metadata={
         "help": "Path to data directory containing organoid data"
     })
+    identifiers_map_json: Path = dataclasses.field(default=None, metadata={
+        "help": "Path to identifiers map JSON file"
+    })
     min_survey_votes: int = dataclasses.field(default=4, metadata={
         "help": "Minimum number of votes required to indicate acceptable" \
                 + "or not acceptable survey results"
@@ -58,11 +61,8 @@ class Config:
 
     # Directory structure constants (relative to data_dir)
     IDENTIFIERS_DIR: typing.ClassVar[str] = "identifiers"
-    IDENTIFIERS_MAP_JSON: typing.ClassVar[str] = f"{IDENTIFIERS_DIR}/main_identifiers.json"
     ALL_DATA_JSON: typing.ClassVar[str] = f"{IDENTIFIERS_DIR}/all_data.json"
     SUMMARY_JSON: typing.ClassVar[str] = f"{IDENTIFIERS_DIR}/summary.json"
-    IMAGE_CLASSIFIER: typing.ClassVar[str] = f"{IDENTIFIERS_DIR}/image_classifier.json"
-    SURVEY_CLASSIFIER: typing.ClassVar[str] = f"{IDENTIFIERS_DIR}/survey_classifier.json"
 
     IMAGES_DIR: typing.ClassVar[str] = "images"
     IMAGES_RAW_DIR: typing.ClassVar[str] = f"{IMAGES_DIR}/raw_images"
@@ -70,7 +70,7 @@ class Config:
     ORIGINAL_MAPPING_JSON: typing.ClassVar[str] = f"{IMAGES_DIR}/image_map.json"
     MANUAL_THRESHOLD_MAPPING_JSON: typing.ClassVar[str] = f"{IMAGES_DIR}/image_mapping_thresholded_and_manual.json"
 
-    MASKS_DIR: typing.ClassVar[str] = f"{IMAGES_DIR}/masks"
+    MASKS_DIR: typing.ClassVar[str] = f"masks"
     MASKS_PREDICTED_DIR: typing.ClassVar[str] = f"{MASKS_DIR}/predicted"
     MASKS_MANUAL_DIR: typing.ClassVar[str] = f"{MASKS_DIR}/manual"
     MASKS_OVERLAYS_DIR: typing.ClassVar[str] = f"{MASKS_DIR}/image_overlays"
@@ -84,6 +84,9 @@ class Config:
             raise RuntimeError(f"{self.data_dir} does not exist")
         # Set up
         self.infer_resized_dir = f"{self.IMAGES_DIR}/infer_resized_{self.target_width}x{self.target_height}"
+        if self.identifiers_map_json is None:
+            self.identifiers_map_json = self.data_dir / self.IDENTIFIERS_DIR / "record_identifiers.json"
+            print(self.identifiers_map_json)
 
 class DataSources(typing.NamedTuple):
     """Class to capture input data sources."""
@@ -126,7 +129,7 @@ def create_args() -> argparse.ArgumentParser:
 
 def load_identifiers_map(cfg: Config) -> dict:
     """Load identifiers map from JSON file."""
-    identifiers_file = cfg.data_dir.joinpath(cfg.IDENTIFIERS_MAP_JSON)
+    identifiers_file = cfg.identifiers_map_json
     logging.info(f"Loading identifiers map: {identifiers_file}")
     return load_json(identifiers_file)
 
