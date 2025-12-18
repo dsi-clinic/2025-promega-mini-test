@@ -261,7 +261,7 @@ The complete pipeline flow:
 ### Prerequisites
 
 Before starting, ensure you have:
-- Python environment set up (see [Setup and Installation](#setup-and-installation))
+- Python environment set up (see [Setup Promega Code](#setup-promega-code))
 - Required input data files:
   - Image verification CSV file
   - Metabolite Excel files
