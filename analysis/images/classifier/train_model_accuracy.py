@@ -630,7 +630,7 @@ def run_phases(model, model_path, backbone_key, backbone_name, day,
         if vacc > best_acc:
             best_acc = vacc
             torch.save(model.state_dict(), model_path)
-        if es.step(vacc):
+        if es.step(v_score):
             break
 
     # Phase 2 — unfreeze partial backbone
@@ -646,7 +646,7 @@ def run_phases(model, model_path, backbone_key, backbone_name, day,
         if vacc > best_acc:
             best_acc = vacc
             torch.save(model.state_dict(), model_path)
-        if es.step(vacc):
+        if es.step(v_score):
             break
     return history, best_acc
 
@@ -746,6 +746,10 @@ def get_test_metrics(model, y_val, model_dir, test_loader, day, best_acc, cfg,
     num_in_sample = int(len(trues))
     actual_good = int(trues.sum())
     predicted_good = int(preds_bin.sum())
+    
+    # Save per-organoid predictions using the indices we tracked during split
+    save_organoid_predictions(records, idx_test, preds_bin, trues, test_probs, 
+                             model_dir / 'organoid_predictions.csv')
 
     test_metrics = {
         "metrics": {
@@ -882,7 +886,7 @@ def create_summmary(per_model_results, rows, cfg):
     summary_path = cfg.out_dir / "final_test_summary.json"
     with summary_path.open("w") as f:
         json.dump(summary, f, indent=2)
-    print(f"✅ Saved final test summary → {summary_path}")
+    print(f"Saved final test summary → {summary_path}")
 
     # ---- Also print the 4-column table to stdout
     print("\n=== Summary Table (TEST) ===")
