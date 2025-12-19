@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
-import json, re, sys
+import argparse
+import json
+import logging
+import re
+import sys
 from glob import glob
 from pathlib import Path
+
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 # Locate repo root
 HERE = Path(__file__).resolve()
@@ -12,9 +21,41 @@ for p in HERE.parents:
 else:
     raise RuntimeError("Could not locate repo root containing config.py and .env")
 
-from config import RAW_IMAGE_MAPPING_JSON, MANUAL_MASKS_DIR, MANUAL_THRESHOLD_MAPPING as OUTPUT_PATH
-
+# Constants
 ALLOWED_EXT = {".tif", ".tiff", ".png"}
+EXPECTED_RECORDS_NUM = 5168
+
+def get_args() -> argparse.Namespace:
+    """Parse and return command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description='Map manual masks to image mapping JSON'
+    )
+    parser.add_argument(
+        '--image-json',
+        type=Path,
+        help='Path to the image mapping JSON file'
+    )
+    parser.add_argument(
+        '--masks-dir',
+        type=Path,
+        help='Path to the masks directory'
+    )
+    parser.add_argument(
+        '--output-file',
+        type=Path,
+        default=None,
+        help='Path to the output JSON file'
+    )
+    args = parser.parse_args()
+
+    # Validate required paths
+    if not args.image_json:
+        parser.error("--image-json is required")
+
+    if args.output_file is None:
+        args.output_file = args.image_json.parent.parent / "masks" / "manual_masks_mapping.json"
+
+    return args
 
 def load_raw_mapping(json_path: Path) -> dict:
     data = json.loads(Path(json_path).read_text())
@@ -35,7 +76,7 @@ def flex_chunk(s: str) -> str:
 
 def discover_batch_dirs(root: Path):
     batch_dirs = [Path(p) for p in glob(str(root / "masks-batch-*")) if Path(p).is_dir()]
-    print("[DISCOVER] batch dirs:", [b.name for b in batch_dirs])
+    logging.info("[DISCOVER] batch dirs: %s", ", ".join([b.name for b in batch_dirs]))
     return batch_dirs
 
 def list_mask_files(batch_dirs):
@@ -51,88 +92,104 @@ def list_mask_files(batch_dirs):
                     cnt += 1
         per_batch_counts.append((bdir.name, cnt))
     for name, cnt in per_batch_counts:
-        print(f"[INFO] {name}: {cnt} mask files")
-    print(f"[INFO] total masks: {len(files)}")
+        logging.info("[INFO] %s: %d mask files", name, cnt)
+    logging.info("[INFO] total masks: %d", len(files))
     return files
 
-# Load mapping
-mapping = load_raw_mapping(RAW_IMAGE_MAPPING_JSON)
+def main():
+    args = get_args()
+    for key, value in vars(args).items():
+        logging.info("%s: %s", key, value)
 
-# Filter to Regular and Stitched only (exclude Split)
-filtered_mapping = {
-    k: v for k, v in mapping.items() 
-    if v.get("Classification") in ["Regular", "Stitched"]
-}
+    # Load mapping
+    mapping = load_raw_mapping(args.image_json)
 
-print(f"[INFO] Total entries in raw mapping: {len(mapping)}")
-print(f"[INFO] Regular entries: {sum(1 for v in mapping.values() if v.get('Classification') == 'Regular')}")
-print(f"[INFO] Stitched entries: {sum(1 for v in mapping.values() if v.get('Classification') == 'Stitched')}")
-print(f"[INFO] Split entries (EXCLUDED): {sum(1 for v in mapping.values() if v.get('Classification') == 'Split')}")
-print(f"[INFO] Using for mapping: {len(filtered_mapping)}")
+    # Filter to Regular and Stitched only (exclude Split)
+    filtered_mapping = {
+        k: v for k, v in mapping.items()
+        if v.get("Classification") in ["Regular", "Stitched"]
+    }
 
-batch_dirs = discover_batch_dirs(Path(MANUAL_MASKS_DIR))
-mask_paths = list_mask_files(batch_dirs)
+    skipped_split = sum(1 for v in mapping.values() if v.get('Classification') == 'Split')
+    skipped_other_classification = sum(1 for v in mapping.values()
+                                   if v.get('Classification') not in ["Regular", "Stitched", "Split"])    # Classification=SplitStitched, BA2 96_2 Dy30 D12 split_2
+    logging.info("[INFO] Total entries in raw mapping: %d", len(mapping))
+    logging.info("[INFO] Regular entries: %d", sum(1 for v in mapping.values() if v.get('Classification') == 'Regular'))
+    logging.info("[INFO] Stitched entries: %d", sum(1 for v in mapping.values() if v.get('Classification') == 'Stitched'))
+    logging.info("[INFO] Split entries (EXCLUDED): %d", skipped_split)
+    logging.info("[INFO] Other classification entries (EXCLUDED): %d", skipped_other_classification)
+    logging.info("[INFO] Using for mapping: %d", len(filtered_mapping))
 
-if not mask_paths:
-    print("[FATAL] Found 0 mask files. Check MANUAL_MASKS_DIR.")
-    sys.exit(1)
+    batch_dirs = discover_batch_dirs(args.masks_dir)
+    mask_paths = list_mask_files(batch_dirs)
 
-new_mapping = {}
-skipped_no_match = 0
+    if not mask_paths:
+        logging.error("[FATAL] Found 0 mask files. Check --masks-dir.")
+        sys.exit(1)
 
-for key, info in filtered_mapping.items():  # Use filtered_mapping
-    ba   = info.get('BA')
-    day  = info.get('dayID')
-    well = info.get('wellID')
-    if not (ba and day and well):
-        continue
+    new_mapping = {}
+    skipped_no_match = 0
 
-    # Build flexible patterns that handle old naming variations
-    ba_pat  = flex_chunk(ba)
+    for key, info in filtered_mapping.items():  # Use filtered_mapping
+        ba   = info.get('BA')
+        day  = info.get('dayID')
+        well = info.get('wellID')
+        if not (ba and day and well):
+            print(f"[WARN] Skipping {key} because of missing BA, day, or well")
+            continue
 
-    m = re.search(r'(\d+)', day or "")
-    if m:
-        day_num = int(m.group(1))
-        day_pat = rf'(?:dy|day)[\W_]*0*{day_num}(?!\d)'
-    else:
-        day_pat = flex_chunk(day)
+        # Build flexible patterns that handle old naming variations
+        ba_pat  = flex_chunk(ba)
 
-    wl = well[0].lower()
-    wn = int(well[1:])
-    # Match both "D11" and "D11(#)" or "D11(1)%" patterns
-    well_pat = rf'(?<![a-z0-9]){wl}0?{wn}(?:\([^)]*\))?(?!\d)'
+        m = re.search(r'(\d+)', day or "")
+        if m:
+            day_num = int(m.group(1))
+            day_pat = rf'(?:dy|day)[\W_]*0*{day_num}(?!\d)'
+        else:
+            day_pat = flex_chunk(day)
 
-    best_z = info.get('Best Z')
-    def score(s: str) -> int:
-        s = s.lower()
-        pts = 0
-        if re.search(rf'(?<![a-z0-9]){wl}{wn}(?!\d)', s): pts += 2
-        if best_z is not None and re.search(rf'(?<!\d){best_z}(?!\d)', s): pts += 1
-        return pts
+        wl = well[0].lower()
+        wn = int(well[1:])
+        # Match both "D11" and "D11(#)" or "D11(1)%" patterns
+        well_pat = rf'(?<![a-z0-9]){wl}0?{wn}(?:\([^)]*\))?(?!\d)'
 
-    matches = []
-    for p in mask_paths:
-        s = str(p).lower()
-        if re.search(ba_pat, s) and re.search(day_pat, s) and re.search(well_pat, s):
-            matches.append(p)
+        best_z = info.get('Best Z')
+        def score(s: str) -> int:
+            s = s.lower()
+            pts = 0
+            if re.search(rf'(?<![a-z0-9]){wl}{wn}(?!\d)', s): pts += 2
+            if best_z is not None and re.search(rf'(?<!\d){best_z}(?!\d)', s): pts += 1
+            return pts
 
-    if matches:
-        matches.sort(key=lambda p: score(str(p)), reverse=True)
-        mt_path = str(matches[0].resolve())
-        new_mapping[key] = {
-            "dayID": info.get("dayID"),
-            "BA": info.get("BA"),
-            "wellID": info.get("wellID"),
-            "Best Z Filename": info.get("Best Z Filename"),
-            "MT Mask Path": mt_path,
-        }
-    else:
-        skipped_no_match += 1
+        matches = []
+        for p in mask_paths:
+            s = str(p).lower()
+            if re.search(ba_pat, s) and re.search(day_pat, s) and re.search(well_pat, s):
+                matches.append(p)
 
-OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-with open(OUTPUT_PATH, 'w') as f:
-    json.dump(new_mapping, f, indent=2)
+        if matches:
+            matches.sort(key=lambda p: score(str(p)), reverse=True)
+            mt_path = str(matches[0].resolve())
+            new_mapping[key] = {
+                "dayID": info.get("dayID"),
+                "BA": info.get("BA"),
+                "wellID": info.get("wellID"),
+                "Best Z Filename": info.get("Best Z Filename"),
+                "MT Mask Path": mt_path,
+            }
+        else:
+            skipped_no_match += 1
 
-print(f"[OK] Saved {len(new_mapping)} entries to: {OUTPUT_PATH}")
-print(f"[INFO] Skipped {skipped_no_match} entries with no matching masks")
-print(f"[INFO] Excluded ALL split entries from mapping (due to naming inconsistencies)")
+    actual_records_num = len(new_mapping) + skipped_no_match + skipped_split + skipped_other_classification
+    assert actual_records_num == EXPECTED_RECORDS_NUM, f"Expected {EXPECTED_RECORDS_NUM} records, got {actual_records_num}"
+
+    args.output_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(args.output_file, 'w') as f:
+        json.dump(new_mapping, f, indent=2)
+
+    logging.info("[OK] Saved %d entries to: %s", len(new_mapping), args.output_file)
+    logging.info("[INFO] Skipped %d entries with no matching masks", skipped_no_match)
+    logging.info("[INFO] Excluded ALL split entries from mapping (due to naming inconsistencies)")
+
+if __name__ == "__main__":
+    main()
