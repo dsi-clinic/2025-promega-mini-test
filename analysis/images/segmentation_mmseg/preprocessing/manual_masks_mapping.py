@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 logging.getLogger().setLevel(logging.INFO)
-logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S',
                     level=logging.INFO)
 
