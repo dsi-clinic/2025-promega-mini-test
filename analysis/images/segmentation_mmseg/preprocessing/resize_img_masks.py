@@ -5,6 +5,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 from tqdm import tqdm
 
 import cv2
@@ -91,7 +92,397 @@ def get_args() -> argparse.Namespace:
 
     return args
 
-def main():
+
+def load_mask_mappings(mask_json_paths: list[Path]) -> Dict[str, Dict[str, Any]]:
+    """
+    Load and merge mask mapping JSON files.
+
+    Args:
+        mask_json_paths: List of paths to mask mapping JSON files.
+
+    Returns:
+        Dict[str, Dict[str, Any]]: Merged dictionary of all mask mappings,
+            keyed by image ID.
+
+    Raises:
+        FileNotFoundError: If any mask JSON file doesn't exist.
+    """
+    master_map = {}
+    for jm in mask_json_paths:
+        if not jm.exists():
+            raise FileNotFoundError(f"Mapping JSON not found: {jm}")
+        master_map.update(json.loads(jm.read_text()))
+    logging.info("Loaded %d manual-mask entries from %d JSON(s)", len(master_map), len(mask_json_paths))
+    return master_map
+
+
+def load_image_mapping(image_json_path: Path) -> Dict[str, Dict[str, Any]]:
+    """
+    Load image mapping JSON file, handling both wrapped and flat formats.
+
+    Args:
+        image_json_path: Path to the image mapping JSON file.
+
+    Returns:
+        Dict[str, Dict[str, Any]]: Dictionary of image mapping entries,
+            keyed by image ID.
+
+    Raises:
+        FileNotFoundError: If the image JSON file doesn't exist.
+    """
+    if not image_json_path.exists():
+        raise FileNotFoundError(f"Image mapping JSON not found: {image_json_path}")
+
+    raw_data = json.loads(image_json_path.read_text())
+
+    # Handle new wrapped format with _base_folder
+    if isinstance(raw_data, dict) and "_base_folder" in raw_data and "entries" in raw_data:
+        base = Path(raw_data["_base_folder"])
+        entries = raw_data["entries"]
+        # Re-hydrate relative paths to absolute
+        for v in entries.values():
+            if "Best Z Filename" in v:
+                v["Best Z Filename"] = str(base / v["Best Z Filename"])
+        image_map = entries
+    else:
+        # Legacy flat format
+        image_map = raw_data
+
+    logging.info("Loaded %d entries from raw image mapping", len(image_map))
+    return image_map
+
+
+def setup_output_directories(
+    image_json_path: Path,
+    mask_json_paths: list[Path],
+    target_size: Tuple[int, int],
+    output_images_dir: Optional[Path],
+    output_masks_dir: Optional[Path]
+) -> Tuple[Path, Path]:
+    """
+    Set up output directories for processed images and masks.
+
+    Args:
+        image_json_path: Path to the image JSON file (used for default output location).
+        mask_json_paths: List of mask JSON paths (used for default output location).
+        target_size: Target size tuple (width, height).
+        output_images_dir: Optional explicit output directory for images.
+        output_masks_dir: Optional explicit output directory for masks.
+
+    Returns:
+        tuple[Path, Path]: Tuple of (images_output_dir, masks_output_dir).
+    """
+    output_dir_name = f"resized_{target_size[0]}x{target_size[1]}"
+
+    if output_images_dir is None:
+        images_out = image_json_path.parent / output_dir_name
+    else:
+        images_out = output_images_dir
+    images_out.mkdir(parents=True, exist_ok=True)
+    logging.info("Writing processed images to: %s", images_out)
+
+    if output_masks_dir is None:
+        masks_out = mask_json_paths[0].parent / output_dir_name
+    else:
+        masks_out = output_masks_dir
+    masks_out.mkdir(parents=True, exist_ok=True)
+    logging.info("Writing processed masks to: %s", masks_out)
+
+    return images_out, masks_out
+
+
+def build_output_filename(info: Dict[str, Any]) -> str:
+    """
+    Build output filename from info dictionary, preserving actual dayID.
+
+    Args:
+        info: Dictionary containing 'BA', 'dayID', and 'wellID' keys.
+
+    Returns:
+        str: Formatted filename string in the format "BA dayID wellID".
+    """
+    return f"{info.get('BA')} {info.get('dayID')} {info.get('wellID')}"
+
+
+def load_image(img_path: Path) -> Optional[np.ndarray]:
+    """
+    Load an image file.
+
+    Args:
+        img_path: Path to the image file.
+
+    Returns:
+        Optional[np.ndarray]: Loaded image array, or None if loading failed.
+    """
+    if not img_path.exists():
+        return None
+    return cv2.imread(str(img_path))
+
+
+def load_mask(mask_path: Path) -> Optional[np.ndarray]:
+    """
+    Load a mask file as grayscale.
+
+    Args:
+        mask_path: Path to the mask file.
+
+    Returns:
+        Optional[np.ndarray]: Loaded mask array, or None if loading failed.
+    """
+    if not mask_path.exists():
+        return None
+    return cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+
+
+def resize_image(img: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
+    """
+    Resize an image to target size.
+
+    Args:
+        img: Input image array (BGR format).
+        target_size: Target size tuple (width, height).
+
+    Returns:
+        np.ndarray: Resized image array (BGR format).
+    """
+    return cv2.resize(img, target_size, interpolation=IMAGE_INTERP)
+
+
+def resize_mask(msk: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
+    """
+    Resize a mask to target size and binarize it.
+
+    Args:
+        msk: Input mask array (grayscale).
+        target_size: Target size tuple (width, height).
+
+    Returns:
+        np.ndarray: Binarized resized mask (uint8, values 0 or 1).
+    """
+    msk_rs = cv2.resize(msk, target_size, interpolation=MASK_INTERP)
+    return (msk_rs > 0).astype(np.uint8)
+
+
+def create_blank_mask(target_size: Tuple[int, int]) -> np.ndarray:
+    """
+    Create a blank (all zeros) mask of target size.
+
+    Args:
+        target_size: Target size tuple (width, height).
+
+    Returns:
+        np.ndarray: Blank mask array (uint8, all zeros) with shape (height, width).
+    """
+    return np.zeros((target_size[1], target_size[0]), dtype=np.uint8)  # (H, W)
+
+
+def save_resized_pair(
+    img: np.ndarray,
+    msk: np.ndarray,
+    filename_base: str,
+    images_out: Path,
+    masks_out: Path
+) -> Tuple[Path, Path]:
+    """
+    Save resized image and mask pair to disk.
+
+    Args:
+        img: Resized image array (BGR format).
+        msk: Resized mask array (binary, uint8).
+        filename_base: Base filename (without extension).
+        images_out: Output directory for images.
+        masks_out: Output directory for masks.
+
+    Returns:
+        Tuple[Path, Path]: Tuple of (saved_image_path, saved_mask_path),
+            both as resolved absolute paths.
+    """
+    out_img = images_out / f"{filename_base}.png"
+    out_msk = masks_out / f"{filename_base}_mask.png"
+    cv2.imwrite(str(out_img), img)
+    cv2.imwrite(str(out_msk), msk)
+    return out_img.resolve(), out_msk.resolve()
+
+
+def create_mapping_entry(
+    img_path: Path,
+    mask_path: Path,
+    info: Dict[str, Any],
+    is_blank: bool = False
+) -> Dict[str, Any]:
+    """
+    Create a mapping dictionary entry.
+
+    Args:
+        img_path: Path to the processed image.
+        mask_path: Path to the processed mask.
+        info: Original info dictionary containing metadata.
+        is_blank: Whether this is a blank entry.
+
+    Returns:
+        Dict[str, Any]: Mapping entry dictionary with keys:
+            'img_path', 'mask_path', 'dayID', 'BA', 'wellID',
+            and optionally 'blank' if is_blank is True.
+    """
+    entry = {
+        "img_path": str(img_path),
+        "mask_path": str(mask_path),
+        "dayID": info.get("dayID"),
+        "BA": info.get("BA"),
+        "wellID": info.get("wellID"),
+    }
+    if is_blank:
+        entry["blank"] = True
+    return entry
+
+
+def process_mask_entry(
+    img_id: str,
+    info: Dict[str, Any],
+    images_out: Path,
+    masks_out: Path,
+    target_size: Tuple[int, int]
+) -> Optional[Dict[str, Any]]:
+    """
+    Process a single entry with mask: load, resize, and save.
+
+    Args:
+        img_id: Image identifier (key from mapping).
+        info: Entry info dictionary containing 'Best Z Filename' and 'MT Mask Path'.
+        images_out: Output directory for images.
+        masks_out: Output directory for masks.
+        target_size: Target size tuple (width, height).
+
+    Returns:
+        Optional[Dict[str, Any]]: Mapping entry dictionary if successful,
+            None if image or mask loading failed.
+    """
+    img_path = Path(info.get("Best Z Filename", ""))
+    mask_path = Path(info.get("MT Mask Path", ""))
+
+    img = load_image(img_path)
+    if img is None:
+        return None
+
+    msk = load_mask(mask_path)
+    if msk is None:
+        return None
+
+    # Resize
+    img_rs = resize_image(img, target_size)
+    msk_bin = resize_mask(msk, target_size)
+
+    # Save
+    filename_base = build_output_filename(info)
+    out_img, out_msk = save_resized_pair(img_rs, msk_bin, filename_base, images_out, masks_out)
+
+    return create_mapping_entry(out_img, out_msk, info, is_blank=False)
+
+
+def process_blank_entry(
+    img_id: str,
+    info: Dict[str, Any],
+    images_out: Path,
+    masks_out: Path,
+    target_size: Tuple[int, int]
+) -> Optional[Dict[str, Any]]:
+    """
+    Process a single blank entry: load image, create blank mask, and save.
+
+    Args:
+        img_id: Image identifier (key from mapping).
+        info: Entry info dictionary containing 'Best Z Filename'.
+        images_out: Output directory for images.
+        masks_out: Output directory for masks.
+        target_size: Target size tuple (width, height).
+
+    Returns:
+        Optional[Dict[str, Any]]: Mapping entry dictionary if successful,
+            None if image loading failed.
+    """
+    img_path = Path(info.get("Best Z Filename", ""))
+
+    img = load_image(img_path)
+    if img is None:
+        return None
+
+    # Resize image and create blank mask
+    img_rs = resize_image(img, target_size)
+    msk_bin = create_blank_mask(target_size)
+
+    # Save
+    filename_base = build_output_filename(info)
+    out_img, out_msk = save_resized_pair(img_rs, msk_bin, filename_base, images_out, masks_out)
+
+    return create_mapping_entry(out_img, out_msk, info, is_blank=True)
+
+
+def save_mapping_json(
+    new_map: Dict[str, Dict[str, Any]],
+    images_out: Path,
+    target_size: Tuple[int, int]
+) -> Path:
+    """
+    Save the final mapping JSON file.
+
+    Args:
+        new_map: Dictionary of processed entries, keyed by image ID.
+        images_out: Output directory for images (used to determine JSON location).
+        target_size: Target size tuple (width, height).
+
+    Returns:
+        Path: Path to the saved JSON file.
+    """
+    new_json = images_out.parent / f"mapping_processed_total_{target_size[0]}x{target_size[1]}.json"
+    with open(new_json, "w") as f:
+        json.dump(new_map, f, indent=2)
+    return new_json
+
+
+def log_summary(
+    proc: int,
+    skip: int,
+    blank_added: int,
+    blank_skipped: int,
+    non_blank_skipped: int,
+    new_map: Dict[str, Dict[str, Any]],
+    new_json: Path,
+    elapsed_time: datetime.timedelta
+) -> None:
+    """
+    Log processing summary statistics.
+
+    Args:
+        proc: Number of entries processed with masks.
+        skip: Number of entries skipped during mask processing.
+        blank_added: Number of blank entries added.
+        blank_skipped: Number of blank entries skipped.
+        non_blank_skipped: Number of non-blank entries skipped.
+        new_map: Final mapping dictionary of processed entries.
+        new_json: Path to the saved JSON file.
+        elapsed_time: Total elapsed time for processing.
+    """
+    logging.info("Processed (manual masks): %d, Skipped: %d", proc, skip)
+    logging.info("Added blanks from image mapping: %d, Skipped blanks: %d", blank_added, blank_skipped)
+    logging.info("Skipped non-blank entries: %d", non_blank_skipped)
+    logging.info("Total entries in output: %d", len(new_map))
+    logging.info("New mapping JSON: %s", new_json)
+    logging.info("Elapsed time: %s", elapsed_time)
+
+def main() -> None:
+    """
+    Main entry point for resizing images and masks.
+
+    Orchestrates the complete workflow:
+    1. Parse command-line arguments
+    2. Setup output directories
+    3. Load mask and image mappings
+    4. Process entries with manual masks
+    5. Process blank entries
+    6. Validate results
+    7. Save mapping JSON
+    8. Log summary statistics
+    """
     start_time = datetime.datetime.now()
 
     args = get_args()
@@ -102,169 +493,86 @@ def main():
 
     mask_jsons = [Path(mj) for mj in args.mask_json]
 
-    # ======== OUTPUT FOLDERS ========
-    output_dir_name = f"resized_{target_size[0]}x{target_size[1]}"
-    if args.output_images_dir is None:
-        images_out = args.image_json.parent / output_dir_name
-    else:
-        images_out = args.output_images_dir
-    images_out.mkdir(parents=True, exist_ok=True)
-    logging.info("Writing processed images to: %s", images_out)
+    # Setup output directories
+    images_out, masks_out = setup_output_directories(
+        args.image_json,
+        mask_jsons,
+        target_size,
+        args.output_images_dir,
+        args.output_masks_dir
+    )
 
-    if args.output_masks_dir is None:
-        masks_out = mask_jsons[0].parent / output_dir_name
-    else:
-        masks_out  = args.output_masks_dir
-    masks_out.mkdir(parents=True, exist_ok=True)
-    logging.info("Writing processed masks to: %s", masks_out)
+    # Load mappings
+    master_map = load_mask_mappings(mask_jsons)
+    image_map = load_image_mapping(args.image_json)
 
-    # ======== LOAD & MERGE MANUAL MASK MAPPINGS ========
-    master_map = {}
-    for jm in mask_jsons:
-        if not jm.exists():
-            raise FileNotFoundError(f"Mapping JSON not found: {jm}")
-        master_map.update(json.loads(jm.read_text()))
-    logging.info("Loaded %d manual-mask entries from %d JSON(s)", len(master_map), len(mask_jsons))
-
-    # ======== LOAD IMAGE MAPPING (with nested entries if _base_folder format) ========
-    image_map = {}
-    if args.image_json:
-        if not args.image_json.exists():
-            raise FileNotFoundError(f"Image mapping JSON not found: {args.image_json}")
-
-        raw_data = json.loads(args.image_json.read_text())
-
-        # Handle new wrapped format with _base_folder
-        if isinstance(raw_data, dict) and "_base_folder" in raw_data and "entries" in raw_data:
-            base = Path(raw_data["_base_folder"])
-            entries = raw_data["entries"]
-            # Re-hydrate relative paths to absolute
-            for v in entries.values():
-                if "Best Z Filename" in v:
-                    v["Best Z Filename"] = str(base / v["Best Z Filename"])
-            image_map = entries
-        else:
-            # Legacy flat format
-            image_map = raw_data
-
-        logging.info("Loaded %d entries from raw image mapping", len(image_map))
-
-    # ======== PROCESS MANUAL MASKS FIRST ========
+    # Process manual masks
     new_map = {}
     proc = skip = 0
 
     logging.info("Processing manual masks...")
-    for img_id, info in tqdm(master_map.items(), desc="Manual masks"):
-        img_raw  = info.get("Best Z Filename", "")
-        mask_raw = info.get("MT Mask Path", "")
-        img_p = Path(img_raw)
-        msk_p = Path(mask_raw)
-
-        if not img_p.exists():
+    for img_id, info in tqdm(
+        master_map.items(),
+        desc="Manual masks",
+        position=0,
+        leave=True,
+        ncols=100,
+        mininterval=0.5
+    ):
+        entry = process_mask_entry(img_id, info, images_out, masks_out, target_size)
+        if entry is None:
             skip += 1
             continue
-
-        img = cv2.imread(str(img_p))
-        if img is None:
-            skip += 1
-            continue
-
-        if not msk_p.exists():
-            skip += 1
-            continue
-
-        msk = cv2.imread(str(msk_p), cv2.IMREAD_GRAYSCALE)
-        if msk is None:
-            skip += 1
-            continue
-
-        # resize
-        img_rs  = cv2.resize(img, target_size, interpolation=IMAGE_INTERP)
-        msk_rs  = cv2.resize(msk, target_size, interpolation=MASK_INTERP)
-        msk_bin = (msk_rs > 0).astype(np.uint8)
-
-        # save
-        updated_img_id = f"{info.get('BA')} {info.get('dayID')} {info.get('wellID')}"    # Preserve actual day to make images/masks consistent with originals
-        out_img = images_out / f"{updated_img_id}.png"
-        out_msk = masks_out  / f"{updated_img_id}_mask.png"
-        cv2.imwrite(str(out_img), img_rs)
-        cv2.imwrite(str(out_msk), msk_bin)
-
-        new_map[img_id] = {
-            "img_path":  str(out_img.resolve()),
-            "mask_path": str(out_msk.resolve()),
-            "dayID":     info.get("dayID"),
-            "BA":        info.get("BA"),
-            "wellID":    info.get("wellID"),
-        }
+        new_map[img_id] = entry
         proc += 1
 
-    # ======== SECOND PASS: ADD BLANKS ========
+    # Process blank entries
     blank_added = 0
     blank_skipped = 0
     non_blank_skipped = 0
+
     if image_map:
         logging.info("Processing blanks...")
-        for img_id, info in tqdm(image_map.items(), desc="Blanks"):
+        for img_id, info in tqdm(
+            image_map.items(),
+            desc="Blanks",
+            position=0,
+            leave=True,
+            ncols=100,
+            mininterval=0.1
+        ):
             is_blank = info.get("verification", {}).get("blank", False)
 
             if not is_blank:
-                if not img_id in new_map:
+                if img_id not in new_map:
                     non_blank_skipped += 1
                 continue
+
             if img_id in new_map:
                 blank_skipped += 1
                 continue
 
-            img_raw = info.get("Best Z Filename", "")
-            img_p = Path(img_raw)
-            if not img_p.exists():
+            entry = process_blank_entry(img_id, info, images_out, masks_out, target_size)
+            if entry is None:
                 blank_skipped += 1
                 continue
 
-            img = cv2.imread(str(img_p))
-            if img is None:
-                blank_skipped += 1
-                continue
-
-            # resize + make blank mask (all zeros)
-            img_rs  = cv2.resize(img, target_size, interpolation=IMAGE_INTERP)
-            msk_bin = np.zeros((target_size[1], target_size[0]), dtype=np.uint8)  # (H, W)
-
-            updated_img_id = f"{info.get('BA')} {info.get('dayID')} {info.get('wellID')}"    # Preserve actual day to make images/masks consistent with originals
-            out_img = images_out / f"{updated_img_id}.png"
-            out_msk = masks_out  / f"{updated_img_id}_mask.png"
-            cv2.imwrite(str(out_img), img_rs)
-            cv2.imwrite(str(out_msk), msk_bin)
-
-            new_map[img_id] = {
-                "img_path":  str(out_img.resolve()),
-                "mask_path": str(out_msk.resolve()),
-                "dayID":     info.get("dayID"),
-                "BA":        info.get("BA"),
-                "wellID":    info.get("wellID"),
-                "blank":     True,  # Flag this as a blank
-            }
+            new_map[img_id] = entry
             blank_added += 1
 
-    assert len(new_map) + non_blank_skipped == EXPECTED_RECORDS_NUM, "Number of entries in new map does not match expected number"
-    assert proc + blank_added == len(new_map), "Number of entries in new map does not match expected number"
+    # Validate results
+    assert len(new_map) + non_blank_skipped == EXPECTED_RECORDS_NUM, \
+        f"Expected {EXPECTED_RECORDS_NUM} records, got {len(new_map) + non_blank_skipped}"
+    assert proc + blank_added == len(new_map), \
+        f"Processed count mismatch: {proc} + {blank_added} != {len(new_map)}"
 
-    # ======== DUMP NEW MAPPING ========
-    new_json = images_out.parent / f"mapping_processed_total_{target_size[0]}x{target_size[1]}.json"
-    with open(new_json, "w") as f:
-        json.dump(new_map, f, indent=2)
+    # Save mapping JSON
+    new_json = save_mapping_json(new_map, images_out, target_size)
 
-    # ======== SUMMARY ========
-    logging.info("Processed (manual masks): %d, Skipped: %d", proc, skip)
-    if image_map:
-        logging.info("Added blanks from image mapping: %d, Skipped blanks: %d", blank_added, blank_skipped)
-        logging.info("Skipped non-blank entries: %d", non_blank_skipped)
-    logging.info("Total entries in output: %d", len(new_map))
-    logging.info("New mapping JSON: %s", new_json)
-
+    # Log summary
     end_time = datetime.datetime.now()
-    logging.info("Elapsed time: %s", end_time - start_time)
+    elapsed_time = end_time - start_time
+    log_summary(proc, skip, blank_added, blank_skipped, non_blank_skipped, new_map, new_json, elapsed_time)
 
 if __name__ == "__main__":
     main()
