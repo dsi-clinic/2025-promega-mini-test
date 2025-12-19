@@ -103,24 +103,9 @@ def parse_args():
         help='train config file path, e.g. segformer_mitb0.py   '
     )
     parser.add_argument(
-        '--json-mapping-path',
-        type=Path,
-        help='path to the json mapping file created by test_split.py, e.g. mapping_processed_total_512x384.json'
-    )
-    parser.add_argument(
         '--splits-dir',
         type=Path,
         help='path to the splits directory created by resize_img_masks.py'
-    )
-    parser.add_argument(
-        '--mask-dir',
-        type=Path,
-        help='path to the masks directory'
-    )
-    parser.add_argument(
-        '--image-dir',
-        type=Path,
-        help='path to the images directory'
     )
     parser.add_argument(
         '--work-dir',
