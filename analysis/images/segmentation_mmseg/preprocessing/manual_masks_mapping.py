@@ -6,6 +6,7 @@ import re
 import sys
 from glob import glob
 from pathlib import Path
+from typing import Any, Dict, List
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
@@ -26,7 +27,18 @@ ALLOWED_EXT = {".tif", ".tiff", ".png"}
 EXPECTED_RECORDS_NUM = 5168
 
 def get_args() -> argparse.Namespace:
-    """Parse and return command-line arguments."""
+    """
+    Parse and return command-line arguments.
+
+    Returns:
+        argparse.Namespace: Parsed command-line arguments containing:
+            - image_json: Path to the image mapping JSON file
+            - masks_dir: Path to the masks directory
+            - output_file: Path to the output JSON file (defaults to masks/manual_masks_mapping.json)
+
+    Raises:
+        SystemExit: If --image-json is not provided
+    """
     parser = argparse.ArgumentParser(
         description='Map manual masks to image mapping JSON'
     )
@@ -57,7 +69,24 @@ def get_args() -> argparse.Namespace:
 
     return args
 
-def load_raw_mapping(json_path: Path) -> dict:
+def load_raw_mapping(json_path: Path) -> Dict[str, Dict]:
+    """
+    Load and process the image mapping JSON file.
+
+    If the JSON contains a "_base_folder" and "entries" structure, this function
+    resolves relative paths in "Best Z Filename" and "all_files" fields against
+    the base folder. Otherwise, returns the data as-is.
+
+    Args:
+        json_path: Path to the JSON file containing image mapping data.
+            Expected structure: {"_base_folder": str, "entries": dict} or
+            a flat dictionary of entries.
+
+    Returns:
+        Dict[str, Dict]: Dictionary mapping entry keys to their metadata.
+            Each entry contains fields like "dayID", "BA", "wellID",
+            "Best Z Filename", "Classification", etc.
+    """
     data = json.loads(Path(json_path).read_text())
     if isinstance(data, dict) and "_base_folder" in data and "entries" in data:
         base = Path(data["_base_folder"])
@@ -71,15 +100,56 @@ def load_raw_mapping(json_path: Path) -> dict:
     return data
 
 def flex_chunk(s: str) -> str:
+    """
+    Convert a string into a flexible regex pattern that matches variations.
+
+    Extracts alphanumeric tokens from the input string and creates a regex pattern
+    that allows arbitrary non-word characters between tokens. This is useful for
+    matching filenames with inconsistent separators (spaces, underscores, etc.).
+
+    Examples:
+        "BA1 96_1" -> r'ba1[\W_]*96[\W_]*1'
+        "Dy03" -> r'dy[\W_]*03'
+
+    Args:
+        s: Input string to convert. Can be None or empty.
+
+    Returns:
+        str: Regex pattern string. Returns empty string if input is None or
+            contains no alphanumeric tokens.
+    """
     toks = re.findall(r'[A-Za-z0-9]+', (s or "").lower())
     return r'[\W_]*'.join(map(re.escape, toks)) if toks else ''
 
-def discover_batch_dirs(root: Path):
+def discover_batch_dirs(root: Path) -> List[Path]:
+    """
+    Discover all batch directories matching the pattern "masks-batch-*".
+
+    Args:
+        root: Root directory path to search for batch directories.
+
+    Returns:
+        List[Path]: List of Path objects for discovered batch directories,
+            sorted by discovery order.
+    """
     batch_dirs = [Path(p) for p in glob(str(root / "masks-batch-*")) if Path(p).is_dir()]
     logging.info("[DISCOVER] batch dirs: %s", ", ".join([b.name for b in batch_dirs]))
     return batch_dirs
 
-def list_mask_files(batch_dirs):
+def list_mask_files(batch_dirs: List[Path]) -> List[Path]:
+    """
+    Collect all mask files from batch directories.
+
+    Searches each batch directory for mask files in "manual" and "threshold"
+    subdirectories. Only files with extensions in ALLOWED_EXT (.tif, .tiff, .png)
+    are included. Logs counts per batch and total.
+
+    Args:
+        batch_dirs: List of batch directory paths to search for mask files.
+
+    Returns:
+        List[Path]: List of Path objects for all discovered mask files.
+    """
     files = []
     per_batch_counts = []
     for bdir in batch_dirs:
@@ -96,7 +166,45 @@ def list_mask_files(batch_dirs):
     logging.info("[INFO] total masks: %d", len(files))
     return files
 
-def main():
+def get_score(s: str, well: str, info: Dict[str, Any]) -> int:
+    """
+    Score a string based on well ID and Best Z from info dictionary containing well ID and Best Z.
+
+    Args:
+        s: String to score.
+        well: Well ID.
+        info: Info dictionary containing well ID and Best Z.
+
+    Returns:
+        int: Score of the string.
+    """
+    wn = int(well[1:])
+    best_z = info.get('Best Z')
+    s = s.lower()
+    pts = 0
+    if re.search(rf'(?<![a-z0-9]){well}{wn}(?!\d)', s): pts += 2
+    if best_z is not None and re.search(rf'(?<!\d){best_z}(?!\d)', s): pts += 1
+    return pts
+
+def main() -> None:
+    """
+    Main function to map manual masks to image mapping JSON entries.
+
+    This function:
+    1. Loads the image mapping JSON file
+    2. Filters entries to Regular and Stitched classifications (excludes Split)
+    3. Discovers mask files in batch directories
+    4. Matches mask files to image entries using flexible pattern matching
+    5. Creates a new mapping JSON file with matched mask paths
+    6. Validates that all records are accounted for
+
+    The matching process uses flexible patterns to handle naming variations
+    in BA, day, and well identifiers. For entries with multiple matches,
+    the best match is selected based on well ID and Best Z score.
+
+    Raises:
+        SystemExit: If no mask files are found or if record count validation fails.
+    """
     args = get_args()
     for key, value in vars(args).items():
         logging.info("%s: %s", key, value)
@@ -148,18 +256,10 @@ def main():
         else:
             day_pat = flex_chunk(day)
 
+        # Match both "D11" and "D11(#)" or "D11(1)%" patterns
         wl = well[0].lower()
         wn = int(well[1:])
-        # Match both "D11" and "D11(#)" or "D11(1)%" patterns
         well_pat = rf'(?<![a-z0-9]){wl}0?{wn}(?:\([^)]*\))?(?!\d)'
-
-        best_z = info.get('Best Z')
-        def score(s: str) -> int:
-            s = s.lower()
-            pts = 0
-            if re.search(rf'(?<![a-z0-9]){wl}{wn}(?!\d)', s): pts += 2
-            if best_z is not None and re.search(rf'(?<!\d){best_z}(?!\d)', s): pts += 1
-            return pts
 
         matches = []
         for p in mask_paths:
@@ -168,7 +268,7 @@ def main():
                 matches.append(p)
 
         if matches:
-            matches.sort(key=lambda p: score(str(p)), reverse=True)
+            matches.sort(key=lambda p: get_score(str(p), well, info), reverse=True)
             mt_path = str(matches[0].resolve())
             new_mapping[key] = {
                 "dayID": info.get("dayID"),
