@@ -10,6 +10,8 @@ dependencies:
   - bzip2=1.0.8
   - ca-certificates=2025.2.25
   - cudatoolkit-dev=11.3.1
+  - gcc_linux-64=10
+  - gxx_linux-64=10
   - ffmpeg=4.3
   - freetype=2.12.1
   - gmp=6.3.0
@@ -18,24 +20,19 @@ dependencies:
   - jpeg=9e
   - lame=3.100
   - lcms2=2.16
-  - ld_impl_linux-64=2.40
   - lerc=4.0.0
   - libblas=3.9.0
   - libcblas=3.9.0
   - libdeflate=1.22
   - libffi=3.4.4
-  - libgcc=14.2.0
-  - libgcc-ng=14.2.0
-  - libgfortran=14.2.0
-  - libgfortran-ng=14.2.0
-  - libgfortran5=14.2.0
-  - libgomp=14.2.0
+  - libgcc-ng
+  - libgfortran-ng
+  - libgomp
   - libiconv=1.16
   - libidn2=2.3.4
   - liblapack=3.9.0
   - libpng=1.6.39
-  - libstdcxx=14.2.0
-  - libstdcxx-ng=14.2.0
+  - libstdcxx-ng
   - libtasn1=4.19.0
   - libtiff=4.5.1
   - libunistring=0.9.10
@@ -51,18 +48,20 @@ dependencies:
   - openh264=2.1.1
   - openjpeg=2.5.2
   - openssl=3.0.16
-  - pillow=11.1.0
   - python=3.9.21
   - python_abi=3.9
   - pytorch-mutex=1.0
+  - pytorch=1.10.0
+  - torchvision=0.11.1
+  - torchaudio=0.10.0
   - readline=8.2
   - sqlite=3.45.3
   - tbb=2021.8.0
   - tk=8.6.14
   - typing_extensions=4.12.2
+  - pip
   - wheel=0.45.1
   - xz=5.6.4
-  - zlib=1.2.13
   - zstd=1.5.6
   - pip:
       - addict==2.4.0
@@ -93,7 +92,7 @@ dependencies:
       - mmengine==0.10.7
       - mmsegmentation==1.2.2
       - model-index==0.1.11
-      - numpy==1.23.0
+      - numpy==1.21.6
       - opencv-python==4.5.5.64
       - opendatalab==0.0.10
       - openmim==0.3.9
@@ -101,7 +100,8 @@ dependencies:
       - ordered-set==4.1.0
       - oss2==2.17.0
       - packaging==24.2
-      - pandas==2.2.3
+      - pandas==1.5.3
+      - pillow==9.5.0
       - pip==25.0.1
       - platformdirs==4.3.7
       - prettytable==3.16.0
@@ -117,15 +117,12 @@ dependencies:
       - regex==2024.11.6
       - requests==2.28.2
       - rich==13.4.2
-      - scipy==1.13.1
+      - scipy==1.9.3
       - setuptools==60.2.0
       - six==1.17.0
       - tabulate==0.9.0
       - termcolor==3.0.1
       - tomli==2.2.1
-      - torch==1.10.0+cu113
-      - torchaudio==0.10.0+cu113
-      - torchvision==0.11.1+cu113
       - tqdm==4.65.2
       - tzdata==2025.2
       - urllib3==1.26.20

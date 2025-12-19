@@ -1,12 +1,12 @@
-from env_config_handler import process_env_vars_in_config
-
 import argparse
+import datetime
 import logging
 import os
 import os.path as osp
 import numpy as np
-from PIL import Image
+from pathlib import Path
 
+from PIL import Image
 from mmengine.config import Config, DictAction
 from mmengine.logging import print_log
 from mmengine.runner import Runner
@@ -21,7 +21,7 @@ from mmseg.engine.hooks import SegVisualizationHook
 from mmengine.registry import HOOKS
 from mmseg.registry import DATASETS
 
-from datasets.day_datasets import Dy30Dataset
+from analysis.images.segmentation_mmseg.datasets.day_datasets import Dy30Dataset
 from mmseg.registry import DATASETS
 
 # # Make sure it's registered with the correct registry
@@ -47,12 +47,12 @@ from mmseg.models.backbones.resnet import ResNet
 MODELS.register_module(module=ResNet)
 from mmseg.models.decode_heads.uper_head import UPerHead
 MODELS.register_module(module=UPerHead)
-from mmseg.datasets.transforms import ( 
-    LoadAnnotations, 
-    Resize, 
-    RandomFlip, 
+from mmseg.datasets.transforms import (
+    LoadAnnotations,
+    Resize,
+    RandomFlip,
     RandomRotate,
-    RandomCrop, 
+    RandomCrop,
     PhotoMetricDistortion
 )
 # These transforms may be in different modules
@@ -62,14 +62,13 @@ from mmseg.datasets import PackSegInputs
 # Register them properly
 from mmengine.registry import TRANSFORMS
 for transform in [
-    LoadAnnotations, Resize, RandomFlip, 
-    RandomRotate, RandomCrop, PhotoMetricDistortion, 
+    LoadAnnotations, Resize, RandomFlip,
+    RandomRotate, RandomCrop, PhotoMetricDistortion,
     Normalize, Pad, PackSegInputs
 ]:
     if transform.__name__ not in TRANSFORMS:
         TRANSFORMS.register_module(module=transform)
         MODELS.register_module(module=transform)
-
 # MODELS.register_module(module=PackSegInputs)
 
 # Add this import at the top of train.py
@@ -80,21 +79,66 @@ from mmengine.registry import METRICS
 if 'IoUMetric' not in METRICS:
     METRICS.register_module(module=IoUMetric)
 
+from mmseg.datasets import PackSegInputs
+from mmengine.registry import TRANSFORMS
+
+# Register PackSegInputs if not already registered
+if 'PackSegInputs' not in TRANSFORMS:
+    TRANSFORMS.register_module(module=PackSegInputs)
+
+from mmengine.registry import DATASETS as MMENGINE_DATASETS
+from mmseg.registry import DATASETS as MMSEG_DATASETS
+
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a segmentor')
-    parser.add_argument('config', help='train config file path')
-    parser.add_argument('--work-dir', help='the dir to save logs and models')
+    parser.add_argument(
+        '--config',
+        type=Path,
+        default=Path(__file__).resolve().parent / "segformer_mitb0.py",
+        help='train config file path, e.g. segformer_mitb0.py   '
+    )
+    parser.add_argument(
+        '--json-mapping-path',
+        type=Path,
+        help='path to the json mapping file created by test_split.py, e.g. mapping_processed_total_512x384.json'
+    )
+    parser.add_argument(
+        '--splits-dir',
+        type=Path,
+        help='path to the splits directory created by resize_img_masks.py'
+    )
+    parser.add_argument(
+        '--mask-dir',
+        type=Path,
+        help='path to the masks directory'
+    )
+    parser.add_argument(
+        '--image-dir',
+        type=Path,
+        help='path to the images directory'
+    )
+    parser.add_argument(
+        '--work-dir',
+        type=Path,
+        help='the dir to save logs and models, e.g. work_dirs/segformer_mitb0'
+    )
     parser.add_argument(
         '--resume',
         action='store_true',
         default=False,
-        help='resume from the latest checkpoint in the work_dir automatically')
+        help='resume from the latest checkpoint in the work_dir automatically'
+    )
     parser.add_argument(
         '--amp',
         action='store_true',
         default=False,
-        help='enable automatic-mixed-precision training')
+        help='enable automatic-mixed-precision training'
+    )
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -104,54 +148,64 @@ def parse_args():
         'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
         'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
         'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        'is allowed.'
+    )
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
         default='none',
-        help='job launcher')
+        help='job launcher'
+    )
     # When using PyTorch version >= 2.0.0, the `torch.distributed.launch`
     # will pass the `--local-rank` parameter to `tools/train.py` instead
     # of `--local_rank`.
-    parser.add_argument('--local_rank', '--local-rank', type=int, default=0)
+    parser.add_argument(
+        '--local_rank',
+        '--local-rank',
+        type=int,
+        default=0,
+        help='local rank for distributed training'
+    )
     args = parser.parse_args()
-    if 'LOCAL_RANK' not in os.environ:
-        os.environ['LOCAL_RANK'] = str(args.local_rank)
+
+    if not args.splits_dir:
+        parser.error("--splits-dir is required")
+
+    if not args.work_dir:
+        parser.error("--work-dir is required")
 
     return args
 
+def set_env_vars(args):
+    """Set environment variables needed for training."""
+    if 'LOCAL_RANK' not in os.environ:
+        os.environ['LOCAL_RANK'] = str(args.local_rank)
 
-from mmseg.datasets import PackSegInputs
-from mmengine.registry import TRANSFORMS
-
-# Register PackSegInputs if not already registered
-if 'PackSegInputs' not in TRANSFORMS:
-    TRANSFORMS.register_module(module=PackSegInputs)
-
-    
 # Then in the main() function, add this after loading the config:
 def main():
+    start_time = datetime.datetime.now()
     args = parse_args()
+    for key, value in vars(args).items():
+        logging.info("%s: %s", key, value)
 
     # load config
+    set_env_vars(args)  # Sets LOCAL_RANK
     cfg = Config.fromfile(args.config)
-    
-    # Process environment variables in the config
-    cfg = process_env_vars_in_config(cfg)
-    
+
     # load config
     cfg.launcher = args.launcher
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
 
-    # work_dir is determined in this priority: CLI > segment in file > filename
-    if args.work_dir is not None:
-        # update configs according to CLI args if args.work_dir is not None
-        cfg.work_dir = args.work_dir
-    elif cfg.get('work_dir', None) is None:
-        # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('./work_dirs',
-                                osp.splitext(osp.basename(args.config))[0])
+    # Set paths directly in config (like work_dir) - convert to strings for proper serialization
+    splits_dir = str(args.splits_dir)
+    cfg.train_dataloader.dataset.json_mapping_path = f'{splits_dir}/mapping_days1330_train.json'
+    cfg.val_dataloader.dataset.json_mapping_path = f'{splits_dir}/mapping_days1330_val.json'
+    cfg.test_dataloader.dataset.json_mapping_path = f'{splits_dir}/mapping_days1330_test.json'
+
+    # working directory
+    cfg.work_dir = str(args.work_dir)
+    args.work_dir.mkdir(parents=True, exist_ok=True)
 
     # enable automatic-mixed-precision training
     if args.amp is True:
@@ -179,22 +233,20 @@ def main():
         # build customized runner from the registry
         # if 'runner_type' is set in the cfg
         runner = RUNNERS.build(cfg)
-    # After loading and processing config
-    # start training
-    from mmengine.registry import DATASETS as MMENGINE_DATASETS
-    from mmseg.registry import DATASETS as MMSEG_DATASETS
 
-    # Debug sample
-    sample = runner.train_dataloader.dataset[0]
-    print("Sample keys:", sample.keys())
-    print("Input shape:", sample['inputs'].shape if 'inputs' in sample else "No inputs")
-    print("Mask path:", sample['data_samples'].metainfo['seg_map_path'])
+    # After loading and processing config - start training
+    sample = runner.train_dataloader.dataset[0]    # Debug sample
+    logging.info("Sample keys: %s", sample.keys())
+    logging.info("Input shape: %s", sample['inputs'].shape if 'inputs' in sample else "No inputs")
+    logging.info("Mask path: %s", sample['data_samples'].metainfo['seg_map_path'])
 
     mask = np.array(Image.open(sample['data_samples'].metainfo['seg_map_path']))
-    print("Mask unique values:", np.unique(mask))  # Should be [0, 1]
-    print("Mask shape:", mask.shape)  # Should be (H,W)
+    logging.info("Mask unique values: %s", np.unique(mask))  # Should be [0, 1]
+    logging.info("Mask shape: %s", mask.shape)  # Should be (H,W)
     runner.train()
 
+    end_time = datetime.datetime.now()
+    logging.info("Training completed in %s", end_time - start_time)
 
 if __name__ == '__main__':
     main()
