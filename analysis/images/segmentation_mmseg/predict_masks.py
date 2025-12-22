@@ -1,191 +1,319 @@
-# predict_new_batch.py  (trimmed to show key edits)
+"""
+Run MMSeg inference and append mask paths into the *same* processed image mapping JSON.
 
-import torch
+This matches the old workflow:
+- Choose a model (early or late)
+- Optionally filter which days to run
+- Write masks to an output folder
+- Append mask_path into the JSON
+
+Input JSON expected shape:
+{
+  "_processed_base_folder": "/path/to/std_512x384/images",
+  "entries": {
+    "<record_id>": {
+      "processed_image": "BA1_...tif",
+      "main_id": "BA1 96_1 Dy03 A1",
+      "dayID": "Dy03",
+      ...
+    },
+    ...
+  }
+}
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
 from pathlib import Path
-import cv2, numpy as np, warnings, json, random, argparse, sys
+from typing import Any, Dict, Optional, Set, Tuple
 
-HERE = Path(__file__).resolve()
-for p in HERE.parents:
-    if (p / "config.py").exists() and (p / ".env").exists():
-        sys.path.insert(0, str(p))  # repo root
-        break
-else:
-    raise RuntimeError("Could not locate repo root containing config.py and .env")
+import numpy as np
 
-# Root paths (canonical dirs)
-from config import INFER_AUTO_PROCESSED_DIR  # where the per-day mapping JSONs live
-
-# mmseg-specific model locations / output base
-from analysis.images.segmentation_mmseg.mmseg_paths import (
-    EARLY_MODEL, LATE_MODEL, OUTPUT_MASKS_BASE_DIR,
-)
-
-
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
+import torch  # type: ignore
+import cv2  # type: ignore
 
 try:
-    from mmseg.apis import init_model, inference_model
-    from mmengine.model.utils import revert_sync_batchnorm
-    print("MMSegmentation API imported successfully.")
-except ImportError as e:
-    print(f"Import Error: {e}")
-    sys.exit(1)
+    from mmseg.apis import init_model, inference_model  # type: ignore
+    from mmengine.model.utils import revert_sync_batchnorm  # type: ignore
+except Exception as e:
+    raise SystemExit(
+        "Failed to import MMSeg. Activate your mmseg env.\n"
+        f"Import error: {e}"
+    )
 
-NUM_SAMPLES_FOR_COLLAGE = 10
-
-def get_mapping_paths(batch_number, day_number=30):
-    """Find the JSON(s) created by the infer-prep step (auto_processed)."""
-    day_str = f"{day_number:02d}"
-    base = Path(INFER_AUTO_PROCESSED_DIR)
-
-    paths = []
-    if batch_number == 2:
-        for part in ["96_1", "96_2"]:
-            batch_str = f"ba{batch_number}{part}_Dy{day_str}"
-            paths.append(base / batch_str / f"image_mapping_{batch_str}_processed.json")
-    else:
-        batch_str = f"ba{batch_number}96_1_Dy{day_str}"
-        paths.append(base / batch_str / f"image_mapping_{batch_str}_processed.json")
-    return paths
+# Internal model presets (same pattern you used before)
+#from analysis.images.segmentation_mmseg.mmseg_paths import EARLY_MODEL, LATE_MODEL  # type: ignore
 
 
-def run_inference(batch_number, day_number=30, model_type="early", overwrite=False, dry_run=False, smoke=None):
-    day_str = f"{day_number:02d}"
-    mapping_paths = get_mapping_paths(batch_number, day_number)
+logging.basicConfig(
+    format="%(asctime)s,%(msecs)d %(levelname)s %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+    level=logging.INFO,
+)
+
+# model paths, early days 3-10, late 13-30
+EARLY_MODEL = {
+    "config": Path(
+        "/net/projects2/promega/data_reorg/data/masks/trained_models/512x384/october_early/early/vis_data/config.py"
+    ),
+    "checkpoint": Path(
+        "/net/projects2/promega/data_reorg/data/masks/trained_models/512x384/october_early/iter_1000.pth"
+    ),
+}
+
+LATE_MODEL = {
+    "config": Path(
+        "/net/projects2/promega/data_reorg/data/masks/trained_models/512x384/october_late/late/vis_data/config.py"
+    ),
+    "checkpoint": Path(
+        "/net/projects2/promega/data_reorg/data/masks/trained_models/512x384/october_late/iter_1000.pth"
+    ),
+}
+
+def safe_stem(s: str) -> str:
+    # keep it simple and stable
+    return (
+        s.replace(" ", "_")
+         .replace("/", "_")
+         .replace("\\", "_")
+         .replace(":", "_")
+    )
+
+
+def parse_days(days_arg: Optional[str]) -> Optional[Set[str]]:
+    if not days_arg:
+        return None
+    days = {d.strip() for d in days_arg.split(",") if d.strip()}
+    return days or None
+
+
+def pick_model_paths(model_type: str, cfg_override: Optional[Path], ckpt_override: Optional[Path]) -> Tuple[Path, Path]:
+    # Explicit overrides always win if both provided
+    if cfg_override is not None and ckpt_override is not None:
+        return cfg_override, ckpt_override
 
     model_info = EARLY_MODEL if model_type == "early" else LATE_MODEL
     cfg_path = Path(model_info["config"])
     ckpt_path = Path(model_info["checkpoint"])
+    return cfg_path, ckpt_path
 
-    # Validate model files up front
+
+def load_mapping(mapping_json: Path) -> Tuple[Path, Dict[str, Dict[str, Any]], Dict[str, Any]]:
+    data = json.loads(mapping_json.read_text())
+
+    processed_base = data.get("_processed_base_folder")
+    if not processed_base:
+        raise ValueError(f"Mapping JSON missing _processed_base_folder: {mapping_json}")
+
+    entries = data.get("entries")
+    if not isinstance(entries, dict):
+        raise ValueError(f"Mapping JSON missing dict entries: {mapping_json}")
+
+    return Path(processed_base), entries, data
+
+
+def get_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Predict masks with MMSeg and append mask_path into mapping JSON")
+
+    p.add_argument(
+        "--image-mapping-json",
+        type=Path,
+        required=True,
+        help="Processed image mapping JSON (std_512x384). This file will be UPDATED in-place.",
+    )
+
+    p.add_argument(
+        "--out-dir",
+        type=Path,
+        required=True,
+        help="Output dir for masks (writes to out-dir/masks).",
+    )
+
+    p.add_argument(
+        "--model-type",
+        choices=["early", "late"],
+        required=True,
+        help="Which internal model preset to use.",
+    )
+
+    p.add_argument(
+        "--days",
+        type=str,
+        default=None,
+        help="Comma-separated dayIDs to run (e.g. Dy03,Dy06,Dy08,Dy10). If omitted, runs all days.",
+    )
+
+    p.add_argument("--overwrite", action="store_true", help="Overwrite existing mask files.")
+    p.add_argument("--dry-run", action="store_true", help="No inference; just validate + report counts.")
+    p.add_argument("--smoke", type=int, default=None, help="Limit to N records for quick test.")
+
+    p.add_argument("--config", type=Path, default=None, help="Override MMSeg config path (optional).")
+    p.add_argument("--checkpoint", type=Path, default=None, help="Override MMSeg checkpoint path (optional).")
+
+    p.add_argument("--write-collage", action="store_true", help="Write inference_collage.png for quick QC.")
+    p.add_argument("--collage-n", type=int, default=10, help="Number of samples in collage if enabled.")
+    p.add_argument("--seed", type=int, default=0)
+
+    # mask file format
+    p.add_argument("--mask-ext", choices=["png", "tif"], default="png")
+    p.add_argument("--mask-suffix", type=str, default="_mask", help="Suffix appended to mask filename stem.")
+
+    return p.parse_args()
+
+
+def main() -> None:
+    args = get_args()
+    allowed_days = parse_days(args.days)
+
+    logging.info("image_mapping_json: %s", args.image_mapping_json)
+    logging.info("out_dir: %s", args.out_dir)
+    logging.info("model_type: %s", args.model_type)
+    logging.info("days filter: %s", sorted(allowed_days) if allowed_days else None)
+    logging.info("overwrite: %s", args.overwrite)
+    logging.info("dry_run: %s", args.dry_run)
+    logging.info("smoke: %s", args.smoke)
+
+    processed_base, entries, full_json = load_mapping(args.image_mapping_json)
+    logging.info("processed_base: %s", processed_base)
+    logging.info("loaded entries: %d", len(entries))
+
+    cfg_path, ckpt_path = pick_model_paths(args.model_type, args.config, args.checkpoint)
     if not cfg_path.exists():
         raise SystemExit(f"Missing config: {cfg_path}")
     if not ckpt_path.exists():
         raise SystemExit(f"Missing checkpoint: {ckpt_path}")
 
-    # Init model once
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    model = None if dry_run else init_model(str(cfg_path), str(ckpt_path), device=device)
-    if not dry_run and device == 'cpu':
-        model = revert_sync_batchnorm(model)
-    print(f"Model {'validated' if dry_run else 'loaded'} on {device}")
+    out_dir = args.out_dir
+    masks_dir = out_dir
 
-    total_processed = total_failed = 0
+    if not args.dry_run:
+        out_dir.mkdir(parents=True, exist_ok=True)
 
-    for json_mapping_path in mapping_paths:
-        print(f"Checking for file: {json_mapping_path}  ->  {json_mapping_path.exists()}")
-        if not json_mapping_path.exists():
-            print(f"Warning: Preprocessed JSON not found at {json_mapping_path}")
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    model = None
+    if not args.dry_run:
+        model = init_model(str(cfg_path), str(ckpt_path), device=device)
+        if device == "cpu":
+            model = revert_sync_batchnorm(model)
+        logging.info("Model loaded on %s", device)
+    else:
+        logging.info("Dry-run: not loading model (would use %s)", device)
+
+    # Determine iteration list
+    record_ids = list(entries.keys())
+    if args.smoke is not None and args.smoke > 0:
+        record_ids = record_ids[: args.smoke]
+
+    # Collage sampling (deterministic)
+    rng = np.random.default_rng(args.seed)
+    sample_ids = set()
+    if args.write_collage and record_ids:
+        n = min(args.collage_n, len(record_ids))
+        sample_ids = set(rng.choice(record_ids, size=n, replace=False).tolist())
+
+    collage_rows = []
+
+    processed = 0
+    skipped_day = 0
+    skipped_exists = 0
+    failed = 0
+
+    for record_id in record_ids:
+        entry = entries[record_id]
+        day = entry.get("dayID")
+
+        if allowed_days is not None and day not in allowed_days:
+            skipped_day += 1
             continue
 
-        # Determine output dir
-        if batch_number == 2:
-            part = "96_1" if "96_1" in str(json_mapping_path) else "96_2"
-            output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}_{part}" / f"day{day_str}"
-        else:
-            output_dir = Path(OUTPUT_MASKS_BASE_DIR) / f"batch{batch_number}" / f"day{day_str}"
-        masks_dir = output_dir / "predicted_masks"
-        if not dry_run:
-            masks_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            rel = entry.get("processed_image")
+            if not rel:
+                raise KeyError("Entry missing processed_image")
 
-        collage_path = output_dir / (
-            f"inference_collage_batch{batch_number}"
-            f"{('_part'+part) if batch_number==2 else ''}_day{day_str}.png"
-        )
-
-        with open(json_mapping_path, 'r') as f:
-            batch_mapping = json.load(f)
-        print(f"Loaded {len(batch_mapping)} entries from {json_mapping_path.name}")
-
-        # Pick sample ids once per mapping
-        all_ids = list(batch_mapping)
-        sample_ids = set(random.sample(all_ids, min(NUM_SAMPLES_FOR_COLLAGE, len(all_ids)))) if all_ids else set()
-
-        processed = failed = 0
-        collage_pairs, img_h, img_w = [], None, None
-        max_items = smoke if (smoke is not None and smoke > 0) else len(batch_mapping)
-        iter_items = list(batch_mapping.items())[:max_items]
-
-        for img_id, img_info in iter_items:
-            img_path = Path(img_info.get('img_path'))
-
-            if not img_info.get("img_path"):
-                failed += 1
-                continue
-
+            img_path = processed_base / str(rel)
             if not img_path.exists():
-                failed += 1
-                continue
+                raise FileNotFoundError(str(img_path))
 
-            if dry_run:
-                # Just pretend success; record intended output
-                mask_path = masks_dir / f"{img_path.stem}_predmask.png"
-                batch_mapping[img_id]['mask_path'] = str(mask_path)
+            main_id = entry.get("main_id") or record_id
+            mask_stem = safe_stem(main_id) + args.mask_suffix
+            mask_path = masks_dir / f"{mask_stem}.{args.mask_ext}"
+
+            if args.dry_run:
+                # Just pretend we wrote it; do not modify JSON
                 processed += 1
                 continue
 
-            try:
-                result = inference_model(model, str(img_path))
-                pred_mask = (result.pred_sem_seg.data.squeeze().cpu().numpy() * 255).astype(np.uint8)
+            if mask_path.exists() and not args.overwrite:
+                skipped_exists += 1
+                # Still append mask path into JSON if you want it “filled”
+                entry["mask_path"] = str(mask_path)
+                entry["mask_model"] = args.model_type
+                continue
 
-                mask_path = masks_dir / f"{img_path.stem}_predmask.png"
-                if not overwrite and mask_path.exists():
-                    processed += 1
-                    batch_mapping[img_id]['mask_path'] = str(mask_path)
-                    continue
+            # Run inference
+            result = inference_model(model, str(img_path))
+            pred = result.pred_sem_seg.data.squeeze().cpu().numpy().astype(np.uint8)
 
-                cv2.imwrite(str(mask_path), pred_mask)
-                processed += 1
-                batch_mapping[img_id]['mask_path'] = str(mask_path)
+            # Save mask
+            if args.mask_ext == "png":
+                # scale to 0/255 for visualization like older scripts
+                out = (pred * 255).astype(np.uint8)
+                ok = cv2.imwrite(str(mask_path), out)
+                if not ok:
+                    raise RuntimeError(f"cv2.imwrite failed: {mask_path}")
+            else:
+                # tif, save 0/1 mask
+                import tifffile  # type: ignore
+                tifffile.imwrite(str(mask_path), pred.astype(np.uint8))
 
-                if img_id in sample_ids:
-                    img = cv2.imread(str(img_path))
-                    if img is None:
-                        continue
-                    if img_h is None:
-                        img_h, img_w = img.shape[:2]
-                    img_resized = cv2.resize(img, (img_w, img_h), interpolation=cv2.INTER_LINEAR)
-                    mask_vis   = cv2.resize(pred_mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
-                    mask_vis   = cv2.cvtColor(mask_vis, cv2.COLOR_GRAY2BGR)
-                    collage_pairs.append(np.hstack((img_resized, mask_vis)))
+            # Append into the SAME JSON entry (your requested behavior)
+            entry["mask_path"] = str(mask_path)
+            entry["mask_model"] = args.model_type
 
-            except Exception as e:
-                failed += 1
+            processed += 1
 
+            # Optional collage row
+            if args.write_collage and record_id in sample_ids:
+                img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
+                if img is not None:
+                    mask_vis = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+                    if mask_vis is not None:
+                        mask_vis = cv2.cvtColor(mask_vis, cv2.COLOR_GRAY2BGR)
+                        # ensure same size
+                        if img.shape[:2] != mask_vis.shape[:2]:
+                            mask_vis = cv2.resize(mask_vis, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
+                        collage_rows.append(np.hstack([img, mask_vis]))
 
-        if not dry_run and collage_pairs:
-            cv2.imwrite(str(collage_path), np.vstack(collage_pairs))
-            print(f"Collage saved to {collage_path}")
+        except Exception:
+            failed += 1
+            logging.exception("Failed record_id=%s", record_id)
+            continue
 
-        print(f"Finished part. Processed: {processed}, Failed: {failed}")
-        total_processed += processed
-        total_failed   += failed
+    if args.dry_run:
+        logging.info("Dry-run complete.")
+        logging.info("Would process: %d", processed)
+        logging.info("Skipped by day: %d", skipped_day)
+        logging.info("Would fail: %d", failed)
+        return
 
-        if not dry_run:
-            with open(json_mapping_path, 'w') as f:
-                json.dump(batch_mapping, f, indent=2)
-            print(f"Updated mapping with mask paths: {json_mapping_path}")
+    # Write back the updated mapping JSON (in place)
+    args.image_mapping_json.write_text(json.dumps(full_json, indent=2))
+    logging.info("Updated mapping JSON in-place: %s", args.image_mapping_json)
 
-    print(f"\nTotal processed: {total_processed}, Total failed: {total_failed}")
-    return total_processed
+    # Write collage
+    if args.write_collage and collage_rows:
+        collage_path = out_dir / "inference_collage.png"
+        cv2.imwrite(str(collage_path), np.vstack(collage_rows))
+        logging.info("Wrote collage: %s", collage_path)
+
+    logging.info("Done. processed=%d skipped_day=%d skipped_exists=%d failed=%d",
+                 processed, skipped_day, skipped_exists, failed)
+
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--model_type', choices=['early', 'late'], required=True)
-    ap.add_argument('--batches', type=lambda s: [int(x) for x in s.split(',')], required=True)
-    ap.add_argument('--days',    type=lambda s: [int(x) for x in s.split(',')], required=True)
-    ap.add_argument('--overwrite', action='store_true')
-    ap.add_argument('--dry-run', action='store_true', help='Validate configs/paths without running inference')
-    ap.add_argument('--smoke', type=int, default=None, help='Limit to N images per mapping for a quick test')
-    args = ap.parse_args()
+    main()
 
-    for batch in args.batches:
-        for day in args.days:
-            print(f"\n{'='*40}\nProcessing Batch {batch}, Day {day}\n{'='*40}")
-            run_inference(batch, day,
-                          model_type=args.model_type,
-                          overwrite=args.overwrite,
-                          dry_run=args.dry_run,
-                          smoke=args.smoke)
-    print("\nAll done.")
