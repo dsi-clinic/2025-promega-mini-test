@@ -1,144 +1,179 @@
 #!/usr/bin/env python3
-import json
+from __future__ import annotations
+
 import argparse
-import shutil
-import sys
+import json
+import logging
 from pathlib import Path
+from typing import Any, Dict, Optional
+
 import cv2
 
-HERE = Path(__file__).resolve()
-for p in HERE.parents:
-    if (p / "config.py").exists() and (p / ".env").exists():
-        sys.path.insert(0, str(p))
-        break
-else:
-    raise RuntimeError("Could not locate repo root containing config.py and .env")
+# --- sizes (single source of truth) ---
+TARGET_WIDTH = 512
+TARGET_HEIGHT = 384
 
-from config import (
-    TARGET_WIDTH, TARGET_HEIGHT, TARGET_SIZE,
-    RAW_IMAGE_MAPPING_JSON, INFER_AUTO_PROCESSED_DIR as OUTPUT_DIR
-)
-
-# --------------- configuration -----------------
+# --- match original behavior ---
 INTERPOLATION = cv2.INTER_LINEAR
 
-# --------------- helpers -----------------------
-def norm(s: str) -> str:
-    return s.lower().replace(' ', '') if isinstance(s, str) else ''
 
-def ba_match(json_ba: str, batch_id: str) -> bool:
-    return norm(json_ba).startswith(norm(batch_id))
-
-# --------------- main functions ----------------
-def process_batch(batch_num: int, day_num: int, overwrite: bool):
-    with RAW_IMAGE_MAPPING_JSON.open() as f:
-        full_mapping = json.load(f)
-    entries = full_mapping.get("entries", {})
-    base_folder = full_mapping.get("_base_folder")
-
-    batch_prefix = norm(f"BA{batch_num}")
-    all_ba_keys = set(norm(info['BA']) for info in entries.values() if 'BA' in info)
-    # collect *actual* BA variants: "ba1", "ba196_1", "ba196_2", etc.
-    batch_ids = sorted(b for b in all_ba_keys if b.startswith(batch_prefix))
-
-    for batch_id in batch_ids:
-        create_mapping(entries, base_folder, batch_id, day_num, overwrite)
+logging.basicConfig(
+    format="%(asctime)s,%(msecs)d %(levelname)s %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+    level=logging.INFO,
+)
 
 
-def create_mapping(entries: dict, base_folder: str, batch_id: str, day_num: int, overwrite: bool):
-    day_id = f"Dy{day_num:02d}"
-    safe_batch = batch_id.replace(' ', '_')
-    output_dir = OUTPUT_DIR / f"{safe_batch}_{day_id}"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_json = output_dir / f"image_mapping_{safe_batch}_{day_id}_processed.json"
+def safe_record_filename(main_id: str) -> str:
+    # Original behavior was basically "spaces to underscores"; keep it stable and safe-ish.
+    s = (
+        main_id.strip()
+        .replace(" ", "_")
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace(":", "_")
+    )
+    return f"{s}.png"
 
-    if overwrite and output_dir.exists():
-        # nuke the folder so we can fully rebuild
-        import shutil
-        shutil.rmtree(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
 
-    if output_json.exists():
-        print(f"Skipping because mapping already exists: {output_json}")
-        print(f"Size: {output_json.stat().st_size} bytes")
-        return
+def get_base_folder(mapping: Dict[str, Any]) -> Path:
+    """
+    Supports a few possible key names so you don't have to fight schema drift.
+    (Keep this: it's purely about robustness of the mapping schema.)
+    """
+    for key in ("_base_folder", "base_folder", "_raw_base_folder", "_images_base_folder", "base_dir"):
+        if key in mapping and mapping[key]:
+            return Path(mapping[key])
+    raise KeyError(
+        "Could not find base folder key in mapping JSON (expected one of: "
+        "_base_folder, base_folder, _raw_base_folder, _images_base_folder, base_dir)"
+    )
 
-    matches = [
-        (img_id, info['Best Z Filename'], info.get('um_per_px'))
-        for img_id, info in entries.items()
-        if norm(info.get('dayID', '')) == norm(day_id) and ba_match(info.get('BA', ''), batch_id)
-    ]
 
-    new_mapping = {}
-    for img_id, img_path_str, orig_um_px in matches:
-        info = entries[img_id]
-        verification = info.get("verification", {})
-        main_id = verification.get("main_id", img_id.replace(' ', '_'))  # fallback to img_id if missing
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Resize + remap images into a flat PNG folder and write a processed mapping JSON "
+                    "(matches original preprocessing exactly: color read, INTER_LINEAR resize, PNG write)."
+    )
 
-        img_path = Path(base_folder) / img_path_str
-        if not img_path.exists():
-            print(f"Skipped missing: {img_path}")
+    p.add_argument("--image-mapping-json", type=Path, required=True, help="Input mapping JSON (from image_mapper).")
+    p.add_argument("--out-dir", type=Path, required=True, help="Output directory for processed PNG images.")
+    p.add_argument("--out-mapping-json", type=Path, required=True, help="Output mapping JSON with processed_image fields.")
+
+    p.add_argument("--target-width", type=int, default=TARGET_WIDTH)
+    p.add_argument("--target-height", type=int, default=TARGET_HEIGHT)
+
+    p.add_argument("--overwrite", action="store_true", help="Overwrite existing processed images.")
+    p.add_argument("--smoke", type=int, default=None, help="Process only N records (debug).")
+
+    return p.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+
+    logging.info("image_mapping_json: %s", args.image_mapping_json)
+    logging.info("out_dir: %s", args.out_dir)
+    logging.info("out_mapping_json: %s", args.out_mapping_json)
+    logging.info("target: %dx%d", args.target_width, args.target_height)
+    logging.info("interpolation: INTER_LINEAR")
+    logging.info("overwrite=%s smoke=%s", args.overwrite, args.smoke)
+
+    mapping: Dict[str, Any] = json.loads(args.image_mapping_json.read_text())
+    base_folder = get_base_folder(mapping)
+
+    entries: Dict[str, Dict[str, Any]] = mapping.get("entries", {})
+    if not isinstance(entries, dict) or not entries:
+        raise RuntimeError("Mapping JSON has no 'entries' dict or it's empty.")
+
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+
+    record_ids = list(entries.keys())
+    if args.smoke is not None and args.smoke > 0:
+        record_ids = record_ids[: args.smoke]
+
+    processed_entries: Dict[str, Dict[str, Any]] = {}
+    skipped_exists = 0
+    failed = 0
+
+    for record_id in record_ids:
+        entry = entries[record_id]
+        try:
+            # Match your earlier convention: prefer "Best Z Filename"
+            rel_img = (
+                entry.get("Best Z Filename")
+                or entry.get("image")
+                or entry.get("img")
+                or entry.get("image_path")
+            )
+            if not rel_img:
+                raise KeyError("Entry missing Best Z Filename (or equivalent image path field)")
+
+            img_path = base_folder / str(rel_img)
+            if not img_path.exists():
+                raise FileNotFoundError(str(img_path))
+
+            main_id = entry.get("main_id") or record_id
+            out_img_path = args.out_dir / safe_record_filename(str(main_id))
+
+            if out_img_path.exists() and not args.overwrite:
+                new_entry = dict(entry)
+                new_entry["processed_image"] = str(out_img_path.relative_to(args.out_dir))
+                new_entry["processed_image_record_id"] = record_id
+                processed_entries[record_id] = new_entry
+                skipped_exists += 1
+                continue
+
+            # --- ORIGINAL behavior: read COLOR (3-channel) ---
+            img_raw = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
+            if img_raw is None:
+                raise ValueError(f"cv2 failed to read image: {img_path}")
+
+            # --- ORIGINAL behavior: resize with INTER_LINEAR ---
+            img_final = cv2.resize(
+                img_raw,
+                (args.target_width, args.target_height),
+                interpolation=INTERPOLATION,
+            )
+
+            ok = cv2.imwrite(str(out_img_path), img_final)
+            if not ok:
+                raise RuntimeError(f"cv2.imwrite failed: {out_img_path}")
+
+            new_entry = dict(entry)
+            new_entry["processed_image"] = str(out_img_path.relative_to(args.out_dir))
+            new_entry["processed_image_record_id"] = record_id
+            processed_entries[record_id] = new_entry
+
+        except Exception:
+            failed += 1
+            logging.exception("Skipping record_id=%s due to error", record_id)
             continue
 
-        img_raw = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
-        if img_raw is None:
-            print(f"Skipped unreadable: {img_path}")
-            continue
+    out_mapping: Dict[str, Any] = {
+        "_processed_base_folder": str(args.out_dir),
+        "preprocess_params": {
+            "target_width": args.target_width,
+            "target_height": args.target_height,
+            "interpolation": "INTER_LINEAR",
+            "read_mode": "IMREAD_COLOR",
+            "format": "png",
+        },
+        "summary": {
+            "input_entries": len(entries),
+            "processed_entries": len(processed_entries),
+            "skipped_exists": skipped_exists,
+            "failed": failed,
+        },
+        "entries": processed_entries,
+    }
 
-        orig_h, orig_w = img_raw.shape[:2]
-        img_final = cv2.resize(img_raw, TARGET_SIZE, INTERPOLATION)
-
-        um_x = um_y = None
-        final_um_per_px_x = final_um_per_px_y = None
-        if orig_um_px is not None:
-            if isinstance(orig_um_px, (list, tuple)) and len(orig_um_px) == 2:
-                um_x, um_y = orig_um_px
-            else:
-                um_x = um_y = orig_um_px
-            scale_x = orig_w / TARGET_WIDTH
-            scale_y = orig_h / TARGET_HEIGHT
-            final_um_per_px_x = um_x * scale_x
-            final_um_per_px_y = um_y * scale_y
-
-        # --- use main_id here ---
-        out_path = output_dir / f"{main_id}.png"
-        cv2.imwrite(str(out_path), img_final)
-
-        new_mapping[img_id] = {
-            "img_path": str(out_path),
-            "main_id": main_id,
-            "orig_width_px": orig_w,
-            "orig_height_px": orig_h,
-            "orig_um_per_px_x": um_x,
-            "orig_um_per_px_y": um_y,
-            "final_um_per_px_x": final_um_per_px_x,
-            "final_um_per_px_y": final_um_per_px_y
-        }
+    args.out_mapping_json.parent.mkdir(parents=True, exist_ok=True)
+    args.out_mapping_json.write_text(json.dumps(out_mapping, indent=2))
+    logging.info("Processed mapping saved to: %s", args.out_mapping_json)
+    logging.info("Done. processed=%d skipped_exists=%d failed=%d",
+                 len(processed_entries), skipped_exists, failed)
 
 
-    with output_json.open('w') as f:
-        json.dump(new_mapping, f, indent=2)
-
-    print(f"Created mapping for {batch_id} with {len(new_mapping)} images")
-    print(f"Images saved to: {output_dir}")
-    print(f"Mapping saved to: {output_json}")
-
-# --------------- CLI entrypoint ----------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--batches', required=True, help='Comma-separated batch numbers, e.g. 1,2,3')
-    parser.add_argument('--days', required=True, help='Comma-separated day numbers, e.g. 3,6,8')
-    parser.add_argument('--overwrite', action='store_true', help='Remove existing processed folders first')
-    args = parser.parse_args()
-
-    batches = [int(x) for x in args.batches.split(',')]
-    days = [int(x) for x in args.days.split(',')]
-
-    for batch in batches:
-        for day in days:
-            print(f"\nProcessing Batch {batch}, Day {day}")
-            process_batch(batch, day, args.overwrite)
-
-    print("\nAll done.")
-
-
+    main()
