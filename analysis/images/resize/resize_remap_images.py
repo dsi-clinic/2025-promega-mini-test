@@ -348,10 +348,9 @@ def get_args() -> argparse.Namespace:
 
     # Validate required paths
     if not args.image_json:
-        parser.error("--image-json is required (or set RAW_IMAGE_MAPPING_JSON in config)")
+        parser.error("--image-json is required")
     if not args.output_dir:
-        parser.error("--output-dir is required (or set INFER_RESIZED_DIR in config)")
-
+        parser.error("--output-dir is required")
     return args
 
 
