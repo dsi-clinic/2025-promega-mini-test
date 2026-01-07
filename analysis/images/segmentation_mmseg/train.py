@@ -94,6 +94,9 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(leveln
                     datefmt='%Y-%m-%dT%H:%M:%S',
                     level=logging.INFO)
 
+# Constants
+EXPECTED_RECORDS_NUM = 1267    # This is the number of entries for split "late" days train and val data
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a segmentor')
     parser.add_argument(
@@ -166,6 +169,23 @@ def set_env_vars(args):
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
 
+def assert_results(runner):
+    """Assert results of training.
+
+    Args:
+        runner: Runner object after training
+    """
+    # Extract data from runner after training
+    train_dataset = runner.train_dataloader.dataset
+    val_dataset = runner.val_dataloader.dataset
+
+    # Get data list lengths
+    train_count = len(train_dataset.load_data_list())
+    val_count = len(val_dataset.load_data_list())
+
+    assert train_count + val_count == EXPECTED_RECORDS_NUM, \
+        f"Expected {EXPECTED_RECORDS_NUM} records, got {train_count + val_count}"
+
 # Then in the main() function, add this after loading the config:
 def main():
     start_time = datetime.datetime.now()
@@ -230,6 +250,7 @@ def main():
     logging.info("Mask shape: %s", mask.shape)  # Should be (H,W)
     runner.train()
 
+    assert_results(runner)
     end_time = datetime.datetime.now()
     logging.info("Training completed in %s", end_time - start_time)
 
