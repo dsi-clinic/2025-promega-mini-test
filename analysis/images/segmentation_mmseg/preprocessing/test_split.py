@@ -26,7 +26,7 @@ else:
 # Constants
 DEFAULT_TARGET_WIDTH = 512
 DEFAULT_TARGET_HEIGHT = 384
-EXPECTED_RECORDS_NUM = 2153    # This is the number of resized imgs/masks records
+EXPECTED_RECORDS_NUM = 5168    # This is the number of resized imgs records
 DEFAULT_TRAIN_FRACTION = 0.8
 DEFAULT_VAL_FRACTION = 0.1
 EARLY_DAYS = {"Dy03", "Dy06", "Dy08", "Dy10"}
@@ -146,11 +146,9 @@ def load_and_filter(mapping_path: Path) -> Tuple[Dict[str, Dict[str, Any]], int]
     """
     with open(mapping_path, "r") as f:
         full_map = json.load(f)
+    full_map = full_map.get("entries", {})
     before = len(full_map)
-    full_map = {
-        k: v for k, v in full_map.items()
-        if (v.get("BA"), v.get("dayID"), v.get("wellID")) not in BAD_ENTRIES
-    }
+    full_map = {k: v for k, v in full_map.items() if (v.get("BA"), v.get("dayID"), v.get("wellID")) not in BAD_ENTRIES}
     after = len(full_map)
     logging.info("Removed %d bad entries; %d remain.", before - after, after)
     return full_map, before - after
