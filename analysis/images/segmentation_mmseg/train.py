@@ -95,7 +95,7 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(leveln
                     level=logging.INFO)
 
 # Constants
-EXPECTED_RECORDS_NUM = 1267    # This is the number of entries for split "late" days train and val data
+EXPECTED_RECORDS_NUM = 1234    # This is the number of entries for split "late" days train and val data that contain masks and images
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a segmentor')

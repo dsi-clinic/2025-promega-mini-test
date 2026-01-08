@@ -73,12 +73,24 @@ class Dy30Dataset(BaseDataset):
             logging.info("Filtered to %d entries with dayID=%s", len(image_mapping), self.day_filter)
 
         data_list = []
-        data_list = []
+        skipped_no_image = 0
+        skipped_no_mask = 0
+
         for img_id, info in image_mapping.items():
-            img_p  = Path(info.get('img_path', ''))
-            # prefer the lowercase key if available
-            msk_p  = Path(info.get('mask_path', '') or info.get('Mask Path', ''))
-            if not img_p.exists() or not msk_p.exists():
+            # Get image path
+            img_path_str = info.get('processed_image', '')
+            img_p = Path(img_path_str)
+            if not img_path_str or not img_p.exists():
+                skipped_no_image += 1
+                logging.debug(f"Skipping {img_id}: image not found")
+                continue
+
+            # Get mask path - check for empty string explicitly
+            mask_path_str = info.get('manual_mask_path', '')
+            msk_p = Path(mask_path_str)
+            if not mask_path_str or not msk_p.exists():
+                skipped_no_mask += 1
+                logging.debug(f"Skipping {img_id}: mask not found")
                 continue
 
             data_list.append({
@@ -92,6 +104,7 @@ class Dy30Dataset(BaseDataset):
             })
 
         logging.info("Found %d valid image-mask pairs", len(data_list))
+        logging.info("Skipped: %d (no image), %d (no mask path)", skipped_no_image, skipped_no_mask)
         if not data_list:
             logging.warning("WARNING: No valid pairs found! Check your mapping paths or filters.")
 
