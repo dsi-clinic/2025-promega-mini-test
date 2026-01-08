@@ -72,6 +72,18 @@ def parse_args() -> argparse.Namespace:
 
     return p.parse_args()
 
+def get_mask_path(record_id: str, mask_entries: Dict[str, Any]) -> Optional[str]:
+    """
+    Get the mask path for a given record ID.
+
+    Args:
+        record_id: The record ID.
+        mask_entries: The mask entries dictionary.
+
+    Returns:
+        Optional[str]: The mask path, or None if not found.
+    """
+    return mask_entries.get(record_id, {}).get("MT Mask Path", None)
 
 def main() -> None:
     args = parse_args()
@@ -103,6 +115,7 @@ def main() -> None:
     processed_entries: Dict[str, Dict[str, Any]] = {}
     skipped_exists = 0
     failed = 0
+    no_masks = 0
 
     for record_id in tqdm(record_ids, desc="Processing records"):
         entry = image_entries[record_id]
@@ -128,7 +141,11 @@ def main() -> None:
                 new_entry = dict(entry)
                 new_entry["processed_image"] = str(out_img_path)
                 new_entry["processed_image_record_id"] = record_id
-                new_entry["manual_mask_path"] = mask_entries.get(record_id, {}).get("MT Mask Path", "")
+                mask_path = get_mask_path(record_id, mask_entries)
+                if mask_path is None:
+                    no_masks += 1
+                    logging.debug("record_id=%s has no manual mask path", record_id)
+                new_entry["manual_mask_path"] = mask_path
                 processed_entries[record_id] = new_entry
                 skipped_exists += 1
                 continue
@@ -152,7 +169,10 @@ def main() -> None:
             new_entry = dict(entry)
             new_entry["processed_image"] = str(out_img_path)
             new_entry["processed_image_record_id"] = record_id
-            new_entry["manual_mask_path"] = mask_entries.get(record_id, {}).get("MT Mask Path", "")
+            mask_path = get_mask_path(record_id, mask_entries)
+            if mask_path is None:
+                no_masks += 1
+                logging.debug("record_id=%s has no manual mask path", record_id)
             processed_entries[record_id] = new_entry
 
         except Exception:
@@ -174,6 +194,7 @@ def main() -> None:
             "processed_entries": len(processed_entries),
             "skipped_exists": skipped_exists,
             "failed": failed,
+            "no_manual_masks": no_masks,
         },
         "entries": processed_entries,
     }
@@ -184,8 +205,8 @@ def main() -> None:
     args.out_mapping_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_mapping_json.write_text(json.dumps(out_mapping, indent=2))
     logging.info("Processed mapping saved to: %s", args.out_mapping_json)
-    logging.info("Done. processed=%d skipped_exists=%d failed=%d",
-                 len(processed_entries), skipped_exists, failed)
+    logging.info("Done. processed=%d skipped_exists=%d failed=%d no_manual_masks=%d",
+                 len(processed_entries), skipped_exists, failed, no_masks)
 
 
 if __name__ == "__main__":
