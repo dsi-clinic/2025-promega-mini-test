@@ -9,7 +9,7 @@ This matches the old workflow:
 
 Input JSON expected shape:
 {
-  "_processed_base_folder": "/path/to/std_512x384/images",
+  "_base_folder": "/path/to/std_512x384/images",
   "entries": {
     "<record_id>": {
       "processed_image": "BA1_...tif",
@@ -22,18 +22,20 @@ Input JSON expected shape:
 }
 """
 
-from __future__ import annotations
+# from __future__ import annotations
 
 import argparse
+import dataclasses
+import datetime
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple, get_args, get_origin
 
-import numpy as np
-
-import torch  # type: ignore
 import cv2  # type: ignore
+import numpy as np
+import tifffile  # type: ignore
+import torch  # type: ignore
 
 try:
     from mmseg.apis import init_model, inference_model  # type: ignore
@@ -44,34 +46,115 @@ except Exception as e:
         f"Import error: {e}"
     )
 
-# Internal model presets (same pattern you used before)
-#from analysis.images.segmentation_mmseg.mmseg_paths import EARLY_MODEL, LATE_MODEL  # type: ignore
+
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 
-logging.basicConfig(
-    format="%(asctime)s,%(msecs)d %(levelname)s %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S",
-    level=logging.INFO,
-)
+@dataclasses.dataclass
+class Config:
+    image_mapping_json: Path = dataclasses.field(metadata={
+        "help": "Processed image mapping JSON (std_512x384). This file will be UPDATED in-place."
+    })
+    out_dir: Path = dataclasses.field(metadata={
+        "help": "Output dir for masks (writes to out-dir/masks)."
+    })
+    config: Path = dataclasses.field(metadata={
+        "help": "MMSeg config path."
+    })
+    checkpoint: Path = dataclasses.field(metadata={
+        "help": "MMSeg checkpoint path."
+    })
+    model_type: str = dataclasses.field(metadata={
+        "help": "Which internal model preset to use.",
+        "choices": ["early", "late"] # model paths, early days 3-10, late 13-30
+    })
+    days: Optional[Set[str]] = dataclasses.field(default=None, metadata={
+        "help": "Comma-separated dayIDs to run (e.g. Dy03,Dy06,Dy08,Dy10). If omitted, runs all days."
+    })
+    overwrite: bool = dataclasses.field(default=False, metadata={
+        "help": "Overwrite existing mask files."
+    })
+    dry_run: bool = dataclasses.field(default=False, metadata={
+        "help": "No inference; just validate + report counts."
+    })
+    smoke: Optional[int] = dataclasses.field(default=None, metadata={
+        "help": "Limit to N records for quick test."
+    })
+    write_collage: bool = dataclasses.field(default=False, metadata={
+        "help": "Write inference_collage.png for quick QC."
+    })
+    collage_n: int = dataclasses.field(default=10, metadata={
+        "help": "Number of samples in collage if enabled."
+    })
+    seed: int = dataclasses.field(default=1, metadata={
+        "help": "Random seed for reproducibility."
+    })
+    mask_ext: str = dataclasses.field(default="png", metadata={
+        "help": "Mask file extension.",
+        "choices": ["png", "tif"]
+    })
+    mask_suffix: str = dataclasses.field(default="_mask", metadata={
+        "help": "Suffix appended to mask filename stem."
+    })
 
-# model paths, early days 3-10, late 13-30
-EARLY_MODEL = {
-    "config": Path(
-        "/net/projects2/promega/data_reorg/data/masks/trained_models/512x384/october_early/early/vis_data/config.py"
-    ),
-    "checkpoint": Path(
-        "/net/projects2/promega/data_reorg/data/masks/trained_models/512x384/october_early/iter_1000.pth"
-    ),
-}
+    def __post_init__(self):
+        if self.model_type not in ["early", "late"]:
+            raise ValueError(f"Invalid model type: {self.model_type}")
+        if self.mask_ext not in ["png", "tif"]:
+            raise ValueError(f"Invalid mask extension: {self.mask_ext}")
 
-LATE_MODEL = {
-    "config": Path(
-        "/net/projects2/promega/data_reorg/data/masks/trained_models/512x384/october_late/late/vis_data/config.py"
-    ),
-    "checkpoint": Path(
-        "/net/projects2/promega/data_reorg/data/masks/trained_models/512x384/october_late/iter_1000.pth"
-    ),
-}
+        if not self.out_dir.exists():
+            self.out_dir.mkdir(parents=True, exist_ok=True)
+
+        if not self.image_mapping_json.exists():
+            raise ValueError(f"Mapping JSON does not exist: {self.image_mapping_json}")
+        if not self.config.exists():
+            raise ValueError(f"Config does not exist: {self.config}")
+        if not self.checkpoint.exists():
+            raise ValueError(f"Checkpoint does not exist: {self.checkpoint}")
+
+
+def get_args():
+    arg_parser = create_args()
+    args = arg_parser.parse_args()
+    args_dict = vars(args)
+    # Convert days from string to Optional[Set[str]]
+    if 'days' in args_dict:
+        args_dict['days'] = parse_days(args_dict['days'])  # Handles None correctly
+    cfg = Config(**args_dict)
+    return cfg
+
+
+def create_args() -> argparse.ArgumentParser:
+    """Create an ArgumentParser from the Config dataclass."""
+    parser = argparse.ArgumentParser(description="Run image classifier on organoid images")
+
+    for field in dataclasses.fields(Config):
+        # Build argument flag and help message
+        flags = [f"--{field.name.replace('_', '-')}"]
+        kwargs = {
+            "help": field.metadata.get("help", ""),
+            "default": field.default
+        }
+
+        # Determine argument type
+        if field.type == bool:
+            kwargs["action"] = "store_true" if field.default is False else "store_false"
+        elif field.name == "days":
+            # Special handling for days: Optional[Set[str]] - store as string, parse_days will convert it
+            kwargs["type"] = str
+        elif field.type == str and field.metadata.get("choices"):
+            kwargs["choices"] = field.metadata.get("choices")
+        else:
+            kwargs["type"] = field.type
+
+        parser.add_argument(*flags, **kwargs)
+
+    return parser
+
 
 def safe_stem(s: str) -> str:
     # keep it simple and stable
@@ -90,17 +173,6 @@ def parse_days(days_arg: Optional[str]) -> Optional[Set[str]]:
     return days or None
 
 
-def pick_model_paths(model_type: str, cfg_override: Optional[Path], ckpt_override: Optional[Path]) -> Tuple[Path, Path]:
-    # Explicit overrides always win if both provided
-    if cfg_override is not None and ckpt_override is not None:
-        return cfg_override, ckpt_override
-
-    model_info = EARLY_MODEL if model_type == "early" else LATE_MODEL
-    cfg_path = Path(model_info["config"])
-    ckpt_path = Path(model_info["checkpoint"])
-    return cfg_path, ckpt_path
-
-
 def load_mapping(mapping_json: Path) -> Tuple[Path, Dict[str, Dict[str, Any]], Dict[str, Any]]:
     data = json.loads(mapping_json.read_text())
 
@@ -115,87 +187,20 @@ def load_mapping(mapping_json: Path) -> Tuple[Path, Dict[str, Dict[str, Any]], D
     return Path(processed_base), entries, data
 
 
-def get_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Predict masks with MMSeg and append mask_path into mapping JSON")
-
-    p.add_argument(
-        "--image-mapping-json",
-        type=Path,
-        required=True,
-        help="Processed image mapping JSON (std_512x384). This file will be UPDATED in-place.",
-    )
-
-    p.add_argument(
-        "--out-dir",
-        type=Path,
-        required=True,
-        help="Output dir for masks (writes to out-dir/masks).",
-    )
-
-    p.add_argument(
-        "--model-type",
-        choices=["early", "late"],
-        required=True,
-        help="Which internal model preset to use.",
-    )
-
-    p.add_argument(
-        "--days",
-        type=str,
-        default=None,
-        help="Comma-separated dayIDs to run (e.g. Dy03,Dy06,Dy08,Dy10). If omitted, runs all days.",
-    )
-
-    p.add_argument("--overwrite", action="store_true", help="Overwrite existing mask files.")
-    p.add_argument("--dry-run", action="store_true", help="No inference; just validate + report counts.")
-    p.add_argument("--smoke", type=int, default=None, help="Limit to N records for quick test.")
-
-    p.add_argument("--config", type=Path, default=None, help="Override MMSeg config path (optional).")
-    p.add_argument("--checkpoint", type=Path, default=None, help="Override MMSeg checkpoint path (optional).")
-
-    p.add_argument("--write-collage", action="store_true", help="Write inference_collage.png for quick QC.")
-    p.add_argument("--collage-n", type=int, default=10, help="Number of samples in collage if enabled.")
-    p.add_argument("--seed", type=int, default=0)
-
-    # mask file format
-    p.add_argument("--mask-ext", choices=["png", "tif"], default="png")
-    p.add_argument("--mask-suffix", type=str, default="_mask", help="Suffix appended to mask filename stem.")
-
-    return p.parse_args()
-
-
 def main() -> None:
+    start = datetime.datetime.now()
     args = get_args()
-    allowed_days = parse_days(args.days)
-
-    logging.info("image_mapping_json: %s", args.image_mapping_json)
-    logging.info("out_dir: %s", args.out_dir)
-    logging.info("model_type: %s", args.model_type)
-    logging.info("days filter: %s", sorted(allowed_days) if allowed_days else None)
-    logging.info("overwrite: %s", args.overwrite)
-    logging.info("dry_run: %s", args.dry_run)
-    logging.info("smoke: %s", args.smoke)
+    for key, value in vars(args).items():
+        logging.info("%s: %s", key, value)
 
     processed_base, entries, full_json = load_mapping(args.image_mapping_json)
     logging.info("processed_base: %s", processed_base)
     logging.info("loaded entries: %d", len(entries))
 
-    cfg_path, ckpt_path = pick_model_paths(args.model_type, args.config, args.checkpoint)
-    if not cfg_path.exists():
-        raise SystemExit(f"Missing config: {cfg_path}")
-    if not ckpt_path.exists():
-        raise SystemExit(f"Missing checkpoint: {ckpt_path}")
-
-    out_dir = args.out_dir
-    masks_dir = out_dir
-
-    if not args.dry_run:
-        out_dir.mkdir(parents=True, exist_ok=True)
-
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     model = None
     if not args.dry_run:
-        model = init_model(str(cfg_path), str(ckpt_path), device=device)
+        model = init_model(str(args.config), str(args.checkpoint), device=device)
         if device == "cpu":
             model = revert_sync_batchnorm(model)
         logging.info("Model loaded on %s", device)
@@ -225,22 +230,22 @@ def main() -> None:
         entry = entries[record_id]
         day = entry.get("dayID")
 
-        if allowed_days is not None and day not in allowed_days:
+        if args.days is not None and day not in args.days:
             skipped_day += 1
             continue
 
         try:
-            rel = entry.get("processed_image")
-            if not rel:
+            img_path_str = entry.get("processed_image")
+            if not img_path_str:
                 raise KeyError("Entry missing processed_image")
 
-            img_path = processed_base / str(rel)
+            img_path = Path(img_path_str)
             if not img_path.exists():
                 raise FileNotFoundError(str(img_path))
 
             main_id = entry.get("main_id") or record_id
             mask_stem = safe_stem(main_id) + args.mask_suffix
-            mask_path = masks_dir / f"{mask_stem}.{args.mask_ext}"
+            mask_path = args.out_dir / f"{mask_stem}.{args.mask_ext}"
 
             if args.dry_run:
                 # Just pretend we wrote it; do not modify JSON
@@ -250,12 +255,12 @@ def main() -> None:
             if mask_path.exists() and not args.overwrite:
                 skipped_exists += 1
                 # Still append mask path into JSON if you want it “filled”
-                entry["mask_path"] = str(mask_path)
-                entry["mask_model"] = args.model_type
+                entry["predicted_mask_path"] = str(mask_path)
+                entry["predicted_mask_model"] = args.model_type
                 continue
 
             # Run inference
-            result = inference_model(model, str(img_path))
+            result = inference_model(model, img_path_str)
             pred = result.pred_sem_seg.data.squeeze().cpu().numpy().astype(np.uint8)
 
             # Save mask
@@ -267,18 +272,17 @@ def main() -> None:
                     raise RuntimeError(f"cv2.imwrite failed: {mask_path}")
             else:
                 # tif, save 0/1 mask
-                import tifffile  # type: ignore
                 tifffile.imwrite(str(mask_path), pred.astype(np.uint8))
 
             # Append into the SAME JSON entry (your requested behavior)
-            entry["mask_path"] = str(mask_path)
-            entry["mask_model"] = args.model_type
+            entry["predicted_mask_path"] = str(mask_path)
+            entry["predicted_mask_model"] = args.model_type
 
             processed += 1
 
             # Optional collage row
             if args.write_collage and record_id in sample_ids:
-                img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
+                img = cv2.imread(img_path_str, cv2.IMREAD_COLOR)
                 if img is not None:
                     mask_vis = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
                     if mask_vis is not None:
@@ -300,20 +304,24 @@ def main() -> None:
         logging.info("Would fail: %d", failed)
         return
 
+    # Assert completed records number
+
+
     # Write back the updated mapping JSON (in place)
     args.image_mapping_json.write_text(json.dumps(full_json, indent=2))
     logging.info("Updated mapping JSON in-place: %s", args.image_mapping_json)
 
     # Write collage
     if args.write_collage and collage_rows:
-        collage_path = out_dir / "inference_collage.png"
+        collage_path = args.out_dir / "inference_collage.png"
         cv2.imwrite(str(collage_path), np.vstack(collage_rows))
         logging.info("Wrote collage: %s", collage_path)
 
     logging.info("Done. processed=%d skipped_day=%d skipped_exists=%d failed=%d",
                  processed, skipped_day, skipped_exists, failed)
+    end = datetime.datetime.now()
+    logging.info("Elapsed time: %s", end - start)
 
 
 if __name__ == "__main__":
     main()
-

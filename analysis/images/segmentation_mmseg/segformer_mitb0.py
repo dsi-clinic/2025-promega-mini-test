@@ -66,9 +66,6 @@ decode_head=dict(
 #     std=[127.5],
 #     to_rgb=False)
 
-# Import your custom transform at the top of your config
-custom_imports = dict(imports=['custom_transforms'])
-
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=False, with_label=False, with_seg=True),
