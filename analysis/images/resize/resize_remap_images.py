@@ -60,6 +60,7 @@ def parse_args() -> argparse.Namespace:
     )
 
     p.add_argument("--image-mapping-json", type=Path, required=True, help="Input mapping JSON (from image_mapper).")
+    p.add_argument("--mask-mapping-json", type=Path, required=True, help="Manual masks mapping JSON (from manual masks mapping).")
     p.add_argument("--out-dir", type=Path, required=True, help="Output directory for processed PNG images.")
     p.add_argument("--out-mapping-json", type=Path, required=True, help="Output mapping JSON with processed_image fields.")
 
@@ -82,16 +83,20 @@ def main() -> None:
     logging.info("interpolation: INTER_LINEAR")
     logging.info("overwrite=%s smoke=%s", args.overwrite, args.smoke)
 
-    mapping: Dict[str, Any] = json.loads(args.image_mapping_json.read_text())
-    base_folder = get_base_folder(mapping)
+    image_mapping: Dict[str, Any] = json.loads(args.image_mapping_json.read_text())
+    base_folder = get_base_folder(image_mapping)
 
-    entries: Dict[str, Dict[str, Any]] = mapping.get("entries", {})
-    if not isinstance(entries, dict) or not entries:
+    image_entries: Dict[str, Dict[str, Any]] = image_mapping.get("entries", {})
+    if not isinstance(image_entries, dict) or not image_entries:
+        raise RuntimeError("Mapping JSON has no 'entries' dict or it's empty.")
+
+    mask_entries: Dict[str, Any] = json.loads(args.mask_mapping_json.read_text())
+    if not isinstance(mask_entries, dict) or not mask_entries:
         raise RuntimeError("Mapping JSON has no 'entries' dict or it's empty.")
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
-    record_ids = list(entries.keys())
+    record_ids = list(image_entries.keys())
     if args.smoke is not None and args.smoke > 0:
         record_ids = record_ids[: args.smoke]
 
@@ -100,7 +105,7 @@ def main() -> None:
     failed = 0
 
     for record_id in tqdm(record_ids, desc="Processing records"):
-        entry = entries[record_id]
+        entry = image_entries[record_id]
         try:
             # Match your earlier convention: prefer "Best Z Filename"
             rel_img = (
@@ -121,8 +126,9 @@ def main() -> None:
 
             if out_img_path.exists() and not args.overwrite:
                 new_entry = dict(entry)
-                new_entry["processed_image"] = str(out_img_path.relative_to(args.out_dir))
+                new_entry["processed_image"] = str(out_img_path)
                 new_entry["processed_image_record_id"] = record_id
+                new_entry["manual_mask_path"] = mask_entries.get(record_id, {}).get("MT Mask Path", "")
                 processed_entries[record_id] = new_entry
                 skipped_exists += 1
                 continue
@@ -144,8 +150,9 @@ def main() -> None:
                 raise RuntimeError(f"cv2.imwrite failed: {out_img_path}")
 
             new_entry = dict(entry)
-            new_entry["processed_image"] = str(out_img_path.relative_to(args.out_dir))
+            new_entry["processed_image"] = str(out_img_path)
             new_entry["processed_image_record_id"] = record_id
+            new_entry["manual_mask_path"] = mask_entries.get(record_id, {}).get("MT Mask Path", "")
             processed_entries[record_id] = new_entry
 
         except Exception:
@@ -163,7 +170,7 @@ def main() -> None:
             "format": "png",
         },
         "summary": {
-            "input_entries": len(entries),
+            "input_entries": len(image_entries),
             "processed_entries": len(processed_entries),
             "skipped_exists": skipped_exists,
             "failed": failed,
