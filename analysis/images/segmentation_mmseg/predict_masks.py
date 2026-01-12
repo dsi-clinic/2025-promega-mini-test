@@ -36,6 +36,7 @@ import cv2  # type: ignore
 import numpy as np
 import tifffile  # type: ignore
 import torch  # type: ignore
+from tqdm import tqdm
 
 try:
     from mmseg.apis import init_model, inference_model  # type: ignore
@@ -52,6 +53,8 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(leveln
                     datefmt='%Y-%m-%dT%H:%M:%S',
                     level=logging.INFO)
 
+
+EXPECTED_RECORDS_NUM = 5168
 
 @dataclasses.dataclass
 class Config:
@@ -226,7 +229,7 @@ def main() -> None:
     skipped_exists = 0
     failed = 0
 
-    for record_id in record_ids:
+    for record_id in tqdm(record_ids, desc="Predicting masks"):
         entry = entries[record_id]
         day = entry.get("dayID")
 
@@ -305,7 +308,8 @@ def main() -> None:
         return
 
     # Assert completed records number
-
+    if processed != EXPECTED_RECORDS_NUM:
+        raise ValueError(f"Expected {EXPECTED_RECORDS_NUM} records, got {processed}")
 
     # Write back the updated mapping JSON (in place)
     args.image_mapping_json.write_text(json.dumps(full_json, indent=2))
