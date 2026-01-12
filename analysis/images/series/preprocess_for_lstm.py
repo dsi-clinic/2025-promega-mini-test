@@ -1,12 +1,10 @@
 # analysis/images/series/preprocess_for_lstm.py
-from __future__ import annotations
+# from __future__ import annotations
 import argparse
 import json
 import logging
-from collections import defaultdict
 from pathlib import Path
 
-import cv2
 import numpy as np
 from skimage.io import imread, imsave
 from skimage.transform import resize
@@ -17,11 +15,31 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(leveln
                     datefmt='%Y-%m-%dT%H:%M:%S',
                     level=logging.INFO)
 
-from config import OUTPUT_FOLDER, RAW_IMAGE_DATA
-
 # Target physical scale and dimensions
+COMPLETE_SERIES = 'complete_series_data_no_blanks.json'
 TARGET_UM_PER_PX = 6.0
 TARGET_SIZE = 768
+
+def get_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description='Preprocess images and masks for LSTM training with uniform physical scale'
+    )
+    parser.add_argument('--complete-series', type=Path, default=COMPLETE_SERIES,
+                       help=f'Complete series data file (default: {COMPLETE_SERIES})')
+    parser.add_argument('--raw-image-dir', type=Path,
+                       help='Base folder for raw images')
+    parser.add_argument('--out-dir', type=Path,
+                       help='Output directory')
+    parser.add_argument('--target-um-per-px', type=float, default=TARGET_UM_PER_PX,
+                       help=f'Target physical scale in um per pixel (default: {TARGET_UM_PER_PX})')
+    parser.add_argument('--target-size', type=int, default=TARGET_SIZE,
+                       help=f'Target square size in pixels (default: {TARGET_SIZE})')
+    parser.add_argument('--skip-analysis', action='store_true',
+                       help='Skip dimension analysis and proceed directly')
+    parser.add_argument('--save-debug', action='store_true',
+                       help='Save debug images for first 5 entries')
+    args = parser.parse_args()
+    return args
 
 def load_json(p: Path):
     with open(p, "r") as f:
@@ -75,9 +93,9 @@ def analyze_target_dimension_distribution(data, target_um_per_px):
         if isinstance(orig_um_per_px, (list, tuple)):
             orig_um_per_px = orig_um_per_px[0]
 
-        if orig_um_per_px and 'processed' in entry:
-            orig_w = entry['processed'].get('orig_width_px')
-            orig_h = entry['processed'].get('orig_height_px')
+        if orig_um_per_px and 'orig_width_px' in entry and 'orig_height_px' in entry:
+            orig_w = entry['orig_width_px']
+            orig_h = entry['orig_height_px']
 
             if orig_w and orig_h:
                 target_w, target_h = calculate_target_dimensions(
@@ -89,17 +107,17 @@ def analyze_target_dimension_distribution(data, target_um_per_px):
     widths = np.array(widths)
     heights = np.array(heights)
 
-    print(f"\nTarget dimension statistics (at {target_um_per_px} um/px):")
-    print(f"  Width  - min: {widths.min():4d}, median: {int(np.median(widths)):4d}, max: {widths.max():4d}")
-    print(f"  Height - min: {heights.min():4d}, median: {int(np.median(heights)):4d}, max: {heights.max():4d}")
-    print(f"  95th percentile - width: {int(np.percentile(widths, 95)):4d}, height: {int(np.percentile(heights, 95)):4d}")
+    logging.info("Target dimension statistics (at %.4f um/px):", target_um_per_px)
+    logging.info("  Width  - min: %d, median: %d, max: %d", widths.min(), int(np.median(widths)), widths.max())
+    logging.info("  Height - min: %d, median: %d, max: %d", heights.min(), int(np.median(heights)), heights.max())
+    logging.info("  95th percentile - width: %d, height: %d", int(np.percentile(widths, 95)), int(np.percentile(heights, 95)))
 
     # Count how many exceed different thresholds
-    print(f"\nImages exceeding various sizes:")
+    logging.info("Images exceeding various sizes:")
     for size in [512, 768, 1024, 1200]:
         exceeding = np.sum((widths > size) | (heights > size))
         pct = 100*exceeding/len(widths) if len(widths) > 0 else 0
-        print(f"  {size}×{size}: {exceeding:4d} images ({pct:5.1f}%)")
+        logging.info("  %d×%d: %d images (%.1f%%)", size, size, exceeding, pct)
 
     return widths, heights
 
@@ -172,14 +190,14 @@ def resize_and_pad(image, target_width, target_height, target_size, is_mask=Fals
 
     return padded
 
-def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, stats, save_debug=False):
+def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, stats, target_um_per_px, target_size, save_debug=False):
     """
     Process a single entry: load raw image and mask, resize, pad, save
     Returns lstm_processed metadata to add to entry
     """
     try:
         # Get metadata
-        main_id = entry.get('main_id')
+        main_id = entry.get('verification', {}).get('main_id')
         if not main_id:
             stats['errors'].append(f"{key}: No main_id")
             return None
@@ -205,8 +223,8 @@ def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, 
             return None
 
         mask_path = None
-        if 'processed' in entry and 'mask_path' in entry['processed']:
-            mask_path = Path(entry['processed']['mask_path'])
+        if 'predicted_mask_path' in entry:
+            mask_path = Path(entry['predicted_mask_path'])
             if not mask_path.exists():
                 stats['warnings'].append(f"{key}: Mask not found at {mask_path}")
                 mask_path = None
@@ -262,18 +280,18 @@ def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, 
 
         # Calculate target dimensions for target um/px
         target_width, target_height = calculate_target_dimensions(
-            orig_width, orig_height, orig_um_per_px, TARGET_UM_PER_PX
+            orig_width, orig_height, orig_um_per_px, target_um_per_px
         )
 
         # Resize and pad image (white padding for well background)
         image_processed = resize_and_pad(raw_image, target_width, target_height,
-                                        TARGET_SIZE, is_mask=False)
+                                        target_size, is_mask=False)
 
         # Resize and pad mask (black padding for background label)
         mask_processed = None
         if mask_resized is not None:
             mask_processed = resize_and_pad(mask_resized, target_width, target_height,
-                                           TARGET_SIZE, is_mask=True)
+                                           target_size, is_mask=True)
 
         # Save processed image
         image_output_path = output_images_dir / f"{main_id}.png"
@@ -297,8 +315,8 @@ def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, 
         return {
             'image_path': str(image_output_path),
             'mask_path': str(mask_output_path) if mask_output_path else None,
-            'target_um_per_px': TARGET_UM_PER_PX,
-            'final_size': TARGET_SIZE,
+            'target_um_per_px': target_um_per_px,
+            'final_size': target_size,
             'target_width_before_pad': target_width,
             'target_height_before_pad': target_height,
             'padding_type': 'white (255) for images, black (0) for masks'
@@ -309,105 +327,83 @@ def process_entry(key, entry, base_folder, output_images_dir, output_masks_dir, 
         return None
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Preprocess images and masks for LSTM training with uniform physical scale'
-    )
-    parser.add_argument('--target-um-per-px', type=float, default=6.0,
-                       help='Target physical scale in um per pixel (default: 4.0)')
-    parser.add_argument('--target-size', type=int, default=768,
-                       help='Target square size in pixels (default: 1200)')
-    parser.add_argument('--base-folder', type=str, default=None,
-                       help='Base folder for raw images (default: from RAW_IMAGE_DATA)')
-    parser.add_argument('--skip-analysis', action='store_true',
-                       help='Skip dimension analysis and proceed directly')
-    parser.add_argument('--save-debug', action='store_true',
-                       help='Save debug images for first 5 entries')
-    args = parser.parse_args()
+    args = get_args()
+    for key, value in args.__dict__.items():
+        logging.info(f"{key}: {value}")
 
-    global TARGET_UM_PER_PX, TARGET_SIZE
-    TARGET_UM_PER_PX = args.target_um_per_px
-    TARGET_SIZE = args.target_size
-
-    print(f"\n{'='*70}")
-    print("LSTM IMAGE PREPROCESSING")
-    print(f"{'='*70}")
-    print(f"Target physical scale: {TARGET_UM_PER_PX} um/px")
-    print(f"Target dimensions: {TARGET_SIZE}×{TARGET_SIZE} px")
-    print(f"Padding: WHITE (255) for images, BLACK (0) for masks")
+    logging.info("%s", '='*70)
+    logging.info("LSTM IMAGE PREPROCESSING")
+    logging.info("%s", '='*70)
+    logging.info(f"Target physical scale: {args.target_um_per_px} um/px")
+    logging.info(f"Target dimensions: {args.target_size}×{args.target_size} px")
+    logging.info(f"Padding: WHITE (255) for images, BLACK (0) for masks")
 
     # Load data
-    data_path = OUTPUT_FOLDER / 'complete_series_data_no_blanks.json'
+    data_path = args.complete_series
     if not data_path.exists():
-        print(f"ERROR: {data_path} not found. Run filter_complete_series.py first.")
+        logging.error("%s not found. Run filter_complete_series.py first.", data_path)
         return
 
-    print(f"\nLoading data from {data_path}")
+    logging.info("Loading data from %s", data_path)
     data = load_json(data_path)
-    print(f"Loaded {len(data)} entries")
+    logging.info("Loaded %d entries", len(data))
 
     # Determine base folder for raw images
-    if args.base_folder:
-        base_folder = Path(args.base_folder)
-    else:
-        base_folder = RAW_IMAGE_DATA
-
-    print(f"Raw images base folder: {base_folder}")
-
+    base_folder = args.raw_image_dir
     if not base_folder.exists():
-        print(f"ERROR: Base folder does not exist: {base_folder}")
+        logging.error("Base folder does not exist: %s", base_folder)
         return
 
     # Analyze target dimensions
     if not args.skip_analysis:
-        print(f"\n{'='*70}")
-        print("ANALYZING TARGET DIMENSIONS")
-        print(f"{'='*70}")
+        logging.info("%s", '='*70)
+        logging.info("ANALYZING TARGET DIMENSIONS")
+        logging.info("%s", '='*70)
 
-        max_w, max_h = find_max_target_dimensions(data, TARGET_UM_PER_PX)
-        print(f"\nMaximum target dimensions:")
-        print(f"  Width:  {max_w}px")
-        print(f"  Height: {max_h}px")
+        max_w, max_h = find_max_target_dimensions(data, args.target_um_per_px)
+        logging.info("Maximum target dimensions:")
+        logging.info("  Width:  %dpx", max_w)
+        logging.info("  Height: %dpx", max_h)
 
         recommended_size = max(max_w, max_h)
-        print(f"\nRecommended TARGET_SIZE: {recommended_size}px")
+        logging.info("Recommended TARGET_SIZE: %dpx", recommended_size)
 
         # Show distribution
-        analyze_target_dimension_distribution(data, TARGET_UM_PER_PX)
+        analyze_target_dimension_distribution(data, args.target_um_per_px)
 
         # Warn if TARGET_SIZE is too small
-        if TARGET_SIZE < recommended_size:
-            print(f"\n{'='*70}")
-            print(f"[WARNING] Current TARGET_SIZE ({TARGET_SIZE}) is SMALLER than needed!")
-            print(f"{'='*70}")
-            print(f"  {recommended_size - TARGET_SIZE}px will be CROPPED from largest images")
-            print(f"  This means losing organoid content at the edges!")
-            print(f"\nRecommendation: Use --target-size {recommended_size}")
+        if args.target_size < recommended_size:
+            logging.info("%s", '='*70)
+            logging.warning("[WARNING] Current TARGET_SIZE (%d) is SMALLER than needed!", args.target_size)
+            logging.info("%s", '='*70)
+            logging.info("  %dpx will be CROPPED from largest images", recommended_size - args.target_size)
+            logging.info("  This means losing organoid content at the edges!")
+            logging.info("Recommendation: Use --target-size %d", recommended_size)
             response = input("\nContinue anyway? (y/n): ")
             if response.lower() != 'y':
-                print("Aborted. Rerun with larger --target-size")
+                logging.info("Aborted. Rerun with larger --target-size")
                 return
         else:
-            print(f"\n[OK] TARGET_SIZE {TARGET_SIZE} is sufficient for all images")
+            logging.info("[OK] TARGET_SIZE %d is sufficient for all images", args.target_size)
 
     # Create output directories
-    output_base = OUTPUT_FOLDER / 'lstm_ready'
+    output_base = args.out_dir / 'lstm_ready'
     output_images_dir = output_base / 'images'
-    output_masks_dir = output_base / 'masks'
-
     output_images_dir.mkdir(parents=True, exist_ok=True)
+    output_masks_dir = output_base / 'masks'
     output_masks_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'='*70}")
-    print("PROCESSING IMAGES AND MASKS")
-    print(f"{'='*70}")
-    print(f"Output directories:")
-    print(f"  Images: {output_images_dir}")
-    print(f"  Masks:  {output_masks_dir}")
+    logging.info("%s", '='*70)
+    logging.info("PROCESSING IMAGES AND MASKS")
+    logging.info("%s", '='*70)
+    logging.info("Output directories:")
+    logging.info("  Images: %s", output_images_dir)
+    logging.info("  Masks:  %s", output_masks_dir)
     if args.save_debug:
-        print(f"  Debug:  {output_base / 'debug'}")
+        logging.info("  Debug:  %s", output_base / 'debug')
 
     # Process all entries
-    print(f"\nProcessing {len(data)} entries...")
+    logging.info("Processing %d entries...", len(data))
 
     stats = {
         'processed': 0,
@@ -419,7 +415,8 @@ def main():
 
     for key, entry in tqdm(data.items(), desc="Processing"):
         lstm_metadata = process_entry(key, entry, base_folder, output_images_dir,
-                                      output_masks_dir, stats, save_debug=args.save_debug)
+                                      output_masks_dir, stats, args.target_um_per_px,
+                                       args.target_size, save_debug=args.save_debug)
         if lstm_metadata:
             # Add lstm_processed field to entry
             entry['lstm_processed'] = lstm_metadata
@@ -432,45 +429,45 @@ def main():
                 orig_scales.append(orig_um_per_px)
 
     # Save updated data back to JSON
-    print(f"\nSaving updated data to {data_path}")
+    logging.info("Saving updated data to %s", data_path)
     save_json(data_path, data)
 
-    # Print summary
-    print(f"\n{'='*70}")
-    print("PROCESSING SUMMARY")
-    print(f"{'='*70}")
-    print(f"Successfully processed: {stats['processed']} / {len(data)}")
-    print(f"Errors: {len(stats['errors'])}")
-    print(f"Warnings: {len(stats['warnings'])}")
+    # logging.info summary
+    logging.info("%s", '='*70)
+    logging.info("PROCESSING SUMMARY")
+    logging.info("%s", '='*70)
+    logging.info("Successfully processed: %d / %d", stats['processed'], len(data))
+    logging.info("Errors: %d", len(stats['errors']))
+    logging.info("Warnings: %d", len(stats['warnings']))
 
     if stats['errors']:
-        print(f"\nFirst 10 errors:")
+        logging.info("First 10 errors:")
         for error in stats['errors'][:10]:
-            print(f"  - {error}")
+            logging.info("  - %s", error)
 
     if stats['warnings']:
-        print(f"\nFirst 10 warnings:")
+        logging.info("First 10 warnings:")
         for warning in stats['warnings'][:10]:
-            print(f"  - {warning}")
+            logging.info("  - %s", warning)
 
-    print(f"\nOutput saved to:")
-    print(f"  Images: {output_images_dir} (white padding)")
-    print(f"  Masks: {output_masks_dir} (black padding)")
-    print(f"  Updated data: {data_path} (added 'lstm_processed' field)")
+    logging.info("Output saved to:")
+    logging.info("  Images: %s (white padding)", output_images_dir)
+    logging.info("  Masks: %s (black padding)", output_masks_dir)
+    logging.info("  Updated data: %s (added 'lstm_processed' field)", data_path)
 
     # Calculate final statistics
     if orig_scales:
-        print(f"\n{'='*70}")
-        print("PHYSICAL SCALE VERIFICATION")
-        print(f"{'='*70}")
-        print(f"Original scales ranged from {min(orig_scales):.4f} to {max(orig_scales):.4f} um/px")
-        print(f"All images now uniformly at {TARGET_UM_PER_PX} um/px")
-        print(f"All images now uniformly {TARGET_SIZE}×{TARGET_SIZE} pixels")
-        print(f"\n[OK] Ready for LSTM training!")
-        print(f"\nFor LSTM training:")
-        print(f"  1. Load complete_series_metadata_no_blanks.json for sequences")
-        print(f"  2. Load complete_series_data_no_blanks.json for entry data")
-        print(f"  3. Access processed images via entry['lstm_processed']['image_path']")
+        logging.info("%s", '='*70)
+        logging.info("PHYSICAL SCALE VERIFICATION")
+        logging.info("%s", '='*70)
+        logging.info("Original scales ranged from %.4f to %.4f um/px", min(orig_scales), max(orig_scales))
+        logging.info("All images now uniformly at %.4f um/px", args.target_um_per_px)
+        logging.info("All images now uniformly %d×%d pixels", args.target_size, args.target_size)
+        logging.info("[OK] Ready for LSTM training!")
+        logging.info("For LSTM training:")
+        logging.info("  1. Load complete_series_metadata_no_blanks.json for sequences")
+        logging.info("  2. Load complete_series_data_no_blanks.json for entry data")
+        logging.info("  3. Access processed images via entry['lstm_processed']['image_path']")
 
 if __name__ == "__main__":
     main()
