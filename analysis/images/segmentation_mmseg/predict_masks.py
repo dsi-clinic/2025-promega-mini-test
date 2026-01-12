@@ -311,9 +311,10 @@ def main() -> None:
     if processed != EXPECTED_RECORDS_NUM:
         raise ValueError(f"Expected {EXPECTED_RECORDS_NUM} records, got {processed}")
 
-    # Write back the updated mapping JSON (in place)
-    args.image_mapping_json.write_text(json.dumps(full_json, indent=2))
-    logging.info("Updated mapping JSON in-place: %s", args.image_mapping_json)
+    # Write back the updated mapping JSON (to a new file)
+    new_json = Path(str(args.image_mapping_json).replace("resized", "predicted"))
+    new_json.write_text(json.dumps(full_json, indent=2))
+    logging.info("Updated mapping JSON in-place: %s", new_json)
 
     # Write collage
     if args.write_collage and collage_rows:
