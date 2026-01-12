@@ -125,19 +125,12 @@ def draw_outline_overlay(img_bgr: np.ndarray, mask_bin: np.ndarray, color=(0,255
         cv2.drawContours(out, contours, contourIdx=-1, color=color, thickness=thickness, lineType=cv2.LINE_AA)
     return out
 
-def main():
-    start = datetime.datetime.now()
-    args = get_args()
-    for key, value in vars(args).items():
-        logging.info(f"  {key}: {value}")
-
-    mapping = load_json(args.image_mapping_json).get("entries", {})
-    logging.info(f"Found {len(mapping)} records in: %s", args.image_mapping_json)
-
-    totals = Counter({
+def initialize_totals() -> Counter:
+    """Initialize the statistics counter."""
+    return Counter({
         "overlays_created": 0,
         "overlays_skipped": 0,
-        "skipped_existing": 0,
+        "overlays_skipped_existing": 0,
         "pairs_total": 0,
         "missing_imgs": 0,
         "missing_masks": 0,
@@ -146,94 +139,129 @@ def main():
         "write_fails": 0,
         "processed": 0
     })
-    missing_pairs = [] # (key, reason)
-    for record_id, record in tqdm(mapping.items(), desc="Processing records"):
-        updated = False
-        img_path = record.get("processed_image")
-        mask_path = record.get("predicted_mask_path")
 
-        # 1) Missing file paths in JSON data
-        if not img_path or not mask_path:
-            logging.warning(f"Record {record_id} has no image or mask path")
-            totals.update({
-                "missing_imgs": 1,
-                "missing_masks": 1,
-                "overlays_skipped": 1,
-            })
-            missing_pairs.append((record_id, f"missing in json: [img_path:{img_path}] or [mask_path:{mask_path}]"))
-            continue
+def validate_paths_in_json(record_id: str, record: dict) -> tuple[bool, str | None]:
+    """
+    Validate that image and mask paths exist in JSON record.
 
-        img_p = Path(img_path)
-        mask_p = Path(mask_path)
+    Returns:
+        (is_valid, error_message): Tuple indicating if paths are valid and error message if not.
+    """
+    img_path = record.get("processed_image")
+    mask_path = record.get("predicted_mask_path")
 
-        # 2) Files missing on disk
-        miss_img = not img_p.exists()
-        miss_msk = not mask_p.exists()
-        if miss_img or miss_msk:
-            totals.update({
-                "missing_imgs": 1 if miss_img else 0,
-                "missing_masks": 1 if miss_msk else 0,
-                "overlays_skipped": 1,
-            })
-            if miss_img: reason += f"[img:{img_p}] "
-            if miss_msk: reason += f"[mask:{mask_p}] "
-            missing_pairs.append((record_id, f"missing on disk: {reason.strip()}"))
-            continue
+    if not img_path or not mask_path:
+        error_msg = f"missing in json: [img_path:{img_path}] or [mask_path:{mask_path}]"
+        logging.warning(f"Record {record_id} has no image or mask path")
+        return False, error_msg
 
-        # 3) decode
-        img = read_image_bgr(img_p)
-        mask_bin = read_mask_bin(mask_p)
-        if img is None or mask_bin is None:
-            totals.update({
-                "decode_imgs": 1 if img is None else 0,
-                "decode_masks": 1 if mask_bin is None else 0,
-                "overlays_skipped": 1,
-            })
-            missing_pairs.append((record_id, f"decode failed: img({img is None}), mask({mask_bin is None})"))
-            continue
+    return True, None
 
-        # 4) Valid pair, draw overlay
-        totals.update({
-            "pairs_total": 1,
-        })
-        out_path = args.overlay_dir / f"{img_p.stem}_overlay.png"
+def validate_files_on_disk(img_path: str, mask_path: str) -> tuple[bool, str | None]:
+    """
+    Validate that image and mask files exist on disk.
 
-        if out_path.exists() and not args.overwrite:
-            if record.get("overlay_path") != str(out_path):
-                record["overlay_path"] = str(out_path)
-                totals.update({
-                    "overlays_skipped_existing": 1,
-                    "processed": 1,
-                })
-                updated = True
-        else:
-            overlay = draw_outline_overlay(img, mask_bin, color=(0,255,0), thickness=2)
-            ok = cv2.imwrite(str(out_path), overlay)
-            if not ok:
-                missing += 1
-                totals.update({
-                    "write_fails": 1,
-                    "overlays_skipped": 1,
-                })
-                missing_pairs.append((k, f"write failed: {out_path}"))
-                continue
+    Returns:
+        (is_valid, error_message): Tuple indicating if files exist and error message if not.
+    """
+    img_p = Path(img_path)
+    mask_p = Path(mask_path)
 
+    miss_img = not img_p.exists()
+    miss_msk = not mask_p.exists()
+
+    if miss_img or miss_msk:
+        reason_parts = []
+        if miss_img:
+            reason_parts.append(f"[img:{img_p}]")
+        if miss_msk:
+            reason_parts.append(f"[mask:{mask_p}]")
+        error_msg = f"missing on disk: {' '.join(reason_parts)}"
+        return False, error_msg
+
+    return True, None
+
+def load_image_and_mask(img_path: str, mask_path: str) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """
+    Load and decode image and mask files.
+
+    Returns:
+        (image, mask): Tuple of loaded arrays, or (None, None) if loading failed.
+    """
+    img_p = Path(img_path)
+    mask_p = Path(mask_path)
+
+    img = read_image_bgr(img_p)
+    mask_bin = read_mask_bin(mask_p)
+
+    return img, mask_bin
+
+def create_or_skip_overlay(
+    record_id: str,
+    record: dict,
+    img: np.ndarray,
+    mask_bin: np.ndarray,
+    img_path: str,
+    overlay_dir: Path,
+    overwrite: bool,
+    totals: Counter,
+    missing_pairs: list
+) -> tuple[bool, bool]:
+    """
+    Create overlay image or skip if it already exists.
+
+    Returns:
+        (overlay_created, json_updated): Tuple indicating if overlay was created and if JSON was updated.
+    """
+    img_p = Path(img_path)
+    out_path = overlay_dir / f"{img_p.stem}_overlay.png"
+
+    overlay_created = False
+    json_updated = False
+
+    if out_path.exists() and not overwrite:
+        # Overlay exists, just update JSON if needed
+        if record.get("overlay_path") != str(out_path):
             record["overlay_path"] = str(out_path)
-            updated = True
-            totals.update({
-                "overlays_created": 1,
-                "processed": 1,
-            })
+            json_updated = True
+        totals.update({
+            "overlays_skipped_existing": 1,
+            "processed": 1,
+        })
+    else:
+        # Create new overlay
+        overlay = draw_outline_overlay(img, mask_bin, color=(0,255,0), thickness=2)
+        ok = cv2.imwrite(str(out_path), overlay)
 
-    # 5) Check data integrity
+        if not ok:
+            totals.update({
+                "write_fails": 1,
+                "overlays_skipped": 1,
+            })
+            missing_pairs.append((record_id, f"write failed: {out_path}"))
+            return False, False
+
+        record["overlay_path"] = str(out_path)
+        json_updated = True
+        overlay_created = True
+        totals.update({
+            "overlays_created": 1,
+            "processed": 1,
+        })
+
+    return overlay_created, json_updated
+
+def validate_data_integrity(totals: Counter, mapping_file_name: str):
+    """Validate data integrity by checking assertions."""
     assert totals["overlays_created"] + totals["overlays_skipped_existing"] == totals["pairs_total"], (
-        f"{args.image_mapping_json.name}: overlays_created({totals['overlays_created']}) + overlays_skipped_existing({totals['overlays_skipped_existing']}) != pairs_total({totals['pairs_total']})"
+        f"{mapping_file_name}: overlays_created({totals['overlays_created']}) + overlays_skipped_existing({totals['overlays_skipped_existing']}) != pairs_total({totals['pairs_total']})"
     )
     assert totals["overlays_created"] + totals["overlays_skipped_existing"] == EXPECTED_RECORDS_NUM, (
-        f"{args.image_mapping_json.name}: overlays_created({totals['overlays_created']}) != EXPECTED_RECORDS_NUM({EXPECTED_RECORDS_NUM})"
+        f"{mapping_file_name}: overlays_created({totals['overlays_created']}) + overlays_skipped_existing({totals['overlays_skipped_existing']}) != EXPECTED_RECORDS_NUM({EXPECTED_RECORDS_NUM})"
     )
 
-    # 6) Print a summary of the results
+def print_summary(totals: Counter):
+    """Print summary statistics."""
     logging.info("overlays created          : %d", totals["overlays_created"])
     logging.info("overlays skipped          : %d", totals["overlays_skipped"])
     logging.info("overlays skipped existing : %d", totals["overlays_skipped_existing"])
@@ -241,15 +269,106 @@ def main():
     logging.info("overlays write fails      : %d", totals["write_fails"])
     logging.info("total overlays processed  : %d", totals["processed"])
 
+def save_results(totals: Counter, missing_pairs: list, overlay_dir: Path):
+    """Save summary statistics to JSON file."""
     totals["missing_pairs"] = missing_pairs
-    save_json(args.overlay_dir / "summary.json", totals)
-    logging.info("summary saved to: %s", args.overlay_dir / "summary.json")
+    summary_path = overlay_dir / "summary.json"
+    save_json(summary_path, totals)
+    logging.info("summary saved to: %s", summary_path)
 
-    # 7) Update JSON if needed
-    if updated:
-        backup = args.image_mapping_json.with_suffix(args.image_mapping_json.suffix + ".bak")
-        save_json(backup, mapping)
-        save_json(args.image_mapping_json, mapping)
+def update_mapping_json(mapping: dict, mapping_json_path: Path, json_updated: bool):
+    """Update mapping JSON file if any records were modified."""
+    if json_updated:
+        save_json(mapping_json_path, mapping)
+        logging.info("Updated mapping JSON: %s", mapping_json_path)
+
+def process_record(
+    record_id: str,
+    record: dict,
+    overlay_dir: Path,
+    overwrite: bool,
+    totals: Counter,
+    missing_pairs: list
+) -> bool:
+    """
+    Process a single record: validate, load, and create overlay.
+
+    Returns:
+        json_updated: Boolean indicating if the record was updated in JSON.
+    """
+    # Step 1: Validate paths in JSON
+    is_valid, error_msg = validate_paths_in_json(record_id, record)
+    if not is_valid:
+        totals.update({
+            "missing_imgs": 1,
+            "missing_masks": 1,
+            "overlays_skipped": 1,
+        })
+        missing_pairs.append((record_id, error_msg))
+        return False
+
+    img_path = record.get("processed_image")
+    mask_path = record.get("predicted_mask_path")
+
+    # Step 2: Validate files exist on disk
+    is_valid, error_msg = validate_files_on_disk(img_path, mask_path)
+    if not is_valid:
+        img_p = Path(img_path)
+        mask_p = Path(mask_path)
+        miss_img = not img_p.exists()
+        miss_msk = not mask_p.exists()
+        totals.update({
+            "missing_imgs": 1 if miss_img else 0,
+            "missing_masks": 1 if miss_msk else 0,
+            "overlays_skipped": 1,
+        })
+        missing_pairs.append((record_id, error_msg))
+        return False
+
+    # Step 3: Load image and mask
+    img, mask_bin = load_image_and_mask(img_path, mask_path)
+    if img is None or mask_bin is None:
+        totals.update({
+            "decode_imgs": 1 if img is None else 0,
+            "decode_masks": 1 if mask_bin is None else 0,
+            "overlays_skipped": 1,
+        })
+        missing_pairs.append((record_id, f"decode failed: img({img is None}), mask({mask_bin is None})"))
+        return False
+
+    # Step 4: Create or skip overlay
+    totals.update({"pairs_total": 1})
+    _, json_updated = create_or_skip_overlay(
+        record_id, record, img, mask_bin, img_path,
+        overlay_dir, overwrite, totals, missing_pairs
+    )
+
+    return json_updated
+
+def main():
+    start = datetime.datetime.now()
+    args = get_args()
+    for key, value in vars(args).items():
+        logging.info(f"  {key}: {value}")
+
+    mapping = load_json(args.image_mapping_json)
+    logging.info(f"Found {len(mapping.get('entries', {}))} records in: %s", args.image_mapping_json)
+
+    totals = initialize_totals()
+    missing_pairs = []
+    json_updated = False
+
+    for record_id, record in tqdm(mapping.get('entries', {}).items(), desc="Processing records"):
+        record_updated = process_record(
+            record_id, record, args.overlay_dir, args.overwrite, totals, missing_pairs
+        )
+        if record_updated:
+            json_updated = True
+
+    validate_data_integrity(totals, args.image_mapping_json.name)
+    print_summary(totals)
+    save_results(totals, missing_pairs, args.overlay_dir)
+    update_mapping_json(mapping, args.image_mapping_json, json_updated)
 
     end = datetime.datetime.now()
     logging.info("time taken: %s", end - start)
