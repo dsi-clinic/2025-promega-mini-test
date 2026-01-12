@@ -98,7 +98,7 @@ def main():
     assert processed + failed + no_mask == EXPECTED_RECORDS_NUM, f"Expected {EXPECTED_RECORDS_NUM} records, got {processed + failed + no_mask}"
 
     if processed > 0 or failed > 0:
-        new_json = Path(str(args.image_mapping_json).replace("overlay", "edge_fraction"))
+        new_json = Path(args.image_mapping_json.parent / (args.image_mapping_json.stem + "_edge.json"))
         save_json(new_json, mapping)
         logging.info(f"Updated mapping JSON saved to: {new_json}")
 

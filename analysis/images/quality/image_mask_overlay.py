@@ -279,7 +279,7 @@ def save_results(totals: Counter, missing_pairs: list, overlay_dir: Path):
 def update_mapping_json(mapping: dict, mapping_json_path: Path, json_updated: bool):
     """Update mapping JSON file if any records were modified."""
     if json_updated:
-        new_json = Path(str(mapping_json_path).replace("predicted", "predicted_overlay"))
+        new_json = Path(mapping_json_path.parent / (mapping_json_path.stem + "_overlay.json"))
         save_json(new_json, mapping)
         logging.info("Updated mapping JSON: %s", new_json)
 
