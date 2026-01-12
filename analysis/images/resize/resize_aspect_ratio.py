@@ -1,9 +1,9 @@
-from __future__ import annotations
+# from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
@@ -12,11 +12,10 @@ import numpy as np
 import tifffile  # type: ignore
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
-LOG = logging.getLogger("aspect_ratio_resize")
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 
 def pad_to_square_image(img: np.ndarray, target: int) -> np.ndarray:
@@ -87,62 +86,80 @@ def read_raw_shape(tif_path: Path) -> Tuple[int, int]:
     return int(orig_h), int(orig_w)
 
 
-@dataclass
-class Args:
-    image_mapping_json: Path
-    raw_images_dir: Path  # NEW
-    out_images_dir: Path
-    out_masks_dir: Path
-    out_mapping_json: Path
-    target_um_per_px: float
-    target_size: int
-    overwrite: bool
-    require_mask: bool
-    smoke: int
+@dataclasses.dataclass
+class Config:
+    image_mapping_json: Path = dataclasses.field(metadata={
+        "help": "Processed image mapping JSON (std_512x384). This file will be UPDATED in-place."
+    })
+    raw_images_dir: Path = dataclasses.field(metadata={
+        "help": "Base directory containing raw TIFF images referenced by 'Best Z Filename'."
+    })
+    out_images_dir: Path = dataclasses.field(metadata={
+        "help": "Output dir for images (writes to out-images-dir/images)."
+    })
+    out_masks_dir: Path = dataclasses.field(metadata={
+        "help": "Output dir for masks (writes to out-masks-dir/masks)."
+    })
+    target_um_per_px: float = dataclasses.field(default=9.0, metadata={
+        "help": "Target um per pixel."
+    })
+    target_size: int = dataclasses.field(default=575, metadata={
+        "help": "Target size."
+    })
+    overwrite: bool = dataclasses.field(default=False, metadata={
+        "help": "Overwrite existing files."
+    })
+    require_mask: bool = dataclasses.field(default=False, metadata={
+        "help": "Require mask."
+    })
+    smoke: int = dataclasses.field(default=0, metadata={
+        "help": "Limit to N records for quick test."
+    })
+
+    def __post_init__(self):
+        if not self.image_mapping_json.exists():
+            raise ValueError(f"Mapping JSON does not exist: {self.image_mapping_json}")
+        if not self.raw_images_dir.exists():
+            raise ValueError(f"Raw images directory does not exist: {self.raw_images_dir}")
+        if not self.out_images_dir.exists():
+            self.out_images_dir.mkdir(parents=True, exist_ok=True)
+        if not self.out_masks_dir.exists():
+            self.out_masks_dir.mkdir(parents=True, exist_ok=True)
+
+def get_args():
+    arg_parser = create_args()
+    args = arg_parser.parse_args()
+    cfg = Config(**vars(args))
+    return cfg
 
 
-def parse_args() -> Args:
-    p = argparse.ArgumentParser(
-        description="Post-inference aspect-ratio conserved resize + physical-scale normalize + pad-to-square."
-    )
-    p.add_argument("--image-mapping-json", type=Path, required=True)
+def create_args() -> argparse.ArgumentParser:
+    """Create an ArgumentParser from the Config dataclass."""
+    parser = argparse.ArgumentParser(description="Run image classifier on organoid images")
 
-    # NEW: explicit raw TIFF base folder
-    p.add_argument(
-        "--raw-images-dir",
-        type=Path,
-        required=True,
-        help="Base directory containing raw TIFF images referenced by 'Best Z Filename'.",
-    )
+    for field in dataclasses.fields(Config):
+        # Build argument flag and help message
+        flags = [f"--{field.name.replace('_', '-')}"]
+        kwargs = {
+            "help": field.metadata.get("help", ""),
+            "default": field.default
+        }
 
-    p.add_argument("--out-images-dir", type=Path, required=True)
-    p.add_argument("--out-masks-dir", type=Path, required=True)
-    p.add_argument("--out-mapping-json", type=Path, required=True)
+        # Determine argument type
+        if field.type == bool:
+            kwargs["action"] = "store_true" if field.default is False else "store_false"
+        else:
+            kwargs["type"] = field.type
 
-    p.add_argument("--target-um-per-px", type=float, default=9.0)
-    p.add_argument("--target-size", type=int, default=575)
+        parser.add_argument(*flags, **kwargs)
 
-    p.add_argument("--overwrite", action="store_true")
-    p.add_argument("--require-mask", action="store_true")
-    p.add_argument("--smoke", type=int, default=0)
-
-    a = p.parse_args()
-    return Args(
-        image_mapping_json=a.image_mapping_json,
-        raw_images_dir=a.raw_images_dir,  # NEW
-        out_images_dir=a.out_images_dir,
-        out_masks_dir=a.out_masks_dir,
-        out_mapping_json=a.out_mapping_json,
-        target_um_per_px=float(a.target_um_per_px),
-        target_size=int(a.target_size),
-        overwrite=bool(a.overwrite),
-        require_mask=bool(a.require_mask),
-        smoke=int(a.smoke),
-    )
+    return parser
 
 
 def main() -> None:
-    args = parse_args()
+    args = get_args()
+    for key, value in vars(args).items():
+        logging.info("%s: %s", key, value)
 
     mapping = json.loads(args.image_mapping_json.read_text())
     entries: Dict[str, Dict[str, Any]] = mapping.get("entries", {})
@@ -151,15 +168,10 @@ def main() -> None:
 
     # NEW: raw TIFF base folder comes from CLI, not mapping JSON
     raw_base = args.raw_images_dir
-    if not raw_base.exists():
-        raise RuntimeError(f"--raw-images-dir missing/invalid: {raw_base}")
 
     processed_base = Path(mapping.get("_processed_base_folder", args.image_mapping_json.parent))
     if not processed_base.exists():
         raise RuntimeError(f"Processed base folder missing/invalid: {processed_base}")
-
-    args.out_images_dir.mkdir(parents=True, exist_ok=True)
-    args.out_masks_dir.mkdir(parents=True, exist_ok=True)
 
     record_ids = list(entries.keys())
     if args.smoke and args.smoke > 0:
@@ -173,7 +185,7 @@ def main() -> None:
     for rid in record_ids:
         e = entries[rid]
         try:
-            main_id = e.get("main_id") or rid
+            main_id = e.get("verification", {}).get("main_id") or rid
 
             # --- raw tif for TRUE shape ---
             raw_rel = e.get("Best Z Filename")
@@ -206,7 +218,7 @@ def main() -> None:
                 raise RuntimeError(f"cv2 failed to read std image: {std_img_path}")
 
             # --- std mask (optional but usually required) ---
-            mask_path_str = e.get("mask_path")
+            mask_path_str = e.get("predicted_mask_path")
             if args.require_mask and not mask_path_str:
                 skipped_no_mask += 1
                 continue
@@ -294,7 +306,7 @@ def main() -> None:
 
         except Exception:
             failed += 1
-            LOG.exception("Failed record_id=%s", rid)
+            logging.exception("Failed record_id=%s", rid)
             continue
 
     out = {
@@ -319,10 +331,10 @@ def main() -> None:
         "entries": out_entries,
     }
 
-    args.out_mapping_json.parent.mkdir(parents=True, exist_ok=True)
-    args.out_mapping_json.write_text(json.dumps(out, indent=2))
-    LOG.info("Wrote AR mapping: %s", args.out_mapping_json)
-    LOG.info("Done. processed=%d skipped_no_mask=%d failed=%d", processed, skipped_no_mask, failed)
+    new_json = Path(args.image_mapping_json.parent / (args.image_mapping_json.stem + "_ar.json"))
+    new_json.write_text(json.dumps(out, indent=2))
+    logging.info("Wrote AR mapping: %s", new_json.name)
+    logging.info("Done. processed=%d skipped_no_mask=%d failed=%d", processed, skipped_no_mask, failed)
 
 
 if __name__ == "__main__":
