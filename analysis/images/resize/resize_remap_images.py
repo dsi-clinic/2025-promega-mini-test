@@ -138,14 +138,47 @@ def main() -> None:
             out_img_path = args.out_dir / safe_record_filename(str(main_id))
 
             if out_img_path.exists() and not args.overwrite:
+                # For skipped files, we still need to capture metadata if not already present
+                # Try to read the image to get dimensions if metadata is missing
                 new_entry = dict(entry)
                 new_entry["processed_image"] = str(out_img_path)
                 new_entry["processed_image_record_id"] = record_id
+
+                # If metadata is missing, try to load from existing image
+                if "orig_width_px" not in new_entry:
+                    img_existing = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
+                    if img_existing is not None:
+                        orig_height, orig_width = img_existing.shape[:2]
+                        new_entry["orig_width_px"] = orig_width
+                        new_entry["orig_height_px"] = orig_height
+
+                        # Get um_per_px from entry if available
+                        orig_um_per_px = entry.get("um_per_px")
+                        um_x = um_y = None
+                        final_um_per_px_x = final_um_per_px_y = None
+
+                        if orig_um_per_px is not None:
+                            if isinstance(orig_um_per_px, (list, tuple)) and len(orig_um_per_px) >= 2:
+                                um_x, um_y = orig_um_per_px[0], orig_um_per_px[1]
+                            elif isinstance(orig_um_per_px, (list, tuple)) and len(orig_um_per_px) == 1:
+                                um_x = um_y = orig_um_per_px[0]
+                            else:
+                                um_x = um_y = orig_um_per_px
+
+                            if um_x is not None:
+                                scale_x = orig_width / args.target_width
+                                scale_y = orig_height / args.target_height
+                                new_entry["orig_um_per_px_x"] = um_x
+                                new_entry["orig_um_per_px_y"] = um_y
+                                new_entry["final_um_per_px_x"] = um_x * scale_x
+                                new_entry["final_um_per_px_y"] = um_y * scale_y
+
                 mask_path = get_mask_path(record_id, mask_entries)
                 if mask_path is None:
                     no_masks += 1
                     logging.debug("record_id=%s has no manual mask path", record_id)
-                new_entry["manual_mask_path"] = mask_path
+                else:
+                    new_entry["manual_mask_path"] = mask_path
                 processed_entries[record_id] = new_entry
                 skipped_exists += 1
                 continue
@@ -154,6 +187,28 @@ def main() -> None:
             img_raw = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
             if img_raw is None:
                 raise ValueError(f"cv2 failed to read image: {img_path}")
+
+            # Capture original dimensions
+            orig_height, orig_width = img_raw.shape[:2]
+
+            # Extract um_per_px from entry metadata
+            orig_um_per_px = entry.get("um_per_px")
+            um_x = um_y = None
+            final_um_per_px_x = final_um_per_px_y = None
+
+            if orig_um_per_px is not None:
+                if isinstance(orig_um_per_px, (list, tuple)) and len(orig_um_per_px) >= 2:
+                    um_x, um_y = orig_um_per_px[0], orig_um_per_px[1]
+                elif isinstance(orig_um_per_px, (list, tuple)) and len(orig_um_per_px) == 1:
+                    um_x = um_y = orig_um_per_px[0]
+                else:
+                    um_x = um_y = orig_um_per_px
+
+                # Calculate final um_per_px after resizing
+                scale_x = orig_width / args.target_width
+                scale_y = orig_height / args.target_height
+                final_um_per_px_x = um_x * scale_x
+                final_um_per_px_y = um_y * scale_y
 
             # --- ORIGINAL behavior: resize with INTER_LINEAR ---
             img_final = cv2.resize(
@@ -169,10 +224,19 @@ def main() -> None:
             new_entry = dict(entry)
             new_entry["processed_image"] = str(out_img_path)
             new_entry["processed_image_record_id"] = record_id
+            new_entry["orig_width_px"] = orig_width
+            new_entry["orig_height_px"] = orig_height
+            if um_x is not None:
+                new_entry["orig_um_per_px_x"] = um_x
+                new_entry["orig_um_per_px_y"] = um_y
+                new_entry["final_um_per_px_x"] = final_um_per_px_x
+                new_entry["final_um_per_px_y"] = final_um_per_px_y
             mask_path = get_mask_path(record_id, mask_entries)
             if mask_path is None:
                 no_masks += 1
                 logging.debug("record_id=%s has no manual mask path", record_id)
+            else:
+                new_entry["manual_mask_path"] = mask_path
             processed_entries[record_id] = new_entry
 
         except Exception:
