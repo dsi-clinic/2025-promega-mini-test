@@ -114,14 +114,14 @@ def validate_config():
         OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
         PLOTS_FOLDER.mkdir(parents=True, exist_ok=True)
         LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
-        
+
         # Validate size parameters
         assert TARGET_WIDTH > 0 and TARGET_HEIGHT > 0, "Invalid target dimensions"
-        
+
         # Validate critical paths
         if not BASE_PATH.exists():
             raise RuntimeError(f"BASE_PATH does not exist: {BASE_PATH}")
-            
+
         return True
     except Exception as e:
         raise RuntimeError(f"Configuration validation failed: {e}")
