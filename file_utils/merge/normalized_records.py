@@ -73,6 +73,8 @@ class RecordMetrics:
     num_img_stitched: int = 0
     num_img_no_label: int = 0
     num_manual_masks: int = 0
+    num_mask_paths: int = 0
+    num_overlay_paths: int = 0
 
     num_labels: int = 0
     num_no_labels: int = 0
@@ -128,10 +130,9 @@ class OrganoidRecordBuilder:
         self.record_metrics = record_metrics
 
     def build(self, source_id: str, entry: SchemaDict) -> OrganoidRecord:
-        processed = entry.get("processed", {})
-        preprocessed = entry.get("preprocessed", {})
         survey = entry.get("survey", {})
-        metabolites = entry.get("metabolites", {})
+        metabolite = entry.get("metabolite", {})
+
         manual_mask_path = entry.get("manual_mask_path")
         label = entry.get("label", {})
 
@@ -155,8 +156,8 @@ class OrganoidRecordBuilder:
                 "treatment": entry.get("treatment"),
                 "verification": entry.get("verification"),
             },
-            "images": self._build_images(entry, processed, preprocessed, manual_mask_path),
-            "metabolites": metabolites,
+            "images": self._build_images(entry, manual_mask_path),
+            "metabolite": metabolite,
             "survey": self._build_surveys(survey),
             "label": label,
         }
@@ -166,26 +167,30 @@ class OrganoidRecordBuilder:
     def _build_images(
         self,
         entry: SchemaDict,
-        processed: SchemaDict,
-        preprocessed: SchemaDict,
         manual_mask_path: Optional[str],
     ) -> SchemaDict:
         raw_images = entry.get("all_files") or []
+
         best_z = {
             "index": entry.get("Best Z"),
             "path": entry.get("Best Z Filename"),
             "actual_z_value": entry.get("Actual Z Value"),
         }
 
-        processed_block = {
-            "main_id": processed.get("main_id"),
-            "img_path": processed.get("img_path"),
-            "mask_path": processed.get("mask_path"),
-            "overlay_path": preprocessed.get("overlay_path"),
+        pre_split_days = entry.get("pre_split_days", [])
+        if pre_split_days:
+            entry["pre_split_days"] = pre_split_days
+
+        return {
+            "main_id": entry.get("verification", {}).get("main_id"),
+            "img_path": entry.get("processed_image"),
+            "mask_path": entry.get("predicted_mask_path"),
+            "manual_mask_path": manual_mask_path,
+            "overlay_path": entry.get("overlay_path"),
             "dimensions_px": {
                 "orig": {
-                    "width": processed.get("orig_width_px"),
-                    "height": processed.get("orig_height_px"),
+                    "width": entry.get("orig_width_px"),
+                    "height": entry.get("orig_height_px"),
                 },
                 "target": {
                     "width": self.target_size[0],
@@ -193,30 +198,15 @@ class OrganoidRecordBuilder:
                 },
             },
             "um_per_px": {
-                "orig": processed.get("orig_um_per_px_x"),
+                "orig": entry.get("orig_um_per_px_x"),
                 "final": {
-                    "x": processed.get("final_um_per_px_x"),
-                    "y": processed.get("final_um_per_px_y"),
+                    "x": entry.get("final_um_per_px_x"),
+                    "y": entry.get("final_um_per_px_y"),
                 },
             },
-            "is_stitched": processed.get("is_stitched"),
-            "calibration_source": processed.get("calibration_source"),
-            "variant": preprocessed.get("variant"),
-            "best_z_filename": preprocessed.get("Best Z Filename"),
-            "metadata_key": preprocessed.get("metadata_key"),
-            "label": preprocessed.get("label"),
-        }
-
-        pre_split_days = entry.get("pre_split_days", [])
-        if pre_split_days:
-            processed_block["pre_split_days"] = pre_split_days
-
-        return {
-            "raw_um_per_px": entry.get("um_per_px"),
             "raw_images": raw_images,
             "best_z": best_z,
-            "processed": processed_block,
-            "manual_mask_path": manual_mask_path,
+            "pre_split_days": pre_split_days,
         }
 
     def _build_surveys(self, survey: SchemaDict) -> Optional[SchemaDict]:
@@ -268,12 +258,19 @@ class OrganoidRecordBuilder:
         if split and stitched: logging.warning(f"{main_id}: Image has been split and stitched")
 
         # Track image paths
-        img_path = record.get("images", {}).get("processed", {}).get("img_path")
+        img_path = record.get("images", {}).get("img_path")
         if img_path:
             self.record_metrics.num_img_paths += 1
-        img_label = record.get("images", {}).get("label", {}).get("value")
-        if not img_label:
-            self.record_metrics.num_img_no_label += 1
+
+        # Track predicted masks
+        mask_path = record.get("images", {}).get("mask_path")
+        if mask_path:
+            self.record_metrics.num_mask_paths += 1
+
+        # Track overlay paths
+        overlay_path = record.get("images", {}).get("overlay_path")
+        if overlay_path:
+            self.record_metrics.num_overlay_paths += 1
 
         # Track manual masks
         manual_mask_path = record.get("images", {}).get("manual_mask_path")
@@ -286,13 +283,9 @@ class OrganoidRecordBuilder:
             self.record_metrics.num_no_labels += 1
         else:
             self.record_metrics.num_labels += 1
-            if label.get("source") == "preprocessed.label":
-                self.record_metrics.num_preprocessed_labels += 1
-            if label.get("source") == "survey.evaluations":
-                self.record_metrics.num_survey_labels += 1
 
         # Track metabolites
-        metabolite_data = record.get("metabolites", {})
+        metabolite_data = record.get("metabolite", {})
         if not metabolite_data:
             self.record_metrics.num_no_metabolite += 1
         else:

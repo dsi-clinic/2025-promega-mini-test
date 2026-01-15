@@ -30,14 +30,15 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
 # Constants
 EXPECTED_TOTAL_RECORDS = 5168
 EXPECTED_NUM_LABELS = 301
-LABEL_MAP = {"Accepted": 1, "Not Accepted": 0, "Acceptable": 1, "Not Acceptable": 0}
-LABEL_MAP_VALUES = {"Accepted": "Acceptable", "Not Accepted": "Not Acceptable"}
 
 # ---------- helpers ----------
 @dataclasses.dataclass
 class Config:
     data_dir: Path = dataclasses.field(metadata={
         "help": "Path to data directory containing organoid data"
+    })
+    image_mapping_json: Path = dataclasses.field(default=None, metadata={
+        "help": "Path to image mapping JSON file created with preprocessing pipeline"
     })
     identifiers_map_json: Path = dataclasses.field(default=None, metadata={
         "help": "Path to identifiers map JSON file"
@@ -64,16 +65,8 @@ class Config:
     ALL_DATA_JSON: typing.ClassVar[str] = f"{IDENTIFIERS_DIR}/all_data.json"
     SUMMARY_JSON: typing.ClassVar[str] = f"{IDENTIFIERS_DIR}/summary.json"
 
-    IMAGES_DIR: typing.ClassVar[str] = "images"
-    IMAGES_RAW_DIR: typing.ClassVar[str] = f"{IMAGES_DIR}/raw_images"
-    PREPROCESSED_DIR: typing.ClassVar[str] = f"{IMAGES_DIR}/preprocessed_json"
-    ORIGINAL_MAPPING_JSON: typing.ClassVar[str] = f"{IMAGES_DIR}/image_map.json"
-    MANUAL_THRESHOLD_MAPPING_JSON: typing.ClassVar[str] = f"{IMAGES_DIR}/image_mapping_thresholded_and_manual.json"
-
     MASKS_DIR: typing.ClassVar[str] = f"masks"
-    MASKS_PREDICTED_DIR: typing.ClassVar[str] = f"{MASKS_DIR}/predicted"
-    MASKS_MANUAL_DIR: typing.ClassVar[str] = f"{MASKS_DIR}/manual"
-    MASKS_OVERLAYS_DIR: typing.ClassVar[str] = f"{MASKS_DIR}/image_overlays"
+    MANUAL_THRESHOLD_MAPPING_JSON: typing.ClassVar[str] = f"{MASKS_DIR}/image_mapping_thresholded_and_manual.json"
 
     METABOLITE_MAP_JSON: typing.ClassVar[str] = "metabolite/metabolite_map.json"
     SURVEY_AGGREGATED_JSON: typing.ClassVar[str] = "survey/survey_map.json"
@@ -82,8 +75,9 @@ class Config:
         # Basic validation / normalization
         if not self.data_dir.exists():
             raise RuntimeError(f"{self.data_dir} does not exist")
+        if not self.image_mapping_json.exists():
+            raise RuntimeError(f"{self.image_mapping_json} does not exist")
         # Set up
-        self.infer_resized_dir = f"{self.IMAGES_DIR}/infer_resized_{self.target_width}x{self.target_height}"
         if self.identifiers_map_json is None:
             self.identifiers_map_json = self.data_dir / self.IDENTIFIERS_DIR / "record_identifiers.json"
             print(self.identifiers_map_json)
@@ -91,12 +85,10 @@ class Config:
 class DataSources(typing.NamedTuple):
     """Class to capture input data sources."""
     identifiers_map: dict
-    base_map: dict
+    image_map: dict
     metab_map: dict
     survey_map: dict
     manual_mask_map: dict
-    processed_map: dict
-    preprocessed_map: dict
 
 def get_args():
     arg_parser = create_args()
@@ -145,35 +137,21 @@ def load_survey_map(cfg: Config) -> dict:
     logging.info(f"Loading survey data: {survey_file} and building survey map...")
     return load_json(survey_file)
 
-def load_base_map(cfg: Config) -> dict:
+def load_image_map(cfg: Config) -> dict:
     """Load base image mapping from JSON file."""
-    original_mapping = cfg.data_dir.joinpath(cfg.ORIGINAL_MAPPING_JSON)
-    logging.info(f"Loading base mapping: {original_mapping}")
-    base_json = load_json(original_mapping)
-    return base_json.get("entries", {})
+    image_file = cfg.image_mapping_json
+    logging.info(f"Loading image map: {image_file}")
+    image_map = load_json(image_file)
+    verify_image_paths(image_map)
+    return image_map.get("entries", {})
 
 def load_manual_mask_map(cfg: Config) -> dict:
     """Load manual mask map and normalize keys."""
     manual_threshold = cfg.data_dir.joinpath(cfg.MANUAL_THRESHOLD_MAPPING_JSON)
-    logging.info(f"Loading manual threshold mapping: {manual_threshold} and normalizing keys...")
+    logging.info(f"Loading manual threshold mapping: {manual_threshold}")
     manual_mask_map = load_json(manual_threshold)
-    return normalize_manual_mask_map(manual_mask_map, cfg.data_dir, cfg.IMAGES_RAW_DIR, cfg.MASKS_MANUAL_DIR)
-
-def load_processed_map(cfg: Config) -> dict:
-    """Load processed files JSON data."""
-    logging.info("Loading processed files JSON data...")
-    infer_resized_dir = cfg.data_dir.joinpath(cfg.infer_resized_dir)
-    found_files = list(infer_resized_dir.rglob("image_mapping*_processed.json"))
-    logging.info(f"Located {len(found_files)} processed files in {infer_resized_dir}")
-    return build_processed_files_map(found_files, cfg.data_dir, cfg.infer_resized_dir, cfg.MASKS_PREDICTED_DIR)
-
-def load_preprocessed_map(cfg: Config) -> dict:
-    """Load preprocessed files JSON data."""
-    logging.info("Loading preprocessed files JSON data...")
-    preprocessed_files_dir = cfg.data_dir.joinpath(cfg.PREPROCESSED_DIR)
-    preprocessed_files = list(preprocessed_files_dir.rglob("*"))
-    logging.info(f"Located {len(preprocessed_files)} preprocessed files in {preprocessed_files_dir}")
-    return build_preprocessed_map(preprocessed_files, cfg.data_dir, cfg.infer_resized_dir, cfg.MASKS_PREDICTED_DIR, cfg.MASKS_OVERLAYS_DIR)
+    verify_manual_mask_paths(manual_mask_map)
+    return manual_mask_map
 
 def load_data_sources(cfg: Config) -> DataSources:
     """Load all data sources and return NamedTuple with source data in memory.
@@ -186,12 +164,10 @@ def load_data_sources(cfg: Config) -> DataSources:
     """
     return DataSources(
         identifiers_map=load_identifiers_map(cfg),
-        base_map=load_base_map(cfg),
+        image_map=load_image_map(cfg),
         metab_map=load_metabolite_map(cfg),
         survey_map=load_survey_map(cfg),
         manual_mask_map=load_manual_mask_map(cfg),
-        processed_map=load_processed_map(cfg),
-        preprocessed_map=load_preprocessed_map(cfg),
     )
 
 def load_json(path: Path | str):
@@ -208,103 +184,39 @@ def load_json(path: Path | str):
     with path.open("r") as f:
         return json.load(f)
 
-def normalize_manual_mask_map(manual_mask_map, data_dir, images_raw_dir, masks_manual_dir):
-    """Normalize keys for storage of manual mask data and update path to data files.
+def verify_image_paths(image_map: dict) -> dict:
+    """Verify image paths exist and raise an error if they do not exist.
+
+    Args:
+        image_map: Dictionary of image data
+    """
+    for image_data in image_map.get("entries", {}).values():
+        img_path = Path(image_data["processed_image"])
+        check_existence(img_path)
+
+        mask_path = Path(image_data["predicted_mask_path"])
+        check_existence(mask_path)
+
+        overlay_path = Path(image_data["overlay_path"])
+        check_existence(overlay_path)
+
+def verify_manual_mask_paths(manual_mask_map: dict) -> dict:
+    """Verify existence of manual mask data files.
 
     Args:
         manual_mask_map: Dictionary of manual mask data
-        data_dir: Base input directory
-        images_raw_dir: Subdirectory for raw images (e.g., "images/raw_images")
-        masks_manual_dir: Subdirectory for manual masks (e.g., "masks/manual")
     """
-    manual_mask_normalized = {}
-    for raw_key, manual_data in manual_mask_map.items():
-        try:
-            norm_key = OrganoidNormalizer.normalize_key(raw_key)
-        except ValueError:
-            norm_key = OrganoidNormalizer.clean_string(raw_key).upper()
-
-        best_z = data_dir.joinpath(images_raw_dir, Path(manual_data["Best Z Filename"]).name)
+    for manual_data in manual_mask_map.values():
+        best_z = Path(manual_data["Best Z Filename"])
         check_existence(best_z)
-        manual_data["Best Z Filename"] = str(best_z)
 
-        mask_path = data_dir.joinpath(masks_manual_dir, Path(manual_data["MT Mask Path"]).name)
+        mask_path = Path(manual_data["MT Mask Path"])
         check_existence(mask_path)
-        manual_data["MT Mask Path"] = str(mask_path)
-
-        manual_mask_normalized[norm_key] = manual_data
-
-    return manual_mask_normalized
 
 def check_existence(file_path):
     """Check existence of file and raise an error if it does not exist."""
     if not file_path.exists():
         raise RuntimeError(f"Required file does not exist: {file_path}")
-
-def build_processed_files_map(found_files, data_dir, infer_resized_dir, masks_predicted_dir):
-    """Build and return a dictionary of processed file JSON data.
-
-    Also update hardcoded paths to point to input files on the file system.
-    Normalizes day identifiers in keys (Dy20/Dy21 -> Dy20.5) to match identifiers_map.
-
-    Args:
-        found_files: List of processed JSON files to load
-        data_dir: Base input directory
-        infer_resized_dir: Subdirectory for resized images (e.g., "images/infer_resized_512x384")
-        masks_predicted_dir: Subdirectory for predicted masks (e.g., "masks/predicted")
-    """
-    processed_map = {}
-    for p in found_files:
-        raw = load_json(p)
-        for key, batch_data in raw.items():
-            img_path = data_dir.joinpath(infer_resized_dir, Path(batch_data["img_path"]).name)
-            check_existence(img_path)
-            batch_data["img_path"] = str(img_path)
-
-            mask_path = data_dir.joinpath(masks_predicted_dir, Path(batch_data["mask_path"]).name)
-            check_existence(mask_path)
-            batch_data["mask_path"] = str(mask_path)
-
-            # Normalize day identifiers in key (Dy20/Dy21 -> Dy20.5)
-            normalized_key = normalize_day_in_key(key)
-            processed_map[normalized_key] = batch_data
-
-    return processed_map
-
-def build_preprocessed_map(files, data_dir, infer_resized_dir, masks_predicted_dir, masks_overlays_dir):
-    """Build and return a dictionary of preprocessed JSON data.
-
-    Normalizes day identifiers in metadata_key (Dy20/Dy21 -> Dy20.5) to match identifiers_map.
-
-    Args:
-        files: List of preprocessed JSON files to load
-        data_dir: Base input directory
-        infer_resized_dir: Subdirectory for resized images (e.g., "images/infer_resized_512x384")
-        masks_predicted_dir: Subdirectory for predicted masks (e.g., "masks/predicted")
-        masks_overlays_dir: Subdirectory for image overlays (e.g., "masks/image_overlays")
-    """
-    preprocessed_map = {}
-    for file in files:
-        raw = load_json(file)
-        for batch_data in raw:
-            img_path = data_dir.joinpath(infer_resized_dir, Path(batch_data["img_path"]).name)
-            check_existence(img_path)
-            batch_data["img_path"] = str(img_path)
-
-            mask_path = data_dir.joinpath(masks_predicted_dir, Path(batch_data["mask_path"]).name)
-            check_existence(mask_path)
-            batch_data["mask_path"] = str(mask_path)
-
-            overlay_path = data_dir.joinpath(masks_overlays_dir, Path(batch_data["overlay_path"]).name)
-            check_existence(overlay_path)
-            batch_data["overlay_path"] = str(overlay_path)
-
-            # Normalize day identifiers in metadata_key (Dy20/Dy21 -> Dy20.5)
-            main_id = batch_data["metadata_key"]
-            normalized_main_id = normalize_day_in_key(main_id)
-            preprocessed_map[normalized_main_id] = batch_data
-
-    return preprocessed_map
 
 def merge_data_sources(sources: DataSources) -> tuple[dict, dict]:
     """Merge and return dictionary of all data sources plus number of masks.
@@ -317,59 +229,32 @@ def merge_data_sources(sources: DataSources) -> tuple[dict, dict]:
     """
     combined = {}
     for key, original_day in tqdm(sources.identifiers_map.items(), desc="Merging data sources"):
-        # Match base image info
-        entry = dict(sources.base_map[key])
-        main_id = entry.get("main_id", "")
+        # Match image mapping info
+        entry = dict(sources.image_map.get(key, {}))
+
+        # Dates
         if 'dayID' in entry:    # Extract numerical day from dayID
             entry['mdl_day'] = extract_mdl_day(entry['dayID'])
         entry['original_day'] = original_day
 
-        # Match processed info
-        processed = sources.processed_map.get(key)
-        if processed:
-            entry["processed"] = processed
-            entry["main_id"] = main_id
-
-        # Match preprocessed info
-        preprocessed = sources.preprocessed_map.get(key) or sources.preprocessed_map.get(key)
-        if preprocessed:
-            entry["preprocessed"] = preprocessed
-        else:
-            entry["preprocessed"] = {}
-
         # Match survey info
         label = {}
         if key in sources.survey_map:
-            entry["survey"] = sources.survey_map[key]
-            label = entry["survey"].get("label", {})
-            entry["survey"].pop("label")
+            entry["survey"] = sources.survey_map.get(key, {})
+            label = entry["survey"].pop("label", {})
         else:
             entry["survey"] = {}
 
         # Store label info
-        if label:
-            entry["label"] = label
-        elif preprocessed:
-            value = preprocessed.get("label", {})
-            entry["label"] = {
-                "value": LABEL_MAP_VALUES.get(value),
-                "acceptance_flag": LABEL_MAP.get(value),
-                "source": "preprocessed.label",
-            }
-        else:
-            entry["label"] = {
-                "value": None,
-                "acceptance_flag": None,
-                "source": None,
-            }
+        entry["label"] = label
 
         # Add metabolites
         if key in sources.metab_map:
-            entry["metabolites"] = sources.metab_map[key]
+            entry["metabolite"] = sources.metab_map.get(key, {})
 
         # Add manual mask path
         if key in sources.manual_mask_map:
-            manual_data = sources.manual_mask_map[key]
+            manual_data = sources.manual_mask_map.get(key, {})
             entry["manual_mask_path"] = manual_data.get("MT Mask Path")
 
         combined[key] = entry
