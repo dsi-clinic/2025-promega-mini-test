@@ -43,8 +43,10 @@ import numpy as np
 from skimage.io import imread, imsave
 from tqdm import tqdm
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-LOG = logging.getLogger("meanfill_clip")
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 
 # -------------------------
@@ -54,69 +56,108 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Generate mean-filled clipped images from a mapping JSON (writes new images + new mapping JSON)."
     )
-    p.add_argument("--mapping-json", type=Path, required=True)
+
+    p.add_argument("--image-mapping-json",
+        type=Path,
+        required=True,
+        help="Path to the image mapping JSON file.",
+    )
 
     # Provide ONE of:
-    p.add_argument(
-        "--global-mean-npy",
+    p.add_argument("--global-mean-npy",
         type=Path,
         default=None,
         help="Optional. Precomputed RGB mean as .npy shape (3,) in [0,1] (or [0,255] if --loaded-mean-scale=255).",
     )
-    p.add_argument(
-        "--compute-mean",
+    p.add_argument("--compute-mean",
         action="store_true",
         help="Compute RGB mean from images referenced by the mapping (recommended for standalone usage).",
     )
-    p.add_argument(
-        "--mean-region",
+    p.add_argument("--mean-region",
         choices=["background", "foreground", "all"],
         default="background",
         help="When --compute-mean: pixels to use for mean. background=mask<=127, foreground=mask>127, all=entire image.",
     )
-    p.add_argument(
-        "--mean-sample",
+    p.add_argument("--mean-sample",
         type=int,
         default=0,
         help="When --compute-mean: if >0, sample N entries (faster). 0 = use all entries.",
     )
-    p.add_argument(
-        "--save-computed-mean",
+    p.add_argument("--save-computed-mean",
         action="store_true",
         help="When --compute-mean: save computed mean as global_mean.npy next to out-mapping-json.",
     )
-    p.add_argument(
-        "--loaded-mean-scale",
+    p.add_argument("--loaded-mean-scale",
         type=float,
         default=1.0,
         help="Only used when --global-mean-npy is provided. 1 if mean is in [0,1], 255 if in [0,255].",
     )
 
-    p.add_argument("--out-images-dir", type=Path, required=True)
-    p.add_argument("--out-mapping-json", type=Path, required=True)
-    p.add_argument("--images-base", type=Path, default=None,
-               help="Base folder to resolve relative image paths in the mapping (e.g. .../images).")
-    p.add_argument("--masks-base", type=Path, default=None,
-                help="Base folder to resolve relative mask paths in the mapping (e.g. .../masks).")
+    p.add_argument("--out-images-dir",
+        type=Path,
+        required=True,
+        help="Output directory for mean-filled images.",
+    )
+    p.add_argument("--images-base",
+        type=Path,
+        default=None,
+        help="Base folder to resolve relative image paths in the mapping (e.g. .../images).",
+    )
+    p.add_argument("--masks-base",
+        type=Path,
+        default=None,
+        help="Base folder to resolve relative mask paths in the mapping (e.g. .../masks).",
+    )
 
-    p.add_argument("--blur-kernel", type=int, nargs=2, default=(5, 5), help="Gaussian blur kernel, e.g. 5 5")
-    p.add_argument("--dilate-kernel", type=int, nargs=2, default=(5, 5), help="Ellipse kernel size, e.g. 5 5")
-    p.add_argument("--dilate-iterations", type=int, default=1)
+    p.add_argument("--blur-kernel",
+        type=int,
+        nargs=2,
+        default=(5, 5),
+        help="Gaussian blur kernel, e.g. 5 5",
+    )
+    p.add_argument("--dilate-kernel",
+        type=int,
+        nargs=2,
+        default=(5, 5),
+        help="Ellipse kernel size, e.g. 5 5",
+    )
+    p.add_argument("--dilate-iterations",
+        type=int,
+        default=1,
+        help="Number of dilation iterations.",
+    )
 
-    p.add_argument(
-        "--mask-foreground",
+    p.add_argument("--mask-foreground",
         choices=["white", "black"],
         default="white",
         help="How the mask encodes foreground. If 'white', organoid=255 background=0. If 'black', invert it.",
     )
 
-    p.add_argument("--overwrite", action="store_true")
-    p.add_argument("--require-mask", action="store_true")
-    p.add_argument("--smoke", type=int, default=0, help="Process only first N entries (debug).")
+    p.add_argument("--overwrite",
+        action="store_true",
+        help="Overwrite existing output files.",
+    )
+    p.add_argument("--require-mask",
+        action="store_true",
+        help="Require mask to be present for processing.",
+    )
+    p.add_argument("--smoke",
+        type=int,
+        default=0,
+        help="Process only first N entries (debug).",
+    )
 
     # Optional: force which mapping fields to use
-    p.add_argument("--image-field", type=str, default="", help="Optional: entry field for image path.")
-    p.add_argument("--mask-field", type=str, default="", help="Optional: entry field for mask path.")
+    p.add_argument("--image-field",
+        type=str,
+        default="",
+        help="Optional: entry field for image path.",
+    )
+    p.add_argument("--mask-field",
+        type=str,
+        default="",
+        help="Optional: entry field for mask path.",
+    )
 
     args = p.parse_args()
 
@@ -148,7 +189,8 @@ def pick_paths(
     entry: Dict[str, Any],
     processed_base: Path,
     ar_images_base: Optional[Path],
-    images_base: Optional[Path], 
+    ar_masks_base: Optional[Path],
+    images_base: Optional[Path],
     masks_base: Optional[Path],
     image_field_override: str,
     mask_field_override: str,
@@ -186,16 +228,23 @@ def pick_paths(
         used_img_field = k
         break
 
-    # Mask keys
+    # Mask keys - prioritize AR masks if we're using AR images
     mask_candidates = []
     if mask_field_override:
         mask_candidates.append(mask_field_override)
+
+    # If using AR image, prioritize AR masks
+    if used_img_field.startswith("ar_"):
+        mask_candidates += [
+            "ar_mask_abs",
+            "ar_mask",
+        ]
+
     mask_candidates += [
-        "ar_mask_abs",
         "mask_path",
-        "std_mask",
-        "ar_mask",
+        "predicted_mask_path",
         "processed_mask",
+        "std_mask",  # Put std_mask last to avoid mismatched dimensions
     ]
 
     mask_path: Optional[Path] = None
@@ -208,8 +257,13 @@ def pick_paths(
         if not p.is_absolute():
             if masks_base is not None:
                 p = masks_base / p
-            elif (k.startswith("ar_") or k == "ar_mask") and ar_images_base is not None:
-                p = (ar_images_base.parent / "masks") / p
+            elif k.startswith("ar_") and ar_masks_base is not None:
+                p = ar_masks_base / p
+            elif k.startswith("ar_") and ar_images_base is not None:
+                # Fallback: try to derive masks base from images base
+                # e.g., /path/to/images/resized_575_square -> /path/to/masks/resized_575_square
+                masks_dir = ar_images_base.parent.parent / "masks" / ar_images_base.name
+                p = masks_dir / p
             else:
                 p = processed_base / p
 
@@ -273,6 +327,7 @@ def compute_global_mean_rgb01(
     entries: Dict[str, Dict[str, Any]],
     processed_base: Path,
     ar_images_base: Optional[Path],
+    ar_masks_base: Optional[Path],
     images_base: Optional[Path],
     masks_base: Optional[Path],
     image_field_override: str,
@@ -299,12 +354,13 @@ def compute_global_mean_rgb01(
     used = 0
     skipped = 0
 
-    for rid in tqdm(rids, desc=f"Computing global mean ({mean_region})"):
+    for rid in tqdm(rids, desc=f"Computing global mean ({mean_region})", ncols=100, mininterval=0.5):
         e = entries[rid]
         img_path, mask_path, _, _ = pick_paths(
             e,
             processed_base=processed_base,
             ar_images_base=ar_images_base,
+            ar_masks_base=ar_masks_base,
             images_base=images_base,
             masks_base=masks_base,
             image_field_override=image_field_override,
@@ -353,14 +409,14 @@ def compute_global_mean_rgb01(
         per_image_means.append(pixels.mean(axis=0))
         used += 1
 
-    LOG.info("Mean computation: used=%d skipped=%d (sample_n=%d)", used, skipped, sample_n)
+    logging.info("Mean computation: used=%d skipped=%d (sample_n=%d)", used, skipped, sample_n)
 
     if used == 0:
         raise RuntimeError("Could not compute global mean: no valid images/masks contributed.")
 
     mean_u8 = np.mean(np.stack(per_image_means, axis=0), axis=0)  # RGB in 0..255-ish
     mean01 = np.clip(mean_u8 / 255.0, 0.0, 1.0).astype(np.float32)
-    LOG.info("Computed global mean RGB (0..1): %s", mean01)
+    logging.info("Computed global mean RGB (0..1): %s", mean01)
     return mean01, used
 
 
@@ -369,13 +425,16 @@ def compute_global_mean_rgb01(
 # -------------------------
 def main() -> None:
     args = parse_args()
+    for key, value in args.__dict__.items():
+        logging.info(f"{key}: {value}")
+    args.out_images_dir.mkdir(parents=True, exist_ok=True)
 
-    mapping = json.loads(args.mapping_json.read_text())
+    mapping = json.loads(args.image_mapping_json.read_text())
     entries: Dict[str, Dict[str, Any]] = mapping.get("entries", {})
     if not isinstance(entries, dict) or not entries:
-        raise RuntimeError("mapping-json missing or empty 'entries' dict")
+        raise RuntimeError("image-mapping-json missing or empty 'entries' dict")
 
-    processed_base = Path(mapping.get("_processed_base_folder", args.mapping_json.parent))
+    processed_base = Path(mapping.get("_processed_base_folder", args.image_mapping_json.parent))
     ar_images_base = None
     if "_ar_images_base_folder" in mapping:
         try:
@@ -384,8 +443,13 @@ def main() -> None:
         except Exception:
             ar_images_base = None
 
-    args.out_images_dir.mkdir(parents=True, exist_ok=True)
-    args.out_mapping_json.parent.mkdir(parents=True, exist_ok=True)
+    ar_masks_base = None
+    if "_ar_masks_base_folder" in mapping:
+        try:
+            cand = Path(mapping["_ar_masks_base_folder"])
+            ar_masks_base = cand if cand.exists() else None
+        except Exception:
+            ar_masks_base = None
 
     # Decide mean
     computed_used = 0
@@ -398,6 +462,7 @@ def main() -> None:
             entries=entries,
             processed_base=processed_base,
             ar_images_base=ar_images_base,
+            ar_masks_base=ar_masks_base,
             images_base=args.images_base,
             masks_base=args.masks_base,
             image_field_override=args.image_field.strip(),
@@ -409,9 +474,9 @@ def main() -> None:
 
         mean_source = f"computed:{args.mean_region}"
         if args.save_computed_mean:
-            mean_path = args.out_mapping_json.parent / "global_mean.npy"
+            mean_path = args.out_images_dir / "global_mean.npy"
             np.save(mean_path, mean_rgb01)
-            LOG.info("Saved computed mean to: %s", mean_path)
+            logging.info("Saved computed mean to: %s", mean_path)
 
     # Process entries
     record_ids = list(entries.keys())
@@ -425,7 +490,7 @@ def main() -> None:
     skipped_missing_files = 0
     skipped_exists = 0
 
-    for rid in tqdm(record_ids, desc="Mean-fill clip"):
+    for rid in tqdm(record_ids, desc="Mean-fill clip", ncols=100, mininterval=0.5):
         e = entries[rid]
         try:
             main_id = e.get("main_id") or rid
@@ -436,6 +501,7 @@ def main() -> None:
                 e,
                 processed_base=processed_base,
                 ar_images_base=ar_images_base,
+                ar_masks_base=ar_masks_base,
                 images_base=args.images_base,
                 masks_base=args.masks_base,
                 image_field_override=args.image_field.strip(),
@@ -494,10 +560,10 @@ def main() -> None:
 
         except Exception:
             failed += 1
-            LOG.exception("Failed record_id=%s", rid)
+            logging.exception("Failed record_id=%s", rid)
 
     out = {
-        "_source_mapping": str(args.mapping_json),
+        "_source_mapping": str(args.image_mapping_json),
         "_processed_base_folder": str(processed_base),
         "_ar_images_base_folder": str(ar_images_base) if ar_images_base is not None else None,
         "_clipped_meanfill_images_base_folder": str(args.out_images_dir),
@@ -529,9 +595,10 @@ def main() -> None:
         "entries": out_entries,
     }
 
-    args.out_mapping_json.write_text(json.dumps(out, indent=2))
-    LOG.info("Wrote mean-fill mapping: %s", args.out_mapping_json)
-    LOG.info(
+    new_json = Path(args.image_mapping_json.parent / (args.image_mapping_json.stem + "_meanfill.json"))
+    new_json.write_text(json.dumps(out, indent=2))
+    logging.info("Wrote mean-fill mapping: %s", new_json.name)
+    logging.info(
         "Done. processed=%d skipped_exists=%d skipped_no_mask=%d skipped_missing_files=%d failed=%d",
         processed,
         skipped_exists,
