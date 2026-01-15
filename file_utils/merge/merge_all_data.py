@@ -29,6 +29,8 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
 
 # Constants
 EXPECTED_TOTAL_RECORDS = 5168
+EXPECTED_NUM_MANUAL_MASKS = 2091
+EXPECTED_NUM_METABOLITES = 4154
 EXPECTED_NUM_LABELS = 301
 
 # ---------- helpers ----------
@@ -261,13 +263,6 @@ def merge_data_sources(sources: DataSources) -> tuple[dict, dict]:
 
     return combined
 
-def normalized_parent_key(id_like: str) -> str:
-    """Use OrganoidNormalizer to get consistent BA# 96_# Dy## A# format (no suffixes)."""
-    try:
-        return OrganoidNormalizer.normalize_key(id_like)
-    except ValueError:
-        return OrganoidNormalizer.clean_string(id_like).upper()
-
 def normalize_day_in_key(key: str) -> str:
     """Normalize day identifiers in keys (Dy20/Dy21 -> Dy20.5)."""
     if not key:
@@ -362,12 +357,13 @@ def validate_data(stats: dict) -> bool:
     logging.info("Validating data before writing...")
     try:
         assert stats['num_records'] == EXPECTED_TOTAL_RECORDS
-
+        assert stats['num_img_paths'] == EXPECTED_TOTAL_RECORDS
+        assert stats['num_mask_paths'] == EXPECTED_TOTAL_RECORDS
+        assert stats['num_overlay_paths'] == EXPECTED_TOTAL_RECORDS
+        assert stats['num_manual_masks'] == EXPECTED_NUM_MANUAL_MASKS
         assert stats['num_records'] == stats['num_labels'] + stats['num_no_labels']
-        assert stats['num_labels'] == stats['num_preprocessed_labels'] + stats['num_survey_labels']
-
         assert stats['num_records'] == stats['num_metabolites'] + stats['num_no_metabolite']
-
+        assert stats['num_metabolites'] == EXPECTED_NUM_METABOLITES
         assert stats['num_records'] == stats['num_survey'] + stats['num_no_survey']
         assert stats['total_votes'] == stats['num_acceptable_votes'] + stats['num_not_acceptable_votes']
         assert stats['num_survey'] == stats['num_majority'] + stats['num_no_majority']
@@ -419,10 +415,10 @@ def print_stats(stats, out_file, no_validate: bool):
 
     # Records and images
     logging.info(f"  Image paths: {stats['num_img_paths']:,}")
-    logging.info(f"  Image splits: {stats['num_img_split']:,} | Stitched: {stats['num_img_stitched']:,} | No image label: {stats['num_img_no_label']:,}")
+    logging.info(f"  Image splits: {stats['num_img_split']:,} | Stitched: {stats['num_img_stitched']:,}")
 
     # Labels
-    logging.info(f"  Labels: {stats['num_labels']:,} | No labels: {stats['num_no_labels']:,}  | Preprocessed: {stats['num_preprocessed_labels']:,} | Survey: {stats['num_survey_labels']:,}")
+    logging.info(f"  Labels: {stats['num_labels']:,} | No labels: {stats['num_no_labels']:,}")
 
     # Surveys
     logging.info(f"  Survey matches: {stats['num_survey']:,} | No survey: {stats['num_no_survey']:,}")

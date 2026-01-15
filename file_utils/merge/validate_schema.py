@@ -142,15 +142,8 @@ def validate_images_structure(ctx: ValidationContext, images: Dict[str, Any]) ->
     if images:
         ctx.stats['records_with_images'] += 1
 
-        required_images_fields = ['processed', 'raw_images']
+        required_images_fields = ['main_id', 'img_path', 'mask_path', 'manual_mask_path', 'overlay_path', 'raw_images']
         ctx.check_required_fields(images, required_images_fields, 'images')
-
-        # Validate processed structure
-        processed = images.get('processed', {})
-        if processed:
-            required_processed_fields = ['img_path', 'mask_path', 'overlay_path']
-            if ctx.check_nested_structure(images, 'processed', required_processed_fields, 'images'):
-                validate_path_fields(ctx, processed, required_processed_fields, 'images.processed')
 
         # Validate raw_images
         raw_images = images.get('raw_images', [])
@@ -163,28 +156,28 @@ def validate_metabolites_structure(ctx: ValidationContext, metabolites: Dict[str
         return
 
     ctx.stats['records_with_metabolites'] += 1
-    if not ctx.check_type(metabolites, dict, 'metabolites'):
+    if not ctx.check_type(metabolites, dict, 'metabolite'):
         return
 
     required_metabolites_fields = ['concentration_uM', 'is_outlier']
     expected_metabolites = ['BCAAGlo', 'GlucoseGlo', 'GlutamateGlo', 'LactateGlo', 'MalateGlo', 'PyruvateGlo']
 
     for metab_key, metab_data in metabolites.items():
-        if not ctx.check_type(metab_data, dict, f'metabolites.{metab_key}'):
+        if not ctx.check_type(metab_data, dict, f'metabolite.{metab_key}'):
             continue
 
         # Check required fields
-        if not ctx.check_required_fields(metab_data, required_metabolites_fields, f'metabolites.{metab_key}'):
+        if not ctx.check_required_fields(metab_data, required_metabolites_fields, f'metabolite.{metab_key}'):
             continue
 
         # Validate data types
         if 'concentration_uM' in metab_data:
             conc = metab_data['concentration_uM']
             if conc is not None:
-                ctx.check_type(conc, (int, float), f'metabolites.{metab_key}.concentration_uM')
+                ctx.check_type(conc, (int, float), f'metabolite.{metab_key}.concentration_uM')
 
         if 'is_outlier' in metab_data:
-            ctx.check_type(metab_data['is_outlier'], bool, f'metabolites.{metab_key}.is_outlier')
+            ctx.check_type(metab_data['is_outlier'], bool, f'metabolite.{metab_key}.is_outlier')
 
 
 def validate_survey_structure(ctx: ValidationContext, survey: Dict[str, Any]) -> None:
@@ -205,6 +198,7 @@ def validate_survey_structure(ctx: ValidationContext, survey: Dict[str, Any]) ->
         field_value = survey.get(list_field, [])
         if field_value:
             ctx.check_type(field_value, list, f'survey.{list_field}')
+
 
 def validate_label_structure(ctx: ValidationContext, label: Dict[str, Any]) -> None:
     # Validate label structure
@@ -291,7 +285,7 @@ def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = Non
         return {'valid': False, 'errors': errors, 'warnings': warnings, 'stats': stats}
 
     # 3. Define required fields
-    required_fields = ['id', 'day', 'cell_line', 'plate', 'metadata', 'images', 'metabolites', 'survey']
+    required_fields = ['id', 'day', 'cell_line', 'plate', 'metadata', 'images', 'metabolite', 'survey', 'label']
 
     # 4. Sample records if requested
     record_items = list(data.items())
@@ -329,14 +323,13 @@ def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = Non
         if images:
             validate_images_structure(ctx, images)
 
-        metabolites = record.get('metabolites', {})
+        metabolites = record.get('metabolite', {})
         if metabolites:
             validate_metabolites_structure(ctx, metabolites)
 
         survey = record.get('survey', {})
         if survey:
             validate_survey_structure(ctx, survey)
-
 
         label = record.get('label', {})
         if label:
