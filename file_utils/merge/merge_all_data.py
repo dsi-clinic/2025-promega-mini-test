@@ -82,7 +82,6 @@ class Config:
         # Set up
         if self.identifiers_map_json is None:
             self.identifiers_map_json = self.data_dir / self.IDENTIFIERS_DIR / "record_identifiers.json"
-            print(self.identifiers_map_json)
 
 class DataSources(typing.NamedTuple):
     """Class to capture input data sources."""
@@ -305,8 +304,13 @@ def build_normalized_records(cfg, combined):
     records = { source_id: builder.build(source_id, entry) for source_id, entry in combined.items() }
     stats = builder.record_metrics.to_dict()
 
-    logging.info("Sanitizing data for JSON...")
+    # Propograte labels for day 30 organoids to previous days organoids
+    logging.info("Propogating labels for day 30 organoids to previous days organoids...")
     records_dict = { source_id: record.to_dict() for source_id, record in records.items() }
+    label_stats =propogate_labels(records_dict, builder.organoid_dict)
+    stats.update(label_stats)
+
+    logging.info("Sanitizing data for JSON...")
     records_clean = sanitize_for_json(records_dict)
     stats_clean = sanitize_for_json(stats)
 
@@ -326,6 +330,22 @@ def build_normalized_records(cfg, combined):
     write_json(out_file, stats_clean)
 
     return records, stats_clean
+
+def propogate_labels(records_dict: dict, organoid_dict: dict) -> dict:
+    """Propogate labels for day 30 organoids to previous days organoids."""
+    stats = {
+        "num_labels": 0,
+        "num_no_labels": 0,
+    }
+    for record_data in records_dict.values():
+        organoid_id = record_data["organoid_id"]
+        if organoid_id in organoid_dict:
+            record_data["label"] = organoid_dict[organoid_id]["label"]
+            stats["num_labels"] += 1
+        else:
+            record_data["label"] = {}
+            stats["num_no_labels"] += 1
+    return stats
 
 def sanitize_for_json(obj):
     """

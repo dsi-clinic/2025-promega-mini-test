@@ -34,6 +34,10 @@ class OrganoidRecord:
         return self.data["id"]
 
     @property
+    def organoid_id(self) -> str:
+        return self.data["organoid_id"]
+
+    @property
     def day_id(self) -> Optional[str]:
         return self.data.get("day", {}).get("id")
 
@@ -76,11 +80,6 @@ class RecordMetrics:
     num_mask_paths: int = 0
     num_overlay_paths: int = 0
 
-    num_labels: int = 0
-    num_no_labels: int = 0
-    num_survey_labels: int = 0
-    num_preprocessed_labels: int = 0
-
     num_no_metabolite: int = 0
     num_metabolites: int = 0
     num_metabolite_outliers: int = 0
@@ -94,7 +93,7 @@ class RecordMetrics:
     num_no_majority: int = 0
     total_votes: int = 0
 
-    num_labels: int = 0
+    num_label_skipped: int = 0
 
     SPLIT_OR_STITCHED: ClassVar[dict] = {
         "NoSplitNoStitched": (0, 0),
@@ -128,19 +127,24 @@ class OrganoidRecordBuilder:
         self.survey_day = f"Dy{survey_day:02d}"
         self.target_size = target_size
         self.record_metrics = record_metrics
+        self.organoid_dict = {}
 
     def build(self, source_id: str, entry: SchemaDict) -> OrganoidRecord:
         survey = entry.get("survey", {})
         metabolite = entry.get("metabolite", {})
-
         manual_mask_path = entry.get("manual_mask_path")
+
         label = entry.get("label", {})
+        organoid_id = f"{entry.get('BA')} {entry.get('wellID')}".replace(" ", "_")
+        if label:
+            label = self._get_organoid_labels(entry, organoid_id, source_id, label)
 
         day_value = entry.get("mdl_day")
         formatted_day = f"{day_value:.1f}".rstrip("0").rstrip(".") if day_value is not None else ""
 
         payload: SchemaDict = {
             "id": source_id,
+            "organoid_id": organoid_id,
             "day": {
                 "id": f"Dy{formatted_day}",
                 "number": day_value,
@@ -163,6 +167,28 @@ class OrganoidRecordBuilder:
         }
         self._get_record_metrics(payload)
         return OrganoidRecord(source_id=source_id, data=payload)
+
+    def _get_organoid_labels(self, entry: SchemaDict, organoid_id: str, source_id: str, label: dict) -> dict:
+        """Get organoid labels and track them in the organoid dictionary.
+        Args:
+            entry: The entry
+            source_id: The source ID
+            label: The label
+            organoid_id: The organoid ID
+
+        Returns:
+            The label
+        """
+        if organoid_id in self.organoid_dict:
+            if label.get("value") != self.organoid_dict[organoid_id]["label"].get("value"):
+                logging.warning(f"Labels do not match between days or splits: {source_id}/{organoid_id}. This organoid will be skipped.")
+                self.record_metrics.num_label_skipped += 1
+                del self.organoid_dict[organoid_id]
+                label = {}
+        else:
+            self.organoid_dict[organoid_id] = { "source_id": source_id, "label": label }    # Track label by organoid
+
+        return label
 
     def _build_images(
         self,
@@ -276,13 +302,6 @@ class OrganoidRecordBuilder:
         manual_mask_path = record.get("images", {}).get("manual_mask_path")
         if manual_mask_path:
             self.record_metrics.num_manual_masks += 1
-
-        # Track labels
-        label = record.get("label", {})
-        if not label.get("value"):
-            self.record_metrics.num_no_labels += 1
-        else:
-            self.record_metrics.num_labels += 1
 
         # Track metabolites
         metabolite_data = record.get("metabolite", {})
