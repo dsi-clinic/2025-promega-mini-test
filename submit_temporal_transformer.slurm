@@ -10,6 +10,10 @@
 
 # Temporal Transformer Image Classifier Training
 # Processes image sequences (Dy03→Dy06→...→Dy30) with EfficientNet + Transformer
+#
+# SETUP REQUIRED:
+# - Line 26: Change /path/to/minitest to your minitest home directory
+# - Line 30: Change Python path if different from /net/projects2/promega/bin/python3
 
 echo "========================================="
 echo "TEMPORAL TRANSFORMER IMAGE CLASSIFIER TRAINING"
@@ -20,10 +24,12 @@ echo "Start time: $(date)"
 echo ""
 
 # Setup
-cd /home/tonyluo/minitest
+# IMPORTANT: Change this to your minitest home directory
+cd /path/to/minitest
 mkdir -p logs
 
 # Python environment
+# IMPORTANT: Change this to your Python path if different
 PYTHON=/net/projects2/promega/bin/python3
 
 echo "Python: $PYTHON"
