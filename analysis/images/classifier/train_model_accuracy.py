@@ -108,7 +108,7 @@ class Config:
 
         # Set up
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.out_dir = self.data_dir / "results"
+        self.out_dir = self.data_dir / "image_classifier"
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
         self.val_batch_size = int(self.val_batch_size) if self.val_batch_size is not None else self.batch_size
@@ -135,9 +135,9 @@ class ImageClassifierEmitter(BaseViewEmitter):
 
     def process(self, record: OrganoidRecord) -> None:
         label = record.get("label", {}).get("acceptance_flag")
-        img_path = record.get("images", {}).get("processed", {}).get("img_path")
-        mask_path = record.get("images", {}).get("processed", {}).get("mask_path")
-        overlay_path = record.get("images", {}).get("processed", {}).get("overlay_path")
+        img_path = record.get("images", {}).get("img_path")
+        mask_path = record.get("images", {}).get("mask_path")
+        overlay_path = record.get("images", {}).get("overlay_path")
 
         if label not in self.label_list or not img_path or not mask_path \
             or not record.get("day", {}).get("id"):
