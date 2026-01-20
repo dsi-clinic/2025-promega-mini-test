@@ -310,6 +310,9 @@ def build_normalized_records(cfg, combined):
     label_stats =propogate_labels(records_dict, builder.organoid_dict)
     stats.update(label_stats)
 
+    # Get final number of organoids
+    stats["num_organoids"] = get_num_organoids(records_dict)
+
     logging.info("Sanitizing data for JSON...")
     records_clean = sanitize_for_json(records_dict)
     stats_clean = sanitize_for_json(stats)
@@ -346,6 +349,17 @@ def propogate_labels(records_dict: dict, organoid_dict: dict) -> dict:
             record_data["label"] = {}
             stats["num_no_labels"] += 1
     return stats
+
+def get_num_organoids(records_dict: dict) -> int:
+    """Get the number of organoids in the records dictionary."""
+    organoid_dict: dict[str, int] = {}
+    for record_data in records_dict.values():
+        organoid_id = record_data["organoid_id"]
+        if organoid_id in organoid_dict:
+            continue
+        else:
+            organoid_dict[organoid_id] = 1
+    return len(organoid_dict.keys())
 
 def sanitize_for_json(obj):
     """
@@ -432,6 +446,7 @@ def print_stats(stats, out_file, no_validate: bool):
     """Print statistics in a clean, organized format."""
     logging.info("Record stats:")
     logging.info(f"  Wrote {stats['num_records']:,} merged records → {out_file}")
+    logging.info(f"  Organoids: {stats['num_organoids']:,}")
 
     # Records and images
     logging.info(f"  Image paths: {stats['num_img_paths']:,}")
