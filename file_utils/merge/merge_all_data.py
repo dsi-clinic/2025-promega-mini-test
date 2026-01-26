@@ -29,7 +29,7 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
 
 # Constants
 EXPECTED_TOTAL_RECORDS = 5168
-EXPECTED_NUM_MANUAL_MASKS = 2091
+EXPECTED_NUM_MANUAL_MASKS = 2153
 EXPECTED_NUM_METABOLITES = 4154
 EXPECTED_NUM_LABELS = 301
 
@@ -211,8 +211,13 @@ def verify_manual_mask_paths(manual_mask_map: dict) -> dict:
         best_z = Path(manual_data["Best Z Filename"])
         check_existence(best_z)
 
-        mask_path = Path(manual_data["MT Mask Path"])
+        mask_path = Path(manual_data["manual_mask_path"])
         check_existence(mask_path)
+
+        mask_path_orig = manual_data["manual_mask_path_original"]
+        if mask_path_orig:
+            mask_path_orig = Path(mask_path_orig)
+            check_existence(mask_path_orig)
 
 def check_existence(file_path):
     """Check existence of file and raise an error if it does not exist."""
@@ -256,7 +261,8 @@ def merge_data_sources(sources: DataSources) -> tuple[dict, dict]:
         # Add manual mask path
         if key in sources.manual_mask_map:
             manual_data = sources.manual_mask_map.get(key, {})
-            entry["manual_mask_path"] = manual_data.get("MT Mask Path")
+            entry["manual_mask_path"] = manual_data.get("manual_mask_path")
+            entry["manual_mask_path_original"] = manual_data.get("manual_mask_path_original")
 
         combined[key] = entry
 

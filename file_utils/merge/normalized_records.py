@@ -133,6 +133,7 @@ class OrganoidRecordBuilder:
         survey = entry.get("survey", {})
         metabolite = entry.get("metabolite", {})
         manual_mask_path = entry.get("manual_mask_path")
+        manual_mask_path_orginal = entry.get("manual_mask_path_original")
 
         label = entry.get("label", {})
         organoid_id = f"{entry.get('BA')} {entry.get('wellID')}".replace(" ", "_")
@@ -160,7 +161,7 @@ class OrganoidRecordBuilder:
                 "treatment": entry.get("treatment"),
                 "verification": entry.get("verification"),
             },
-            "images": self._build_images(entry, manual_mask_path),
+            "images": self._build_images(entry, manual_mask_path, manual_mask_path_orginal),
             "metabolite": metabolite,
             "survey": self._build_surveys(survey),
             "label": label,
@@ -194,6 +195,7 @@ class OrganoidRecordBuilder:
         self,
         entry: SchemaDict,
         manual_mask_path: Optional[str],
+        manual_mask_path_orginal: Optional[str]
     ) -> SchemaDict:
         raw_images = entry.get("all_files") or []
 
@@ -212,6 +214,7 @@ class OrganoidRecordBuilder:
             "img_path": entry.get("processed_image"),
             "mask_path": entry.get("predicted_mask_path"),
             "manual_mask_path": manual_mask_path,
+            "manual_mask_path_orginal": manual_mask_path_orginal,
             "overlay_path": entry.get("overlay_path"),
             "dimensions_px": {
                 "orig": {
@@ -233,6 +236,8 @@ class OrganoidRecordBuilder:
             "raw_images": raw_images,
             "best_z": best_z,
             "pre_split_days": pre_split_days,
+            "aspect_ratio": entry.get("aspect_ratio", {}),
+            "clipped_meanfill": entry.get("clipped_meanfill", {})
         }
 
     def _build_surveys(self, survey: SchemaDict) -> Optional[SchemaDict]:
