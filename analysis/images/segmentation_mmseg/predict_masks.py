@@ -34,7 +34,7 @@ from typing import Any, Dict, Optional, Set, Tuple, get_args, get_origin
 
 import cv2  # type: ignore
 import numpy as np
-import tifffile  # type: ignore
+#import tifffile  # type: ignore
 import torch  # type: ignore
 from tqdm import tqdm
 
@@ -308,8 +308,10 @@ def main() -> None:
         return
 
     # Assert completed records number
-    if processed != EXPECTED_RECORDS_NUM:
+    # if days filter used, processed will be smaller and that's fine
+    if args.days is None and processed != EXPECTED_RECORDS_NUM:
         raise ValueError(f"Expected {EXPECTED_RECORDS_NUM} records, got {processed}")
+
 
     # Write back the updated mapping JSON (to a new file)
     new_json = Path(args.image_mapping_json.parent / (args.image_mapping_json.stem + "_predicted.json"))

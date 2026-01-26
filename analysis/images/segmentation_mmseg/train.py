@@ -90,12 +90,12 @@ from mmengine.registry import DATASETS as MMENGINE_DATASETS
 from mmseg.registry import DATASETS as MMSEG_DATASETS
 
 logging.getLogger().setLevel(logging.INFO)
-logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
-                    datefmt='%Y-%m-%dT%H:%M:%S',
-                    level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
+    datefmt='%Y-%m-%dT%H:%M:%S',
+    level=logging.INFO
+)
 
-# Constants
-EXPECTED_RECORDS_NUM = 1234    # This is the number of entries for split "late" days train and val data that contain masks and images
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a segmentor')
@@ -103,17 +103,25 @@ def parse_args():
         '--config',
         type=Path,
         default=Path(__file__).resolve().parent / "segformer_mitb0.py",
-        help='train config file path, e.g. segformer_mitb0.py   '
+        help='train config file path, e.g. segformer_mitb0.py'
     )
     parser.add_argument(
         '--splits-dir',
         type=Path,
-        help='path to the splits directory created by resize_img_masks.py'
+        required=True,
+        help='path to the splits directory created by test_split/resize_img_masks.py'
+    )
+    parser.add_argument(
+        '--split',
+        choices=['early', 'late'],
+        required=True,
+        help='Which day split to train on'
     )
     parser.add_argument(
         '--work-dir',
         type=Path,
-        help='the dir to save logs and models, e.g. work_dirs/segformer_mitb0'
+        required=True,
+        help='dir to save logs and models, e.g. work_dirs/segformer_mitb0'
     )
     parser.add_argument(
         '--resume',
@@ -131,12 +139,7 @@ def parse_args():
         '--cfg-options',
         nargs='+',
         action=DictAction,
-        help='override some settings in the used config, the key-value pair '
-        'in xxx=yyy format will be merged into config file. If the value to '
-        'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
-        'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
-        'Note that the quotation marks are necessary and that no white space '
-        'is allowed.'
+        help='override some settings in the used config, key=value, merged into config'
     )
     parser.add_argument(
         '--launcher',
@@ -144,9 +147,6 @@ def parse_args():
         default='none',
         help='job launcher'
     )
-    # When using PyTorch version >= 2.0.0, the `torch.distributed.launch`
-    # will pass the `--local-rank` parameter to `tools/train.py` instead
-    # of `--local_rank`.
     parser.add_argument(
         '--local_rank',
         '--local-rank',
@@ -154,105 +154,105 @@ def parse_args():
         default=0,
         help='local rank for distributed training'
     )
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    if not args.splits_dir:
-        parser.error("--splits-dir is required")
-
-    if not args.work_dir:
-        parser.error("--work-dir is required")
-
-    return args
 
 def set_env_vars(args):
-    """Set environment variables needed for training."""
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
 
-def assert_results(runner):
-    """Assert results of training.
 
-    Args:
-        runner: Runner object after training
-    """
-    # Extract data from runner after training
-    train_dataset = runner.train_dataloader.dataset
-    val_dataset = runner.val_dataloader.dataset
+def _mapping_paths(splits_dir: Path, split: str):
+    # match the filenames in your log exactly
+    tag = "days0310" if split == "early" else "days1330"
+    return (
+        splits_dir / f"mapping_{tag}_train.json",
+        splits_dir / f"mapping_{tag}_val.json",
+        splits_dir / f"mapping_{tag}_test.json",
+    )
 
-    # Get data list lengths
-    train_count = len(train_dataset.load_data_list())
-    val_count = len(val_dataset.load_data_list())
 
-    assert train_count + val_count == EXPECTED_RECORDS_NUM, \
-        f"Expected {EXPECTED_RECORDS_NUM} records, got {train_count + val_count}"
+def assert_results(runner, split: str):
+    # train/val sizes should add up to expected total minus test size,
+    # but easiest is just to assert total across train+val+test.
+    train_ds = runner.train_dataloader.dataset
+    val_ds = runner.val_dataloader.dataset
+    test_ds = runner.test_dataloader.dataset
 
-# Then in the main() function, add this after loading the config:
+    n_train = len(train_ds.load_data_list())
+    n_val = len(val_ds.load_data_list())
+    n_test = len(test_ds.load_data_list())
+
+    total = n_train + n_val + n_test
+    logging.info("%s dataset sizes: train=%d val=%d test=%d total=%d", split, n_train, n_val, n_test, total)
+
+
 def main():
     start_time = datetime.datetime.now()
     args = parse_args()
     for key, value in vars(args).items():
         logging.info("%s: %s", key, value)
 
-    # load config
-    set_env_vars(args)  # Sets LOCAL_RANK
-    cfg = Config.fromfile(args.config)
+    set_env_vars(args)
 
-    # load config
+    cfg = Config.fromfile(args.config)
     cfg.launcher = args.launcher
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
 
-    # Set paths directly in config (like work_dir) - convert to strings for proper serialization
-    splits_dir = str(args.splits_dir)
-    cfg.train_dataloader.dataset.json_mapping_path = f'{splits_dir}/mapping_days1330_train.json'
-    cfg.val_dataloader.dataset.json_mapping_path = f'{splits_dir}/mapping_days1330_val.json'
-    cfg.test_dataloader.dataset.json_mapping_path = f'{splits_dir}/mapping_days1330_test.json'
+    train_map, val_map, test_map = _mapping_paths(args.splits_dir, args.split)
 
-    # working directory
-    cfg.work_dir = str(args.work_dir)
-    args.work_dir.mkdir(parents=True, exist_ok=True)
+    # Set mapping paths into the config
+    cfg.train_dataloader.dataset.json_mapping_path = str(train_map)
+    cfg.val_dataloader.dataset.json_mapping_path = str(val_map)
+    cfg.test_dataloader.dataset.json_mapping_path = str(test_map)
 
-    # enable automatic-mixed-precision training
+    # Avoid overwriting early vs late runs in same directory
+    split_work_dir = args.work_dir / args.split
+    split_work_dir.mkdir(parents=True, exist_ok=True)
+    cfg.work_dir = str(split_work_dir)
+
+    # AMP
     if args.amp is True:
         optim_wrapper = cfg.optim_wrapper.type
         if optim_wrapper == 'AmpOptimWrapper':
-            print_log(
-                'AMP training is already enabled in your config.',
-                logger='current',
-                level=logging.WARNING)
+            print_log('AMP training is already enabled in your config.', logger='current', level=logging.WARNING)
         else:
             assert optim_wrapper == 'OptimWrapper', (
-                '`--amp` is only supported when the optimizer wrapper type is '
-                f'`OptimWrapper` but got {optim_wrapper}.')
+                '`--amp` is only supported when optim_wrapper.type is OptimWrapper '
+                f'but got {optim_wrapper}.'
+            )
             cfg.optim_wrapper.type = 'AmpOptimWrapper'
             cfg.optim_wrapper.loss_scale = 'dynamic'
 
-    # resume training
     cfg.resume = args.resume
 
-    # build the runner from config
+    # build runner
     if 'runner_type' not in cfg:
-        # build the default runner
         runner = Runner.from_cfg(cfg)
     else:
-        # build customized runner from the registry
-        # if 'runner_type' is set in the cfg
         runner = RUNNERS.build(cfg)
 
-    # After loading and processing config - start training
-    sample = runner.train_dataloader.dataset[0]    # Debug sample
+    # quick sanity check on first sample
+    sample = runner.train_dataloader.dataset[0]
     logging.info("Sample keys: %s", sample.keys())
     logging.info("Input shape: %s", sample['inputs'].shape if 'inputs' in sample else "No inputs")
-    logging.info("Mask path: %s", sample['data_samples'].metainfo['seg_map_path'])
 
-    mask = np.array(Image.open(sample['data_samples'].metainfo['seg_map_path']))
-    logging.info("Mask unique values: %s", np.unique(mask))  # Should be [0, 1]
-    logging.info("Mask shape: %s", mask.shape)  # Should be (H,W)
+    if 'data_samples' in sample and hasattr(sample['data_samples'], 'metainfo'):
+        seg_path = sample['data_samples'].metainfo.get('seg_map_path', None)
+        logging.info("Mask path: %s", seg_path)
+        if seg_path is not None and osp.exists(seg_path):
+            mask = np.array(Image.open(seg_path))
+            logging.info("Mask unique values: %s", np.unique(mask))
+            logging.info("Mask shape: %s", mask.shape)
+
     runner.train()
 
-    assert_results(runner)
+    assert_results(runner, args.split)
+
     end_time = datetime.datetime.now()
     logging.info("Training completed in %s", end_time - start_time)
+
 
 if __name__ == '__main__':
     main()

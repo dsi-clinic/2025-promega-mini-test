@@ -73,17 +73,17 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 def get_mask_path(record_id: str, mask_entries: Dict[str, Any]) -> Optional[str]:
-    """
-    Get the mask path for a given record ID.
+    rec = mask_entries.get(record_id)
+    if not isinstance(rec, dict):
+        return None
+    return rec.get("manual_mask_path")
 
-    Args:
-        record_id: The record ID.
-        mask_entries: The mask entries dictionary.
+def get_original_mask_path(record_id: str, mask_entries: Dict[str, Any]) -> Optional[str]:
+    rec = mask_entries.get(record_id)
+    if not isinstance(rec, dict):
+        return None
+    return rec.get("manual_mask_path_original")
 
-    Returns:
-        Optional[str]: The mask path, or None if not found.
-    """
-    return mask_entries.get(record_id, {}).get("MT Mask Path", None)
 
 def main() -> None:
     args = parse_args()
@@ -237,6 +237,13 @@ def main() -> None:
                 logging.debug("record_id=%s has no manual mask path", record_id)
             else:
                 new_entry["manual_mask_path"] = mask_path
+            orig_mask = get_original_mask_path(record_id, mask_entries)
+            if orig_mask is not None:
+                new_entry["manual_mask_path_original"] = orig_mask
+            # # optional
+            # blank = mask_entries.get(record_id, {}).get("blank")
+            # if blank is not None:
+            #     new_entry["blank"] = blank
             processed_entries[record_id] = new_entry
 
         except Exception:

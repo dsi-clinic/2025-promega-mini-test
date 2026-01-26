@@ -85,6 +85,36 @@ def read_raw_shape(tif_path: Path) -> Tuple[int, int]:
 
     return int(orig_h), int(orig_w)
 
+def read_raw_image_as_bgr(tif_path: Path) -> np.ndarray:
+    """
+    Read raw TIFF pixels and return a BGR uint8 image for OpenCV.
+    - If grayscale: converts to 3-channel BGR.
+    - If uint16: scales to uint8.
+    """
+    img = tifffile.imread(str(tif_path))
+
+    # If it's a stack, take the first plane (best-Z should be 2D anyway)
+    if img.ndim >= 3 and img.shape[0] not in (3, 4) and img.shape[-1] not in (3, 4):
+        img = img[0]
+
+    # Normalize to uint8
+    if img.dtype == np.uint16:
+        img8 = (img.astype(np.float32) / 65535.0 * 255.0).clip(0, 255).astype(np.uint8)
+    elif img.dtype != np.uint8:
+        img8 = np.clip(img, 0, 255).astype(np.uint8)
+    else:
+        img8 = img
+
+    # Convert to 3-channel BGR
+    if img8.ndim == 2:
+        img8 = cv2.cvtColor(img8, cv2.COLOR_GRAY2BGR)
+    elif img8.ndim == 3 and img8.shape[-1] == 3:
+        # tifffile gives RGB; OpenCV expects BGR
+        img8 = img8[:, :, ::-1]
+    elif img8.ndim == 3 and img8.shape[-1] == 4:
+        img8 = img8[:, :, :3][:, :, ::-1]
+
+    return img8
 
 @dataclasses.dataclass
 class Config:
@@ -140,10 +170,13 @@ def create_args() -> argparse.ArgumentParser:
     for field in dataclasses.fields(Config):
         # Build argument flag and help message
         flags = [f"--{field.name.replace('_', '-')}"]
-        kwargs = {
-            "help": field.metadata.get("help", ""),
-            "default": field.default
-        }
+        kwargs = {"help": field.metadata.get("help", "")}
+        # REQUIRED vs optional
+        if field.default is not dataclasses.MISSING:
+            kwargs["default"] = field.default
+        else:
+            kwargs["required"] = True
+
 
         # Determine argument type
         if field.type == bool:
@@ -169,9 +202,6 @@ def main() -> None:
     # NEW: raw TIFF base folder comes from CLI, not mapping JSON
     raw_base = args.raw_images_dir
 
-    processed_base = Path(mapping.get("_processed_base_folder", args.image_mapping_json.parent))
-    if not processed_base.exists():
-        raise RuntimeError(f"Processed base folder missing/invalid: {processed_base}")
 
     record_ids = list(entries.keys())
     if args.smoke and args.smoke > 0:
@@ -205,20 +235,9 @@ def main() -> None:
                 raise KeyError("Missing um_per_px in entry (needed for physical scaling).")
             orig_um = float(orig_um)
 
-            # --- std image (stretched 512x384) ---
-            rel_proc = e.get("processed_image")
-            if not rel_proc:
-                raise KeyError("Missing processed_image in entry.")
-            std_img_path = processed_base / str(rel_proc)
-            if not std_img_path.exists():
-                raise FileNotFoundError(str(std_img_path))
-
-            std_img = cv2.imread(str(std_img_path), cv2.IMREAD_COLOR)
-            if std_img is None:
-                raise RuntimeError(f"cv2 failed to read std image: {std_img_path}")
-
-            # --- std mask (optional but usually required) ---
+            # --- std mask (optional) ---
             mask_path_str = e.get("predicted_mask_path")
+
             if args.require_mask and not mask_path_str:
                 skipped_no_mask += 1
                 continue
@@ -231,13 +250,16 @@ def main() -> None:
                 else:
                     if args.require_mask:
                         raise FileNotFoundError(str(mp))
+                    # else: leave std_mask as None
 
-            # 1) Unstretch std image back to raw shape
-            img_unstretched = cv2.resize(
-                std_img,
-                (orig_w, orig_h),
-                interpolation=cv2.INTER_LINEAR,
-            )
+            # --- raw image pixels (rigorous) ---
+            raw_img = read_raw_image_as_bgr(raw_path)
+            if raw_img is None:
+                raise RuntimeError(f"Failed to read raw tif pixels: {raw_path}")
+
+            # Ensure raw_img matches orig_h/orig_w (it should, but be safe)
+            raw_img = cv2.resize(raw_img, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)
+
 
             # 2) Physical-scale resize to target um/px
             scale = orig_um / args.target_um_per_px
@@ -247,10 +269,11 @@ def main() -> None:
                 raise RuntimeError(f"Bad scaled dims: ({scaled_h},{scaled_w}) from scale={scale}")
 
             img_scaled = cv2.resize(
-                img_unstretched,
+                raw_img,
                 (scaled_w, scaled_h),
                 interpolation=cv2.INTER_LINEAR,
             )
+
 
             # 3) Pad to square
             img_final = pad_to_square_image(img_scaled, args.target_size)
@@ -289,7 +312,6 @@ def main() -> None:
             out_entries[rid] = {
                 "main_id": main_id,
                 "raw_tif": str(raw_path),
-                "std_image": str(std_img_path),
                 "std_mask": str(mask_path_str) if mask_path_str else None,
                 "ar_image": str(out_img.relative_to(args.out_images_dir)),
                 "ar_mask": str(out_msk.relative_to(args.out_masks_dir)) if mask_final is not None else None,
@@ -312,7 +334,7 @@ def main() -> None:
     out = {
         "_source_mapping": str(args.image_mapping_json),
         "_raw_base_folder": str(raw_base),
-        "_std_processed_base_folder": str(processed_base),
+        #"_std_processed_base_folder": str(processed_base),
         "_ar_images_base_folder": str(args.out_images_dir),
         "_ar_masks_base_folder": str(args.out_masks_dir),
         "params": {
@@ -320,7 +342,7 @@ def main() -> None:
             "target_size": args.target_size,
             "image_interpolation": "INTER_LINEAR",
             "mask_interpolation": "INTER_NEAREST",
-            "source_pixels": "std_512x384_then_unstretch_to_raw_shape",
+            "source_pixels": "raw_tif_pixels",
         },
         "stats": {
             "seen": len(record_ids),
