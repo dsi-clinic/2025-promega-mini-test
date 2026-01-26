@@ -10,6 +10,7 @@ from typing import Any, Dict, Tuple
 import cv2
 import numpy as np
 import tifffile  # type: ignore
+import tqdm
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -207,12 +208,11 @@ def main() -> None:
     if args.smoke and args.smoke > 0:
         record_ids = record_ids[: args.smoke]
 
-    out_entries: Dict[str, Any] = {}
     processed = 0
     skipped_no_mask = 0
     failed = 0
 
-    for rid in record_ids:
+    for rid in tqdm.tqdm(record_ids, desc="Resize aspect ratio processing"):
         e = entries[rid]
         try:
             main_id = e.get("verification", {}).get("main_id") or rid
@@ -309,34 +309,33 @@ def main() -> None:
                     if not ok:
                         raise RuntimeError(f"Failed to write mask: {out_msk}")
 
-            out_entries[rid] = {
-                "main_id": main_id,
-                "raw_tif": str(raw_path),
-                "std_mask": str(mask_path_str) if mask_path_str else None,
-                "ar_image": str(out_img.relative_to(args.out_images_dir)),
-                "ar_mask": str(out_msk.relative_to(args.out_masks_dir)) if mask_final is not None else None,
-                "orig_h": orig_h,
-                "orig_w": orig_w,
-                "orig_um_per_px": orig_um,
-                "target_um_per_px": args.target_um_per_px,
-                "scale_factor": scale,
-                "scaled_h": scaled_h,
-                "scaled_w": scaled_w,
-                "target_size": args.target_size,
+            entry = {
+                "aspect_ratio": {
+                    "ar_raw_tif": str(raw_path),
+                    "ar_image": str(out_img.relative_to(args.out_images_dir)),
+                    "ar_mask": str(out_msk.relative_to(args.out_masks_dir)) if mask_final is not None else None,
+                    "ar_orig_um_per_px": orig_um,
+                    "ar_target_um_per_px": args.target_um_per_px,
+                    "ar_scale_factor": scale,
+                    "ar_scaled_h": scaled_h,
+                    "ar_scaled_w": scaled_w,
+                    "ar_target_size": args.target_size,
+                }
             }
-            processed += 1
+            e.update(entry)
 
         except Exception:
             failed += 1
             logging.exception("Failed record_id=%s", rid)
             continue
 
-    out = {
-        "_source_mapping": str(args.image_mapping_json),
-        "_raw_base_folder": str(raw_base),
-        #"_std_processed_base_folder": str(processed_base),
-        "_ar_images_base_folder": str(args.out_images_dir),
-        "_ar_masks_base_folder": str(args.out_masks_dir),
+    mapping["aspect_ratio"] = {
+        "directory_meta": {
+            "_source_mapping": str(args.image_mapping_json),
+            "_raw_base_folder": str(raw_base),
+            "_ar_images_base_folder": str(args.out_images_dir),
+            "_ar_masks_base_folder": str(args.out_masks_dir),
+        },
         "params": {
             "target_um_per_px": args.target_um_per_px,
             "target_size": args.target_size,
@@ -349,12 +348,11 @@ def main() -> None:
             "processed": processed,
             "skipped_no_mask": skipped_no_mask,
             "failed": failed,
-        },
-        "entries": out_entries,
+        }
     }
 
     new_json = Path(args.image_mapping_json.parent / (args.image_mapping_json.stem + "_ar.json"))
-    new_json.write_text(json.dumps(out, indent=2))
+    new_json.write_text(json.dumps(mapping, indent=2))
     logging.info("Wrote AR mapping: %s", new_json.name)
     logging.info("Done. processed=%d skipped_no_mask=%d failed=%d", processed, skipped_no_mask, failed)
 
