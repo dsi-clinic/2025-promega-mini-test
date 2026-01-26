@@ -56,14 +56,20 @@ MIN_SURVEY_VOTES   ?= 4
 TRAIN_FRAC         ?= 0.8
 VAL_FRAC           ?= 0.1
 
-# Segmentation training options
-PHASE              ?= late
-DATE               ?= $(shell date +%Y%m%d)
-MODEL_CONFIG       ?= segformer_mitb0.py
-WORK_ROOT          ?= $(DATA_DIR)/masks/mmseg_trained_models
-WORK_DIR           ?= $(WORK_ROOT)/$(DATE)_$(PHASE)
-GPU                ?=
-RESUME_FROM        ?=
+# Segmentation training (early vs late datasets)
+SEG_TRAIN_SCRIPT ?= analysis/images/segmentation_mmseg/train.py
+SEG_CONFIG       ?= analysis/images/segmentation_mmseg/segformer_mitb0.py
+SEG_WORK_ROOT    ?= $(DATA_DIR)/masks/mmseg_models
+GPU              ?=
+RESUME           ?=
+
+# Segmentation models (outputs from step8)
+EARLY_CONFIG     ?= $(SEG_WORK_ROOT)/early/early/vis_data/config.py
+EARLY_CHECKPOINT ?= $(SEG_WORK_ROOT)/early/early/iter_1000.pth
+
+LATE_CONFIG      ?= $(SEG_WORK_ROOT)/late/late/vis_data/config.py
+LATE_CHECKPOINT  ?= $(SEG_WORK_ROOT)/late/late/iter_1000.pth
+
 
 # Classifier training options
 EPOCH1             ?= 100
@@ -80,6 +86,27 @@ SEED               ?= 1
         pipeline-segmentation pipeline-quality pipeline-series \
         pipeline-merge pipeline-all train-all \
         validate-inputs
+
+.PHONY: seg-train-early seg-train-late
+
+seg-train-early:
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON_MMCV) $(SEG_TRAIN_SCRIPT) \
+		--config $(SEG_CONFIG) \
+		--splits-dir $(SPLITS_DIR) \
+		--split early \
+		--work-dir $(SEG_WORK_ROOT)/early \
+		$(if $(RESUME),--resume) \
+		$(if $(GPU),--cfg-options launcher=pytorch gpu_ids=$(GPU))
+
+seg-train-late:
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON_MMCV) $(SEG_TRAIN_SCRIPT) \
+		--config $(SEG_CONFIG) \
+		--splits-dir $(SPLITS_DIR) \
+		--split late \
+		--work-dir $(SEG_WORK_ROOT)/late \
+		$(if $(RESUME),--resume) \
+		$(if $(GPU),--cfg-options launcher=pytorch gpu_ids=$(GPU))
+
 
 # -------- Help --------
 help:
@@ -183,16 +210,20 @@ step4: $(RECORD_IDENTIFIERS)
 	@echo "===> Output: $(IMAGE_MAP)"
 
 # ====================================
-# STEP 5: Map Manual Masks
+# STEP 5: Map Manual Masks & Resize
 # ====================================
 step5: $(IMAGE_MAP)
-	@echo "===> STEP 5: Mapping manual masks"
+	@echo "===> STEP 5: Mapping + preprocessing manual masks"
 	@mkdir -p $(MASKS_DIR)
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.images.segmentation_mmseg.preprocessing.manual_masks_mapping \
 		--image-json $(IMAGE_MAP) \
 		--masks-dir $(MANUAL_MASKS_DIR) \
-		--output-file $(IMAGE_MAP_MANUAL)
-	@echo "===> Output: $(IMAGE_MAP_MANUAL)"
+		--output-file $(IMAGE_MAP_MANUAL) \
+		--target-width $(TARGET_WIDTH) \
+		--target-height $(TARGET_HEIGHT) \
+		--processed-masks-dir $(MASKS_DIR)/manual_processed_$(TARGET_WIDTH)x$(TARGET_HEIGHT) \
+		$(if $(OVERWRITE),--overwrite)
+
 
 # ====================================
 # STEP 6: Resize and Remap Images
@@ -227,42 +258,62 @@ step7: $(IMAGE_MAP_RESIZED)
 # ====================================
 # STEP 8: Train Segmentation Model
 # ====================================
+# Default phase for segmentation steps (early or late)
+PHASE ?= late
+
 step8: step7
-	@echo "===> STEP 8: Training segmentation model"
-	@echo ">>> Training cfg: $(MODEL_CONFIG)"
-	@echo ">>> Work dir    : $(WORK_DIR)"
-	@mkdir -p $(WORK_DIR)
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON_MMCV) -m analysis.images.segmentation_mmseg.train \
-		--splits-dir $(SPLITS_DIR) \
-		--work-dir $(WORK_DIR) \
-		$(if $(RESUME_FROM),--resume-from $(RESUME_FROM)) \
-		$(if $(GPU),--gpu-ids $(GPU))
-	@echo "===> Output: $(WORK_DIR)/iter_*.pth"
+	@echo "===> STEP 8: Training segmentation model (PHASE=$(PHASE))"
+	$(MAKE) seg-train-$(PHASE) DATA_DIR=$(DATA_DIR) GPU=$(GPU) RESUME=$(RESUME)
+
+
 
 # ====================================
 # STEP 9: Predict Segmentation Masks
 # ====================================
 # Note: Requires checkpoint from step8
-CHECKPOINT         ?= $(WORK_DIR)/iter_1000.pth
-CONFIG_FILE        ?= $(WORK_DIR)/vis_data/config.py
+# Choose correct model files based on PHASE
+ifeq ($(PHASE),early)
+  CONFIG_FILE := $(EARLY_CONFIG)
+  CHECKPOINT  := $(EARLY_CHECKPOINT)
+else ifeq ($(PHASE),late)
+  CONFIG_FILE := $(LATE_CONFIG)
+  CHECKPOINT  := $(LATE_CHECKPOINT)
+else
+  $(error PHASE must be early or late)
+endif
 
-step9: $(IMAGE_MAP_RESIZED)
-	@echo "===> STEP 9: Predicting segmentation masks"
+# Which mapping JSON to run inference on (defaults to resized)
+PRED_INPUT_JSON ?= $(IMAGE_MAP_RESIZED)
+
+step9:
+	@echo "===> STEP 9: Predicting segmentation masks (PHASE=$(PHASE))"
 	@mkdir -p $(MASKS_DIR)/predicted
 	@if [ ! -f "$(CHECKPOINT)" ]; then \
 		echo "ERROR: Checkpoint not found: $(CHECKPOINT)"; \
-		echo "Please run 'make step8' first or set CHECKPOINT=/path/to/checkpoint.pth"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(CONFIG_FILE)" ]; then \
+		echo "ERROR: Config not found: $(CONFIG_FILE)"; \
 		exit 1; \
 	fi
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON_MMCV) -m analysis.images.segmentation_mmseg.predict_masks \
-		--image-mapping-json $(IMAGE_MAP_RESIZED) \
+		--image-mapping-json $(PRED_INPUT_JSON) \
 		--out-dir $(MASKS_DIR)/predicted \
 		--model-type $(PHASE) \
 		--config $(CONFIG_FILE) \
 		--checkpoint $(CHECKPOINT) \
+		$(if $(DAYS),--days $(DAYS)) \
 		--write-collage \
 		$(if $(OVERWRITE),--overwrite)
-	@echo "===> Output: $(MASKS_DIR)/predicted/"
+	@echo "===> Output masks: $(MASKS_DIR)/predicted/"
+
+step9-early:
+	$(MAKE) step9 PHASE=early OVERWRITE=$(OVERWRITE) DAYS=Dy03,Dy06,Dy08,Dy10 PRED_INPUT_JSON=$(IMAGE_MAP_RESIZED)
+
+step9-late:
+	$(MAKE) step9 PHASE=late OVERWRITE=$(OVERWRITE) DAYS=Dy13,Dy15,Dy17,Dy20,Dy21,Dy24,Dy28,Dy30 \
+	  PRED_INPUT_JSON=$(IMAGE_MAP_RESIZED:.json=_predicted.json)
+
 
 # ====================================
 # STEP 10: Create Image-Mask Overlays
@@ -332,7 +383,7 @@ step15: step14
 	@echo "===> STEP 15: Applying mean fill clip"
 	@mkdir -p $(IMAGES_DIR)/mean_fill_clip
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.images.postprocess.meanfill_clip \
-		--image-mapping-json $(IMAGES_DIR)/image_map_resized_512x384_ar.json \
+		--image-mapping-json $(patsubst %.json,%_ar.json,$(IMAGE_MAP_RESIZED)) \
 		--compute-mean \
 		--save-computed-mean \
 		--out-images-dir $(IMAGES_DIR)/mean_fill_clip \

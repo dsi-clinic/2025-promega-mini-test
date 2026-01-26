@@ -231,8 +231,9 @@ def main() -> None:
         raise FileNotFoundError(f"Mapping not found: {mapping_path}")
 
     full_map, bad_entries = load_and_filter(mapping_path)
-    split_dir = args.splits_dir / f"resized_{args.target_width}x{args.target_height}_splits"
+    split_dir = args.splits_dir
     split_dir.mkdir(parents=True, exist_ok=True)
+
 
     base = mapping_path.stem
     logging.info("[Full Mapping] Splitting: %s", base)

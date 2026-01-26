@@ -173,5 +173,11 @@ default_hooks = dict(
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='SegVisualizationHook'))
 
-val_evaluator = dict(type='IoUMetric', iou_metrics=['mIoU'], ignore_index=255)
+
+val_evaluator = dict(
+    type='IoUMetric',
+    iou_metrics=['mIoU'],
+    ignore_index=255
+)
+
 test_evaluator = val_evaluator
