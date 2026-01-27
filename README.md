@@ -592,7 +592,13 @@ python3 -m analysis.images.segmentation_mmseg.preprocessing.test_split \
 
 ### STEP 8: Train Segmentation Masks
 
-Train segmentation model on manual masks.
+**Early vs Late models (current behavior)**  
+Segmentation is trained as two separate models to better capture morphology differences across development:
+
+- **early**: Dy03–Dy10  
+- **late**: Dy13–Dy30  
+
+Each model trains from the corresponding split JSONs and writes its own checkpoint/config under its own work directory.
 
 **Inputs/Outputs**:
 - **In**: Splits directory with split JSON files
@@ -626,7 +632,8 @@ python -m analysis.images.segmentation_mmseg.train \
 
 ### STEP 9: Predict Segmentation Masks
 
-Generate predicted masks for all images using trained model.
+**Early vs Late inference (current behavior)**  
+Mask prediction is run twice (once per model) and outputs are written to `masks/predicted/` (or the configured output dir). The image mapping JSON is updated to point at the predicted mask paths.
 
 **Inputs/Outputs**:
 - **In**: `image_map_resized_512x384.json`, trained models (config.py and checkpoint.pth)
@@ -634,14 +641,21 @@ Generate predicted masks for all images using trained model.
 
 **Command**:
 ```bash
+# Early model
 python -m analysis.images.segmentation_mmseg.predict_masks \
-    --image-mapping-json <path/to/image_map_resized_512x384.json> \
-    --out-dir <path/to/predicted/masks> \
-    --model-type late \
-    --config <path/to/config.py> \
-    --checkpoint <path/to/checkpoint.pth> \
-    --write-collage
-```
+  --image-mapping-json <...> \
+  --model-type early \
+  --config <early_config.py> \
+  --checkpoint <early_checkpoint.pth> \
+  --out-dir <predicted_masks_dir>
+
+# Late model
+python -m analysis.images.segmentation_mmseg.predict_masks \
+  --image-mapping-json <...> \
+  --model-type late \
+  --config <late_config.py> \
+  --checkpoint <late_checkpoint.pth> \
+  --out-dir <predicted_masks_dir>
 
 **What it does**:
 - Loads trained segmentation model
@@ -653,6 +667,7 @@ python -m analysis.images.segmentation_mmseg.predict_masks \
 - `--image-mapping-json`: Path to resized image mapping JSON
 - `--out-dir`: Output directory for predicted masks
 - `--config`: Path to model config file
+- `--model-type (early or late)
 - `--checkpoint`: Path to model checkpoint
 
 **Optional Arguments**:
