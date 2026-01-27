@@ -483,7 +483,6 @@ def main() -> None:
     if args.smoke and args.smoke > 0:
         record_ids = record_ids[: args.smoke]
 
-    out_entries: Dict[str, Dict[str, Any]] = {}
     processed = 0
     failed = 0
     skipped_no_mask = 0
@@ -522,12 +521,14 @@ def main() -> None:
 
             if out_img.exists() and not args.overwrite:
                 skipped_exists += 1
-                newe = dict(e)
-                newe["clipped_meanfill_image_abs"] = str(out_img)
-                newe["clipped_meanfill_image"] = str(out_img.relative_to(args.out_images_dir))
-                newe["clipped_meanfill_source_image_field"] = used_img_field
-                newe["clipped_meanfill_source_mask_field"] = used_mask_field
-                out_entries[rid] = newe
+                e.update({
+                    "clipped_meanfill": {
+                        "cm_image_abs": str(out_img),
+                        "cm_image": str(out_img.relative_to(args.out_images_dir)),
+                        "cm_source_image_field": used_img_field,
+                        "cm_source_mask_field": used_mask_field,
+                    }
+                })
                 continue
 
             img = to_rgb(imread(str(img_path))).astype(np.uint8)
@@ -548,25 +549,29 @@ def main() -> None:
 
             imsave(str(out_img), (filled01 * 255.0).astype(np.uint8), check_contrast=False)
 
-            newe = dict(e)
-            newe["clipped_meanfill_image_abs"] = str(out_img)
-            newe["clipped_meanfill_image"] = str(out_img.relative_to(args.out_images_dir))
-            newe["clipped_meanfill_source_image_abs"] = str(img_path)
-            newe["clipped_meanfill_source_mask_abs"] = str(mask_path)
-            newe["clipped_meanfill_source_image_field"] = used_img_field
-            newe["clipped_meanfill_source_mask_field"] = used_mask_field
-            out_entries[rid] = newe
+            e.update({
+                "clipped_meanfill": {
+                    "cm_image_abs": str(out_img),
+                    "cm_image": str(out_img.relative_to(args.out_images_dir)),
+                    "cm_source_image_abs": str(img_path),
+                    "cm_source_mask_abs": str(mask_path),
+                    "cm_source_image_field": used_img_field,
+                    "cm_source_mask_field": used_mask_field,
+                }
+            })
             processed += 1
 
         except Exception:
             failed += 1
             logging.exception("Failed record_id=%s", rid)
 
-    out = {
-        "_source_mapping": str(args.image_mapping_json),
-        "_processed_base_folder": str(processed_base),
-        "_ar_images_base_folder": str(ar_images_base) if ar_images_base is not None else None,
-        "_clipped_meanfill_images_base_folder": str(args.out_images_dir),
+    mapping["clipped_meanfill"] = {
+        "directory_meta": {
+            "_source_mapping": str(args.image_mapping_json),
+            "_processed_base_folder": str(processed_base),
+            "_ar_images_base_folder": str(ar_images_base) if ar_images_base is not None else None,
+            "_clipped_meanfill_images_base_folder": str(args.out_images_dir),
+        },
         "params": {
             "mean_source": mean_source,
             "global_mean_rgb01": [float(x) for x in mean_rgb01],
@@ -591,12 +596,11 @@ def main() -> None:
             "skipped_no_mask": skipped_no_mask,
             "skipped_missing_files": skipped_missing_files,
             "failed": failed,
-        },
-        "entries": out_entries,
+        }
     }
 
     new_json = Path(args.image_mapping_json.parent / (args.image_mapping_json.stem + "_meanfill.json"))
-    new_json.write_text(json.dumps(out, indent=2))
+    new_json.write_text(json.dumps(mapping, indent=2))
     logging.info("Wrote mean-fill mapping: %s", new_json.name)
     logging.info(
         "Done. processed=%d skipped_exists=%d skipped_no_mask=%d skipped_missing_files=%d failed=%d",
