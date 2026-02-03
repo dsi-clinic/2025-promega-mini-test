@@ -23,7 +23,7 @@ Main per-day classifier using LightGBM with metabolite concentration and growth 
 
 **Usage:**
 ```bash
-python train_metabolites.py
+
 python train_metabolites.py --cv_scoring f1_notaccept --threshold_metric f1_notaccept
 ```
 
