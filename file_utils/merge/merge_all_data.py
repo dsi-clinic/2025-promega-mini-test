@@ -84,9 +84,9 @@ class Config:
             self.identifiers_map_json = self.data_dir / self.IDENTIFIERS_DIR / "record_identifiers.json"
 
 class DataSources(typing.NamedTuple):
-    """Class to capture input data sources."""
     identifiers_map: dict
-    image_map: dict
+    image_entries: dict
+    image_meta: dict
     metab_map: dict
     survey_map: dict
     manual_mask_map: dict
@@ -138,13 +138,19 @@ def load_survey_map(cfg: Config) -> dict:
     logging.info(f"Loading survey data: {survey_file} and building survey map...")
     return load_json(survey_file)
 
-def load_image_map(cfg: Config) -> dict:
-    """Load base image mapping from JSON file."""
+def load_image_map(cfg: Config) -> tuple[dict, dict]:
     image_file = cfg.image_mapping_json
     logging.info(f"Loading image map: {image_file}")
     image_map = load_json(image_file)
     verify_image_paths(image_map)
-    return image_map.get("entries", {})
+
+    entries = image_map.get("entries", {})
+    meta = {
+        "aspect_ratio": image_map.get("aspect_ratio", {}),
+        "clipped_meanfill": image_map.get("clipped_meanfill", {}),
+    }
+    return entries, meta
+
 
 def load_manual_mask_map(cfg: Config) -> dict:
     """Load manual mask map and normalize keys."""
@@ -163,9 +169,12 @@ def load_data_sources(cfg: Config) -> DataSources:
     Returns:
         DataSources object containing all data sources
     """
+    image_entries, image_meta = load_image_map(cfg)
+    
     return DataSources(
         identifiers_map=load_identifiers_map(cfg),
-        image_map=load_image_map(cfg),
+        image_entries=image_entries,
+        image_meta=image_meta,
         metab_map=load_metabolite_map(cfg),
         survey_map=load_survey_map(cfg),
         manual_mask_map=load_manual_mask_map(cfg),
@@ -224,7 +233,7 @@ def check_existence(file_path):
     if not file_path.exists():
         raise RuntimeError(f"Required file does not exist: {file_path}")
 
-def merge_data_sources(sources: DataSources) -> tuple[dict, dict]:
+def merge_data_sources(sources: DataSources) -> dict:
     """Merge and return dictionary of all data sources plus number of masks.
 
     Args:
@@ -236,7 +245,8 @@ def merge_data_sources(sources: DataSources) -> tuple[dict, dict]:
     combined = {}
     for key, original_day in tqdm(sources.identifiers_map.items(), desc="Merging data sources"):
         # Match image mapping info
-        entry = dict(sources.image_map.get(key, {}))
+        entry = dict(sources.image_entries.get(key, {}))
+
 
         # Dates
         if 'dayID' in entry:    # Extract numerical day from dayID
@@ -290,7 +300,7 @@ def extract_mdl_day(day_id: str) -> float:
         return day_num
     return None
 
-def build_normalized_records(cfg, combined):
+def build_normalized_records(cfg, combined, image_meta: dict):
     """Build normalized records and stats.
 
     Args:
@@ -309,6 +319,7 @@ def build_normalized_records(cfg, combined):
 
     records = { source_id: builder.build(source_id, entry) for source_id, entry in combined.items() }
     stats = builder.record_metrics.to_dict()
+    
 
     # Propograte labels for day 30 organoids to previous days organoids
     logging.info("Propogating labels for day 30 organoids to previous days organoids...")
@@ -322,6 +333,7 @@ def build_normalized_records(cfg, combined):
     logging.info("Sanitizing data for JSON...")
     records_clean = sanitize_for_json(records_dict)
     stats_clean = sanitize_for_json(stats)
+    stats_clean["image_mapping_meta"] = sanitize_for_json(image_meta)
 
     # Validate the records before writing (in-memory validation)
     if not cfg.no_validate:
@@ -509,7 +521,7 @@ def main():
 
     # ---------- normalize ----------
     logging.info("Normalizing merged records...")
-    _, stats = build_normalized_records(cfg, combined)
+    _, stats = build_normalized_records(cfg, combined, sources.image_meta)
 
     # ----------  print top-level data stats ----------
     print_stats(stats, cfg.ALL_DATA_JSON, cfg.no_validate)

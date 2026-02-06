@@ -216,6 +216,7 @@ class OrganoidRecordBuilder:
             "manual_mask_path": manual_mask_path,
             "manual_mask_path_orginal": manual_mask_path_orginal,
             "overlay_path": entry.get("overlay_path"),
+            "edge_fraction": entry.get("edge_fraction"), 
             "dimensions_px": {
                 "orig": {
                     "width": entry.get("orig_width_px"),

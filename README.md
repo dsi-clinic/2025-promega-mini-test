@@ -52,6 +52,66 @@ Table of Contents
 
 ---
 
+DATA ORGANIZATION
+
+Use images.img_path for baseline models.
+Use images.aspect_ratio.* if geometry matters.
+Use images.clipped_meanfill.* if background artifacts matter.
+Use images.edge_fraction to filter bad segmentations.
+
+all_data.json
+├── images
+│   ├── raw (immutable reference)
+│   │   └── raw_images (original .tif stack, Z-slices)
+│   │
+│   ├── processed (pixel inputs)
+│   │   ├── resized (default)
+│   │   │   ├── img_path            → 512×384 PNG
+│   │   │   ├── mask_path           → predicted mask (512×384)
+│   │   │   └── overlay_path        → QC only
+│   │   │
+│   │   ├── aspect_ratio (geometry-preserving)
+│   │   │   ├── ar_image            → 575×575 PNG
+│   │   │   ├── ar_mask             → 575×575 mask
+│   │   │   └── ar_* metadata       → scale, μm/px, padding
+│   │   │
+│   │   └── meanfill_clipped (segmentation-aware)
+│   │       ├── cm_image_abs        → background-filled PNG
+│   │       ├── cm_source_image     → resized source
+│   │       └── cm_source_mask      → predicted mask
+│   │
+│   └── quality (metadata only)
+│       └── edge_fraction           → mask touches border
+│
+├── masks
+│   ├── predicted
+│   │   └── mask_path               → model output
+│   └── manual
+│       ├── manual_mask_path
+│       └── manual_mask_path_original
+│
+├── survey
+│   ├── evaluations
+│   ├── quality_scores
+│   └── label
+│       ├── value                   → Acceptable / Not Acceptable
+│       ├── votes
+│       └── acceptance_flag
+│
+├── metabolite
+│   ├── GlucoseGlo
+│   ├── LactateGlo
+│   ├── PyruvateGlo
+│   ├── MalateGlo
+│   ├── GlutamateGlo
+│   └── BCAAGlo
+│
+└── metadata
+    ├── plate (batch, well)
+    ├── day (id, number, original)
+    ├── cell_line
+    └── verification (split / stitch / blank)
+
 ## Recent Changes (January 2026)
 
 ### Data Reorganization
