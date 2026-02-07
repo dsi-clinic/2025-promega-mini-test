@@ -209,6 +209,15 @@ class OrganoidRecordBuilder:
         if pre_split_days:
             entry["pre_split_days"] = pre_split_days
 
+        # ---- clipped meanfill (merge std + ar into one field) ----
+        cm = dict(entry.get("clipped_meanfill", {}) or {})
+
+        if entry.get("clipped_meanfill_std"):
+            cm["std"] = entry["clipped_meanfill_std"]
+
+        if entry.get("clipped_meanfill_ar"):
+            cm["ar"] = entry["clipped_meanfill_ar"]
+
         return {
             "main_id": entry.get("verification", {}).get("main_id"),
             "img_path": entry.get("processed_image"),
@@ -216,7 +225,7 @@ class OrganoidRecordBuilder:
             "manual_mask_path": manual_mask_path,
             "manual_mask_path_orginal": manual_mask_path_orginal,
             "overlay_path": entry.get("overlay_path"),
-            "edge_fraction": entry.get("edge_fraction"), 
+            "edge_fraction": entry.get("edge_fraction"),
             "dimensions_px": {
                 "orig": {
                     "width": entry.get("orig_width_px"),
@@ -238,8 +247,9 @@ class OrganoidRecordBuilder:
             "best_z": best_z,
             "pre_split_days": pre_split_days,
             "aspect_ratio": entry.get("aspect_ratio", {}),
-            "clipped_meanfill": entry.get("clipped_meanfill", {})
+            "clipped_meanfill": cm,
         }
+
 
     def _build_surveys(self, survey: SchemaDict) -> Optional[SchemaDict]:
         if not survey:

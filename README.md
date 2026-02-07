@@ -51,66 +51,51 @@ Table of Contents
    * [Known Issues & Future Improvements](#known-issues--future-improvements)
 
 ---
-
 DATA ORGANIZATION
 
 Use images.img_path for baseline models.
 Use images.aspect_ratio.* if geometry matters.
-Use images.clipped_meanfill.* if background artifacts matter.
+Use images.clipped_meanfill.std or images.clipped_meanfill.ar if background artifacts matter.
 Use images.edge_fraction to filter bad segmentations.
 
 all_data.json
-├── images
-│   ├── raw (immutable reference)
-│   │   └── raw_images (original .tif stack, Z-slices)
+├── <record_id>
+│   ├── images
+│   │   ├── main_id
+│   │   ├── img_path                      → 512×384 PNG (default)
+│   │   ├── mask_path                     → predicted mask (512×384)
+│   │   ├── overlay_path                  → QC only
+│   │   ├── manual_mask_path              → manual mask PNG (if present)
+│   │   ├── manual_mask_path_orginal      → original manual mask TIFF (if present)
+│   │   ├── edge_fraction                 → mask touches border fraction
+│   │   ├── dimensions_px
+│   │   ├── um_per_px
+│   │   ├── raw_images                    → original .tif Z-stack filenames
+│   │   ├── best_z
+│   │   ├── pre_split_days
+│   │   ├── aspect_ratio                  → geometry-preserving view (575×575)
+│   │   │   ├── ar_image
+│   │   │   ├── ar_mask
+│   │   │   └── ar_* metadata (scale, μm/px, padding)
+│   │   └── clipped_meanfill              → segmentation-aware mean-filled views
+│   │       ├── std
+│   │       │   ├── cm_image_abs
+│   │       │   ├── cm_source_image_abs
+│   │       │   ├── cm_source_mask_abs
+│   │       │   ├── cm_source_image_field
+│   │       │   └── cm_source_mask_field
+│   │       └── ar
+│   │           ├── cm_image_abs
+│   │           ├── cm_source_image_abs
+│   │           ├── cm_source_mask_abs
+│   │           ├── cm_source_image_field
+│   │           └── cm_source_mask_field
 │   │
-│   ├── processed (pixel inputs)
-│   │   ├── resized (default)
-│   │   │   ├── img_path            → 512×384 PNG
-│   │   │   ├── mask_path           → predicted mask (512×384)
-│   │   │   └── overlay_path        → QC only
-│   │   │
-│   │   ├── aspect_ratio (geometry-preserving)
-│   │   │   ├── ar_image            → 575×575 PNG
-│   │   │   ├── ar_mask             → 575×575 mask
-│   │   │   └── ar_* metadata       → scale, μm/px, padding
-│   │   │
-│   │   └── meanfill_clipped (segmentation-aware)
-│   │       ├── cm_image_abs        → background-filled PNG
-│   │       ├── cm_source_image     → resized source
-│   │       └── cm_source_mask      → predicted mask
-│   │
-│   └── quality (metadata only)
-│       └── edge_fraction           → mask touches border
-│
-├── masks
-│   ├── predicted
-│   │   └── mask_path               → model output
-│   └── manual
-│       ├── manual_mask_path
-│       └── manual_mask_path_original
-│
-├── survey
-│   ├── evaluations
-│   ├── quality_scores
-│   └── label
-│       ├── value                   → Acceptable / Not Acceptable
-│       ├── votes
-│       └── acceptance_flag
-│
-├── metabolite
-│   ├── GlucoseGlo
-│   ├── LactateGlo
-│   ├── PyruvateGlo
-│   ├── MalateGlo
-│   ├── GlutamateGlo
-│   └── BCAAGlo
-│
-└── metadata
-    ├── plate (batch, well)
-    ├── day (id, number, original)
-    ├── cell_line
-    └── verification (split / stitch / blank)
+│   ├── metabolite
+│   ├── survey
+│   ├── label
+│   └── metadata / plate / day / cell_line
+
 
 ## Recent Changes (January 2026)
 

@@ -62,6 +62,19 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Path to the image mapping JSON file.",
     )
+    p.add_argument(
+    "--source",
+    choices=["auto", "std", "ar"],
+    default="auto",
+    help="Which image/mask source to use. auto=prefer AR if present; std=use processed_image(+predicted_mask); ar=use aspect_ratio.ar_*.",
+    )
+
+    p.add_argument(
+    "--out-mapping-json",
+    type=Path,
+    default=None,
+    help="Where to write the updated mapping JSON. If omitted, writes next to input with _meanfill suffix.",
+    )
 
     # Provide ONE of:
     p.add_argument("--global-mean-npy",
@@ -194,22 +207,38 @@ def pick_paths(
     masks_base: Optional[Path],
     image_field_override: str,
     mask_field_override: str,
+    source: str = "auto",
 ) -> Tuple[Optional[Path], Optional[Path], str, str]:
     """
     Returns: (img_path, mask_path, used_img_field, used_mask_field)
     """
-    # Image keys we commonly see
+    ar = entry.get("aspect_ratio") or {}
+    if isinstance(ar, dict):
+        if "ar_image" in ar and not entry.get("ar_image"):
+            entry = dict(entry)
+            entry["ar_image"] = ar.get("ar_image")
+        if "ar_mask" in ar and not entry.get("ar_mask"):
+            if "entry" not in locals():
+                entry = dict(entry)
+            entry["ar_mask"] = ar.get("ar_mask")
+
+    has_ar = bool(entry.get("ar_image") or entry.get("ar_image_abs"))
+    # Image candidates
     image_candidates = []
     if image_field_override:
         image_candidates.append(image_field_override)
-    image_candidates += [
-        "ar_image_abs",
-        "processed_image_abs",
-        "ar_image",
-        "processed_image",
-        "std_image",
-    ]
 
+    if source == "ar":
+        image_candidates += ["ar_image_abs", "ar_image"]
+    elif source == "std":
+        image_candidates += ["processed_image_abs", "processed_image", "std_image"]
+    else:  # auto
+        if has_ar:
+            image_candidates += ["ar_image_abs", "ar_image"]
+        image_candidates += ["processed_image_abs", "processed_image", "std_image"]
+        if not has_ar:
+            image_candidates += ["ar_image_abs", "ar_image"]
+            
     img_path: Optional[Path] = None
     used_img_field = ""
     for k in image_candidates:
@@ -233,12 +262,20 @@ def pick_paths(
     if mask_field_override:
         mask_candidates.append(mask_field_override)
 
-    # If using AR image, prioritize AR masks
-    if used_img_field.startswith("ar_"):
-        mask_candidates += [
-            "ar_mask_abs",
-            "ar_mask",
-        ]
+    if source == "ar":
+        mask_candidates += ["ar_mask_abs", "ar_mask"]
+    elif source == "std":
+        mask_candidates += ["predicted_mask_path", "mask_path", "processed_mask", "std_mask"]
+    else:  # auto
+        # choose masks based on the image we actually selected
+        if used_img_field.startswith("ar_"):
+            mask_candidates += ["ar_mask_abs", "ar_mask"]
+
+        mask_candidates += ["predicted_mask_path", "mask_path", "processed_mask", "std_mask"]
+
+        # optional fallback at the very end if std masks missing
+        if not used_img_field.startswith("ar_") and has_ar:
+            mask_candidates += ["ar_mask_abs", "ar_mask"]
 
     mask_candidates += [
         "mask_path",
@@ -335,7 +372,7 @@ def compute_global_mean_rgb01(
     mask_foreground: str,
     mean_region: str,
     sample_n: int,
-) -> Tuple[np.ndarray, int]:
+    source: str = "auto") -> Tuple[np.ndarray, int]:
     """
     Compute ONE RGB mean vector in [0,1].
 
@@ -356,6 +393,7 @@ def compute_global_mean_rgb01(
 
     for rid in tqdm(rids, desc=f"Computing global mean ({mean_region})", ncols=100, mininterval=0.5):
         e = entries[rid]
+
         img_path, mask_path, _, _ = pick_paths(
             e,
             processed_base=processed_base,
@@ -365,6 +403,7 @@ def compute_global_mean_rgb01(
             masks_base=masks_base,
             image_field_override=image_field_override,
             mask_field_override=mask_field_override,
+            source=source,
         )
 
 
@@ -470,6 +509,7 @@ def main() -> None:
             mask_foreground=args.mask_foreground,
             mean_region=args.mean_region,
             sample_n=int(args.mean_sample),
+            source=args.source,
         )
 
         mean_source = f"computed:{args.mean_region}"
@@ -489,12 +529,19 @@ def main() -> None:
     skipped_missing_files = 0
     skipped_exists = 0
 
+    out_key = (
+    "clipped_meanfill_ar" if args.source == "ar"
+    else "clipped_meanfill_std" if args.source == "std"
+    else "clipped_meanfill_auto"
+    )
+
     for rid in tqdm(record_ids, desc="Mean-fill clip", ncols=100, mininterval=0.5):
         e = entries[rid]
         try:
             main_id = e.get("main_id") or rid
             stem = safe_stem(str(main_id))
-            out_img = args.out_images_dir / f"{stem}_filled.png"
+            out_img = args.out_images_dir / f"{stem}_{out_key}_filled.png"
+
 
             img_path, mask_path, used_img_field, used_mask_field = pick_paths(
                 e,
@@ -505,6 +552,7 @@ def main() -> None:
                 masks_base=args.masks_base,
                 image_field_override=args.image_field.strip(),
                 mask_field_override=args.mask_field.strip(),
+                source=args.source,
             )
 
 
@@ -521,14 +569,13 @@ def main() -> None:
 
             if out_img.exists() and not args.overwrite:
                 skipped_exists += 1
-                e.update({
-                    "clipped_meanfill": {
-                        "cm_image_abs": str(out_img),
-                        "cm_image": str(out_img.relative_to(args.out_images_dir)),
-                        "cm_source_image_field": used_img_field,
-                        "cm_source_mask_field": used_mask_field,
-                    }
-                })
+                e[out_key] = {
+                    "cm_image_abs": str(out_img),
+                    "cm_image": str(out_img.relative_to(args.out_images_dir)),
+                    "cm_source_image_field": used_img_field,
+                    "cm_source_mask_field": used_mask_field,
+                }
+
                 continue
 
             img = to_rgb(imread(str(img_path))).astype(np.uint8)
@@ -549,23 +596,22 @@ def main() -> None:
 
             imsave(str(out_img), (filled01 * 255.0).astype(np.uint8), check_contrast=False)
 
-            e.update({
-                "clipped_meanfill": {
-                    "cm_image_abs": str(out_img),
-                    "cm_image": str(out_img.relative_to(args.out_images_dir)),
-                    "cm_source_image_abs": str(img_path),
-                    "cm_source_mask_abs": str(mask_path),
-                    "cm_source_image_field": used_img_field,
-                    "cm_source_mask_field": used_mask_field,
-                }
-            })
+            e[out_key] = {
+                "cm_image_abs": str(out_img),
+                "cm_image": str(out_img.relative_to(args.out_images_dir)),
+                "cm_source_image_abs": str(img_path),
+                "cm_source_mask_abs": str(mask_path),
+                "cm_source_image_field": used_img_field,
+                "cm_source_mask_field": used_mask_field,
+            }
+
             processed += 1
 
         except Exception:
             failed += 1
             logging.exception("Failed record_id=%s", rid)
 
-    mapping["clipped_meanfill"] = {
+    mapping[out_key] = {
         "directory_meta": {
             "_source_mapping": str(args.image_mapping_json),
             "_processed_base_folder": str(processed_base),
@@ -588,6 +634,7 @@ def main() -> None:
             "require_mask": bool(args.require_mask),
             "image_field_override": args.image_field,
             "mask_field_override": args.mask_field,
+            "source": args.source,
         },
         "stats": {
             "seen": len(record_ids),
@@ -599,9 +646,14 @@ def main() -> None:
         }
     }
 
-    new_json = Path(args.image_mapping_json.parent / (args.image_mapping_json.stem + "_meanfill.json"))
+   
+    new_json = args.out_mapping_json
+    if new_json is None:
+        new_json = args.image_mapping_json.parent / (args.image_mapping_json.stem + "_meanfill.json")
+
+    new_json = Path(new_json)
     new_json.write_text(json.dumps(mapping, indent=2))
-    logging.info("Wrote mean-fill mapping: %s", new_json.name)
+    logging.info("Wrote mean-fill mapping: %s", new_json)
     logging.info(
         "Done. processed=%d skipped_exists=%d skipped_no_mask=%d skipped_missing_files=%d failed=%d",
         processed,
