@@ -260,6 +260,7 @@ def main() -> None:
                 # Still append mask path into JSON if you want it “filled”
                 entry["predicted_mask_path"] = str(mask_path)
                 entry["predicted_mask_model"] = args.model_type
+                processed += 1  # count toward expected total for final check
                 continue
 
             # Run inference
