@@ -15,8 +15,8 @@
 
 # -------- Configuration --------
 DATA_DIR           ?= /net/projects2/promega/data_reorg/data
-PYTHON             ?= conda run -p /net/projects2/promega python3
-PYTHON_MMCV        ?= conda run -n mmcv_env python
+PYTHON             ?= conda run --no-capture-output -p /net/projects2/promega python3
+PYTHON_MMCV        ?= conda run --no-capture-output -p /net/scratch2/ntebaldi/conda_envs/mmcv_env python
 PYTHONPATH         := $(shell pwd)
 
 # Input directories
@@ -44,6 +44,12 @@ SURVEY_MAP             := $(SURVEY_OUT_DIR)/survey_map.json
 IMAGE_MAP              := $(IMAGES_DIR)/image_map.json
 IMAGE_MAP_MANUAL       := $(MASKS_DIR)/image_mapping_thresholded_and_manual.json
 IMAGE_MAP_RESIZED      := $(IMAGES_DIR)/image_map_resized_512x384.json
+IMAGE_MAP_PREDICTED    := $(IMAGES_DIR)/image_map_resized_512x384_predicted.json
+IMAGE_MAP_OVERLAY      := $(IMAGES_DIR)/image_map_resized_512x384_predicted_overlay.json
+# Overlay + edge_fraction + aspect-ratio (for step15 mean fill clip)
+IMAGE_MAP_MEANFILL     := $(IMAGES_DIR)/image_map_512x384_resized_predicted_overlay_edge_ar.json
+# + meanfill (for step16 merge_all_data; has predicted_mask_path and full pipeline fields)
+IMAGE_MAP_MERGE        := $(IMAGES_DIR)/image_map_512x384_resized_predicted_overlay_edge_ar_meanfill.json
 ALL_DATA_JSON          := $(IDENTIFIERS_DIR)/all_data.json
 IMAGE_CLASSIFIER_JSON  := $(CLASSIFIERS_DIR)/image_classifier.json
 SURVEY_CLASSIFIER_JSON := $(CLASSIFIERS_DIR)/survey_classifier.json
@@ -64,10 +70,13 @@ GPU              ?=
 RESUME           ?=
 
 # Segmentation models (outputs from step8)
-EARLY_CONFIG     ?= $(SEG_WORK_ROOT)/early/early/vis_data/config.py
+# Config: latest timestamped run dir (e.g. .../late/late/20260209_103224/vis_data/config.py)
+# Checkpoint: in phase dir, not run dir (mmseg saves .../late/late/iter_1000.pth)
+EARLY_RUN_DIR    := $(shell ls -t $(SEG_WORK_ROOT)/early/early/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
+LATE_RUN_DIR     := $(shell ls -t $(SEG_WORK_ROOT)/late/late/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
+EARLY_CONFIG     ?= $(SEG_WORK_ROOT)/early/early/$(EARLY_RUN_DIR)/vis_data/config.py
 EARLY_CHECKPOINT ?= $(SEG_WORK_ROOT)/early/early/iter_1000.pth
-
-LATE_CONFIG      ?= $(SEG_WORK_ROOT)/late/late/vis_data/config.py
+LATE_CONFIG      ?= $(SEG_WORK_ROOT)/late/late/$(LATE_RUN_DIR)/vis_data/config.py
 LATE_CHECKPOINT  ?= $(SEG_WORK_ROOT)/late/late/iter_1000.pth
 
 
@@ -318,11 +327,12 @@ step9-late:
 # ====================================
 # STEP 10: Create Image-Mask Overlays
 # ====================================
-step10: $(IMAGE_MAP_RESIZED)
+# Uses predicted mapping (step9 output): overlays need both processed_image and predicted_mask_path
+step10: $(IMAGE_MAP_PREDICTED)
 	@echo "===> STEP 10: Creating image-mask overlays"
 	@mkdir -p $(IMAGES_DIR)/overlays
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.images.quality.image_mask_overlay \
-		--image-mapping-json $(IMAGE_MAP_RESIZED) \
+		--image-mapping-json $(IMAGE_MAP_PREDICTED) \
 		--overlay-dir $(IMAGES_DIR)/overlays \
 		$(if $(OVERWRITE),--overwrite)
 	@echo "===> Output: $(IMAGES_DIR)/overlays/"
@@ -330,11 +340,12 @@ step10: $(IMAGE_MAP_RESIZED)
 # ====================================
 # STEP 11: Calculate Mask Edge Fraction
 # ====================================
-step11: $(IMAGE_MAP_RESIZED)
+# Uses overlay mapping (step10 output): has predicted_mask_path and overlay_path
+step11: $(IMAGE_MAP_OVERLAY)
 	@echo "===> STEP 11: Calculating mask edge fraction"
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.images.quality.mask_edge_fraction \
-		--image-mapping-json $(IMAGE_MAP_RESIZED)
-	@echo "===> Updated: $(IMAGE_MAP_RESIZED) (with edge_fraction field)"
+		--image-mapping-json $(IMAGE_MAP_OVERLAY)
+	@echo "===> Updated: $(IMAGE_MAP_OVERLAY) (with edge_fraction field)"
 
 # ====================================
 # STEP 12: Filter Complete Series
@@ -379,11 +390,12 @@ step14: $(IMAGE_MAP_RESIZED)
 # ====================================
 # STEP 15: Mean Fill Clip
 # ====================================
-step15: step14
+# Depends on mapping file only; run "make step14" first if resized_575_square is missing
+step15: $(IMAGE_MAP_MEANFILL)
 	@echo "===> STEP 15: Applying mean fill clip"
 	@mkdir -p $(IMAGES_DIR)/mean_fill_clip
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.images.postprocess.meanfill_clip \
-		--image-mapping-json $(patsubst %.json,%_ar.json,$(IMAGE_MAP_RESIZED)) \
+		--image-mapping-json $(IMAGE_MAP_MEANFILL) \
 		--compute-mean \
 		--save-computed-mean \
 		--out-images-dir $(IMAGES_DIR)/mean_fill_clip \
@@ -396,12 +408,12 @@ step15: step14
 # ====================================
 # STEP 16: Generate All Data JSON
 # ====================================
-step16: $(METABOLITE_MAP) $(SURVEY_MAP) $(IMAGE_MAP_RESIZED)
+step16: $(METABOLITE_MAP) $(SURVEY_MAP) $(IMAGE_MAP_MERGE)
 	@echo "===> STEP 16: Generating all_data.json"
 	@mkdir -p $(CLASSIFIERS_DIR)
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m file_utils.merge.merge_all_data \
 		--data-dir $(DATA_DIR) \
-		--image-mapping-json $(IMAGE_MAP_RESIZED) \
+		--image-mapping-json $(IMAGE_MAP_MERGE) \
 		--min-survey-votes $(MIN_SURVEY_VOTES) \
 		--target-width $(TARGET_WIDTH) \
 		--target-height $(TARGET_HEIGHT)
