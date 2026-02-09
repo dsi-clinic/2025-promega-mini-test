@@ -75,7 +75,7 @@ class Config:
     def __post_init__(self):
         self.target_size: tuple = (self.target_width, self.target_height)
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.out_dir = self.data_dir / "results"
+        self.out_dir = self.data_dir / "survey_classifier"
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
         if self.survey_classifier_json is None:
@@ -104,8 +104,8 @@ class SurveyClassifierEmitter(BaseViewEmitter):
             return
 
         evals = record.get("survey", {}).get("evaluations")
-        img_path = record.get("images", {}).get("processed", {}).get("img_path")
-        mask_path = record.get("images", {}).get("processed", {}).get("mask_path")
+        img_path = record.get("images", {}).get("img_path")
+        mask_path = record.get("images", {}).get("mask_path")
         label = record.get("label", {}).get("acceptance_flag")
 
         if not evals or not record.get("day", {}).get("id") or not img_path or not mask_path \

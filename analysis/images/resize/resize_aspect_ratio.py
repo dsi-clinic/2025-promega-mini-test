@@ -1,22 +1,22 @@
-from __future__ import annotations
+# from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import cv2
 import numpy as np
 import tifffile  # type: ignore
+import tqdm
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
-LOG = logging.getLogger("aspect_ratio_resize")
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 
 def pad_to_square_image(img: np.ndarray, target: int) -> np.ndarray:
@@ -86,63 +86,148 @@ def read_raw_shape(tif_path: Path) -> Tuple[int, int]:
 
     return int(orig_h), int(orig_w)
 
+def read_um_per_px_from_tif(tif_path: Path) -> float | None:
+    import re
+    import tifffile
 
-@dataclass
-class Args:
-    image_mapping_json: Path
-    raw_images_dir: Path  # NEW
-    out_images_dir: Path
-    out_masks_dir: Path
-    out_mapping_json: Path
-    target_um_per_px: float
-    target_size: int
-    overwrite: bool
-    require_mask: bool
-    smoke: int
+    with tifffile.TiffFile(str(tif_path)) as tf:
+        page = tf.pages[0]
+
+        desc_tag = page.tags.get("ImageDescription")
+        desc = str(desc_tag.value) if desc_tag else ""
+
+        # Check ImageJ unit
+        unit_um = ("unit=\\u00B5m" in desc) or ("unit=µm" in desc) or ("unit=micron" in desc) or ("unit=microns" in desc)
+
+        # Use X/Y resolution if present
+        xres_tag = page.tags.get("XResolution")
+        yres_tag = page.tags.get("YResolution")
+        if unit_um and xres_tag and yres_tag:
+            xres = xres_tag.value  # (num, den)
+            yres = yres_tag.value
+            px_per_unit_x = xres[0] / xres[1]
+            px_per_unit_y = yres[0] / yres[1]
+
+            # If unit is µm, then "unit" == 1 µm
+            # => µm/px = 1 / (px/µm)
+            if px_per_unit_x > 0 and px_per_unit_y > 0:
+                um_per_px_x = 1.0 / px_per_unit_x
+                um_per_px_y = 1.0 / px_per_unit_y
+
+                # sanity: require near-isotropic
+                if abs(um_per_px_x - um_per_px_y) / max(um_per_px_x, um_per_px_y) < 0.01:
+                    return float((um_per_px_x + um_per_px_y) / 2.0)
+
+    return None
+
+def read_raw_image_as_bgr(tif_path: Path) -> np.ndarray:
+    """
+    Read raw TIFF pixels and return a BGR uint8 image for OpenCV.
+    - If grayscale: converts to 3-channel BGR.
+    - If uint16: scales to uint8.
+    """
+    img = tifffile.imread(str(tif_path))
+
+    # If it's a stack, take the first plane (best-Z should be 2D anyway)
+    if img.ndim >= 3 and img.shape[0] not in (3, 4) and img.shape[-1] not in (3, 4):
+        img = img[0]
+
+    # Normalize to uint8
+    if img.dtype == np.uint16:
+        img8 = (img.astype(np.float32) / 65535.0 * 255.0).clip(0, 255).astype(np.uint8)
+    elif img.dtype != np.uint8:
+        img8 = np.clip(img, 0, 255).astype(np.uint8)
+    else:
+        img8 = img
+
+    # Convert to 3-channel BGR
+    if img8.ndim == 2:
+        img8 = cv2.cvtColor(img8, cv2.COLOR_GRAY2BGR)
+    elif img8.ndim == 3 and img8.shape[-1] == 3:
+        # tifffile gives RGB; OpenCV expects BGR
+        img8 = img8[:, :, ::-1]
+    elif img8.ndim == 3 and img8.shape[-1] == 4:
+        img8 = img8[:, :, :3][:, :, ::-1]
+
+    return img8
+
+@dataclasses.dataclass
+class Config:
+    image_mapping_json: Path = dataclasses.field(metadata={
+        "help": "Processed image mapping JSON (std_512x384). This file will be UPDATED in-place."
+    })
+    raw_images_dir: Path = dataclasses.field(metadata={
+        "help": "Base directory containing raw TIFF images referenced by 'Best Z Filename'."
+    })
+    out_images_dir: Path = dataclasses.field(metadata={
+        "help": "Output dir for images (writes to out-images-dir/images)."
+    })
+    out_masks_dir: Path = dataclasses.field(metadata={
+        "help": "Output dir for masks (writes to out-masks-dir/masks)."
+    })
+    target_um_per_px: float = dataclasses.field(default=9.0, metadata={
+        "help": "Target um per pixel."
+    })
+    target_size: int = dataclasses.field(default=575, metadata={
+        "help": "Target size."
+    })
+    overwrite: bool = dataclasses.field(default=False, metadata={
+        "help": "Overwrite existing files."
+    })
+    require_mask: bool = dataclasses.field(default=False, metadata={
+        "help": "Require mask."
+    })
+    smoke: int = dataclasses.field(default=0, metadata={
+        "help": "Limit to N records for quick test."
+    })
+
+    def __post_init__(self):
+        if not self.image_mapping_json.exists():
+            raise ValueError(f"Mapping JSON does not exist: {self.image_mapping_json}")
+        if not self.raw_images_dir.exists():
+            raise ValueError(f"Raw images directory does not exist: {self.raw_images_dir}")
+        if not self.out_images_dir.exists():
+            self.out_images_dir.mkdir(parents=True, exist_ok=True)
+        if not self.out_masks_dir.exists():
+            self.out_masks_dir.mkdir(parents=True, exist_ok=True)
+
+def get_args():
+    arg_parser = create_args()
+    args = arg_parser.parse_args()
+    cfg = Config(**vars(args))
+    return cfg
 
 
-def parse_args() -> Args:
-    p = argparse.ArgumentParser(
-        description="Post-inference aspect-ratio conserved resize + physical-scale normalize + pad-to-square."
-    )
-    p.add_argument("--image-mapping-json", type=Path, required=True)
+def create_args() -> argparse.ArgumentParser:
+    """Create an ArgumentParser from the Config dataclass."""
+    parser = argparse.ArgumentParser(description="Run image classifier on organoid images")
 
-    # NEW: explicit raw TIFF base folder
-    p.add_argument(
-        "--raw-images-dir",
-        type=Path,
-        required=True,
-        help="Base directory containing raw TIFF images referenced by 'Best Z Filename'.",
-    )
+    for field in dataclasses.fields(Config):
+        # Build argument flag and help message
+        flags = [f"--{field.name.replace('_', '-')}"]
+        kwargs = {"help": field.metadata.get("help", "")}
+        # REQUIRED vs optional
+        if field.default is not dataclasses.MISSING:
+            kwargs["default"] = field.default
+        else:
+            kwargs["required"] = True
 
-    p.add_argument("--out-images-dir", type=Path, required=True)
-    p.add_argument("--out-masks-dir", type=Path, required=True)
-    p.add_argument("--out-mapping-json", type=Path, required=True)
 
-    p.add_argument("--target-um-per-px", type=float, default=9.0)
-    p.add_argument("--target-size", type=int, default=575)
+        # Determine argument type
+        if field.type == bool:
+            kwargs["action"] = "store_true" if field.default is False else "store_false"
+        else:
+            kwargs["type"] = field.type
 
-    p.add_argument("--overwrite", action="store_true")
-    p.add_argument("--require-mask", action="store_true")
-    p.add_argument("--smoke", type=int, default=0)
+        parser.add_argument(*flags, **kwargs)
 
-    a = p.parse_args()
-    return Args(
-        image_mapping_json=a.image_mapping_json,
-        raw_images_dir=a.raw_images_dir,  # NEW
-        out_images_dir=a.out_images_dir,
-        out_masks_dir=a.out_masks_dir,
-        out_mapping_json=a.out_mapping_json,
-        target_um_per_px=float(a.target_um_per_px),
-        target_size=int(a.target_size),
-        overwrite=bool(a.overwrite),
-        require_mask=bool(a.require_mask),
-        smoke=int(a.smoke),
-    )
+    return parser
 
 
 def main() -> None:
-    args = parse_args()
+    args = get_args()
+    for key, value in vars(args).items():
+        logging.info("%s: %s", key, value)
 
     mapping = json.loads(args.image_mapping_json.read_text())
     entries: Dict[str, Dict[str, Any]] = mapping.get("entries", {})
@@ -151,29 +236,20 @@ def main() -> None:
 
     # NEW: raw TIFF base folder comes from CLI, not mapping JSON
     raw_base = args.raw_images_dir
-    if not raw_base.exists():
-        raise RuntimeError(f"--raw-images-dir missing/invalid: {raw_base}")
 
-    processed_base = Path(mapping.get("_processed_base_folder", args.image_mapping_json.parent))
-    if not processed_base.exists():
-        raise RuntimeError(f"Processed base folder missing/invalid: {processed_base}")
-
-    args.out_images_dir.mkdir(parents=True, exist_ok=True)
-    args.out_masks_dir.mkdir(parents=True, exist_ok=True)
 
     record_ids = list(entries.keys())
     if args.smoke and args.smoke > 0:
         record_ids = record_ids[: args.smoke]
 
-    out_entries: Dict[str, Any] = {}
     processed = 0
     skipped_no_mask = 0
     failed = 0
 
-    for rid in record_ids:
+    for rid in tqdm.tqdm(record_ids, desc="Resize aspect ratio processing"):
         e = entries[rid]
         try:
-            main_id = e.get("main_id") or rid
+            main_id = e.get("verification", {}).get("main_id") or rid
 
             # --- raw tif for TRUE shape ---
             raw_rel = e.get("Best Z Filename")
@@ -185,28 +261,21 @@ def main() -> None:
 
             orig_h, orig_w = read_raw_shape(raw_path)
 
-            # --- um_per_px (assume you fixed this upstream; we trust JSON here) ---
-            orig_um = e.get("um_per_px")
-            if isinstance(orig_um, (list, tuple)) and len(orig_um) > 0:
-                orig_um = orig_um[0]
-            if orig_um is None:
-                raise KeyError("Missing um_per_px in entry (needed for physical scaling).")
-            orig_um = float(orig_um)
+            # --- determine µm/px (TIFF > mapping fallback) ---
+                
+            tif_um = read_um_per_px_from_tif(raw_path)
+            if tif_um is not None:
+                orig_um = tif_um
+                logging.info("%s: using TIFF µm/px = %.6f", rid, orig_um)
+            else:
+                orig_um = float(e["um_per_px"])
+                logging.info("%s: using mapping µm/px = %.6f", rid, orig_um)
 
-            # --- std image (stretched 512x384) ---
-            rel_proc = e.get("processed_image")
-            if not rel_proc:
-                raise KeyError("Missing processed_image in entry.")
-            std_img_path = processed_base / str(rel_proc)
-            if not std_img_path.exists():
-                raise FileNotFoundError(str(std_img_path))
 
-            std_img = cv2.imread(str(std_img_path), cv2.IMREAD_COLOR)
-            if std_img is None:
-                raise RuntimeError(f"cv2 failed to read std image: {std_img_path}")
 
-            # --- std mask (optional but usually required) ---
-            mask_path_str = e.get("mask_path")
+            # --- std mask (optional) ---
+            mask_path_str = e.get("predicted_mask_path")
+
             if args.require_mask and not mask_path_str:
                 skipped_no_mask += 1
                 continue
@@ -219,13 +288,16 @@ def main() -> None:
                 else:
                     if args.require_mask:
                         raise FileNotFoundError(str(mp))
+                    # else: leave std_mask as None
 
-            # 1) Unstretch std image back to raw shape
-            img_unstretched = cv2.resize(
-                std_img,
-                (orig_w, orig_h),
-                interpolation=cv2.INTER_LINEAR,
-            )
+            # --- raw image pixels (rigorous) ---
+            raw_img = read_raw_image_as_bgr(raw_path)
+            if raw_img is None:
+                raise RuntimeError(f"Failed to read raw tif pixels: {raw_path}")
+
+            # Ensure raw_img matches orig_h/orig_w (it should, but be safe)
+            raw_img = cv2.resize(raw_img, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)
+
 
             # 2) Physical-scale resize to target um/px
             scale = orig_um / args.target_um_per_px
@@ -235,10 +307,11 @@ def main() -> None:
                 raise RuntimeError(f"Bad scaled dims: ({scaled_h},{scaled_w}) from scale={scale}")
 
             img_scaled = cv2.resize(
-                img_unstretched,
+                raw_img,
                 (scaled_w, scaled_h),
                 interpolation=cv2.INTER_LINEAR,
             )
+
 
             # 3) Pad to square
             img_final = pad_to_square_image(img_scaled, args.target_size)
@@ -274,55 +347,52 @@ def main() -> None:
                     if not ok:
                         raise RuntimeError(f"Failed to write mask: {out_msk}")
 
-            out_entries[rid] = {
-                "main_id": main_id,
-                "raw_tif": str(raw_path),
-                "std_image": str(std_img_path),
-                "std_mask": str(mask_path_str) if mask_path_str else None,
-                "ar_image": str(out_img.relative_to(args.out_images_dir)),
-                "ar_mask": str(out_msk.relative_to(args.out_masks_dir)) if mask_final is not None else None,
-                "orig_h": orig_h,
-                "orig_w": orig_w,
-                "orig_um_per_px": orig_um,
-                "target_um_per_px": args.target_um_per_px,
-                "scale_factor": scale,
-                "scaled_h": scaled_h,
-                "scaled_w": scaled_w,
-                "target_size": args.target_size,
+            entry = {
+                "aspect_ratio": {
+                    "ar_raw_tif": str(raw_path),
+                    "ar_image": str(out_img.relative_to(args.out_images_dir)),
+                    "ar_mask": str(out_msk.relative_to(args.out_masks_dir)) if mask_final is not None else None,
+                    "ar_orig_um_per_px": orig_um,
+                    "ar_target_um_per_px": args.target_um_per_px,
+                    "ar_scale_factor": scale,
+                    "ar_scaled_h": scaled_h,
+                    "ar_scaled_w": scaled_w,
+                    "ar_target_size": args.target_size,
+                }
             }
-            processed += 1
+            e.update(entry)
 
         except Exception:
             failed += 1
-            LOG.exception("Failed record_id=%s", rid)
+            logging.exception("Failed record_id=%s", rid)
             continue
 
-    out = {
-        "_source_mapping": str(args.image_mapping_json),
-        "_raw_base_folder": str(raw_base),
-        "_std_processed_base_folder": str(processed_base),
-        "_ar_images_base_folder": str(args.out_images_dir),
-        "_ar_masks_base_folder": str(args.out_masks_dir),
+    mapping["aspect_ratio"] = {
+        "directory_meta": {
+            "_source_mapping": str(args.image_mapping_json),
+            "_raw_base_folder": str(raw_base),
+            "_ar_images_base_folder": str(args.out_images_dir),
+            "_ar_masks_base_folder": str(args.out_masks_dir),
+        },
         "params": {
             "target_um_per_px": args.target_um_per_px,
             "target_size": args.target_size,
             "image_interpolation": "INTER_LINEAR",
             "mask_interpolation": "INTER_NEAREST",
-            "source_pixels": "std_512x384_then_unstretch_to_raw_shape",
+            "source_pixels": "raw_tif_pixels",
         },
         "stats": {
             "seen": len(record_ids),
             "processed": processed,
             "skipped_no_mask": skipped_no_mask,
             "failed": failed,
-        },
-        "entries": out_entries,
+        }
     }
 
-    args.out_mapping_json.parent.mkdir(parents=True, exist_ok=True)
-    args.out_mapping_json.write_text(json.dumps(out, indent=2))
-    LOG.info("Wrote AR mapping: %s", args.out_mapping_json)
-    LOG.info("Done. processed=%d skipped_no_mask=%d failed=%d", processed, skipped_no_mask, failed)
+    new_json = Path(args.image_mapping_json.parent / (args.image_mapping_json.stem + "_ar.json"))
+    new_json.write_text(json.dumps(mapping, indent=2))
+    logging.info("Wrote AR mapping: %s", new_json.name)
+    logging.info("Done. processed=%d skipped_no_mask=%d failed=%d", processed, skipped_no_mask, failed)
 
 
 if __name__ == "__main__":

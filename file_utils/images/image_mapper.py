@@ -5,6 +5,7 @@ import dataclasses
 import datetime
 import json
 import logging
+import math
 import os
 import pathlib
 import re
@@ -576,8 +577,22 @@ class ImageMapper:
         }
         out_json = pathlib.Path(out_json)
         out_json.parent.mkdir(parents=True, exist_ok=True)
-        out_json.write_text(json.dumps(wrapped, indent=2))
+        out_json.write_text(json.dumps(replace_nan(wrapped), indent=2))
         logging.info(f"[ImageMapper] Wrote mapping JSON to {out_json}")
+
+def replace_nan(json_data: Any) -> Any:
+    """
+    Replace NaN values with None in a JSON dictionary.
+    Recursively processes nested dicts, lists, and other JSON-serializable types.
+    """
+    if isinstance(json_data, float) and math.isnan(json_data):
+        return None
+    elif isinstance(json_data, dict):
+        return {k: replace_nan(v) for k, v in json_data.items()}
+    elif isinstance(json_data, list):
+        return [replace_nan(v) for v in json_data]
+    else:
+        return json_data
 
 
 def load_identifiers(identifiers_file: pathlib.Path) -> set:

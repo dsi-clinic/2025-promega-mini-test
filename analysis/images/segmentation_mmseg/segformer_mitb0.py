@@ -6,11 +6,11 @@ custom_imports = dict(
     # allow_failed_imports=False
 )
 
-from day_datasets import Dy30Dataset
+from analysis.images.segmentation_mmseg.datasets.day_datasets import Dy30Dataset
 
-# Dataset paths
-SPLIT_DIR = '/net/projects2/promega/data-analysis/output/train_resized_512x384/manual_mappings/processed_512x384/split'
-SPLIT_PREFIX = 'mapping_days1330'  # mapping_days0310 = early, mapping_days1330 = late models
+# Dataset paths - will be set directly in train.py from command-line args
+# mapping_days0310 = early days, mapping_days1330 = late days
+# Placeholder paths (will be overridden):
 
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 # data_preprocessor = dict(
@@ -42,7 +42,7 @@ model = dict(
         style='pytorch',
         init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
 decode_head=dict(
-    type='UPerHead',  # More effective for biomedical segmentation    
+    type='UPerHead',  # More effective for biomedical segmentation
     in_channels=[256, 512, 1024, 2048],  # These must match ResNet-50 output channels
     in_index=[0, 1, 2, 3],
     pool_scales=(1, 2, 3, 6),
@@ -65,9 +65,6 @@ decode_head=dict(
 #     mean=[127.5],
 #     std=[127.5],
 #     to_rgb=False)
-
-# Import your custom transform at the top of your config
-custom_imports = dict(imports=['custom_transforms'])
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -104,7 +101,7 @@ train_dataloader = dict(
     drop_last=True,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path=f'{SPLIT_DIR}/{SPLIT_PREFIX}_train.json',
+        json_mapping_path='',  # Will be set in train.py
         day_filter=None,
         pipeline=train_pipeline,
         lazy_init=False
@@ -117,7 +114,7 @@ val_dataloader = dict(
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path=f'{SPLIT_DIR}/{SPLIT_PREFIX}_val.json',
+        json_mapping_path='',  # Will be set in train.py
         day_filter=None,
         pipeline=val_pipeline,
         lazy_init=False
@@ -132,7 +129,7 @@ test_dataloader = dict(
     num_workers=2,
     dataset=dict(
         type='Dy30Dataset',
-        json_mapping_path=f'{SPLIT_DIR}/{SPLIT_PREFIX}_test.json',
+        json_mapping_path='',  # Will be set in train.py
         day_filter=None,
         pipeline=val_pipeline,
         lazy_init=False
@@ -176,5 +173,11 @@ default_hooks = dict(
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='SegVisualizationHook'))
 
-val_evaluator = dict(type='IoUMetric', iou_metrics=['mIoU'], ignore_index=255)
+
+val_evaluator = dict(
+    type='IoUMetric',
+    iou_metrics=['mIoU'],
+    ignore_index=255
+)
+
 test_evaluator = val_evaluator
