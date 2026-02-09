@@ -86,6 +86,40 @@ def read_raw_shape(tif_path: Path) -> Tuple[int, int]:
 
     return int(orig_h), int(orig_w)
 
+def read_um_per_px_from_tif(tif_path: Path) -> float | None:
+    import re
+    import tifffile
+
+    with tifffile.TiffFile(str(tif_path)) as tf:
+        page = tf.pages[0]
+
+        desc_tag = page.tags.get("ImageDescription")
+        desc = str(desc_tag.value) if desc_tag else ""
+
+        # Check ImageJ unit
+        unit_um = ("unit=\\u00B5m" in desc) or ("unit=µm" in desc) or ("unit=micron" in desc) or ("unit=microns" in desc)
+
+        # Use X/Y resolution if present
+        xres_tag = page.tags.get("XResolution")
+        yres_tag = page.tags.get("YResolution")
+        if unit_um and xres_tag and yres_tag:
+            xres = xres_tag.value  # (num, den)
+            yres = yres_tag.value
+            px_per_unit_x = xres[0] / xres[1]
+            px_per_unit_y = yres[0] / yres[1]
+
+            # If unit is µm, then "unit" == 1 µm
+            # => µm/px = 1 / (px/µm)
+            if px_per_unit_x > 0 and px_per_unit_y > 0:
+                um_per_px_x = 1.0 / px_per_unit_x
+                um_per_px_y = 1.0 / px_per_unit_y
+
+                # sanity: require near-isotropic
+                if abs(um_per_px_x - um_per_px_y) / max(um_per_px_x, um_per_px_y) < 0.01:
+                    return float((um_per_px_x + um_per_px_y) / 2.0)
+
+    return None
+
 def read_raw_image_as_bgr(tif_path: Path) -> np.ndarray:
     """
     Read raw TIFF pixels and return a BGR uint8 image for OpenCV.
@@ -227,13 +261,17 @@ def main() -> None:
 
             orig_h, orig_w = read_raw_shape(raw_path)
 
-            # --- um_per_px (assume you fixed this upstream; we trust JSON here) ---
-            orig_um = e.get("um_per_px")
-            if isinstance(orig_um, (list, tuple)) and len(orig_um) > 0:
-                orig_um = orig_um[0]
-            if orig_um is None:
-                raise KeyError("Missing um_per_px in entry (needed for physical scaling).")
-            orig_um = float(orig_um)
+            # --- determine µm/px (TIFF > mapping fallback) ---
+                
+            tif_um = read_um_per_px_from_tif(raw_path)
+            if tif_um is not None:
+                orig_um = tif_um
+                logging.info("%s: using TIFF µm/px = %.6f", rid, orig_um)
+            else:
+                orig_um = float(e["um_per_px"])
+                logging.info("%s: using mapping µm/px = %.6f", rid, orig_um)
+
+
 
             # --- std mask (optional) ---
             mask_path_str = e.get("predicted_mask_path")
