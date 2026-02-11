@@ -34,3 +34,4 @@ dependencies:
     - jupyter_client
     - jupyter_core
     - lightgbm
+    - xgboost
