@@ -236,6 +236,9 @@ analysis/images/classifier/monitor_accuracy.sh
 !analysis/images/classifier/efficientnet_image_classifier/*.sh
 *.s
 !analysis/images/classifier/efficientnet_image_classifier/*.s
+!analysis/metabolites/LightGBM/*.py
+!analysis/metabolites/LightGBM/*.sh
+!analysis/metabolites/LightGBM/*.s
 *.slurm
 test_*/
 misclassified_samples*/
