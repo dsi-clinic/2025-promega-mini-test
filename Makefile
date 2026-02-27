@@ -47,9 +47,11 @@ IMAGE_MAP_RESIZED      := $(IMAGES_DIR)/image_map_resized_512x384.json
 IMAGE_MAP_PREDICTED    := $(IMAGES_DIR)/image_map_resized_512x384_predicted.json
 IMAGE_MAP_OVERLAY      := $(IMAGES_DIR)/image_map_resized_512x384_predicted_overlay.json
 # Overlay + edge_fraction + aspect-ratio (for step15 mean fill clip)
-IMAGE_MAP_MEANFILL     := $(IMAGES_DIR)/image_map_512x384_resized_predicted_overlay_edge_ar.json
+# Produced by step14 when given IMAGE_MAP_OVERLAY (stem + "_ar.json")
+IMAGE_MAP_MEANFILL     := $(IMAGES_DIR)/image_map_resized_512x384_predicted_overlay_ar.json
 # + meanfill (for step16 merge_all_data; has predicted_mask_path and full pipeline fields)
-IMAGE_MAP_MERGE        := $(IMAGES_DIR)/image_map_512x384_resized_predicted_overlay_edge_ar_meanfill.json
+# Produced by step15 from IMAGE_MAP_MEANFILL (stem + "_meanfill.json")
+IMAGE_MAP_MERGE        := $(IMAGES_DIR)/image_map_resized_512x384_predicted_overlay_ar_meanfill.json
 ALL_DATA_JSON          := $(IDENTIFIERS_DIR)/all_data.json
 IMAGE_CLASSIFIER_JSON  := $(CLASSIFIERS_DIR)/image_classifier.json
 SURVEY_CLASSIFIER_JSON := $(CLASSIFIERS_DIR)/survey_classifier.json
@@ -341,7 +343,7 @@ step10: $(IMAGE_MAP_PREDICTED)
 # STEP 11: Calculate Mask Edge Fraction
 # ====================================
 # Uses overlay mapping (step10 output): has predicted_mask_path and overlay_path
-step11: $(IMAGE_MAP_OVERLAY)
+step11: step10
 	@echo "===> STEP 11: Calculating mask edge fraction"
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.images.quality.mask_edge_fraction \
 		--image-mapping-json $(IMAGE_MAP_OVERLAY)
@@ -374,24 +376,26 @@ step13: step12
 # ====================================
 # STEP 14: Resize with Aspect Ratio
 # ====================================
-step14: $(IMAGE_MAP_RESIZED)
+# Uses overlay mapping (step10+11) so output has overlay+edge+ar; step15 consumes this
+step14: step11
 	@echo "===> STEP 14: Resizing with aspect ratio"
 	@mkdir -p $(IMAGES_DIR)/resized_575_square
 	@mkdir -p $(MASKS_DIR)/resized_575_square
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.images.resize.resize_aspect_ratio \
-		--image-mapping-json $(IMAGE_MAP_RESIZED) \
+		--image-mapping-json $(IMAGE_MAP_OVERLAY) \
 		--raw-images-dir $(RAW_IMAGES_DIR) \
 		--out-images-dir $(IMAGES_DIR)/resized_575_square \
 		--out-masks-dir $(MASKS_DIR)/resized_575_square \
 		--require-mask \
 		$(if $(OVERWRITE),--overwrite)
 	@echo "===> Output: $(IMAGES_DIR)/resized_575_square/"
+	@echo "===> Output: $(IMAGE_MAP_MEANFILL)"
 
 # ====================================
 # STEP 15: Mean Fill Clip
 # ====================================
-# Depends on mapping file only; run "make step14" first if resized_575_square is missing
-step15: $(IMAGE_MAP_MEANFILL)
+# Uses IMAGE_MAP_MEANFILL produced by step14 (overlay_ar.json)
+step15: step14
 	@echo "===> STEP 15: Applying mean fill clip"
 	@mkdir -p $(IMAGES_DIR)/mean_fill_clip
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.images.postprocess.meanfill_clip \
@@ -475,7 +479,7 @@ pipeline-series: step12 step13 step14 step15
 
 pipeline-merge: step16
 
-pipeline-all: pipeline-identifiers pipeline-mappers pipeline-preprocessing pipeline-quality pipeline-merge
+pipeline-all: pipeline-identifiers pipeline-mappers pipeline-preprocessing pipeline-segmentation pipeline-quality pipeline-merge
 	@echo ""
 	@echo "========================================="
 	@echo "PREPROCESSING PIPELINE COMPLETE!"
