@@ -40,13 +40,13 @@ SCHEMA_DICT = Dict[str, Any]
 @dataclasses.dataclass
 class Config:
     data_dir: Path = dataclasses.field(metadata={
-        "help": "Path to data directory containing organoid data"
+        "help": "Path to base data directory (root) containing identifiers/, images/, classifiers/, etc."
     })
     all_data_json: Path = dataclasses.field(default=None, metadata={
-        "help": "Path to all data JSON file"
+        "help": "Path to all data JSON file (defaults to data_dir/identifiers/all_data.json)"
     })
     survey_classifier_json: Path = dataclasses.field(default=None, metadata={
-        "help": "Path to survey classifier JSON file (defaults to out_dir/../identifiers/survey_classifier.json)"
+        "help": "Path to survey classifier JSON file (defaults to data_dir/identifiers/survey_classifier.json)"
     })
     batch_size: int = dataclasses.field(default=8, metadata={
         "help": "Training batch size"
@@ -75,16 +75,16 @@ class Config:
     def __post_init__(self):
         self.target_size: tuple = (self.target_width, self.target_height)
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.out_dir = self.data_dir / "survey_classifier"
+        self.out_dir = self.data_dir / "survey" / "survey_classifier"
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
         if self.survey_classifier_json is None:
-            self.survey_classifier_json = self.data_dir.parent.joinpath("identifiers", "survey_classifier.json")
+            self.survey_classifier_json = self.data_dir / "identifiers" / "survey_classifier.json"
         else:
             self.survey_classifier_json = Path(self.survey_classifier_json)
 
         if self.all_data_json is None:
-            self.all_data_json = self.data_dir.parent.joinpath("identifiers", "all_data.json")
+            self.all_data_json = self.data_dir / "identifiers" / "all_data.json"
         else:
             self.all_data_json = Path(self.all_data_json)
 
