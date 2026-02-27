@@ -18,15 +18,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Locate repo root
-HERE = Path(__file__).resolve()
-for p in HERE.parents:
-    if (p / "config.py").exists() and (p / ".env").exists():
-        sys.path.insert(0, str(p))
-        break
-else:
-    raise RuntimeError("Could not locate repo root containing config.py and .env")
-
 ALLOWED_EXT = {".tif", ".tiff", ".png"}
 EXPECTED_RECORDS_NUM = 5168
 
