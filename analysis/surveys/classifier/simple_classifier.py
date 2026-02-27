@@ -3,15 +3,17 @@ import argparse
 import dataclasses
 import datetime
 import json
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
 import random
 from typing import Any, Dict, List, Mapping
 
-# Third party
-import dotenv
-dotenv.load_dotenv()    # Load environment variables ahead of torch imports
+# Deterministic TensorFlow/CUDA (must be set before tensorflow import)
+os.environ.setdefault("TF_DETERMINISTIC_OPS", "1")
+os.environ.setdefault("TF_CUDNN_DETERMINISTIC", "1")
 
+# Third party
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns

@@ -12,10 +12,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Tuple
 
-# Third party imports
-import dotenv
-dotenv.load_dotenv()    # Load environment variables ahead of torch imports
+# Deterministic CUDA (must be set before torch import)
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
+# Third party imports
 import matplotlib.pyplot as plt
 import numpy as np
 import timm
