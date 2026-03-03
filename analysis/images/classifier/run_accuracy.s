@@ -41,7 +41,6 @@ ls -la "${PY}"
 export PYTHONPATH=.
 "${CONDA_PREFIX}/bin/python" -u "${PY}" \
   --data-dir "${DATA_DIR}" \
-  --all-data-json "${ALL_DATA_JSON}" \
   --batch-size 16 \
   --val-frac 0.10 \
   --test-frac 0.10 \

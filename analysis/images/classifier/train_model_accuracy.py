@@ -12,10 +12,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Tuple
 
-# Third party imports
-import dotenv
-dotenv.load_dotenv()    # Load environment variables ahead of torch imports
+# Deterministic CUDA (must be set before torch import)
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
+# Third party imports
 import matplotlib.pyplot as plt
 import numpy as np
 import timm
@@ -47,13 +47,13 @@ SCHEMA_DICT = Dict[str, Any]
 @dataclasses.dataclass
 class Config:
     data_dir: Path = dataclasses.field(metadata={
-        "help": "Path to data directory containing organoid data"
+        "help": "Path to base data directory (root) containing identifiers/, images/, classifiers/, etc."
     })
     all_data_json: Path = dataclasses.field(default=None, metadata={
-        "help": "Path to all data JSON file"
+        "help": "Path to all data JSON file (defaults to data_dir/identifiers/all_data.json)"
     })
     image_classifier_json: Path = dataclasses.field(default=None, metadata={
-        "help": "Path to image classifier JSON file (defaults to out_dir/../identifiers/image_classifier.json)"
+        "help": "Path to image classifier JSON file (defaults to data_dir/identifiers/image_classifier.json)"
     })
     epoch1: int = dataclasses.field(default=100, metadata={
         "help": "Number of training epochs for phase 1 (frozen backbone)"
@@ -106,21 +106,21 @@ class Config:
         if self.batch_size <= 0:
             raise ValueError("train_bs must be > 0")
 
-        # Set up
+        # Set up (data_dir is root: identifiers/, classifiers/, images/, etc.)
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.out_dir = self.data_dir / "image_classifier"
+        self.out_dir = self.data_dir / "images" / "image_classifier"
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
         self.val_batch_size = int(self.val_batch_size) if self.val_batch_size is not None else self.batch_size
         self.target_size: tuple = (self.target_height, self.target_width)  # (H, W) format for PyTorch/timm
 
         if self.all_data_json is None:
-            self.all_data_json = self.data_dir.parent.joinpath("identifiers", "all_data.json")
+            self.all_data_json = self.data_dir / "identifiers" / "all_data.json"
         else:
             self.all_data_json = Path(self.all_data_json)
 
         if self.image_classifier_json is None:
-            self.image_classifier_json = self.data_dir.parent.joinpath("identifiers", "image_classifier.json")
+            self.image_classifier_json = self.data_dir / "identifiers" / "image_classifier.json"
         else:
             self.image_classifier_json = Path(self.image_classifier_json)
 

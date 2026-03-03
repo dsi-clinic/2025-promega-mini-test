@@ -14,15 +14,6 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(leveln
                     datefmt='%Y-%m-%dT%H:%M:%S',
                     level=logging.INFO)
 
-# --- locate repo root (has paths.py + .env) ---
-HERE = Path(__file__).resolve()
-for p in HERE.parents:
-    if (p / "config.py").exists() and (p / ".env").exists():
-        sys.path.insert(0, str(p))
-        break
-else:
-    raise RuntimeError("Could not locate repo root containing config.py and .env")
-
 # Constants
 DEFAULT_TARGET_WIDTH = 512
 DEFAULT_TARGET_HEIGHT = 384
