@@ -1,0 +1,20 @@
+{
+  "target_day": 30,
+  "best_val_acc": 0.9444444179534912,
+  "test_acc": 0.8863636255264282,
+  "test_precision": 0.9411764705882353,
+  "test_recall": 0.9142857142857143,
+  "test_f1": 0.927536231884058,
+  "test_auc": 0.9365079365079365,
+  "test_ap": 0.981663771717328,
+  "model_path": "/home/tonyluo/amanda_temporal/comparison_runs/our_efficientnet_all_data/day_30/model_day_30.pth",
+  "test_false_positives": [
+    "BA2 96_1 A12",
+    "BA2 96_1 E9"
+  ],
+  "test_false_negatives": [
+    "BA2 96_1 G6",
+    "BA1 96_1 F8",
+    "BA2 96_1 E1 split_2"
+  ]
+}

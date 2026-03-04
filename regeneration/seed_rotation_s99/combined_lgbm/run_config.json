@@ -1,0 +1,13 @@
+{
+  "model_type": "combined_metabolite_image",
+  "scoring": "f1_notaccept",
+  "imbalance": "class_weight",
+  "n_folds": 3,
+  "use_second_order": false,
+  "n_image_features": 12,
+  "dim_reduction": "PCA",
+  "image_backbone": "efficientnet_b0",
+  "image_embedding_dim": 1280,
+  "seed": 42,
+  "git_hash": null
+}

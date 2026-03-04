@@ -1,0 +1,33 @@
+{
+  "day": "Dy30",
+  "day_no": 30,
+  "n_metabolite_features": 12,
+  "n_image_features": 12,
+  "n_total_features": 24,
+  "test_accuracy": 0.8181818181818182,
+  "test_f1_acceptable": 0.8918918918918919,
+  "test_f1_notacceptable": 0.42857142857142855,
+  "test_recall_acceptable": 0.9428571428571428,
+  "test_recall_notacceptable": 0.3333333333333333,
+  "test_precision_acceptable": 0.8461538461538461,
+  "test_precision_notacceptable": 0.6,
+  "test_specificity": 0.3333333333333333,
+  "test_pr_auc": 0.9811347266179199,
+  "best_params": {
+    "colsample_bytree": 0.8,
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "min_child_samples": 20,
+    "n_estimators": 500,
+    "num_leaves": 31,
+    "subsample": 0.8
+  },
+  "cv_score": 0.6763285024154588,
+  "pca_explained_variance": 0.4693104922771454,
+  "confusion_matrix": {
+    "TP": 33,
+    "FP": 6,
+    "TN": 3,
+    "FN": 2
+  }
+}

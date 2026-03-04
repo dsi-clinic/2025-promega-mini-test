@@ -1,0 +1,16 @@
+{
+  "model_type": "per_day_filled_mask",
+  "day": 13.0,
+  "best_val_acc": 0.8333333333333334,
+  "optimal_threshold": 0.55,
+  "test_at_0.5": {
+    "balanced_acc": 0.638095238095238,
+    "TNR": 0.3333333333333333,
+    "TN": 3,
+    "FP": 6,
+    "FN": 2,
+    "TP": 33,
+    "accuracy": 0.8181818181818182,
+    "f1": 0.8918918918918919
+  }
+}

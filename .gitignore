@@ -1,0 +1,48 @@
+# ---------------------------------------------------------------------------
+# Data files — do not track (exception: JSON is allowed; regeneration/ is allowed)
+# ---------------------------------------------------------------------------
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.tiff
+*.tif
+*.svg
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.xlsm
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.hdf
+*.parquet
+*.feather
+*.pdf
+*.pth
+*.pt
+*.keras
+
+# ---------------------------------------------------------------------------
+# Exception: all files under regeneration/ may be uploaded
+# ---------------------------------------------------------------------------
+!regeneration/
+!regeneration/**
+
+# ---------------------------------------------------------------------------
+# Standard / env (optional — uncomment if you want these ignored)
+# ---------------------------------------------------------------------------
+*DS_Store*
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.out
+*.err

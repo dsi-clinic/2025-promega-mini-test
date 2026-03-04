@@ -1,0 +1,16 @@
+{
+  "model_type": "effnet_ts_filled_mask",
+  "day": 13.0,
+  "best_val_acc": 0.1764705926179886,
+  "optimal_threshold": 0.21000000000000002,
+  "test_at_0.5": {
+    "balanced_acc": 0.5,
+    "TNR": 1.0,
+    "TN": 6,
+    "FP": 0,
+    "FN": 31,
+    "TP": 0,
+    "accuracy": 0.16216216216216217,
+    "f1": 0.0
+  }
+}

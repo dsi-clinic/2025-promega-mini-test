@@ -1,0 +1,2698 @@
+{
+  "BA1 96_1 B5": {
+    "label": "Acceptable",
+    "batch": "BA1",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day03/predicted_masks/BA1_96_1_Dy03_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.268,
+          "GlucoseGlo_initial_concentration": 18536.095,
+          "GlutamateGlo_concentration_uM": 2.229,
+          "GlutamateGlo_initial_concentration": 222.878,
+          "LactateGlo_concentration_uM": 6.574,
+          "LactateGlo_initial_concentration": 2629.453,
+          "PyruvateGlo_concentration_uM": 2.947,
+          "PyruvateGlo_initial_concentration": 294.699
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy06/BA1_96_1_Dy06_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day06/predicted_masks/BA1_96_1_Dy06_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 6.93,
+          "GlucoseGlo_initial_concentration": 13860.493,
+          "GlutamateGlo_concentration_uM": 2.178,
+          "GlutamateGlo_initial_concentration": 217.85,
+          "LactateGlo_concentration_uM": 8.983,
+          "LactateGlo_initial_concentration": 3593.067,
+          "PyruvateGlo_concentration_uM": 2.9,
+          "PyruvateGlo_initial_concentration": 289.989
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy08/BA1_96_1_Dy08_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day08/predicted_masks/BA1_96_1_Dy08_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.024,
+          "GlucoseGlo_initial_concentration": 18048.993,
+          "GlutamateGlo_concentration_uM": 2.11,
+          "GlutamateGlo_initial_concentration": 210.972,
+          "LactateGlo_concentration_uM": 3.012,
+          "LactateGlo_initial_concentration": 1204.711,
+          "PyruvateGlo_concentration_uM": 2.765,
+          "PyruvateGlo_initial_concentration": 276.508
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy10/BA1_96_1_Dy10_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day10/predicted_masks/BA1_96_1_Dy10_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.421,
+          "GlucoseGlo_initial_concentration": 24841.139,
+          "GlutamateGlo_concentration_uM": 2.399,
+          "GlutamateGlo_initial_concentration": 239.87,
+          "LactateGlo_concentration_uM": 2.669,
+          "LactateGlo_initial_concentration": 1067.754,
+          "PyruvateGlo_concentration_uM": 4.12,
+          "PyruvateGlo_initial_concentration": 411.985
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy13/BA1_96_1_Dy13_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day13/predicted_masks/BA1_96_1_Dy13_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.169,
+          "GlucoseGlo_initial_concentration": 24337.788,
+          "GlutamateGlo_concentration_uM": 1.014,
+          "GlutamateGlo_initial_concentration": 101.351,
+          "LactateGlo_concentration_uM": 6.045,
+          "LactateGlo_initial_concentration": 2417.865,
+          "PyruvateGlo_concentration_uM": 1.941,
+          "PyruvateGlo_initial_concentration": 194.1,
+          "MalateGlo_concentration_uM": 0.0,
+          "MalateGlo_initial_concentration": -0.003
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy15/BA1_96_1_Dy15_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day15/predicted_masks/BA1_96_1_Dy15_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.756,
+          "GlucoseGlo_initial_concentration": 27511.525,
+          "GlutamateGlo_concentration_uM": 1.083,
+          "GlutamateGlo_initial_concentration": 108.32,
+          "LactateGlo_concentration_uM": 8.559,
+          "LactateGlo_initial_concentration": 3423.457,
+          "PyruvateGlo_concentration_uM": 2.217,
+          "PyruvateGlo_initial_concentration": 221.664,
+          "MalateGlo_concentration_uM": 0.115,
+          "MalateGlo_initial_concentration": 2.301
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy17/BA1_96_1_Dy17_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day17/predicted_masks/BA1_96_1_Dy17_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.057,
+          "GlucoseGlo_initial_concentration": 26113.069,
+          "GlutamateGlo_concentration_uM": 1.023,
+          "GlutamateGlo_initial_concentration": 102.291,
+          "LactateGlo_concentration_uM": 7.859,
+          "LactateGlo_initial_concentration": 3143.755,
+          "PyruvateGlo_concentration_uM": 3.239,
+          "PyruvateGlo_initial_concentration": 323.879,
+          "MalateGlo_concentration_uM": 0.043,
+          "MalateGlo_initial_concentration": 0.87
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day24/predicted_masks/BA1_96_1_Dy24_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 15.525,
+          "GlucoseGlo_initial_concentration": 31049.04,
+          "GlutamateGlo_concentration_uM": 0.706,
+          "GlutamateGlo_initial_concentration": 70.637,
+          "LactateGlo_concentration_uM": 10.603,
+          "LactateGlo_initial_concentration": 4241.166,
+          "PyruvateGlo_concentration_uM": 2.681,
+          "PyruvateGlo_initial_concentration": 268.09,
+          "MalateGlo_concentration_uM": 0.191,
+          "MalateGlo_initial_concentration": 3.814
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy28/BA1_96_1_Dy28_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day28/predicted_masks/BA1_96_1_Dy28_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.657,
+          "GlucoseGlo_initial_concentration": 29313.253,
+          "GlutamateGlo_concentration_uM": 0.363,
+          "GlutamateGlo_initial_concentration": 36.294,
+          "LactateGlo_concentration_uM": 17.275,
+          "LactateGlo_initial_concentration": 6909.851,
+          "PyruvateGlo_concentration_uM": 1.809,
+          "PyruvateGlo_initial_concentration": 180.866,
+          "MalateGlo_concentration_uM": 0.237,
+          "MalateGlo_initial_concentration": 4.742
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy30/BA1_96_1_Dy30_B5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day30/predicted_masks/BA1_96_1_Dy30_B5_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.566,
+          "GlucoseGlo_initial_concentration": 29132.085,
+          "GlutamateGlo_concentration_uM": 0.403,
+          "GlutamateGlo_initial_concentration": 40.26,
+          "LactateGlo_concentration_uM": 13.521,
+          "LactateGlo_initial_concentration": 5408.209,
+          "PyruvateGlo_concentration_uM": 2.259,
+          "PyruvateGlo_initial_concentration": 225.863,
+          "MalateGlo_concentration_uM": 0.222,
+          "MalateGlo_initial_concentration": 4.437
+        }
+      }
+    }
+  },
+  "BA1 96_1 D6": {
+    "label": "Acceptable",
+    "batch": "BA1",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day03/predicted_masks/BA1_96_1_Dy03_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.28,
+          "GlucoseGlo_initial_concentration": 18559.641,
+          "GlutamateGlo_concentration_uM": 2.115,
+          "GlutamateGlo_initial_concentration": 211.477,
+          "LactateGlo_concentration_uM": 6.341,
+          "LactateGlo_initial_concentration": 2536.396,
+          "PyruvateGlo_concentration_uM": 3.446,
+          "PyruvateGlo_initial_concentration": 344.613
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy06/BA1_96_1_Dy06_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day06/predicted_masks/BA1_96_1_Dy06_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 7.101,
+          "GlucoseGlo_initial_concentration": 14201.546,
+          "GlutamateGlo_concentration_uM": 2.064,
+          "GlutamateGlo_initial_concentration": 206.387,
+          "LactateGlo_concentration_uM": 9.168,
+          "LactateGlo_initial_concentration": 3667.051,
+          "PyruvateGlo_concentration_uM": 2.721,
+          "PyruvateGlo_initial_concentration": 272.134
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy08/BA1_96_1_Dy08_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day08/predicted_masks/BA1_96_1_Dy08_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.489,
+          "GlucoseGlo_initial_concentration": 22977.968,
+          "GlutamateGlo_concentration_uM": 2.157,
+          "GlutamateGlo_initial_concentration": 215.691,
+          "LactateGlo_concentration_uM": 3.394,
+          "LactateGlo_initial_concentration": 1357.638,
+          "PyruvateGlo_concentration_uM": 3.949,
+          "PyruvateGlo_initial_concentration": 394.865
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy10/BA1_96_1_Dy10_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day10/predicted_masks/BA1_96_1_Dy10_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.433,
+          "GlucoseGlo_initial_concentration": 24865.396,
+          "GlutamateGlo_concentration_uM": 2.379,
+          "GlutamateGlo_initial_concentration": 237.859,
+          "LactateGlo_concentration_uM": 3.069,
+          "LactateGlo_initial_concentration": 1227.532,
+          "PyruvateGlo_concentration_uM": 3.844,
+          "PyruvateGlo_initial_concentration": 384.422
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy13/BA1_96_1_Dy13_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day13/predicted_masks/BA1_96_1_Dy13_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.76,
+          "GlucoseGlo_initial_concentration": 25520.975,
+          "GlutamateGlo_concentration_uM": 0.93,
+          "GlutamateGlo_initial_concentration": 93.043,
+          "LactateGlo_concentration_uM": 8.207,
+          "LactateGlo_initial_concentration": 3282.964,
+          "PyruvateGlo_concentration_uM": 1.929,
+          "PyruvateGlo_initial_concentration": 192.921,
+          "MalateGlo_concentration_uM": 0.0,
+          "MalateGlo_initial_concentration": 0.003
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy15/BA1_96_1_Dy15_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day15/predicted_masks/BA1_96_1_Dy15_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.561,
+          "GlucoseGlo_initial_concentration": 33121.544,
+          "GlutamateGlo_concentration_uM": 1.082,
+          "GlutamateGlo_initial_concentration": 108.209,
+          "LactateGlo_concentration_uM": 12.118,
+          "LactateGlo_initial_concentration": 4847.254,
+          "PyruvateGlo_concentration_uM": 2.852,
+          "PyruvateGlo_initial_concentration": 285.228,
+          "MalateGlo_concentration_uM": 0.108,
+          "MalateGlo_initial_concentration": 2.154
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy17/BA1_96_1_Dy17_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day17/predicted_masks/BA1_96_1_Dy17_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.312,
+          "GlucoseGlo_initial_concentration": 28623.609,
+          "GlutamateGlo_concentration_uM": 0.972,
+          "GlutamateGlo_initial_concentration": 97.23,
+          "LactateGlo_concentration_uM": 8.519,
+          "LactateGlo_initial_concentration": 3407.417,
+          "PyruvateGlo_concentration_uM": 3.178,
+          "PyruvateGlo_initial_concentration": 317.77,
+          "MalateGlo_concentration_uM": 0.041,
+          "MalateGlo_initial_concentration": 0.82
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day24/predicted_masks/BA1_96_1_Dy24_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.473,
+          "GlucoseGlo_initial_concentration": 32945.763,
+          "GlutamateGlo_concentration_uM": 0.523,
+          "GlutamateGlo_initial_concentration": 52.329,
+          "LactateGlo_concentration_uM": 11.056,
+          "LactateGlo_initial_concentration": 4422.206,
+          "PyruvateGlo_concentration_uM": 2.784,
+          "PyruvateGlo_initial_concentration": 278.432,
+          "MalateGlo_concentration_uM": 0.134,
+          "MalateGlo_initial_concentration": 2.683
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy28/BA1_96_1_Dy28_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day28/predicted_masks/BA1_96_1_Dy28_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.899,
+          "GlucoseGlo_initial_concentration": 25797.404,
+          "GlutamateGlo_concentration_uM": 0.281,
+          "GlutamateGlo_initial_concentration": 28.14,
+          "LactateGlo_concentration_uM": 15.861,
+          "LactateGlo_initial_concentration": 6344.366,
+          "PyruvateGlo_concentration_uM": 0.927,
+          "PyruvateGlo_initial_concentration": 92.748,
+          "MalateGlo_concentration_uM": 0.142,
+          "MalateGlo_initial_concentration": 2.846
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy30/BA1_96_1_Dy30_D6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day30/predicted_masks/BA1_96_1_Dy30_D6_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.603,
+          "GlucoseGlo_initial_concentration": 29206.008,
+          "GlutamateGlo_concentration_uM": 0.372,
+          "GlutamateGlo_initial_concentration": 37.207,
+          "LactateGlo_concentration_uM": 11.465,
+          "LactateGlo_initial_concentration": 4585.827,
+          "PyruvateGlo_concentration_uM": 1.244,
+          "PyruvateGlo_initial_concentration": 124.389,
+          "MalateGlo_concentration_uM": 0.146,
+          "MalateGlo_initial_concentration": 2.928
+        }
+      }
+    }
+  },
+  "BA2 96_1 F9": {
+    "label": "Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day03/predicted_masks/BA2_96_1_Dy03_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.133,
+          "GlucoseGlo_initial_concentration": 18266.703,
+          "GlutamateGlo_concentration_uM": 2.54,
+          "GlutamateGlo_initial_concentration": 253.954,
+          "LactateGlo_concentration_uM": 7.703,
+          "LactateGlo_initial_concentration": 3081.281,
+          "PyruvateGlo_concentration_uM": 3.934,
+          "PyruvateGlo_initial_concentration": 393.444
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy06/BA2_96_1_Dy06_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day06/predicted_masks/BA2_96_1_Dy06_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 6.792,
+          "GlucoseGlo_initial_concentration": 13583.897,
+          "GlutamateGlo_concentration_uM": 2.159,
+          "GlutamateGlo_initial_concentration": 215.935,
+          "LactateGlo_concentration_uM": 8.82,
+          "LactateGlo_initial_concentration": 3528.027,
+          "PyruvateGlo_concentration_uM": 2.772,
+          "PyruvateGlo_initial_concentration": 277.199
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.16,
+          "GlucoseGlo_initial_concentration": 20320.681,
+          "GlutamateGlo_concentration_uM": 2.152,
+          "GlutamateGlo_initial_concentration": 215.202,
+          "LactateGlo_concentration_uM": 3.67,
+          "LactateGlo_initial_concentration": 1467.89,
+          "PyruvateGlo_concentration_uM": 3.123,
+          "PyruvateGlo_initial_concentration": 312.302
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day10/predicted_masks/BA2_96_1_Dy10_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.327,
+          "GlucoseGlo_initial_concentration": 20654.214,
+          "GlutamateGlo_concentration_uM": 2.032,
+          "GlutamateGlo_initial_concentration": 203.192,
+          "LactateGlo_concentration_uM": 3.578,
+          "LactateGlo_initial_concentration": 1431.152,
+          "PyruvateGlo_concentration_uM": 4.123,
+          "PyruvateGlo_initial_concentration": 412.262
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy13/BA2_96_1_Dy13_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day13/predicted_masks/BA2_96_1_Dy13_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.429,
+          "GlucoseGlo_initial_concentration": 28858.468,
+          "GlutamateGlo_concentration_uM": 1.433,
+          "GlutamateGlo_initial_concentration": 143.342,
+          "LactateGlo_concentration_uM": 14.586,
+          "LactateGlo_initial_concentration": 5834.559,
+          "PyruvateGlo_concentration_uM": 2.369,
+          "PyruvateGlo_initial_concentration": 236.852,
+          "MalateGlo_concentration_uM": 0.221,
+          "MalateGlo_initial_concentration": 4.424
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy15/BA2_96_1_Dy15_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day15/predicted_masks/BA2_96_1_Dy15_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.879,
+          "GlucoseGlo_initial_concentration": 29757.137,
+          "GlutamateGlo_concentration_uM": 1.884,
+          "GlutamateGlo_initial_concentration": 188.403,
+          "LactateGlo_concentration_uM": 15.152,
+          "LactateGlo_initial_concentration": 6060.606,
+          "PyruvateGlo_concentration_uM": 3.289,
+          "PyruvateGlo_initial_concentration": 328.856,
+          "MalateGlo_concentration_uM": 0.131,
+          "MalateGlo_initial_concentration": 2.627
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy17/BA2_96_1_Dy17_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day17/predicted_masks/BA2_96_1_Dy17_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.607,
+          "GlucoseGlo_initial_concentration": 29213.324,
+          "GlutamateGlo_concentration_uM": 1.258,
+          "GlutamateGlo_initial_concentration": 125.801,
+          "LactateGlo_concentration_uM": 10.683,
+          "LactateGlo_initial_concentration": 4273.022,
+          "PyruvateGlo_concentration_uM": 3.701,
+          "PyruvateGlo_initial_concentration": 370.138,
+          "MalateGlo_concentration_uM": 0.121,
+          "MalateGlo_initial_concentration": 2.419
+        }
+      },
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy21/BA2_96_1_Dy21_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day21/predicted_masks/BA2_96_1_Dy21_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.058,
+          "GlucoseGlo_initial_concentration": 32115.096,
+          "GlutamateGlo_concentration_uM": 0.83,
+          "GlutamateGlo_initial_concentration": 83.007,
+          "LactateGlo_concentration_uM": 16.594,
+          "LactateGlo_initial_concentration": 6637.419,
+          "PyruvateGlo_concentration_uM": 3.398,
+          "PyruvateGlo_initial_concentration": 339.795
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day24/predicted_masks/BA2_96_1_Dy24_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.443,
+          "GlucoseGlo_initial_concentration": 24886.957,
+          "GlutamateGlo_concentration_uM": 0.436,
+          "GlutamateGlo_initial_concentration": 43.605,
+          "LactateGlo_concentration_uM": 11.989,
+          "LactateGlo_initial_concentration": 4795.406,
+          "PyruvateGlo_concentration_uM": 1.95,
+          "PyruvateGlo_initial_concentration": 195.038,
+          "MalateGlo_concentration_uM": 0.01,
+          "MalateGlo_initial_concentration": 0.192
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day28/predicted_masks/BA2_96_1_Dy28_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.455,
+          "GlucoseGlo_initial_concentration": 28909.233,
+          "GlutamateGlo_concentration_uM": 0.264,
+          "GlutamateGlo_initial_concentration": 26.387,
+          "LactateGlo_concentration_uM": 21.73,
+          "LactateGlo_initial_concentration": 8692.144,
+          "PyruvateGlo_concentration_uM": 1.816,
+          "PyruvateGlo_initial_concentration": 181.572,
+          "MalateGlo_concentration_uM": 0.168,
+          "MalateGlo_initial_concentration": 3.369
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_F9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day30/predicted_masks/BA2_96_1_Dy30_F9_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.016,
+          "GlucoseGlo_initial_concentration": 24031.883,
+          "GlutamateGlo_concentration_uM": 0.284,
+          "GlutamateGlo_initial_concentration": 28.417,
+          "LactateGlo_concentration_uM": 14.957,
+          "LactateGlo_initial_concentration": 5982.819,
+          "PyruvateGlo_concentration_uM": 1.451,
+          "PyruvateGlo_initial_concentration": 145.091,
+          "MalateGlo_concentration_uM": 0.188,
+          "MalateGlo_initial_concentration": 3.754
+        }
+      }
+    }
+  },
+  "BA2 96_2 E3 split_1": {
+    "label": "Not Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy28/BA2_96_2_Dy28_E3_split1_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day28/predicted_masks/BA2_96_2_Dy28_E3_split1_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.755,
+          "GlucoseGlo_initial_concentration": 27509.13,
+          "GlutamateGlo_concentration_uM": 0.301,
+          "GlutamateGlo_initial_concentration": 30.147,
+          "LactateGlo_concentration_uM": 22.303,
+          "LactateGlo_initial_concentration": 8921.307,
+          "PyruvateGlo_concentration_uM": 2.186,
+          "PyruvateGlo_initial_concentration": 218.646,
+          "MalateGlo_concentration_uM": 0.13,
+          "MalateGlo_initial_concentration": 2.6
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy30/BA2_96_2_Dy30_E3_split1_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day30/predicted_masks/BA2_96_2_Dy30_E3_split1_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.326,
+          "GlucoseGlo_initial_concentration": 20651.916,
+          "GlutamateGlo_concentration_uM": 0.17,
+          "GlutamateGlo_initial_concentration": 16.981,
+          "LactateGlo_concentration_uM": 14.661,
+          "LactateGlo_initial_concentration": 5864.555,
+          "PyruvateGlo_concentration_uM": 1.89,
+          "PyruvateGlo_initial_concentration": 189.035,
+          "MalateGlo_concentration_uM": 0.006,
+          "MalateGlo_initial_concentration": 0.112
+        }
+      }
+    }
+  },
+  "BA2 96_2 E9": {
+    "label": "Not Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy03/BA2_96_2_Dy03_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day03/predicted_masks/BA2_96_2_Dy03_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 8.149,
+          "GlucoseGlo_initial_concentration": 16297.955,
+          "GlutamateGlo_concentration_uM": 2.171,
+          "GlutamateGlo_initial_concentration": 217.089,
+          "LactateGlo_concentration_uM": 5.533,
+          "LactateGlo_initial_concentration": 2213.289,
+          "PyruvateGlo_concentration_uM": 3.742,
+          "PyruvateGlo_initial_concentration": 374.173
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy06/BA2_96_2_Dy06_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day06/predicted_masks/BA2_96_2_Dy06_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 6.162,
+          "GlucoseGlo_initial_concentration": 12323.583,
+          "GlutamateGlo_concentration_uM": 1.91,
+          "GlutamateGlo_initial_concentration": 191.004,
+          "LactateGlo_concentration_uM": 7.345,
+          "LactateGlo_initial_concentration": 2937.93,
+          "PyruvateGlo_concentration_uM": 2.19,
+          "PyruvateGlo_initial_concentration": 218.989
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.332,
+          "GlucoseGlo_initial_concentration": 22664.104,
+          "GlutamateGlo_concentration_uM": 2.417,
+          "GlutamateGlo_initial_concentration": 241.734,
+          "LactateGlo_concentration_uM": 3.514,
+          "LactateGlo_initial_concentration": 1405.401,
+          "PyruvateGlo_concentration_uM": 3.82,
+          "PyruvateGlo_initial_concentration": 382.037
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day10/predicted_masks/BA2_96_2_Dy10_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.612,
+          "GlucoseGlo_initial_concentration": 21224.396,
+          "GlutamateGlo_concentration_uM": 1.926,
+          "GlutamateGlo_initial_concentration": 192.628,
+          "LactateGlo_concentration_uM": 2.97,
+          "LactateGlo_initial_concentration": 1188.116,
+          "PyruvateGlo_concentration_uM": 3.347,
+          "PyruvateGlo_initial_concentration": 334.659
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy13/BA2_96_2_Dy13_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day13/predicted_masks/BA2_96_2_Dy13_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.505,
+          "GlucoseGlo_initial_concentration": 27009.694,
+          "GlutamateGlo_concentration_uM": 1.612,
+          "GlutamateGlo_initial_concentration": 161.157,
+          "LactateGlo_concentration_uM": 9.671,
+          "LactateGlo_initial_concentration": 3868.356,
+          "PyruvateGlo_concentration_uM": 3.463,
+          "PyruvateGlo_initial_concentration": 346.269,
+          "MalateGlo_concentration_uM": 0.152,
+          "MalateGlo_initial_concentration": 3.035
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy15/BA2_96_2_Dy15_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day15/predicted_masks/BA2_96_2_Dy15_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.625,
+          "GlucoseGlo_initial_concentration": 23250.919,
+          "GlutamateGlo_concentration_uM": 1.394,
+          "GlutamateGlo_initial_concentration": 139.406,
+          "LactateGlo_concentration_uM": 12.843,
+          "LactateGlo_initial_concentration": 5137.073,
+          "PyruvateGlo_concentration_uM": 2.915,
+          "PyruvateGlo_initial_concentration": 291.504,
+          "MalateGlo_concentration_uM": 0.144,
+          "MalateGlo_initial_concentration": 2.886
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy17/BA2_96_2_Dy17_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day17/predicted_masks/BA2_96_2_Dy17_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.045,
+          "GlucoseGlo_initial_concentration": 28090.526,
+          "GlutamateGlo_concentration_uM": 1.151,
+          "GlutamateGlo_initial_concentration": 115.13,
+          "LactateGlo_concentration_uM": 7.297,
+          "LactateGlo_initial_concentration": 2918.938,
+          "PyruvateGlo_concentration_uM": 3.705,
+          "PyruvateGlo_initial_concentration": 370.458,
+          "MalateGlo_concentration_uM": 0.074,
+          "MalateGlo_initial_concentration": 1.487
+        }
+      },
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy21/BA2_96_2_Dy21_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day21/predicted_masks/BA2_96_2_Dy21_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.68,
+          "GlucoseGlo_initial_concentration": 29359.881,
+          "GlutamateGlo_concentration_uM": 0.978,
+          "GlutamateGlo_initial_concentration": 97.77,
+          "LactateGlo_concentration_uM": 10.459,
+          "LactateGlo_initial_concentration": 4183.515,
+          "PyruvateGlo_concentration_uM": 2.813,
+          "PyruvateGlo_initial_concentration": 281.347
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy24/BA2_96_2_Dy24_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day24/predicted_masks/BA2_96_2_Dy24_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.407,
+          "GlucoseGlo_initial_concentration": 24813.631,
+          "GlutamateGlo_concentration_uM": 0.977,
+          "GlutamateGlo_initial_concentration": 97.662,
+          "LactateGlo_concentration_uM": 7.555,
+          "LactateGlo_initial_concentration": 3022.122,
+          "PyruvateGlo_concentration_uM": 1.485,
+          "PyruvateGlo_initial_concentration": 148.473,
+          "MalateGlo_concentration_uM": 0.034,
+          "MalateGlo_initial_concentration": 0.687
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy28/BA2_96_2_Dy28_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day28/predicted_masks/BA2_96_2_Dy28_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 15.84,
+          "GlucoseGlo_initial_concentration": 31680.103,
+          "GlutamateGlo_concentration_uM": 1.117,
+          "GlutamateGlo_initial_concentration": 111.743,
+          "LactateGlo_concentration_uM": 9.379,
+          "LactateGlo_initial_concentration": 3751.553,
+          "PyruvateGlo_concentration_uM": 1.384,
+          "PyruvateGlo_initial_concentration": 138.368,
+          "MalateGlo_concentration_uM": 0.076,
+          "MalateGlo_initial_concentration": 1.515
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy30/BA2_96_2_Dy30_E9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day30/predicted_masks/BA2_96_2_Dy30_E9_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.903,
+          "GlucoseGlo_initial_concentration": 27805.728,
+          "GlutamateGlo_concentration_uM": 0.962,
+          "GlutamateGlo_initial_concentration": 96.15,
+          "LactateGlo_concentration_uM": 4.522,
+          "LactateGlo_initial_concentration": 1808.757,
+          "PyruvateGlo_concentration_uM": 2.083,
+          "PyruvateGlo_initial_concentration": 208.264,
+          "MalateGlo_concentration_uM": -0.039,
+          "MalateGlo_initial_concentration": -0.784
+        }
+      }
+    }
+  },
+  "BA1 96_1 E1": {
+    "label": "Acceptable",
+    "batch": "BA1",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day03/predicted_masks/BA1_96_1_Dy03_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.902,
+          "GlucoseGlo_initial_concentration": 19803.612,
+          "GlutamateGlo_concentration_uM": 2.293,
+          "GlutamateGlo_initial_concentration": 229.349,
+          "LactateGlo_concentration_uM": 7.272,
+          "LactateGlo_initial_concentration": 2908.624,
+          "PyruvateGlo_concentration_uM": 3.276,
+          "PyruvateGlo_initial_concentration": 327.615
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy06/BA1_96_1_Dy06_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day06/predicted_masks/BA1_96_1_Dy06_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 8.187,
+          "GlucoseGlo_initial_concentration": 16373.348,
+          "GlutamateGlo_concentration_uM": 2.248,
+          "GlutamateGlo_initial_concentration": 224.784,
+          "LactateGlo_concentration_uM": 10.203,
+          "LactateGlo_initial_concentration": 4081.361,
+          "PyruvateGlo_concentration_uM": 3.403,
+          "PyruvateGlo_initial_concentration": 340.333
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy08/BA1_96_1_Dy08_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day08/predicted_masks/BA1_96_1_Dy08_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.409,
+          "GlucoseGlo_initial_concentration": 22817.021,
+          "GlutamateGlo_concentration_uM": 2.246,
+          "GlutamateGlo_initial_concentration": 224.589,
+          "LactateGlo_concentration_uM": 3.591,
+          "LactateGlo_initial_concentration": 1436.466,
+          "PyruvateGlo_concentration_uM": 4.263,
+          "PyruvateGlo_initial_concentration": 426.338
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy10/BA1_96_1_Dy10_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day10/predicted_masks/BA1_96_1_Dy10_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.126,
+          "GlucoseGlo_initial_concentration": 22252.574,
+          "GlutamateGlo_concentration_uM": 2.175,
+          "GlutamateGlo_initial_concentration": 217.473,
+          "LactateGlo_concentration_uM": 2.551,
+          "LactateGlo_initial_concentration": 1020.248,
+          "PyruvateGlo_concentration_uM": 4.204,
+          "PyruvateGlo_initial_concentration": 420.385
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy13/BA1_96_1_Dy13_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day13/predicted_masks/BA1_96_1_Dy13_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.006,
+          "GlucoseGlo_initial_concentration": 28012.242,
+          "GlutamateGlo_concentration_uM": 1.076,
+          "GlutamateGlo_initial_concentration": 107.564,
+          "LactateGlo_concentration_uM": 9.574,
+          "LactateGlo_initial_concentration": 3829.622,
+          "PyruvateGlo_concentration_uM": 2.793,
+          "PyruvateGlo_initial_concentration": 279.283,
+          "MalateGlo_concentration_uM": -0.077,
+          "MalateGlo_initial_concentration": -1.547
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy15/BA1_96_1_Dy15_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day15/predicted_masks/BA1_96_1_Dy15_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.139,
+          "GlucoseGlo_initial_concentration": 32277.775,
+          "GlutamateGlo_concentration_uM": 1.069,
+          "GlutamateGlo_initial_concentration": 106.904,
+          "LactateGlo_concentration_uM": 11.991,
+          "LactateGlo_initial_concentration": 4796.332,
+          "PyruvateGlo_concentration_uM": 3.125,
+          "PyruvateGlo_initial_concentration": 312.469,
+          "MalateGlo_concentration_uM": 0.041,
+          "MalateGlo_initial_concentration": 0.821
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy17/BA1_96_1_Dy17_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day17/predicted_masks/BA1_96_1_Dy17_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.352,
+          "GlucoseGlo_initial_concentration": 28703.996,
+          "GlutamateGlo_concentration_uM": 1.0,
+          "GlutamateGlo_initial_concentration": 99.977,
+          "LactateGlo_concentration_uM": 9.139,
+          "LactateGlo_initial_concentration": 3655.568,
+          "PyruvateGlo_concentration_uM": 3.717,
+          "PyruvateGlo_initial_concentration": 371.734,
+          "MalateGlo_concentration_uM": -0.012,
+          "MalateGlo_initial_concentration": -0.243
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day24/predicted_masks/BA1_96_1_Dy24_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 15.761,
+          "GlucoseGlo_initial_concentration": 31521.613,
+          "GlutamateGlo_concentration_uM": 0.696,
+          "GlutamateGlo_initial_concentration": 69.636,
+          "LactateGlo_concentration_uM": 13.505,
+          "LactateGlo_initial_concentration": 5401.833,
+          "PyruvateGlo_concentration_uM": 3.156,
+          "PyruvateGlo_initial_concentration": 315.558,
+          "MalateGlo_concentration_uM": 0.106,
+          "MalateGlo_initial_concentration": 2.113
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy28/BA1_96_1_Dy28_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day28/predicted_masks/BA1_96_1_Dy28_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.17,
+          "GlucoseGlo_initial_concentration": 26340.837,
+          "GlutamateGlo_concentration_uM": 0.288,
+          "GlutamateGlo_initial_concentration": 28.791,
+          "LactateGlo_concentration_uM": 20.741,
+          "LactateGlo_initial_concentration": 8296.59,
+          "PyruvateGlo_concentration_uM": 2.864,
+          "PyruvateGlo_initial_concentration": 286.4,
+          "MalateGlo_concentration_uM": 0.212,
+          "MalateGlo_initial_concentration": 4.246
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy30/BA1_96_1_Dy30_E1_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day30/predicted_masks/BA1_96_1_Dy30_E1_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.12,
+          "GlucoseGlo_initial_concentration": 32240.531,
+          "GlutamateGlo_concentration_uM": 0.306,
+          "GlutamateGlo_initial_concentration": 30.621,
+          "LactateGlo_concentration_uM": 17.938,
+          "LactateGlo_initial_concentration": 7175.017,
+          "PyruvateGlo_concentration_uM": 3.269,
+          "PyruvateGlo_initial_concentration": 326.935,
+          "MalateGlo_concentration_uM": 0.165,
+          "MalateGlo_initial_concentration": 3.3
+        }
+      }
+    }
+  },
+  "BA1 96_1 F3": {
+    "label": "Acceptable",
+    "batch": "BA1",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day03/predicted_masks/BA1_96_1_Dy03_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.233,
+          "GlucoseGlo_initial_concentration": 18465.46,
+          "GlutamateGlo_concentration_uM": 2.112,
+          "GlutamateGlo_initial_concentration": 211.169,
+          "LactateGlo_concentration_uM": 6.428,
+          "LactateGlo_initial_concentration": 2571.293,
+          "PyruvateGlo_concentration_uM": 3.411,
+          "PyruvateGlo_initial_concentration": 341.105
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy06/BA1_96_1_Dy06_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day06/predicted_masks/BA1_96_1_Dy06_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 6.911,
+          "GlucoseGlo_initial_concentration": 13821.883,
+          "GlutamateGlo_concentration_uM": 1.997,
+          "GlutamateGlo_initial_concentration": 199.736,
+          "LactateGlo_concentration_uM": 9.25,
+          "LactateGlo_initial_concentration": 3699.932,
+          "PyruvateGlo_concentration_uM": 2.148,
+          "PyruvateGlo_initial_concentration": 214.765
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy08/BA1_96_1_Dy08_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day08/predicted_masks/BA1_96_1_Dy08_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.709,
+          "GlucoseGlo_initial_concentration": 19417.035,
+          "GlutamateGlo_concentration_uM": 1.864,
+          "GlutamateGlo_initial_concentration": 186.435,
+          "LactateGlo_concentration_uM": 2.815,
+          "LactateGlo_initial_concentration": 1125.883,
+          "PyruvateGlo_concentration_uM": 3.669,
+          "PyruvateGlo_initial_concentration": 366.938
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy10/BA1_96_1_Dy10_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day10/predicted_masks/BA1_96_1_Dy10_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.27,
+          "GlucoseGlo_initial_concentration": 20540.725,
+          "GlutamateGlo_concentration_uM": 1.998,
+          "GlutamateGlo_initial_concentration": 199.769,
+          "LactateGlo_concentration_uM": 2.053,
+          "LactateGlo_initial_concentration": 821.357,
+          "PyruvateGlo_concentration_uM": 3.645,
+          "PyruvateGlo_initial_concentration": 364.471
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy13/BA1_96_1_Dy13_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day13/predicted_masks/BA1_96_1_Dy13_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.586,
+          "GlucoseGlo_initial_concentration": 23171.034,
+          "GlutamateGlo_concentration_uM": 0.835,
+          "GlutamateGlo_initial_concentration": 83.513,
+          "LactateGlo_concentration_uM": 6.805,
+          "LactateGlo_initial_concentration": 2722.153,
+          "PyruvateGlo_concentration_uM": 2.256,
+          "PyruvateGlo_initial_concentration": 225.638,
+          "MalateGlo_concentration_uM": -0.066,
+          "MalateGlo_initial_concentration": -1.319
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy15/BA1_96_1_Dy15_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day15/predicted_masks/BA1_96_1_Dy15_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 18.107,
+          "GlucoseGlo_initial_concentration": 36214.202,
+          "GlutamateGlo_concentration_uM": 1.09,
+          "GlutamateGlo_initial_concentration": 108.957,
+          "LactateGlo_concentration_uM": 11.894,
+          "LactateGlo_initial_concentration": 4757.63,
+          "PyruvateGlo_concentration_uM": 3.172,
+          "PyruvateGlo_initial_concentration": 317.166,
+          "MalateGlo_concentration_uM": 0.09,
+          "MalateGlo_initial_concentration": 1.796
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy17/BA1_96_1_Dy17_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day17/predicted_masks/BA1_96_1_Dy17_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.559,
+          "GlucoseGlo_initial_concentration": 29118.297,
+          "GlutamateGlo_concentration_uM": 0.848,
+          "GlutamateGlo_initial_concentration": 84.807,
+          "LactateGlo_concentration_uM": 8.751,
+          "LactateGlo_initial_concentration": 3500.474,
+          "PyruvateGlo_concentration_uM": 2.893,
+          "PyruvateGlo_initial_concentration": 289.261,
+          "MalateGlo_concentration_uM": 0.016,
+          "MalateGlo_initial_concentration": 0.312
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day24/predicted_masks/BA1_96_1_Dy24_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.119,
+          "GlucoseGlo_initial_concentration": 32238.51,
+          "GlutamateGlo_concentration_uM": 0.432,
+          "GlutamateGlo_initial_concentration": 43.167,
+          "LactateGlo_concentration_uM": 11.161,
+          "LactateGlo_initial_concentration": 4464.448,
+          "PyruvateGlo_concentration_uM": 2.617,
+          "PyruvateGlo_initial_concentration": 261.726,
+          "MalateGlo_concentration_uM": 0.115,
+          "MalateGlo_initial_concentration": 2.303
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy28/BA1_96_1_Dy28_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day28/predicted_masks/BA1_96_1_Dy28_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.841,
+          "GlucoseGlo_initial_concentration": 25682.13,
+          "GlutamateGlo_concentration_uM": 0.27,
+          "GlutamateGlo_initial_concentration": 27.008,
+          "LactateGlo_concentration_uM": 16.67,
+          "LactateGlo_initial_concentration": 6668.071,
+          "PyruvateGlo_concentration_uM": 1.705,
+          "PyruvateGlo_initial_concentration": 170.469,
+          "MalateGlo_concentration_uM": 0.13,
+          "MalateGlo_initial_concentration": 2.592
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy30/BA1_96_1_Dy30_F3_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day30/predicted_masks/BA1_96_1_Dy30_F3_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.575,
+          "GlucoseGlo_initial_concentration": 33149.779,
+          "GlutamateGlo_concentration_uM": 0.259,
+          "GlutamateGlo_initial_concentration": 25.891,
+          "LactateGlo_concentration_uM": 14.337,
+          "LactateGlo_initial_concentration": 5734.909,
+          "PyruvateGlo_concentration_uM": 2.419,
+          "PyruvateGlo_initial_concentration": 241.906,
+          "MalateGlo_concentration_uM": 0.131,
+          "MalateGlo_initial_concentration": 2.622
+        }
+      }
+    }
+  },
+  "BA2 96_1 G5": {
+    "label": "Not Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day03/predicted_masks/BA2_96_1_Dy03_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.031,
+          "GlucoseGlo_initial_concentration": 20062.195,
+          "GlutamateGlo_concentration_uM": 2.398,
+          "GlutamateGlo_initial_concentration": 239.83,
+          "LactateGlo_concentration_uM": 8.068,
+          "LactateGlo_initial_concentration": 3227.116,
+          "PyruvateGlo_concentration_uM": 4.129,
+          "PyruvateGlo_initial_concentration": 412.884
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy06/BA2_96_1_Dy06_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day06/predicted_masks/BA2_96_1_Dy06_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 6.647,
+          "GlucoseGlo_initial_concentration": 13293.375,
+          "GlutamateGlo_concentration_uM": 1.995,
+          "GlutamateGlo_initial_concentration": 199.525,
+          "LactateGlo_concentration_uM": 9.531,
+          "LactateGlo_initial_concentration": 3812.503,
+          "PyruvateGlo_concentration_uM": 2.135,
+          "PyruvateGlo_initial_concentration": 213.499
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.563,
+          "GlucoseGlo_initial_concentration": 19126.93,
+          "GlutamateGlo_concentration_uM": 1.955,
+          "GlutamateGlo_initial_concentration": 195.534,
+          "LactateGlo_concentration_uM": 3.102,
+          "LactateGlo_initial_concentration": 1240.885,
+          "PyruvateGlo_concentration_uM": 3.314,
+          "PyruvateGlo_initial_concentration": 331.358
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day10/predicted_masks/BA2_96_1_Dy10_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.242,
+          "GlucoseGlo_initial_concentration": 20483.426,
+          "GlutamateGlo_concentration_uM": 1.977,
+          "GlutamateGlo_initial_concentration": 197.67,
+          "LactateGlo_concentration_uM": 3.172,
+          "LactateGlo_initial_concentration": 1268.752,
+          "PyruvateGlo_concentration_uM": 4.441,
+          "PyruvateGlo_initial_concentration": 444.063
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy13/BA2_96_1_Dy13_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day13/predicted_masks/BA2_96_1_Dy13_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.353,
+          "GlucoseGlo_initial_concentration": 22705.027,
+          "GlutamateGlo_concentration_uM": 1.304,
+          "GlutamateGlo_initial_concentration": 130.405,
+          "LactateGlo_concentration_uM": 8.986,
+          "LactateGlo_initial_concentration": 3594.465,
+          "PyruvateGlo_concentration_uM": 2.365,
+          "PyruvateGlo_initial_concentration": 236.5,
+          "MalateGlo_concentration_uM": 0.027,
+          "MalateGlo_initial_concentration": 0.546
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy15/BA2_96_1_Dy15_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day15/predicted_masks/BA2_96_1_Dy15_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 15.913,
+          "GlucoseGlo_initial_concentration": 31826.157,
+          "GlutamateGlo_concentration_uM": 1.712,
+          "GlutamateGlo_initial_concentration": 171.21,
+          "LactateGlo_concentration_uM": 18.291,
+          "LactateGlo_initial_concentration": 7316.586,
+          "PyruvateGlo_concentration_uM": 3.655,
+          "PyruvateGlo_initial_concentration": 365.458,
+          "MalateGlo_concentration_uM": 0.125,
+          "MalateGlo_initial_concentration": 2.496
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy17/BA2_96_1_Dy17_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day17/predicted_masks/BA2_96_1_Dy17_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 15.251,
+          "GlucoseGlo_initial_concentration": 30502.793,
+          "GlutamateGlo_concentration_uM": 1.236,
+          "GlutamateGlo_initial_concentration": 123.565,
+          "LactateGlo_concentration_uM": 10.264,
+          "LactateGlo_initial_concentration": 4105.497,
+          "PyruvateGlo_concentration_uM": 3.557,
+          "PyruvateGlo_initial_concentration": 355.703,
+          "MalateGlo_concentration_uM": 0.04,
+          "MalateGlo_initial_concentration": 0.796
+        }
+      },
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy21/BA2_96_1_Dy21_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day21/predicted_masks/BA2_96_1_Dy21_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.368,
+          "GlucoseGlo_initial_concentration": 28735.267,
+          "GlutamateGlo_concentration_uM": 0.844,
+          "GlutamateGlo_initial_concentration": 84.375,
+          "LactateGlo_concentration_uM": 14.727,
+          "LactateGlo_initial_concentration": 5890.776,
+          "PyruvateGlo_concentration_uM": 2.886,
+          "PyruvateGlo_initial_concentration": 288.619
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day24/predicted_masks/BA2_96_1_Dy24_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.993,
+          "GlucoseGlo_initial_concentration": 23986.117,
+          "GlutamateGlo_concentration_uM": 0.64,
+          "GlutamateGlo_initial_concentration": 64.008,
+          "LactateGlo_concentration_uM": 10.341,
+          "LactateGlo_initial_concentration": 4136.266,
+          "PyruvateGlo_concentration_uM": 1.506,
+          "PyruvateGlo_initial_concentration": 150.553,
+          "MalateGlo_concentration_uM": -0.123,
+          "MalateGlo_initial_concentration": -2.467
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day28/predicted_masks/BA2_96_1_Dy28_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.305,
+          "GlucoseGlo_initial_concentration": 28609.046,
+          "GlutamateGlo_concentration_uM": 0.53,
+          "GlutamateGlo_initial_concentration": 52.968,
+          "LactateGlo_concentration_uM": 18.287,
+          "LactateGlo_initial_concentration": 7314.685,
+          "PyruvateGlo_concentration_uM": 1.922,
+          "PyruvateGlo_initial_concentration": 192.196,
+          "MalateGlo_concentration_uM": 0.118,
+          "MalateGlo_initial_concentration": 2.357
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_G5_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day30/predicted_masks/BA2_96_1_Dy30_G5_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.633,
+          "GlucoseGlo_initial_concentration": 23265.868,
+          "GlutamateGlo_concentration_uM": 0.54,
+          "GlutamateGlo_initial_concentration": 53.989,
+          "LactateGlo_concentration_uM": 9.854,
+          "LactateGlo_initial_concentration": 3941.497,
+          "PyruvateGlo_concentration_uM": 2.109,
+          "PyruvateGlo_initial_concentration": 210.921,
+          "MalateGlo_concentration_uM": 0.042,
+          "MalateGlo_initial_concentration": 0.835
+        }
+      }
+    }
+  },
+  "BA2 96_1 G2": {
+    "label": "Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day03/predicted_masks/BA2_96_1_Dy03_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.286,
+          "GlucoseGlo_initial_concentration": 18571.413,
+          "GlutamateGlo_concentration_uM": 2.514,
+          "GlutamateGlo_initial_concentration": 251.372,
+          "LactateGlo_concentration_uM": 7.427,
+          "LactateGlo_initial_concentration": 2970.863,
+          "PyruvateGlo_concentration_uM": 3.901,
+          "PyruvateGlo_initial_concentration": 390.079
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy06/BA2_96_1_Dy06_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day06/predicted_masks/BA2_96_1_Dy06_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 6.905,
+          "GlucoseGlo_initial_concentration": 13809.859,
+          "GlutamateGlo_concentration_uM": 2.123,
+          "GlutamateGlo_initial_concentration": 212.288,
+          "LactateGlo_concentration_uM": 13.02,
+          "LactateGlo_initial_concentration": 5207.878,
+          "PyruvateGlo_concentration_uM": 3.009,
+          "PyruvateGlo_initial_concentration": 300.93
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.776,
+          "GlucoseGlo_initial_concentration": 19551.978,
+          "GlutamateGlo_concentration_uM": 1.935,
+          "GlutamateGlo_initial_concentration": 193.464,
+          "LactateGlo_concentration_uM": 2.688,
+          "LactateGlo_initial_concentration": 1075.249,
+          "PyruvateGlo_concentration_uM": 3.253,
+          "PyruvateGlo_initial_concentration": 325.34
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day10/predicted_masks/BA2_96_1_Dy10_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.163,
+          "GlucoseGlo_initial_concentration": 22326.347,
+          "GlutamateGlo_concentration_uM": 2.018,
+          "GlutamateGlo_initial_concentration": 201.776,
+          "LactateGlo_concentration_uM": 3.706,
+          "LactateGlo_initial_concentration": 1482.203,
+          "PyruvateGlo_concentration_uM": 4.437,
+          "PyruvateGlo_initial_concentration": 443.693
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy13/BA2_96_1_Dy13_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day13/predicted_masks/BA2_96_1_Dy13_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.227,
+          "GlucoseGlo_initial_concentration": 24454.435,
+          "GlutamateGlo_concentration_uM": 1.522,
+          "GlutamateGlo_initial_concentration": 152.245,
+          "LactateGlo_concentration_uM": 9.6,
+          "LactateGlo_initial_concentration": 3840.141,
+          "PyruvateGlo_concentration_uM": 2.471,
+          "PyruvateGlo_initial_concentration": 247.05,
+          "MalateGlo_concentration_uM": 0.045,
+          "MalateGlo_initial_concentration": 0.896
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy15/BA2_96_1_Dy15_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day15/predicted_masks/BA2_96_1_Dy15_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 15.373,
+          "GlucoseGlo_initial_concentration": 30746.668,
+          "GlutamateGlo_concentration_uM": 1.841,
+          "GlutamateGlo_initial_concentration": 184.067,
+          "LactateGlo_concentration_uM": 12.783,
+          "LactateGlo_initial_concentration": 5113.148,
+          "PyruvateGlo_concentration_uM": 3.989,
+          "PyruvateGlo_initial_concentration": 398.932,
+          "MalateGlo_concentration_uM": 0.097,
+          "MalateGlo_initial_concentration": 1.94
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy17/BA2_96_1_Dy17_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day17/predicted_masks/BA2_96_1_Dy17_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.733,
+          "GlucoseGlo_initial_concentration": 29465.743,
+          "GlutamateGlo_concentration_uM": 1.213,
+          "GlutamateGlo_initial_concentration": 121.33,
+          "LactateGlo_concentration_uM": 8.179,
+          "LactateGlo_initial_concentration": 3271.597,
+          "PyruvateGlo_concentration_uM": 3.659,
+          "PyruvateGlo_initial_concentration": 365.928,
+          "MalateGlo_concentration_uM": 0.051,
+          "MalateGlo_initial_concentration": 1.015
+        }
+      },
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy21/BA2_96_1_Dy21_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day21/predicted_masks/BA2_96_1_Dy21_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.942,
+          "GlucoseGlo_initial_concentration": 27884.077,
+          "GlutamateGlo_concentration_uM": 0.728,
+          "GlutamateGlo_initial_concentration": 72.773,
+          "LactateGlo_concentration_uM": 15.391,
+          "LactateGlo_initial_concentration": 6156.249,
+          "PyruvateGlo_concentration_uM": 2.927,
+          "PyruvateGlo_initial_concentration": 292.728
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day24/predicted_masks/BA2_96_1_Dy24_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.092,
+          "GlucoseGlo_initial_concentration": 22184.439,
+          "GlutamateGlo_concentration_uM": 0.351,
+          "GlutamateGlo_initial_concentration": 35.117,
+          "LactateGlo_concentration_uM": 13.497,
+          "LactateGlo_initial_concentration": 5398.716,
+          "PyruvateGlo_concentration_uM": 1.996,
+          "PyruvateGlo_initial_concentration": 199.577,
+          "MalateGlo_concentration_uM": -0.073,
+          "MalateGlo_initial_concentration": -1.467
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day28/predicted_masks/BA2_96_1_Dy28_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.14,
+          "GlucoseGlo_initial_concentration": 24280.675,
+          "GlutamateGlo_concentration_uM": 0.225,
+          "GlutamateGlo_initial_concentration": 22.546,
+          "LactateGlo_concentration_uM": 29.979,
+          "LactateGlo_initial_concentration": 11991.593,
+          "PyruvateGlo_concentration_uM": 3.675,
+          "PyruvateGlo_initial_concentration": 367.492,
+          "MalateGlo_concentration_uM": 0.25,
+          "MalateGlo_initial_concentration": 5.007
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_G2_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day30/predicted_masks/BA2_96_1_Dy30_G2_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.83,
+          "GlucoseGlo_initial_concentration": 21659.104,
+          "GlutamateGlo_concentration_uM": 0.219,
+          "GlutamateGlo_initial_concentration": 21.93,
+          "LactateGlo_concentration_uM": 21.776,
+          "LactateGlo_initial_concentration": 8710.2,
+          "PyruvateGlo_concentration_uM": 2.233,
+          "PyruvateGlo_initial_concentration": 223.347,
+          "MalateGlo_concentration_uM": 0.137,
+          "MalateGlo_initial_concentration": 2.749
+        }
+      }
+    }
+  },
+  "BA2 96_2 C9": {
+    "label": "Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy03/BA2_96_2_Dy03_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day03/predicted_masks/BA2_96_2_Dy03_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 7.993,
+          "GlucoseGlo_initial_concentration": 15986.637,
+          "GlutamateGlo_concentration_uM": 2.007,
+          "GlutamateGlo_initial_concentration": 200.667,
+          "LactateGlo_concentration_uM": 5.854,
+          "LactateGlo_initial_concentration": 2341.579,
+          "PyruvateGlo_concentration_uM": 2.964,
+          "PyruvateGlo_initial_concentration": 296.449
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy06/BA2_96_2_Dy06_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day06/predicted_masks/BA2_96_2_Dy06_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 6.318,
+          "GlucoseGlo_initial_concentration": 12636.154,
+          "GlutamateGlo_concentration_uM": 1.928,
+          "GlutamateGlo_initial_concentration": 192.782,
+          "LactateGlo_concentration_uM": 8.219,
+          "LactateGlo_initial_concentration": 3287.596,
+          "PyruvateGlo_concentration_uM": 1.927,
+          "PyruvateGlo_initial_concentration": 192.693
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.899,
+          "GlucoseGlo_initial_concentration": 21797.582,
+          "GlutamateGlo_concentration_uM": 2.081,
+          "GlutamateGlo_initial_concentration": 208.074,
+          "LactateGlo_concentration_uM": 3.331,
+          "LactateGlo_initial_concentration": 1332.377,
+          "PyruvateGlo_concentration_uM": 3.056,
+          "PyruvateGlo_initial_concentration": 305.646
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day10/predicted_masks/BA2_96_2_Dy10_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.738,
+          "GlucoseGlo_initial_concentration": 21475.24,
+          "GlutamateGlo_concentration_uM": 1.87,
+          "GlutamateGlo_initial_concentration": 186.962,
+          "LactateGlo_concentration_uM": 3.213,
+          "LactateGlo_initial_concentration": 1285.147,
+          "PyruvateGlo_concentration_uM": 3.132,
+          "PyruvateGlo_initial_concentration": 313.208
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy13/BA2_96_2_Dy13_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day13/predicted_masks/BA2_96_2_Dy13_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.683,
+          "GlucoseGlo_initial_concentration": 27366.138,
+          "GlutamateGlo_concentration_uM": 1.623,
+          "GlutamateGlo_initial_concentration": 162.31,
+          "LactateGlo_concentration_uM": 9.383,
+          "LactateGlo_initial_concentration": 3753.319,
+          "PyruvateGlo_concentration_uM": 2.271,
+          "PyruvateGlo_initial_concentration": 227.105,
+          "MalateGlo_concentration_uM": 0.071,
+          "MalateGlo_initial_concentration": 1.427
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy15/BA2_96_2_Dy15_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day15/predicted_masks/BA2_96_2_Dy15_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.875,
+          "GlucoseGlo_initial_concentration": 23750.529,
+          "GlutamateGlo_concentration_uM": 1.407,
+          "GlutamateGlo_initial_concentration": 140.697,
+          "LactateGlo_concentration_uM": 9.352,
+          "LactateGlo_initial_concentration": 3740.924,
+          "PyruvateGlo_concentration_uM": 2.917,
+          "PyruvateGlo_initial_concentration": 291.745,
+          "MalateGlo_concentration_uM": 0.019,
+          "MalateGlo_initial_concentration": 0.378
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy17/BA2_96_2_Dy17_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day17/predicted_masks/BA2_96_2_Dy17_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.666,
+          "GlucoseGlo_initial_concentration": 27331.732,
+          "GlutamateGlo_concentration_uM": 1.021,
+          "GlutamateGlo_initial_concentration": 102.055,
+          "LactateGlo_concentration_uM": 9.214,
+          "LactateGlo_initial_concentration": 3685.723,
+          "PyruvateGlo_concentration_uM": 3.718,
+          "PyruvateGlo_initial_concentration": 371.762,
+          "MalateGlo_concentration_uM": -0.009,
+          "MalateGlo_initial_concentration": -0.179
+        }
+      },
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy21/BA2_96_2_Dy21_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day21/predicted_masks/BA2_96_2_Dy21_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.102,
+          "GlucoseGlo_initial_concentration": 24203.765,
+          "GlutamateGlo_concentration_uM": 0.601,
+          "GlutamateGlo_initial_concentration": 60.1,
+          "LactateGlo_concentration_uM": 14.145,
+          "LactateGlo_initial_concentration": 5658.041,
+          "PyruvateGlo_concentration_uM": 4.484,
+          "PyruvateGlo_initial_concentration": 448.374
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy24/BA2_96_2_Dy24_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day24/predicted_masks/BA2_96_2_Dy24_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.635,
+          "GlucoseGlo_initial_concentration": 25269.807,
+          "GlutamateGlo_concentration_uM": 0.488,
+          "GlutamateGlo_initial_concentration": 48.807,
+          "LactateGlo_concentration_uM": 15.806,
+          "LactateGlo_initial_concentration": 6322.301,
+          "PyruvateGlo_concentration_uM": 2.7,
+          "PyruvateGlo_initial_concentration": 270.034,
+          "MalateGlo_concentration_uM": 0.048,
+          "MalateGlo_initial_concentration": 0.954
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy28/BA2_96_2_Dy28_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day28/predicted_masks/BA2_96_2_Dy28_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.386,
+          "GlucoseGlo_initial_concentration": 26771.916,
+          "GlutamateGlo_concentration_uM": 0.222,
+          "GlutamateGlo_initial_concentration": 22.177,
+          "LactateGlo_concentration_uM": 25.526,
+          "LactateGlo_initial_concentration": 10210.368,
+          "PyruvateGlo_concentration_uM": 2.138,
+          "PyruvateGlo_initial_concentration": 213.764,
+          "MalateGlo_concentration_uM": 0.152,
+          "MalateGlo_initial_concentration": 3.044
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy30/BA2_96_2_Dy30_C9_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day30/predicted_masks/BA2_96_2_Dy30_C9_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.743,
+          "GlucoseGlo_initial_concentration": 21485.173,
+          "GlutamateGlo_concentration_uM": 0.093,
+          "GlutamateGlo_initial_concentration": 9.251,
+          "LactateGlo_concentration_uM": 17.118,
+          "LactateGlo_initial_concentration": 6847.173,
+          "PyruvateGlo_concentration_uM": 2.248,
+          "PyruvateGlo_initial_concentration": 224.831,
+          "MalateGlo_concentration_uM": 0.0,
+          "MalateGlo_initial_concentration": 0.005
+        }
+      }
+    }
+  },
+  "BA2 96_1 C1 split_2": {
+    "label": "Not Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_C1_split2_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day28/predicted_masks/BA2_96_1_Dy28_C1_split2_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.193,
+          "GlucoseGlo_initial_concentration": 32385.721,
+          "GlutamateGlo_concentration_uM": 0.474,
+          "GlutamateGlo_initial_concentration": 47.414,
+          "LactateGlo_concentration_uM": 18.272,
+          "LactateGlo_initial_concentration": 7308.994,
+          "PyruvateGlo_concentration_uM": 2.684,
+          "PyruvateGlo_initial_concentration": 268.439,
+          "MalateGlo_concentration_uM": 0.235,
+          "MalateGlo_initial_concentration": 4.692
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_C1_split2_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day30/predicted_masks/BA2_96_1_Dy30_C1_split2_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.349,
+          "GlucoseGlo_initial_concentration": 24697.008,
+          "GlutamateGlo_concentration_uM": 0.582,
+          "GlutamateGlo_initial_concentration": 58.208,
+          "LactateGlo_concentration_uM": 9.63,
+          "LactateGlo_initial_concentration": 3852.158,
+          "PyruvateGlo_concentration_uM": 2.389,
+          "PyruvateGlo_initial_concentration": 238.946,
+          "MalateGlo_concentration_uM": 0.112,
+          "MalateGlo_initial_concentration": 2.248
+        }
+      }
+    }
+  },
+  "BA2 96_1 H7": {
+    "label": "Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day03/predicted_masks/BA2_96_1_Dy03_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.979,
+          "GlucoseGlo_initial_concentration": 19957.348,
+          "GlutamateGlo_concentration_uM": 2.83,
+          "GlutamateGlo_initial_concentration": 282.961,
+          "LactateGlo_concentration_uM": 9.104,
+          "LactateGlo_initial_concentration": 3641.704,
+          "PyruvateGlo_concentration_uM": 4.428,
+          "PyruvateGlo_initial_concentration": 442.791
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy06/BA2_96_1_Dy06_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day06/predicted_masks/BA2_96_1_Dy06_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 7.251,
+          "GlucoseGlo_initial_concentration": 14501.579,
+          "GlutamateGlo_concentration_uM": 2.257,
+          "GlutamateGlo_initial_concentration": 225.66,
+          "LactateGlo_concentration_uM": 11.822,
+          "LactateGlo_initial_concentration": 4728.95,
+          "PyruvateGlo_concentration_uM": 2.447,
+          "PyruvateGlo_initial_concentration": 244.724
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.089,
+          "GlucoseGlo_initial_concentration": 18177.354,
+          "GlutamateGlo_concentration_uM": 1.979,
+          "GlutamateGlo_initial_concentration": 197.9,
+          "LactateGlo_concentration_uM": 3.702,
+          "LactateGlo_initial_concentration": 1480.601,
+          "PyruvateGlo_concentration_uM": 3.64,
+          "PyruvateGlo_initial_concentration": 363.952
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day10/predicted_masks/BA2_96_1_Dy10_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.612,
+          "GlucoseGlo_initial_concentration": 23223.976,
+          "GlutamateGlo_concentration_uM": 2.277,
+          "GlutamateGlo_initial_concentration": 227.686,
+          "LactateGlo_concentration_uM": 4.636,
+          "LactateGlo_initial_concentration": 1854.395,
+          "PyruvateGlo_concentration_uM": 4.481,
+          "PyruvateGlo_initial_concentration": 448.131
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy13/BA2_96_1_Dy13_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day13/predicted_masks/BA2_96_1_Dy13_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.514,
+          "GlucoseGlo_initial_concentration": 23027.108,
+          "GlutamateGlo_concentration_uM": 1.39,
+          "GlutamateGlo_initial_concentration": 139.03,
+          "LactateGlo_concentration_uM": 7.593,
+          "LactateGlo_initial_concentration": 3037.344,
+          "PyruvateGlo_concentration_uM": 3.3,
+          "PyruvateGlo_initial_concentration": 330.047,
+          "MalateGlo_concentration_uM": 0.046,
+          "MalateGlo_initial_concentration": 0.918
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy15/BA2_96_1_Dy15_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day15/predicted_masks/BA2_96_1_Dy15_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.273,
+          "GlucoseGlo_initial_concentration": 32545.816,
+          "GlutamateGlo_concentration_uM": 1.809,
+          "GlutamateGlo_initial_concentration": 180.928,
+          "LactateGlo_concentration_uM": 15.774,
+          "LactateGlo_initial_concentration": 6309.414,
+          "PyruvateGlo_concentration_uM": 4.621,
+          "PyruvateGlo_initial_concentration": 462.127,
+          "MalateGlo_concentration_uM": 0.165,
+          "MalateGlo_initial_concentration": 3.305
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy17/BA2_96_1_Dy17_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day17/predicted_masks/BA2_96_1_Dy17_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.091,
+          "GlucoseGlo_initial_concentration": 28182.356,
+          "GlutamateGlo_concentration_uM": 1.174,
+          "GlutamateGlo_initial_concentration": 117.41,
+          "LactateGlo_concentration_uM": 8.407,
+          "LactateGlo_initial_concentration": 3362.805,
+          "PyruvateGlo_concentration_uM": 3.241,
+          "PyruvateGlo_initial_concentration": 324.127,
+          "MalateGlo_concentration_uM": 0.077,
+          "MalateGlo_initial_concentration": 1.543
+        }
+      },
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy21/BA2_96_1_Dy21_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day21/predicted_masks/BA2_96_1_Dy21_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.271,
+          "GlucoseGlo_initial_concentration": 26541.406,
+          "GlutamateGlo_concentration_uM": 0.698,
+          "GlutamateGlo_initial_concentration": 69.823,
+          "LactateGlo_concentration_uM": 12.155,
+          "LactateGlo_initial_concentration": 4862.067,
+          "PyruvateGlo_concentration_uM": 3.144,
+          "PyruvateGlo_initial_concentration": 314.394
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day24/predicted_masks/BA2_96_1_Dy24_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.552,
+          "GlucoseGlo_initial_concentration": 19103.063,
+          "GlutamateGlo_concentration_uM": 0.391,
+          "GlutamateGlo_initial_concentration": 39.084,
+          "LactateGlo_concentration_uM": 8.517,
+          "LactateGlo_initial_concentration": 3406.89,
+          "PyruvateGlo_concentration_uM": 1.63,
+          "PyruvateGlo_initial_concentration": 162.961,
+          "MalateGlo_concentration_uM": -0.129,
+          "MalateGlo_initial_concentration": -2.587
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day28/predicted_masks/BA2_96_1_Dy28_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.27,
+          "GlucoseGlo_initial_concentration": 24540.296,
+          "GlutamateGlo_concentration_uM": 0.233,
+          "GlutamateGlo_initial_concentration": 23.317,
+          "LactateGlo_concentration_uM": 16.095,
+          "LactateGlo_initial_concentration": 6438.121,
+          "PyruvateGlo_concentration_uM": 1.931,
+          "PyruvateGlo_initial_concentration": 193.134,
+          "MalateGlo_concentration_uM": 0.133,
+          "MalateGlo_initial_concentration": 2.66
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day30/predicted_masks/BA2_96_1_Dy30_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.975,
+          "GlucoseGlo_initial_concentration": 23949.676,
+          "GlutamateGlo_concentration_uM": 0.286,
+          "GlutamateGlo_initial_concentration": 28.612,
+          "LactateGlo_concentration_uM": 10.806,
+          "LactateGlo_initial_concentration": 4322.454,
+          "PyruvateGlo_concentration_uM": 1.974,
+          "PyruvateGlo_initial_concentration": 197.438,
+          "MalateGlo_concentration_uM": 0.063,
+          "MalateGlo_initial_concentration": 1.254
+        }
+      }
+    }
+  },
+  "BA2 96_2 D7 split_2": {
+    "label": "Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy21/BA2_96_2_Dy21_D7_split2_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day21/predicted_masks/BA2_96_2_Dy21_D7_split2_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.398,
+          "GlucoseGlo_initial_concentration": 18795.82,
+          "GlutamateGlo_concentration_uM": 0.515,
+          "GlutamateGlo_initial_concentration": 51.501,
+          "LactateGlo_concentration_uM": 14.684,
+          "LactateGlo_initial_concentration": 5873.791,
+          "PyruvateGlo_concentration_uM": 1.865,
+          "PyruvateGlo_initial_concentration": 186.52
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy24/BA2_96_2_Dy24_D7_split2_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day24/predicted_masks/BA2_96_2_Dy24_D7_split2_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.443,
+          "GlucoseGlo_initial_concentration": 20885.453,
+          "GlutamateGlo_concentration_uM": 0.602,
+          "GlutamateGlo_initial_concentration": 60.225,
+          "LactateGlo_concentration_uM": 11.61,
+          "LactateGlo_initial_concentration": 4644.041,
+          "PyruvateGlo_concentration_uM": 2.058,
+          "PyruvateGlo_initial_concentration": 205.757,
+          "MalateGlo_concentration_uM": 0.107,
+          "MalateGlo_initial_concentration": 2.137
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy28/BA2_96_2_Dy28_D7_split2_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day28/predicted_masks/BA2_96_2_Dy28_D7_split2_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.364,
+          "GlucoseGlo_initial_concentration": 20728.342,
+          "GlutamateGlo_concentration_uM": 0.289,
+          "GlutamateGlo_initial_concentration": 28.911,
+          "LactateGlo_concentration_uM": 13.33,
+          "LactateGlo_initial_concentration": 5332.004,
+          "PyruvateGlo_concentration_uM": 1.27,
+          "PyruvateGlo_initial_concentration": 126.977,
+          "MalateGlo_concentration_uM": 0.162,
+          "MalateGlo_initial_concentration": 3.232
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy30/BA2_96_2_Dy30_D7_split2_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day30/predicted_masks/BA2_96_2_Dy30_D7_split2_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.127,
+          "GlucoseGlo_initial_concentration": 22253.395,
+          "GlutamateGlo_concentration_uM": 0.273,
+          "GlutamateGlo_initial_concentration": 27.278,
+          "LactateGlo_concentration_uM": 9.48,
+          "LactateGlo_initial_concentration": 3792.157,
+          "PyruvateGlo_concentration_uM": 2.121,
+          "PyruvateGlo_initial_concentration": 212.11,
+          "MalateGlo_concentration_uM": 0.023,
+          "MalateGlo_initial_concentration": 0.464
+        }
+      }
+    }
+  },
+  "BA2 96_1 G7": {
+    "label": "Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy03/BA2_96_1_Dy03_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day03/predicted_masks/BA2_96_1_Dy03_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 7.998,
+          "GlucoseGlo_initial_concentration": 15996.128,
+          "GlutamateGlo_concentration_uM": 2.167,
+          "GlutamateGlo_initial_concentration": 216.745,
+          "LactateGlo_concentration_uM": 6.307,
+          "LactateGlo_initial_concentration": 2522.941,
+          "PyruvateGlo_concentration_uM": 3.755,
+          "PyruvateGlo_initial_concentration": 375.499
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy06/BA2_96_1_Dy06_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day06/predicted_masks/BA2_96_1_Dy06_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 5.872,
+          "GlucoseGlo_initial_concentration": 11743.923,
+          "GlutamateGlo_concentration_uM": 1.824,
+          "GlutamateGlo_initial_concentration": 182.355,
+          "LactateGlo_concentration_uM": 8.046,
+          "LactateGlo_initial_concentration": 3218.344,
+          "PyruvateGlo_concentration_uM": 2.122,
+          "PyruvateGlo_initial_concentration": 212.25
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day08/predicted_masks/BA2_96_1_Dy08_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 8.304,
+          "GlucoseGlo_initial_concentration": 16608.294,
+          "GlutamateGlo_concentration_uM": 1.793,
+          "GlutamateGlo_initial_concentration": 179.268,
+          "LactateGlo_concentration_uM": 2.223,
+          "LactateGlo_initial_concentration": 889.355,
+          "PyruvateGlo_concentration_uM": 3.133,
+          "PyruvateGlo_initial_concentration": 313.305
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy10/BA2_96_1_Dy10_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day10/predicted_masks/BA2_96_1_Dy10_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.699,
+          "GlucoseGlo_initial_concentration": 23398.736,
+          "GlutamateGlo_concentration_uM": 2.124,
+          "GlutamateGlo_initial_concentration": 212.395,
+          "LactateGlo_concentration_uM": 3.424,
+          "LactateGlo_initial_concentration": 1369.698,
+          "PyruvateGlo_concentration_uM": 4.404,
+          "PyruvateGlo_initial_concentration": 440.365
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy13/BA2_96_1_Dy13_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day13/predicted_masks/BA2_96_1_Dy13_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.139,
+          "GlucoseGlo_initial_concentration": 22277.846,
+          "GlutamateGlo_concentration_uM": 1.274,
+          "GlutamateGlo_initial_concentration": 127.4,
+          "LactateGlo_concentration_uM": 9.194,
+          "LactateGlo_initial_concentration": 3677.647,
+          "PyruvateGlo_concentration_uM": 3.191,
+          "PyruvateGlo_initial_concentration": 319.145,
+          "MalateGlo_concentration_uM": 0.0,
+          "MalateGlo_initial_concentration": 0.008
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy15/BA2_96_1_Dy15_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day15/predicted_masks/BA2_96_1_Dy15_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 16.918,
+          "GlucoseGlo_initial_concentration": 33835.205,
+          "GlutamateGlo_concentration_uM": 2.057,
+          "GlutamateGlo_initial_concentration": 205.746,
+          "LactateGlo_concentration_uM": 15.938,
+          "LactateGlo_initial_concentration": 6375.099,
+          "PyruvateGlo_concentration_uM": 4.268,
+          "PyruvateGlo_initial_concentration": 426.775,
+          "MalateGlo_concentration_uM": 0.086,
+          "MalateGlo_initial_concentration": 1.718
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy17/BA2_96_1_Dy17_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day17/predicted_masks/BA2_96_1_Dy17_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.389,
+          "GlucoseGlo_initial_concentration": 28778.432,
+          "GlutamateGlo_concentration_uM": 1.18,
+          "GlutamateGlo_initial_concentration": 118.034,
+          "LactateGlo_concentration_uM": 9.831,
+          "LactateGlo_initial_concentration": 3932.388,
+          "PyruvateGlo_concentration_uM": 3.936,
+          "PyruvateGlo_initial_concentration": 393.594,
+          "MalateGlo_concentration_uM": 0.046,
+          "MalateGlo_initial_concentration": 0.911
+        }
+      },
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy21/BA2_96_1_Dy21_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day21/predicted_masks/BA2_96_1_Dy21_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.111,
+          "GlucoseGlo_initial_concentration": 28222.416,
+          "GlutamateGlo_concentration_uM": 0.859,
+          "GlutamateGlo_initial_concentration": 85.911,
+          "LactateGlo_concentration_uM": 13.483,
+          "LactateGlo_initial_concentration": 5393.014,
+          "PyruvateGlo_concentration_uM": 2.345,
+          "PyruvateGlo_initial_concentration": 234.454
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day24/predicted_masks/BA2_96_1_Dy24_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.818,
+          "GlucoseGlo_initial_concentration": 23636.726,
+          "GlutamateGlo_concentration_uM": 0.579,
+          "GlutamateGlo_initial_concentration": 57.933,
+          "LactateGlo_concentration_uM": 9.134,
+          "LactateGlo_initial_concentration": 3653.618,
+          "PyruvateGlo_concentration_uM": 1.666,
+          "PyruvateGlo_initial_concentration": 166.592,
+          "MalateGlo_concentration_uM": -0.132,
+          "MalateGlo_initial_concentration": -2.64
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day28/predicted_masks/BA2_96_1_Dy28_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.087,
+          "GlucoseGlo_initial_concentration": 28174.992,
+          "GlutamateGlo_concentration_uM": 0.359,
+          "GlutamateGlo_initial_concentration": 35.875,
+          "LactateGlo_concentration_uM": 15.507,
+          "LactateGlo_initial_concentration": 6202.853,
+          "PyruvateGlo_concentration_uM": 1.734,
+          "PyruvateGlo_initial_concentration": 173.448,
+          "MalateGlo_concentration_uM": 0.102,
+          "MalateGlo_initial_concentration": 2.03
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_G7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day30/predicted_masks/BA2_96_1_Dy30_G7_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.782,
+          "GlucoseGlo_initial_concentration": 23564.801,
+          "GlutamateGlo_concentration_uM": 0.401,
+          "GlutamateGlo_initial_concentration": 40.099,
+          "LactateGlo_concentration_uM": 9.032,
+          "LactateGlo_initial_concentration": 3612.796,
+          "PyruvateGlo_concentration_uM": 1.364,
+          "PyruvateGlo_initial_concentration": 136.367,
+          "MalateGlo_concentration_uM": 0.037,
+          "MalateGlo_initial_concentration": 0.736
+        }
+      }
+    }
+  },
+  "BA2 96_1 E7 split_1": {
+    "label": "Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy21/BA2_96_1_Dy21_E7_split1_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day21/predicted_masks/BA2_96_1_Dy21_E7_split1_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.522,
+          "GlucoseGlo_initial_concentration": 27043.572,
+          "GlutamateGlo_concentration_uM": 0.628,
+          "GlutamateGlo_initial_concentration": 62.828,
+          "LactateGlo_concentration_uM": 20.985,
+          "LactateGlo_initial_concentration": 8394.105,
+          "PyruvateGlo_concentration_uM": 3.11,
+          "PyruvateGlo_initial_concentration": 311.032
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy24/BA2_96_1_Dy24_E7_split1_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day24/predicted_masks/BA2_96_1_Dy24_E7_split1_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.496,
+          "GlucoseGlo_initial_concentration": 24992.195,
+          "GlutamateGlo_concentration_uM": 0.396,
+          "GlutamateGlo_initial_concentration": 39.555,
+          "LactateGlo_concentration_uM": 19.129,
+          "LactateGlo_initial_concentration": 7651.677,
+          "PyruvateGlo_concentration_uM": 2.625,
+          "PyruvateGlo_initial_concentration": 262.522,
+          "MalateGlo_concentration_uM": 0.011,
+          "MalateGlo_initial_concentration": 0.229
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy28/BA2_96_1_Dy28_E7_split1_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day28/predicted_masks/BA2_96_1_Dy28_E7_split1_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.021,
+          "GlucoseGlo_initial_concentration": 22041.443,
+          "GlutamateGlo_concentration_uM": 0.229,
+          "GlutamateGlo_initial_concentration": 22.916,
+          "LactateGlo_concentration_uM": 32.057,
+          "LactateGlo_initial_concentration": 12822.622,
+          "PyruvateGlo_concentration_uM": 2.247,
+          "PyruvateGlo_initial_concentration": 224.693,
+          "MalateGlo_concentration_uM": 0.384,
+          "MalateGlo_initial_concentration": 7.677
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_E7_split1_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_1/day30/predicted_masks/BA2_96_1_Dy30_E7_split1_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.572,
+          "GlucoseGlo_initial_concentration": 19144.333,
+          "GlutamateGlo_concentration_uM": 0.235,
+          "GlutamateGlo_initial_concentration": 23.492,
+          "LactateGlo_concentration_uM": 21.051,
+          "LactateGlo_initial_concentration": 8420.268,
+          "PyruvateGlo_concentration_uM": 1.763,
+          "PyruvateGlo_initial_concentration": 176.288,
+          "MalateGlo_concentration_uM": 0.234,
+          "MalateGlo_initial_concentration": 4.674
+        }
+      }
+    }
+  },
+  "BA1 96_1 C11": {
+    "label": "Acceptable",
+    "batch": "BA1",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day03/predicted_masks/BA1_96_1_Dy03_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 9.466,
+          "GlucoseGlo_initial_concentration": 18932.44,
+          "GlutamateGlo_concentration_uM": 2.163,
+          "GlutamateGlo_initial_concentration": 216.253,
+          "LactateGlo_concentration_uM": 6.307,
+          "LactateGlo_initial_concentration": 2522.826,
+          "PyruvateGlo_concentration_uM": 3.279,
+          "PyruvateGlo_initial_concentration": 327.885
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy06/BA1_96_1_Dy06_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day06/predicted_masks/BA1_96_1_Dy06_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 7.167,
+          "GlucoseGlo_initial_concentration": 14333.463,
+          "GlutamateGlo_concentration_uM": 2.021,
+          "GlutamateGlo_initial_concentration": 202.142,
+          "LactateGlo_concentration_uM": 8.757,
+          "LactateGlo_initial_concentration": 3502.642,
+          "PyruvateGlo_concentration_uM": 2.133,
+          "PyruvateGlo_initial_concentration": 213.302
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy08/BA1_96_1_Dy08_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day08/predicted_masks/BA1_96_1_Dy08_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 8.273,
+          "GlucoseGlo_initial_concentration": 16546.83,
+          "GlutamateGlo_concentration_uM": 1.742,
+          "GlutamateGlo_initial_concentration": 174.166,
+          "LactateGlo_concentration_uM": 2.467,
+          "LactateGlo_initial_concentration": 986.83,
+          "PyruvateGlo_concentration_uM": 2.552,
+          "PyruvateGlo_initial_concentration": 255.23
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy10/BA1_96_1_Dy10_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day10/predicted_masks/BA1_96_1_Dy10_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.22,
+          "GlucoseGlo_initial_concentration": 22439.699,
+          "GlutamateGlo_concentration_uM": 2.21,
+          "GlutamateGlo_initial_concentration": 220.96,
+          "LactateGlo_concentration_uM": 2.313,
+          "LactateGlo_initial_concentration": 925.078,
+          "PyruvateGlo_concentration_uM": 4.036,
+          "PyruvateGlo_initial_concentration": 403.585
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy13/BA1_96_1_Dy13_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day13/predicted_masks/BA1_96_1_Dy13_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.147,
+          "GlucoseGlo_initial_concentration": 22293.503,
+          "GlutamateGlo_concentration_uM": 0.773,
+          "GlutamateGlo_initial_concentration": 77.3,
+          "LactateGlo_concentration_uM": 6.748,
+          "LactateGlo_initial_concentration": 2699.155,
+          "PyruvateGlo_concentration_uM": 1.608,
+          "PyruvateGlo_initial_concentration": 160.794,
+          "MalateGlo_concentration_uM": -0.095,
+          "MalateGlo_initial_concentration": -1.905
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy15/BA1_96_1_Dy15_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day15/predicted_masks/BA1_96_1_Dy15_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 15.225,
+          "GlucoseGlo_initial_concentration": 30450.77,
+          "GlutamateGlo_concentration_uM": 1.027,
+          "GlutamateGlo_initial_concentration": 102.718,
+          "LactateGlo_concentration_uM": 10.392,
+          "LactateGlo_initial_concentration": 4156.743,
+          "PyruvateGlo_concentration_uM": 3.012,
+          "PyruvateGlo_initial_concentration": 301.197,
+          "MalateGlo_concentration_uM": 0.088,
+          "MalateGlo_initial_concentration": 1.768
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy17/BA1_96_1_Dy17_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day17/predicted_masks/BA1_96_1_Dy17_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.608,
+          "GlucoseGlo_initial_concentration": 25216.448,
+          "GlutamateGlo_concentration_uM": 0.879,
+          "GlutamateGlo_initial_concentration": 87.868,
+          "LactateGlo_concentration_uM": 8.568,
+          "LactateGlo_initial_concentration": 3427.357,
+          "PyruvateGlo_concentration_uM": 2.949,
+          "PyruvateGlo_initial_concentration": 294.861,
+          "MalateGlo_concentration_uM": -0.004,
+          "MalateGlo_initial_concentration": -0.074
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day24/predicted_masks/BA1_96_1_Dy24_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 15.324,
+          "GlucoseGlo_initial_concentration": 30647.192,
+          "GlutamateGlo_concentration_uM": 0.511,
+          "GlutamateGlo_initial_concentration": 51.051,
+          "LactateGlo_concentration_uM": 12.408,
+          "LactateGlo_initial_concentration": 4963.314,
+          "PyruvateGlo_concentration_uM": 2.524,
+          "PyruvateGlo_initial_concentration": 252.444,
+          "MalateGlo_concentration_uM": 0.127,
+          "MalateGlo_initial_concentration": 2.548
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy28/BA1_96_1_Dy28_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day28/predicted_masks/BA1_96_1_Dy28_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.553,
+          "GlucoseGlo_initial_concentration": 25105.761,
+          "GlutamateGlo_concentration_uM": 0.242,
+          "GlutamateGlo_initial_concentration": 24.202,
+          "LactateGlo_concentration_uM": 19.538,
+          "LactateGlo_initial_concentration": 7815.028,
+          "PyruvateGlo_concentration_uM": 2.043,
+          "PyruvateGlo_initial_concentration": 204.26,
+          "MalateGlo_concentration_uM": 0.219,
+          "MalateGlo_initial_concentration": 4.373
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy30/BA1_96_1_Dy30_C11_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day30/predicted_masks/BA1_96_1_Dy30_C11_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.812,
+          "GlucoseGlo_initial_concentration": 25624.457,
+          "GlutamateGlo_concentration_uM": 0.224,
+          "GlutamateGlo_initial_concentration": 22.404,
+          "LactateGlo_concentration_uM": 15.177,
+          "LactateGlo_initial_concentration": 6070.997,
+          "PyruvateGlo_concentration_uM": 1.152,
+          "PyruvateGlo_initial_concentration": 115.164,
+          "MalateGlo_concentration_uM": 0.17,
+          "MalateGlo_initial_concentration": 3.401
+        }
+      }
+    }
+  },
+  "BA1 96_1 H7": {
+    "label": "Acceptable",
+    "batch": "BA1",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy03/BA1_96_1_Dy03_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day03/predicted_masks/BA1_96_1_Dy03_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.182,
+          "GlucoseGlo_initial_concentration": 20364.773,
+          "GlutamateGlo_concentration_uM": 2.343,
+          "GlutamateGlo_initial_concentration": 234.279,
+          "LactateGlo_concentration_uM": 7.528,
+          "LactateGlo_initial_concentration": 3011.375,
+          "PyruvateGlo_concentration_uM": 3.311,
+          "PyruvateGlo_initial_concentration": 331.122
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy06/BA1_96_1_Dy06_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day06/predicted_masks/BA1_96_1_Dy06_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 7.908,
+          "GlucoseGlo_initial_concentration": 15816.723,
+          "GlutamateGlo_concentration_uM": 2.309,
+          "GlutamateGlo_initial_concentration": 230.869,
+          "LactateGlo_concentration_uM": 11.753,
+          "LactateGlo_initial_concentration": 4701.183,
+          "PyruvateGlo_concentration_uM": 2.95,
+          "PyruvateGlo_initial_concentration": 294.965
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy08/BA1_96_1_Dy08_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day08/predicted_masks/BA1_96_1_Dy08_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.314,
+          "GlucoseGlo_initial_concentration": 28627.846,
+          "GlutamateGlo_concentration_uM": 2.929,
+          "GlutamateGlo_initial_concentration": 292.943,
+          "LactateGlo_concentration_uM": 6.062,
+          "LactateGlo_initial_concentration": 2424.973,
+          "PyruvateGlo_concentration_uM": 3.984,
+          "PyruvateGlo_initial_concentration": 398.411
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy10/BA1_96_1_Dy10_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day10/predicted_masks/BA1_96_1_Dy10_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.0,
+          "GlucoseGlo_initial_concentration": 23999.076,
+          "GlutamateGlo_concentration_uM": 2.258,
+          "GlutamateGlo_initial_concentration": 225.788,
+          "LactateGlo_concentration_uM": 3.002,
+          "LactateGlo_initial_concentration": 1200.77,
+          "PyruvateGlo_concentration_uM": 4.456,
+          "PyruvateGlo_initial_concentration": 445.586
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy13/BA1_96_1_Dy13_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day13/predicted_masks/BA1_96_1_Dy13_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.566,
+          "GlucoseGlo_initial_concentration": 29132.984,
+          "GlutamateGlo_concentration_uM": 1.093,
+          "GlutamateGlo_initial_concentration": 109.325,
+          "LactateGlo_concentration_uM": 8.928,
+          "LactateGlo_initial_concentration": 3571.33,
+          "PyruvateGlo_concentration_uM": 2.937,
+          "PyruvateGlo_initial_concentration": 293.725,
+          "MalateGlo_concentration_uM": -0.022,
+          "MalateGlo_initial_concentration": -0.446
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy15/BA1_96_1_Dy15_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day15/predicted_masks/BA1_96_1_Dy15_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 15.468,
+          "GlucoseGlo_initial_concentration": 30935.415,
+          "GlutamateGlo_concentration_uM": 1.127,
+          "GlutamateGlo_initial_concentration": 112.713,
+          "LactateGlo_concentration_uM": 13.727,
+          "LactateGlo_initial_concentration": 5490.916,
+          "PyruvateGlo_concentration_uM": 3.115,
+          "PyruvateGlo_initial_concentration": 311.53,
+          "MalateGlo_concentration_uM": 0.125,
+          "MalateGlo_initial_concentration": 2.51
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy17/BA1_96_1_Dy17_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day17/predicted_masks/BA1_96_1_Dy17_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.849,
+          "GlucoseGlo_initial_concentration": 25698.768,
+          "GlutamateGlo_concentration_uM": 1.03,
+          "GlutamateGlo_initial_concentration": 102.963,
+          "LactateGlo_concentration_uM": 8.663,
+          "LactateGlo_initial_concentration": 3465.023,
+          "PyruvateGlo_concentration_uM": 3.259,
+          "PyruvateGlo_initial_concentration": 325.916,
+          "MalateGlo_concentration_uM": 0.04,
+          "MalateGlo_initial_concentration": 0.806
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy24/BA1_96_1_Dy24_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day24/predicted_masks/BA1_96_1_Dy24_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.415,
+          "GlucoseGlo_initial_concentration": 28830.838,
+          "GlutamateGlo_concentration_uM": 0.783,
+          "GlutamateGlo_initial_concentration": 78.321,
+          "LactateGlo_concentration_uM": 12.609,
+          "LactateGlo_initial_concentration": 5043.776,
+          "PyruvateGlo_concentration_uM": 2.601,
+          "PyruvateGlo_initial_concentration": 260.134,
+          "MalateGlo_concentration_uM": 0.179,
+          "MalateGlo_initial_concentration": 3.573
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy28/BA1_96_1_Dy28_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day28/predicted_masks/BA1_96_1_Dy28_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.845,
+          "GlucoseGlo_initial_concentration": 23689.541,
+          "GlutamateGlo_concentration_uM": 0.296,
+          "GlutamateGlo_initial_concentration": 29.612,
+          "LactateGlo_concentration_uM": 17.37,
+          "LactateGlo_initial_concentration": 6947.817,
+          "PyruvateGlo_concentration_uM": 1.907,
+          "PyruvateGlo_initial_concentration": 190.744,
+          "MalateGlo_concentration_uM": 0.25,
+          "MalateGlo_initial_concentration": 4.999
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy30/BA1_96_1_Dy30_H7_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch1/day30/predicted_masks/BA1_96_1_Dy30_H7_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 13.025,
+          "GlucoseGlo_initial_concentration": 26049.512,
+          "GlutamateGlo_concentration_uM": 0.333,
+          "GlutamateGlo_initial_concentration": 33.315,
+          "LactateGlo_concentration_uM": 13.68,
+          "LactateGlo_initial_concentration": 5472.047,
+          "PyruvateGlo_concentration_uM": 2.118,
+          "PyruvateGlo_initial_concentration": 211.825,
+          "MalateGlo_concentration_uM": 0.209,
+          "MalateGlo_initial_concentration": 4.186
+        }
+      }
+    }
+  },
+  "BA2 96_2 F6": {
+    "label": "Acceptable",
+    "batch": "BA2",
+    "timepoints": {
+      "Dy03": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy03/BA2_96_2_Dy03_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day03/predicted_masks/BA2_96_2_Dy03_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy03",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 8.381,
+          "GlucoseGlo_initial_concentration": 16761.879,
+          "GlutamateGlo_concentration_uM": 2.156,
+          "GlutamateGlo_initial_concentration": 215.636,
+          "LactateGlo_concentration_uM": 6.296,
+          "LactateGlo_initial_concentration": 2518.586,
+          "PyruvateGlo_concentration_uM": 2.676,
+          "PyruvateGlo_initial_concentration": 267.559
+        }
+      },
+      "Dy06": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy06/BA2_96_2_Dy06_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day06/predicted_masks/BA2_96_2_Dy06_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy06",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 6.552,
+          "GlucoseGlo_initial_concentration": 13103.494,
+          "GlutamateGlo_concentration_uM": 1.864,
+          "GlutamateGlo_initial_concentration": 186.354,
+          "LactateGlo_concentration_uM": 8.824,
+          "LactateGlo_initial_concentration": 3529.546,
+          "PyruvateGlo_concentration_uM": 2.069,
+          "PyruvateGlo_initial_concentration": 206.927
+        }
+      },
+      "Dy08": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day08/predicted_masks/BA2_96_2_Dy08_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy08",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.085,
+          "GlucoseGlo_initial_concentration": 20170.21,
+          "GlutamateGlo_concentration_uM": 1.967,
+          "GlutamateGlo_initial_concentration": 196.662,
+          "LactateGlo_concentration_uM": 3.635,
+          "LactateGlo_initial_concentration": 1454.084,
+          "PyruvateGlo_concentration_uM": 3.227,
+          "PyruvateGlo_initial_concentration": 322.715
+        }
+      },
+      "Dy10": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy10/BA2_96_2_Dy10_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day10/predicted_masks/BA2_96_2_Dy10_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy10",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.721,
+          "GlucoseGlo_initial_concentration": 21441.996,
+          "GlutamateGlo_concentration_uM": 2.024,
+          "GlutamateGlo_initial_concentration": 202.378,
+          "LactateGlo_concentration_uM": 3.338,
+          "LactateGlo_initial_concentration": 1335.227,
+          "PyruvateGlo_concentration_uM": 3.535,
+          "PyruvateGlo_initial_concentration": 353.525
+        }
+      },
+      "Dy13": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy13/BA2_96_2_Dy13_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day13/predicted_masks/BA2_96_2_Dy13_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy13",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 14.389,
+          "GlucoseGlo_initial_concentration": 28777.064,
+          "GlutamateGlo_concentration_uM": 1.636,
+          "GlutamateGlo_initial_concentration": 163.608,
+          "LactateGlo_concentration_uM": 11.047,
+          "LactateGlo_initial_concentration": 4418.761,
+          "PyruvateGlo_concentration_uM": 2.887,
+          "PyruvateGlo_initial_concentration": 288.677,
+          "MalateGlo_concentration_uM": 0.13,
+          "MalateGlo_initial_concentration": 2.609
+        }
+      },
+      "Dy15": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy15/BA2_96_2_Dy15_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day15/predicted_masks/BA2_96_2_Dy15_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy15",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.531,
+          "GlucoseGlo_initial_concentration": 25062.43,
+          "GlutamateGlo_concentration_uM": 1.448,
+          "GlutamateGlo_initial_concentration": 144.829,
+          "LactateGlo_concentration_uM": 11.019,
+          "LactateGlo_initial_concentration": 4407.634,
+          "PyruvateGlo_concentration_uM": 3.093,
+          "PyruvateGlo_initial_concentration": 309.323,
+          "MalateGlo_concentration_uM": 0.028,
+          "MalateGlo_initial_concentration": 0.564
+        }
+      },
+      "Dy17": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy17/BA2_96_2_Dy17_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day17/predicted_masks/BA2_96_2_Dy17_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy17",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.359,
+          "GlucoseGlo_initial_concentration": 22717.028,
+          "GlutamateGlo_concentration_uM": 0.861,
+          "GlutamateGlo_initial_concentration": 86.144,
+          "LactateGlo_concentration_uM": 7.093,
+          "LactateGlo_initial_concentration": 2837.28,
+          "PyruvateGlo_concentration_uM": 3.105,
+          "PyruvateGlo_initial_concentration": 310.499,
+          "MalateGlo_concentration_uM": -0.036,
+          "MalateGlo_initial_concentration": -0.723
+        }
+      },
+      "Dy20_5": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy21/BA2_96_2_Dy21_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day21/predicted_masks/BA2_96_2_Dy21_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy20_5",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.694,
+          "GlucoseGlo_initial_concentration": 23388.519,
+          "GlutamateGlo_concentration_uM": 0.734,
+          "GlutamateGlo_initial_concentration": 73.4,
+          "LactateGlo_concentration_uM": 11.421,
+          "LactateGlo_initial_concentration": 4568.294,
+          "PyruvateGlo_concentration_uM": 1.702,
+          "PyruvateGlo_initial_concentration": 170.217
+        }
+      },
+      "Dy24": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy24/BA2_96_2_Dy24_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day24/predicted_masks/BA2_96_2_Dy24_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy24",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 11.218,
+          "GlucoseGlo_initial_concentration": 22435.605,
+          "GlutamateGlo_concentration_uM": 0.654,
+          "GlutamateGlo_initial_concentration": 65.443,
+          "LactateGlo_concentration_uM": 9.369,
+          "LactateGlo_initial_concentration": 3747.718,
+          "PyruvateGlo_concentration_uM": 1.185,
+          "PyruvateGlo_initial_concentration": 118.5,
+          "MalateGlo_concentration_uM": -0.026,
+          "MalateGlo_initial_concentration": -0.52
+        }
+      },
+      "Dy28": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy28/BA2_96_2_Dy28_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day28/predicted_masks/BA2_96_2_Dy28_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy28",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 12.83,
+          "GlucoseGlo_initial_concentration": 25660.182,
+          "GlutamateGlo_concentration_uM": 0.419,
+          "GlutamateGlo_initial_concentration": 41.928,
+          "LactateGlo_concentration_uM": 13.176,
+          "LactateGlo_initial_concentration": 5270.252,
+          "PyruvateGlo_concentration_uM": 1.194,
+          "PyruvateGlo_initial_concentration": 119.383,
+          "MalateGlo_concentration_uM": 0.062,
+          "MalateGlo_initial_concentration": 1.247
+        }
+      },
+      "Dy30": {
+        "img_path": "/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy30/BA2_96_2_Dy30_F6_nosplit_nostitch.png",
+        "mask_path": "/net/projects2/promega/data-analysis/predictions/batch2_96_2/day30/predicted_masks/BA2_96_2_Dy30_F6_nosplit_nostitch_predmask.png",
+        "day": "Dy30",
+        "metabolites": {
+          "GlucoseGlo_concentration_uM": 10.694,
+          "GlucoseGlo_initial_concentration": 21387.621,
+          "GlutamateGlo_concentration_uM": 0.379,
+          "GlutamateGlo_initial_concentration": 37.869,
+          "LactateGlo_concentration_uM": 6.842,
+          "LactateGlo_initial_concentration": 2736.886,
+          "PyruvateGlo_concentration_uM": 1.148,
+          "PyruvateGlo_initial_concentration": 114.782,
+          "MalateGlo_concentration_uM": -0.102,
+          "MalateGlo_initial_concentration": -2.046
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "model_type": "per_day_grayscale_norm",
+  "day": 15.0,
+  "best_val_acc": 0.8333333333333334,
+  "optimal_threshold": 0.55,
+  "test_at_0.5": {
+    "threshold": 0.5,
+    "accuracy": 0.7727272727272727,
+    "precision": 0.9032258064516129,
+    "recall": 0.8,
+    "f1": 0.8484848484848485,
+    "TNR": 0.6666666666666666,
+    "TPR": 0.8,
+    "balanced_acc": 0.7333333333333334,
+    "TN": 6,
+    "FP": 3,
+    "FN": 7,
+    "TP": 28
+  }
+}

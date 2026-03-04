@@ -1,0 +1,5 @@
+scipy
+scikit-image
+simple-lama-inpainting
+Pillow
+numpy

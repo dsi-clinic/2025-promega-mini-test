@@ -1,0 +1,58 @@
+================================================================================
+COMPARISON: Amanda's Bundled Results vs Our GPU Run (686612)
+================================================================================
+
+KEY FINDINGS:
+--------------------------------------------------------------------------------
+1. TRAINING METHODOLOGY:
+   - Amanda's bundled results: Single-phase training (no phase separation)
+   - Our run: Two-phase training (Phase 1: CNN frozen, Phase 2: All params unfrozen)
+   - Amanda epochs: 20
+   - Our epochs: Phase 1=12, Phase 2=23, Total=35
+
+2. TEST SET DIFFERENCES:
+   - Amanda test set size: 48 samples
+   - Our test set size: 42 samples
+   - NOTE: Different test sets may explain some metric differences
+
+3. FINAL METRICS COMPARISON:
+--------------------------------------------------------------------------------
+Metric               Amanda          Our Run         Difference     
+--------------------------------------------------------------------------------
+Test Accuracy        0.8750          0.8333          -0.0417
+Test Precision       0.8788          0.7778          -0.1010
+Test Recall          0.9355          0.9545          +0.0191
+Test F1              0.9062          0.8571          -0.0491
+Best Val Acc         0.7872          0.9024          +0.1152
+Best Val Loss        0.8472          0.3431          -0.5041
+
+4. CONFUSION MATRIX COMPARISON:
+--------------------------------------------------------------------------------
+Amanda's Confusion Matrix:
+  True Negatives (Bad→Bad): 13
+  False Positives (Bad→Good): 4
+  False Negatives (Good→Bad): 2
+  True Positives (Good→Good): 29
+
+Our Run Confusion Matrix:
+  True Negatives (Bad→Bad): 14
+  False Positives (Bad→Good): 6
+  False Negatives (Good→Bad): 1
+  True Positives (Good→Good): 21
+
+5. ANALYSIS:
+--------------------------------------------------------------------------------
+Our run achieved:
+  ✓ Higher validation accuracy (+11.5%)
+  ✓ Lower validation loss (-50.4%)
+  ✓ Higher test recall (+1.9%)
+  ✗ Lower test accuracy (-4.2%)
+  ✗ Lower test precision (-10.1%)
+  ✗ Lower test F1 (-4.9%)
+
+NOTE: The different test sets and training methodologies make direct
+comparison challenging. Our two-phase approach shows better validation
+performance but slightly lower test performance, possibly due to:
+  - Different test set composition
+  - Different data splits
+  - Training methodology differences (single vs two-phase)

@@ -1,0 +1,33 @@
+{
+  "day": "Dy06",
+  "day_no": 6,
+  "n_metabolite_features": 12,
+  "n_image_features": 12,
+  "n_total_features": 24,
+  "test_accuracy": 0.7837837837837838,
+  "test_f1_acceptable": 0.875,
+  "test_f1_notacceptable": 0.2,
+  "test_recall_acceptable": 0.9032258064516129,
+  "test_recall_notacceptable": 0.16666666666666666,
+  "test_precision_acceptable": 0.8484848484848485,
+  "test_precision_notacceptable": 0.25,
+  "test_specificity": 0.16666666666666666,
+  "test_pr_auc": 0.9024154500203133,
+  "best_params": {
+    "colsample_bytree": 0.8,
+    "learning_rate": 0.05,
+    "max_depth": 3,
+    "min_child_samples": 20,
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "subsample": 0.8
+  },
+  "cv_score": 0.266955266955267,
+  "pca_explained_variance": 0.6169271469116211,
+  "confusion_matrix": {
+    "TP": 28,
+    "FP": 5,
+    "TN": 1,
+    "FN": 3
+  }
+}

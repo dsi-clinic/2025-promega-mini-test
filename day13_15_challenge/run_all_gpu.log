@@ -1,0 +1,94 @@
+
+============================================================
+>>> 1. Compute grayscale mean/std
+============================================================
+================================================================================
+LOADING SPLIT DATA FROM JSON FILES
+================================================================================
+
+Loading train split: /home/tonyluo/amanda_temporal/2025-promega-mini-test/data_splits/both_train_base.json
+  Loaded 158 organoids
+
+Loading val split: /home/tonyluo/amanda_temporal/2025-promega-mini-test/data_splits/both_val_base.json
+  Loaded 18 organoids
+
+Loading test split: /home/tonyluo/amanda_temporal/2025-promega-mini-test/data_splits/both_test_base.json
+  Loaded 44 organoids
+
+Split sizes:
+  Train: 158 organoids
+  Val:   18 organoids
+  Test:  44 organoids
+
+Building series_metadata and data dicts from 220 organoids...
+  Built 220 series_metadata entries
+  Built 2118 data entries
+
+✓ No overlap between splits verified
+
+Label distribution:
+  Train: 126 Acceptable, 32 Not Acceptable (158 total)
+  Val:   14 Acceptable, 4 Not Acceptable (18 total)
+  Test:  35 Acceptable, 9 Not Acceptable (44 total)
+Day 13.0: mean=[0.65824944 0.65824944 0.65824944], std=[0.28835812 0.28835812 0.28835812] -> /home/tonyluo/amanda_temporal/2025-promega-mini-test/day13_15_challenge/grayscale_mean_std_day13.npy
+Day 15.0: mean=[0.6464184 0.6464184 0.6464184], std=[0.29684263 0.29684263 0.29684263] -> /home/tonyluo/amanda_temporal/2025-promega-mini-test/day13_15_challenge/grayscale_mean_std_day15.npy
+
+[OK] 1. Compute grayscale mean/std finished.
+
+============================================================
+>>> 2. Audit transforms
+============================================================
+Step 2: Loading split data...
+================================================================================
+LOADING SPLIT DATA FROM JSON FILES
+================================================================================
+
+Loading train split: /home/tonyluo/amanda_temporal/2025-promega-mini-test/data_splits/both_train_base.json
+  Loaded 158 organoids
+
+Loading val split: /home/tonyluo/amanda_temporal/2025-promega-mini-test/data_splits/both_val_base.json
+  Loaded 18 organoids
+
+Loading test split: /home/tonyluo/amanda_temporal/2025-promega-mini-test/data_splits/both_test_base.json
+  Loaded 44 organoids
+
+Split sizes:
+  Train: 158 organoids
+  Val:   18 organoids
+  Test:  44 organoids
+
+Building series_metadata and data dicts from 220 organoids...
+  Built 220 series_metadata entries
+  Built 2118 data entries
+
+✓ No overlap between splits verified
+
+Label distribution:
+  Train: 126 Acceptable, 32 Not Acceptable (158 total)
+  Val:   14 Acceptable, 4 Not Acceptable (18 total)
+  Test:  35 Acceptable, 9 Not Acceptable (44 total)
+Day 13 (overlay TS): {'min': -2.1179039478302, 'max': 2.640000104904175, 'mean': 0.8575165271759033, 'std': 1.3033337593078613, 'p1': -1.9295316934585571, 'p50': 1.4269200563430786, 'p99': 2.5702831745147705, 'n_pixels': 37601280, 'n_samples': 17}
+Day 28 (overlay TS): {'min': -2.1179039478302, 'max': 2.640000104904175, 'mean': 0.6226791143417358, 'std': 1.4253090620040894, 'p1': -1.9637812376022339, 'p50': 1.158518671989441, 'p99': 2.6051416397094727, 'n_pixels': 72548352, 'n_samples': 18}
+Written to /home/tonyluo/amanda_temporal/2025-promega-mini-test/day13_15_challenge/audit_transforms_summary.json
+Histogram saved to audit_transforms_histogram.png
+
+[OK] 2. Audit transforms finished.
+
+============================================================
+>>> 3. Train grayscale-norm (effnet_ts + per_day, days 13 & 15)
+============================================================
+Traceback (most recent call last):
+  File "/home/tonyluo/amanda_temporal/2025-promega-mini-test/day13_15_challenge/run_1_grayscale_norm.py", line 42, in <module>
+    from analysis.images.cnn_lstm.train_base_model import (
+  File "/home/tonyluo/amanda_temporal/2025-promega-mini-test/analysis/images/cnn_lstm/train_base_model.py", line 37, in <module>
+    from config import OUTPUT_FOLDER
+  File "/home/tonyluo/amanda_temporal/2025-promega-mini-test/config.py", line 57, in <module>
+    RAW_IMAGE_DATA    = require_env_path("RAW_IMAGE_DATA")
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tonyluo/amanda_temporal/2025-promega-mini-test/config.py", line 13, in require_env_path
+    raise RuntimeError(f"Missing required env var: {key}")
+RuntimeError: Missing required env var: RAW_IMAGE_DATA
+
+[FAIL] 3. Train grayscale-norm (effnet_ts + per_day, days 13 & 15) exited with code 1
+
+Pipeline stopped. Fix the error above and re-run: python run_all_gpu.py
