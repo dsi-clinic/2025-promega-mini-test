@@ -145,9 +145,14 @@ def load_image_map(cfg: Config) -> tuple[dict, dict]:
     verify_image_paths(image_map)
 
     entries = image_map.get("entries", {})
+
+    for entry in entries.values():
+        if "clipped_meanfill" not in entry and "clipped_meanfill_auto" in entry:
+            entry["clipped_meanfill"] = entry["clipped_meanfill_auto"]
+
     meta = {
         "aspect_ratio": image_map.get("aspect_ratio", {}),
-        "clipped_meanfill": image_map.get("clipped_meanfill", {}),
+        "clipped_meanfill": image_map.get("clipped_meanfill", {}) or image_map.get("clipped_meanfill_auto", {}),
     }
     return entries, meta
 
