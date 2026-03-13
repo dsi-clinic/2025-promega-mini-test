@@ -1,0 +1,17 @@
+img_path,true_label,pred_prob,pred_label
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy08/BA1_96_1_Dy08_B12.png,0,0.9914407730102539,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy08/BA1_96_1_Dy08_C4.png,1,0.23484833538532257,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_A12.png,0,0.9320924878120422,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_D8.png,0,0.784820556640625,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy08/BA2_96_1_Dy08_E9.png,0,0.5255392789840698,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_A9.png,1,0.05413280799984932,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_B1.png,1,0.2941586375236511,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_F5.png,1,0.03334366902709007,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_H3.png,1,0.03395744040608406,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy08/BA2_96_2_Dy08_H8.png,1,0.372055321931839,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy08/BA4_96_1_Dy08_B10.png,0,0.8982053995132446,1
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy08/BA4_96_1_Dy08_B9.png,1,0.0018250620923936367,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy08/BA4_96_1_Dy08_C2.png,1,0.23866693675518036,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy08/BA4_96_1_Dy08_D10.png,1,0.047150030732154846,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy08/BA4_96_1_Dy08_G5.png,1,0.3008248805999756,0
+/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy08/BA4_96_1_Dy08_G7.png,1,0.0686342790722847,0

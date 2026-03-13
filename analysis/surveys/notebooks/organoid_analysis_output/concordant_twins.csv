@@ -1,0 +1,13 @@
+well,split1_id,split2_id,split1_index,split2_index,split1_consensus,split2_consensus,split1_acceptable_rate,split2_acceptable_rate,split1_strength,split2_strength,rater_count,relationship
+BA2_96_1_Dy30_C1,BA2_96_1_Dy30_C1_split1_nostitch,BA2_96_1_Dy30_C1_split2_nostitch,1,2,Not Acceptable,Not Acceptable,0.0,0.0,1.0,1.0,5,Concordant
+BA2_96_1_Dy30_D10,BA2_96_1_Dy30_D10_split1_nostitch,BA2_96_1_Dy30_D10_split2_nostitch,1,2,Not Acceptable,Not Acceptable,0.2,0.2,0.6,0.6,5,Concordant
+BA2_96_1_Dy30_E1,BA2_96_1_Dy30_E1_split1_nostitch,BA2_96_1_Dy30_E1_split2_nostitch,1,2,Acceptable,Acceptable,0.8,0.8,0.6,0.6,5,Concordant
+BA2_96_1_Dy30_E7,BA2_96_1_Dy30_E7_split1_nostitch,BA2_96_1_Dy30_E7_split2_nostitch,1,2,Acceptable,Acceptable,1.0,1.0,1.0,1.0,5,Concordant
+BA2_96_1_Dy30_E8,BA2_96_1_Dy30_E8_split1_nostitch,BA2_96_1_Dy30_E8_split2_nostitch,1,2,Not Acceptable,Not Acceptable,0.0,0.0,1.0,1.0,5,Concordant
+BA2_96_2_Dy30_B3,BA2_96_2_Dy30_B3_split1_nostitch,BA2_96_2_Dy30_B3_split2_nostitch,1,2,Not Acceptable,Not Acceptable,0.2,0.2,0.6,0.6,5,Concordant
+BA2_96_2_Dy30_B5,BA2_96_2_Dy30_B5_split1_nostitch,BA2_96_2_Dy30_B5_split2_nostitch,1,2,Acceptable,Acceptable,0.8,0.8,0.6,0.6,5,Concordant
+BA2_96_2_Dy30_B8,BA2_96_2_Dy30_B8_split1_nostitch,BA2_96_2_Dy30_B8_split2_nostitch,1,2,Not Acceptable,Not Acceptable,0.0,0.0,1.0,1.0,5,Concordant
+BA2_96_2_Dy30_D12,BA2_96_2_Dy30_D12_split1_nostitch,BA2_96_2_Dy30_D12_split2_stitched,1,2,Acceptable,Acceptable,1.0,1.0,1.0,1.0,5,Concordant
+BA2_96_2_Dy30_D5,BA2_96_2_Dy30_D5_split1_nostitch,BA2_96_2_Dy30_D5_split2_nostitch,1,2,Not Acceptable,Not Acceptable,0.0,0.0,1.0,1.0,5,Concordant
+BA2_96_2_Dy30_D7,BA2_96_2_Dy30_D7_split1_nostitch,BA2_96_2_Dy30_D7_split2_nostitch,1,2,Acceptable,Acceptable,0.8,0.8,0.6,0.6,5,Concordant
+BA2_96_2_Dy30_E3,BA2_96_2_Dy30_E3_split1_nostitch,BA2_96_2_Dy30_E3_split2_nostitch,1,2,Not Acceptable,Not Acceptable,0.2,0.2,0.6,0.6,5,Concordant

@@ -1,0 +1,17 @@
+{
+  "day": "Dy6",
+  "day_no": 6,
+  "split": "test",
+  "accuracy": 0.7777777777777778,
+  "f1": 0.8571428571428571,
+  "roc_auc": 0.6644736842105263,
+  "pr_auc": 0.849634617039382,
+  "val_accuracy_for_selection": 0.8888888888888888,
+  "val_n": 27,
+  "test_n": 27,
+  "actual_good": 19,
+  "predicted_good": 23,
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "backbone_key": "vit"
+}

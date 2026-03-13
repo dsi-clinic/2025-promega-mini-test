@@ -1,0 +1,19 @@
+{
+  "day": "Dy10",
+  "day_no": 10,
+  "split": "test",
+  "accuracy": 0.7241379310344828,
+  "f1": 0.84,
+  "roc_auc": 0.5714285714285714,
+  "pr_auc": 0.8238747964186564,
+  "val_accuracy_for_selection": 0.6896551724137931,
+  "val_n": 29,
+  "test_n": 29,
+  "actual_good": 21,
+  "predicted_good": 29,
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "backbone_key": "vit",
+  "input_key": "img_path",
+  "use_mask": false
+}
