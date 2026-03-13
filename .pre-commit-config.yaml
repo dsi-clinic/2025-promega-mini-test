@@ -27,4 +27,3 @@ repos:
       - id: nbqa-ruff
         args: [--fix]
       - id: nbqa-check-ast
-

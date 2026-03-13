@@ -448,9 +448,9 @@ def collect_organoid_data(all_data, switch_mode="exclude_nothing"):
                         "initial_concentration" in malate_data
                         and malate_data["initial_concentration"] is not None
                     ):
-                        metabolites_dict["MalateGlo_initial_concentration"] = (
-                            malate_data["initial_concentration"]
-                        )
+                        metabolites_dict[
+                            "MalateGlo_initial_concentration"
+                        ] = malate_data["initial_concentration"]
 
             timepoint_data["metabolites"] = metabolites_dict
             organoid_data[organoid_id]["timepoints"][day] = timepoint_data

@@ -7,16 +7,22 @@ from pathlib import Path
 from collections import defaultdict
 import cv2
 import numpy as np
-from skimage.io import imread  # kept for parity with your env (even if unused)
-from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer, clean_id_for_json
+from file_utils.common.organoid_patterns import (
+    OrganoidPatterns,
+    OrganoidNormalizer,
+    clean_id_for_json,
+)
 
 logging.basicConfig(level=logging.DEBUG)
 
 # ---- Fast I/O and caching ----
-_IMG_CACHE: dict[tuple[str, tuple[int,int] | None], np.ndarray] = {}
-FAST_EVAL_SIZE = (512, 512)   # downscale for fast stats; tweak if you want faster/slower
+_IMG_CACHE: dict[tuple[str, tuple[int, int] | None], np.ndarray] = {}
+FAST_EVAL_SIZE = (512, 512)  # downscale for fast stats; tweak if you want faster/slower
 
-def load_gray_resized(path: Path, size: tuple[int,int] | None = FAST_EVAL_SIZE) -> np.ndarray | None:
+
+def load_gray_resized(
+    path: Path, size: tuple[int, int] | None = FAST_EVAL_SIZE
+) -> np.ndarray | None:
     """Read once, convert to gray, optionally resize, cache by (path, size)."""
     key = (str(path), size)
     if key in _IMG_CACHE:
@@ -29,14 +35,17 @@ def load_gray_resized(path: Path, size: tuple[int,int] | None = FAST_EVAL_SIZE) 
     _IMG_CACHE[key] = img
     return img
 
+
 def extract_z(f: Path) -> int:
     return OrganoidNormalizer.extract_z_level(f.name)
+
 
 def split_info_for_file(f: Path) -> dict:
     return OrganoidNormalizer.extract_split_info(f.name)  # already in your Normalizer
 
-def group_by_split(candidates: list[Path]) -> dict[int|None, list[Path]]:
-    groups: dict[int|None, list[Path]] = {}
+
+def group_by_split(candidates: list[Path]) -> dict[int | None, list[Path]]:
+    groups: dict[int | None, list[Path]] = {}
     for f in candidates:
         info = split_info_for_file(f)
         if info.get("is_split"):
@@ -45,6 +54,7 @@ def group_by_split(candidates: list[Path]) -> dict[int|None, list[Path]]:
             groups.setdefault(None, []).append(f)  # unsplit
     return groups
 
+
 def choose_best_in_group(files: list[Path]) -> tuple[Path, str, list[Path]]:
     files = sorted(files, key=extract_z)
     stitched = [f for f in files if "(stitched)" in f.name.lower()]
@@ -52,12 +62,13 @@ def choose_best_in_group(files: list[Path]) -> tuple[Path, str, list[Path]]:
         return stitched[0], "Stitched", files
     partial = [f for f in files if OrganoidPatterns.PARTIAL_IMAGE.search(f.name)]
     if partial:
-        idx = find_best_focus(partial) if 'find_best_focus' in globals() else 0
+        idx = find_best_focus(partial) if "find_best_focus" in globals() else 0
         return partial[idx], "Partial", files
     regular = [f for f in files if classify_image_file(f.name) == "Regular"]
     if regular:
         return regular[0], "Regular", files
     return files[0], "Regular", files
+
 
 def classify_image_file(fname: str) -> str:
     info = OrganoidNormalizer.extract_split_info(fname)  # unified split parsing
@@ -77,16 +88,16 @@ def classify_image_file(fname: str) -> str:
 
     return "Regular"
 
+
 class ImageMapper:
     BA_FOLDER_MAP = {
         "BA1": "Ba1",
         "BA2": ["Ba2/96_1", "Ba2/96_2"],
         "BA3": "Ba3",
-        "BA4": "Ba4"
+        "BA4": "Ba4",
     }
 
-    def __init__(self, base_dir: Path, meta_csv: Path,
-                 verify_csv: Path | None = None):
+    def __init__(self, base_dir: Path, meta_csv: Path, verify_csv: Path | None = None):
         """
         verify_csv: CSV with columns including:
           - 'main id' (or 'main_id'): canonical key like 'BA1_96_1_Dy03_A1_nosplit_nostitch'
@@ -106,7 +117,9 @@ class ImageMapper:
             elif any(c.lower() == "main_id" for c in vdf.columns):
                 col_main = next(c for c in vdf.columns if c.lower() == "main_id")
             else:
-                raise ValueError("Verification CSV missing 'main id' / 'main_id' column.")
+                raise ValueError(
+                    "Verification CSV missing 'main id' / 'main_id' column."
+                )
 
             # blank column
             if "Images taken from blank wells [YES/NO]" in vdf.columns:
@@ -134,7 +147,6 @@ class ImageMapper:
             # mapping back to original-case CSV id for display
             self.verify_norm2orig = dict(zip(vdf["main_id_norm"], vdf["main_id_orig"]))
 
-
         self._precompute_um_per_px()
 
     def _precompute_um_per_px(self):
@@ -151,33 +163,37 @@ class ImageMapper:
 
         # Coerce to numeric
         self.meta[px_col] = (
-            self.meta[px_col].astype(str)
-                .str.replace(",", "")
-                .str.strip()
-                .pipe(pd.to_numeric, errors="coerce")
+            self.meta[px_col]
+            .astype(str)
+            .str.replace(",", "")
+            .str.strip()
+            .pipe(pd.to_numeric, errors="coerce")
         )
         self.meta[um_col] = (
-            self.meta[um_col].astype(str)
-                .str.replace(",", "")
-                .str.strip()
-                .pipe(pd.to_numeric, errors="coerce")
+            self.meta[um_col]
+            .astype(str)
+            .str.replace(",", "")
+            .str.strip()
+            .pipe(pd.to_numeric, errors="coerce")
         )
 
         self.meta["um_per_px"] = self.meta[um_col] / self.meta[px_col]
 
     def clean_metadata(self) -> pd.DataFrame:
-        df = self.meta.rename(columns={
-            "Photo ID (Batch Plate Day Well)":        "photoID",
-            "Organoid ID (Same as in Organoid Info)": "orgID",
-            "Picture Day":                            "dayID",
-            "Objective":                              "objective",
-            "Number of Focus":                        "numFocus",
-            "First Focus":                            "firstZ",
-            "Last Focus":                              "lastZ",
-            "Focus Step (µm)":                        "dz",
-            "Cell line":                              "cellLine",
-            "Treatments (AAV)":                       "treatment"
-        })
+        df = self.meta.rename(
+            columns={
+                "Photo ID (Batch Plate Day Well)": "photoID",
+                "Organoid ID (Same as in Organoid Info)": "orgID",
+                "Picture Day": "dayID",
+                "Objective": "objective",
+                "Number of Focus": "numFocus",
+                "First Focus": "firstZ",
+                "Last Focus": "lastZ",
+                "Focus Step (µm)": "dz",
+                "Cell line": "cellLine",
+                "Treatments (AAV)": "treatment",
+            }
+        )
 
         def split_pid(pid: str) -> pd.Series:
             parts = pid.split()
@@ -194,29 +210,51 @@ class ImageMapper:
             dayID = parts[day_idx]
 
             # WELL: take everything after day to parse well
-            well_tokens = parts[day_idx + 1:]
+            well_tokens = parts[day_idx + 1 :]
             tokens = " ".join(well_tokens)
 
             m = OrganoidPatterns.WELL_STRICT.search(tokens)
             if m:
                 wellID = f"{m.group(1).upper()}{m.group(2)}"
             else:
-                m2 = re.search(r'([A-Ha-h]\s*\d{1,2})', tokens)
-                wellID = m2.group(1).replace(" ", "").upper() if m2 else tokens.strip().upper()
+                m2 = re.search(r"([A-Ha-h]\s*\d{1,2})", tokens)
+                wellID = (
+                    m2.group(1).replace(" ", "").upper()
+                    if m2
+                    else tokens.strip().upper()
+                )
 
-            logging.debug(f"[split_pid] {pid!r} → batch={batchPlate!r}, day={dayID!r}, well={wellID!r}")
+            logging.debug(
+                f"[split_pid] {pid!r} → batch={batchPlate!r}, day={dayID!r}, well={wellID!r}"
+            )
             return pd.Series([batchPlate, dayID, wellID])
 
         df[["batchPlate", "dayID", "wellID"]] = df["photoID"].apply(split_pid)
 
-        return df[[
-            "photoID", "orgID", "batchPlate", "dayID", "wellID",
-            "Microscope", "objective", "Image Width (Pixel)",
-            "Image Width (µm)", "um_per_px", "numFocus", "firstZ", "lastZ", "dz",
-            "cellLine", "treatment"
-        ]]
+        return df[
+            [
+                "photoID",
+                "orgID",
+                "batchPlate",
+                "dayID",
+                "wellID",
+                "Microscope",
+                "objective",
+                "Image Width (Pixel)",
+                "Image Width (µm)",
+                "um_per_px",
+                "numFocus",
+                "firstZ",
+                "lastZ",
+                "dz",
+                "cellLine",
+                "treatment",
+            ]
+        ]
 
-    def resolve_filename(self, file_photoID: str, img_folder: str|Path, batch_plate: str = None):
+    def resolve_filename(
+        self, file_photoID: str, img_folder: str | Path, batch_plate: str = None
+    ):
         img_folder = Path(img_folder)
         if not img_folder.exists():
             logging.warning(f"[resolve_filename] Folder missing: {img_folder}")
@@ -231,7 +269,9 @@ class ImageMapper:
         # de-dupe while preserving order
         files = list(dict.fromkeys(files))
 
-        logging.info(f"[resolve_filename] Scanned {img_folder} → {len(files)} image files")
+        logging.info(
+            f"[resolve_filename] Scanned {img_folder} → {len(files)} image files"
+        )
         if not files:
             return None, "No", [], None
 
@@ -265,10 +305,26 @@ class ImageMapper:
                 plate_suffix = plate_suffix_match.group(1)
                 search_ids = [base_id]
                 if not re.search(r"\b(96_[12]|Pt1)\b", base_id, re.IGNORECASE):
-                    search_ids.append(re.sub(rf"{ba_part}\b", f"{ba_part} {plate_suffix}", base_id, flags=re.IGNORECASE))
+                    search_ids.append(
+                        re.sub(
+                            rf"{ba_part}\b",
+                            f"{ba_part} {plate_suffix}",
+                            base_id,
+                            flags=re.IGNORECASE,
+                        )
+                    )
                 alt_suffix = "Pt1" if plate_suffix.lower().startswith("96_") else "96_1"
-                if not re.search(rf"\b{re.escape(alt_suffix)}\b", base_id, re.IGNORECASE):
-                    search_ids.append(re.sub(rf"{ba_part}\b", f"{ba_part} {alt_suffix}", base_id, flags=re.IGNORECASE))
+                if not re.search(
+                    rf"\b{re.escape(alt_suffix)}\b", base_id, re.IGNORECASE
+                ):
+                    search_ids.append(
+                        re.sub(
+                            rf"{ba_part}\b",
+                            f"{ba_part} {alt_suffix}",
+                            base_id,
+                            flags=re.IGNORECASE,
+                        )
+                    )
                 logging.info(f"Using multiple search patterns: {search_ids}")
             else:
                 search_ids = [search_id]
@@ -287,18 +343,20 @@ class ImageMapper:
             patterns.append(rf"\b{re.escape(clean_sid)}(?=[\s._Z(]|$)")
             patterns.append(rf"{re.escape(clean_sid)}(?=[\s._Z]|$)")
 
-            m_row_only = re.search(r'\b([A-Ha-h])$', clean_sid)
+            m_row_only = re.search(r"\b([A-Ha-h])$", clean_sid)
             if m_row_only:
                 patterns.append(
                     rf"\b{re.escape(clean_sid)}\s*(?:[1-9]|1[0-2])(?=[\s._\-()%]|$)"
                 )
 
-            if '(' in clean_sid and ')' in clean_sid:
-                base_part = clean_sid.split('(')[0].strip()
+            if "(" in clean_sid and ")" in clean_sid:
+                base_part = clean_sid.split("(")[0].strip()
                 paren_content = OrganoidPatterns.REMOVE_PARENS.search(clean_sid)
                 if paren_content:
                     paren_part = paren_content.group(1)
-                    patterns.append(rf"\b{re.escape(base_part)}\s*\([^)]*{re.escape(paren_part)}[^)]*\)")
+                    patterns.append(
+                        rf"\b{re.escape(base_part)}\s*\([^)]*{re.escape(paren_part)}[^)]*\)"
+                    )
                     patterns.append(rf"\b{re.escape(base_part)}\s*\([^)]*\)")
 
             if sid_well:
@@ -313,7 +371,9 @@ class ImageMapper:
                     these_candidates = [f for f in files if search_re.search(f.name)]
                     if these_candidates:
                         candidates = these_candidates
-                        logging.info(f"Found {len(candidates)} matches with pattern: {pattern}")
+                        logging.info(
+                            f"Found {len(candidates)} matches with pattern: {pattern}"
+                        )
                         break
                 except re.error as e:
                     logging.warning(f"Invalid regex pattern {pattern}: {e}")
@@ -324,7 +384,11 @@ class ImageMapper:
 
         if not candidates and well_id:
             logging.info(f"Trying fallback search with well ID: {well_id}")
-            candidates = [f for f in files if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE)]
+            candidates = [
+                f
+                for f in files
+                if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE)
+            ]
             if not candidates:
                 candidates = [f for f in files if well_id.lower() in f.name.lower()]
 
@@ -340,7 +404,7 @@ class ImageMapper:
         candidates.sort(key=extract_z)
 
         # Group by split index
-        groups: dict[int|None, list[Path]] = {}
+        groups: dict[int | None, list[Path]] = {}
         for f in candidates:
             info = OrganoidNormalizer.extract_split_info(f.name)
             if info.get("is_split"):
@@ -368,7 +432,9 @@ class ImageMapper:
             return chosen, label, group_files, None
 
         if len(split_groups) > 1:
-            stitched_groups = {f"split_{k}": sorted(v, key=extract_z) for k, v in split_groups.items()}
+            stitched_groups = {
+                f"split_{k}": sorted(v, key=extract_z) for k, v in split_groups.items()
+            }
             return None, "SplitAmbiguous", candidates, stitched_groups
 
         for sid in search_ids:
@@ -382,7 +448,11 @@ class ImageMapper:
                 return bare, "No", candidates, None
 
         if well_id:
-            by_well = [f for f in candidates if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE)]
+            by_well = [
+                f
+                for f in candidates
+                if re.search(rf"\b{re.escape(well_id)}\b", f.name, re.IGNORECASE)
+            ]
             if by_well:
                 logging.info(f"Using fallback candidate: {by_well[0].name}")
                 return by_well[0], "No", candidates, None
@@ -392,7 +462,7 @@ class ImageMapper:
 
         logging.warning(f"No files found for {file_photoID} in {img_folder}")
         return None, "No", [], None
-    
+
     def _resolve_verification(
         self,
         ba_str: str,
@@ -400,12 +470,13 @@ class ImageMapper:
         well_id: str,
         split_idx: int | None,
         classification: str,
-        gen_main_id: str | None = None
+        gen_main_id: str | None = None,
     ) -> dict:
         """Return correct verification info (main_id, verdict, blank flag)."""
         csv_key_prefix = f"{ba_str.replace(' ', '_')}_{day_id}_{well_id}"
-        prefix_norm = (f"{ba_str.replace(' ', '_')}_{day_id}_{well_id}"
-               .replace(" ", "").lower())
+        prefix_norm = f"{ba_str.replace(' ', '_')}_{day_id}_{well_id}".replace(
+            " ", ""
+        ).lower()
         prefix_norm = re.sub(r"_split_(\d+)", r"_split\1", prefix_norm)  # tolerate both
 
         pattern = re.compile(
@@ -417,9 +488,12 @@ class ImageMapper:
 
         best_key = None
         if cand_keys:
+
             def key_score(k):
                 score = 0
-                if split_idx is not None and (f"_split{split_idx}_" in k or f"_split_{split_idx}_" in k):
+                if split_idx is not None and (
+                    f"_split{split_idx}_" in k or f"_split_{split_idx}_" in k
+                ):
                     score += 100
                 elif split_idx is None:
                     if "_presplit_" in k:
@@ -431,6 +505,7 @@ class ImageMapper:
                 elif "_nostitch" in k and "stitched" not in classification.lower():
                     score += 5
                 return score, len(k)
+
             best_key = max(cand_keys, key=key_score)
 
         if best_key:
@@ -442,26 +517,31 @@ class ImageMapper:
             main_id = gen_main_id
             verdict = None
 
-
-        is_blank = (verdict == "YES")
+        is_blank = verdict == "YES"
 
         # flag mismatch if CSV disagrees
         if gen_main_id and best_key and best_key != gen_main_id:
             logging.warning(f"[verify] Mismatch: gen={gen_main_id} csv={best_key}")
 
         return {
-            "main_id": main_id,           # from CSV or fallback
-            "gen_main_id": gen_main_id,   # always ours
-            "classification_verification": self.classification_label_for_verif(split_idx, classification),
+            "main_id": main_id,  # from CSV or fallback
+            "gen_main_id": gen_main_id,  # always ours
+            "classification_verification": self.classification_label_for_verif(
+                split_idx, classification
+            ),
             "blank_verified": verdict,
-            "blank": is_blank
+            "blank": is_blank,
         }
 
-
     @staticmethod
-    def _build_main_id(ba_str: str, day_id: str, well_id: str,
-                    split_index: int | None, classification: str,
-                    presplit_flag: bool = False) -> str:
+    def _build_main_id(
+        ba_str: str,
+        day_id: str,
+        well_id: str,
+        split_index: int | None,
+        classification: str,
+        presplit_flag: bool = False,
+    ) -> str:
         """
         Construct the verification 'main id' string, e.g.:
         BA1_96_1_Dy03_A1_nosplit_nostitch
@@ -473,11 +553,15 @@ class ImageMapper:
             split_token = f"split{int(split_index)}"
         else:
             split_token = "presplit" if presplit_flag else "nosplit"
-        stitch_token = "stitched" if "stitched" in classification.lower() else "nostitch"
+        stitch_token = (
+            "stitched" if "stitched" in classification.lower() else "nostitch"
+        )
         return f"{ba_token}_{day_id}_{well_id}_{split_token}_{stitch_token}"
 
     @staticmethod
-    def classification_label_for_verif(split_index: int | None, classification: str) -> str:
+    def classification_label_for_verif(
+        split_index: int | None, classification: str
+    ) -> str:
         split = "Split" if split_index is not None else "NoSplit"
         stitch = "Stitched" if "stitched" in classification.lower() else "NoStitched"
         return f"{split}{stitch}"
@@ -535,20 +619,26 @@ class ImageMapper:
             has_split = False
             if img_folder.exists():
                 well_re = re.compile(rf"\b{re.escape(w)}\b", re.IGNORECASE)
-                day_files = [f for f in img_folder.rglob("*.tif") if well_re.search(f.name)]
-                has_split = any(OrganoidNormalizer.extract_split_info(f.name)["is_split"] for f in day_files)
+                day_files = [
+                    f for f in img_folder.rglob("*.tif") if well_re.search(f.name)
+                ]
+                has_split = any(
+                    OrganoidNormalizer.extract_split_info(f.name)["is_split"]
+                    for f in day_files
+                )
             if has_split:
                 actual_split_wells.add((bp, w, dnum))
 
         presplit_wells = set()
         for (bp, w), days in by_well_days.items():
-            split_days = [d for (bp2, w2, d) in actual_split_wells if bp2 == bp and w2 == w]
+            split_days = [
+                d for (bp2, w2, d) in actual_split_wells if bp2 == bp and w2 == w
+            ]
             if split_days:
                 first_split = min(split_days)
                 for d in sorted(days):
                     if d < first_split:
                         presplit_wells.add((f"Dy{d:02d}", bp, w))
-
 
         for (day_id, batch_plate, well_id), group_df in grouped:
             logging.info(f"Processing {batch_plate} {day_id} {well_id}")
@@ -576,7 +666,10 @@ class ImageMapper:
             expected_well = well_id
 
             def has_well(fname: str, well: str) -> bool:
-                return re.search(rf"\b{re.escape(well)}\b", fname, re.IGNORECASE) is not None
+                return (
+                    re.search(rf"\b{re.escape(well)}\b", fname, re.IGNORECASE)
+                    is not None
+                )
 
             if chosen is not None and not has_well(chosen.name, expected_well):
                 good = [f for f in (all_files or []) if has_well(f.name, expected_well)]
@@ -593,7 +686,10 @@ class ImageMapper:
                         f"Well mismatch for {raw_full_id}: expected {expected_well}, none matched. Skipping."
                     )
 
-            if chosen is None and stitched_flag not in ("Multiple_Stitched", "SplitAmbiguous"):
+            if chosen is None and stitched_flag not in (
+                "Multiple_Stitched",
+                "SplitAmbiguous",
+            ):
                 continue
 
             # regroup on all_files (always every match)
@@ -602,19 +698,31 @@ class ImageMapper:
 
             # ---------- CASE A: split children ----------
             if len(child_groups) >= 1:
-                logging.info(f"Expanding into {len(child_groups)} split children for {full_id}")
+                logging.info(
+                    f"Expanding into {len(child_groups)} split children for {full_id}"
+                )
 
                 def pick_rep_file(files_for_child):
                     files_for_child = sorted(files_for_child, key=extract_z)
-                    stitched = [f for f in files_for_child if "(stitched)" in f.name.lower()]
+                    stitched = [
+                        f for f in files_for_child if "(stitched)" in f.name.lower()
+                    ]
                     if stitched:
                         return stitched[0]
-                    partials = [f for f in files_for_child if OrganoidPatterns.PARTIAL_IMAGE.search(f.name)]
+                    partials = [
+                        f
+                        for f in files_for_child
+                        if OrganoidPatterns.PARTIAL_IMAGE.search(f.name)
+                    ]
                     if partials:
                         best_idx = self.find_best_focus(partials)
-                        return partials[best_idx if 0 <= best_idx < len(partials) else 0]
+                        return partials[
+                            best_idx if 0 <= best_idx < len(partials) else 0
+                        ]
                     best_idx = self.find_best_focus(files_for_child)
-                    return files_for_child[best_idx if 0 <= best_idx < len(files_for_child) else 0]
+                    return files_for_child[
+                        best_idx if 0 <= best_idx < len(files_for_child) else 0
+                    ]
 
                 for child_idx, group_files in sorted(child_groups.items()):
                     final_file = pick_rep_file(group_files)
@@ -633,14 +741,18 @@ class ImageMapper:
                         "Actual Z Value": actual_z,
                         "Classification": classification,
                         "um_per_px": float(group_df["um_per_px"].iloc[0]),
-                        "all_files": [str(to_rel(f)) for f in sorted(group_files, key=extract_z)],
+                        "all_files": [
+                            str(to_rel(f)) for f in sorted(group_files, key=extract_z)
+                        ],
                         "cellLine": group_df["cellLine"].iloc[0],
                         "treatment": group_df["treatment"].iloc[0],
                     }
 
                     # ---- verification block (child) ----
                     split_idx = int(child_idx)
-                    gen_main_id = self._build_main_id(ba_str, day_id, well_id, split_idx, classification)
+                    gen_main_id = self._build_main_id(
+                        ba_str, day_id, well_id, split_idx, classification
+                    )
                     entry["verification"] = self._resolve_verification(
                         ba_str, day_id, well_id, split_idx, classification, gen_main_id
                     )
@@ -651,13 +763,21 @@ class ImageMapper:
 
             # ---------- CASE B: multiple stitched groups ----------
             if stitched_flag == "Multiple_Stitched" and stitched_groups:
-                logging.info(f"Processing {len(stitched_groups)} stitched groups for {full_id}")
+                logging.info(
+                    f"Processing {len(stitched_groups)} stitched groups for {full_id}"
+                )
                 for identifier, group_files in stitched_groups.items():
                     group_files.sort(key=extract_z)
                     best_idx = self.find_best_focus(group_files)
-                    final_file = group_files[best_idx] if 0 <= best_idx < len(group_files) else group_files[0]
+                    final_file = (
+                        group_files[best_idx]
+                        if 0 <= best_idx < len(group_files)
+                        else group_files[0]
+                    )
 
-                    safe_identifier = re.sub(r"[^\w\s]", "", identifier).strip().replace(" ", "_")
+                    safe_identifier = (
+                        re.sub(r"[^\w\s]", "", identifier).strip().replace(" ", "_")
+                    )
                     clean_stitched_id = f"{full_id} stitched_{safe_identifier}"
 
                     actual_z = OrganoidNormalizer.extract_z_level(final_file.name)
@@ -682,7 +802,9 @@ class ImageMapper:
 
                     # ---- verification block (multiple-stitched) ----
                     split_idx = None
-                    gen_main_id = self._build_main_id(ba_str, day_id, well_id, None, classification)
+                    gen_main_id = self._build_main_id(
+                        ba_str, day_id, well_id, None, classification
+                    )
                     entry["verification"] = self._resolve_verification(
                         ba_str, day_id, well_id, None, classification, gen_main_id
                     )
@@ -726,15 +848,18 @@ class ImageMapper:
             # after entry = {..., "wellID": well_id, ...}
             is_presplit = (day_id, batch_plate, entry["wellID"]) in presplit_wells
             gen_main_id = self._build_main_id(
-                ba_str, day_id, entry["wellID"], None, classification,
-                presplit_flag=is_presplit
+                ba_str,
+                day_id,
+                entry["wellID"],
+                None,
+                classification,
+                presplit_flag=is_presplit,
             )
 
             entry["verification"] = self._resolve_verification(
                 ba_str, day_id, well_id, None, classification, gen_main_id
             )
 
-            
             mapping[full_id] = entry
 
         # Final stats
@@ -742,8 +867,10 @@ class ImageMapper:
         logging.info(f"Total groups processed: {total_groups}")
         logging.info(f"Files found: {found_count}")
         logging.info(f"Stitched images detected: {stitched_count}")
-        logging.info(f"Success rate: {found_count/total_groups*100:.1f}%")
-        logging.info(f"Stitched rate: {stitched_count/max(found_count,1)*100:.1f}%")
+        logging.info(f"Success rate: {found_count / total_groups * 100:.1f}%")
+        logging.info(
+            f"Stitched rate: {stitched_count / max(found_count, 1) * 100:.1f}%"
+        )
 
         # --- WRAP and write
         wrapped = {

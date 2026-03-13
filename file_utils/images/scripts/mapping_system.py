@@ -22,7 +22,9 @@ class MappingSystem:
 
     def __init__(self):
         logging.info(f"RAW_IMAGE_DATA          = {P.RAW_IMAGE_DATA}")
-        logging.info(f"META_FILE               = {P.META_FILE} (exists={P.META_FILE.exists()})")
+        logging.info(
+            f"META_FILE               = {P.META_FILE} (exists={P.META_FILE.exists()})"
+        )
         logging.info(f"RAW_IMAGE_MAPPING_JSON  = {P.RAW_IMAGE_MAPPING_JSON}")
 
         # Optional verification CSV (for blank annotations)
@@ -30,7 +32,9 @@ class MappingSystem:
         if verify_csv:
             logging.info(f"IMAGE_VERIFICATION_FORM = {verify_csv}")
         else:
-            logging.info("IMAGE_VERIFICATION_FORM not provided; skipping blank verification overlay.")
+            logging.info(
+                "IMAGE_VERIFICATION_FORM not provided; skipping blank verification overlay."
+            )
 
         # Initialize ImageMapper
         self.mapper = ImageMapper(

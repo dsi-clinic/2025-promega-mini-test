@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Data files — do not track (exception: JSON is allowed; regeneration/ is allowed)
+# Data files — do not track
 # ---------------------------------------------------------------------------
 *.png
 *.jpg
@@ -29,27 +29,26 @@
 *.pt
 *.keras
 
-# ---------------------------------------------------------------------------
-# Exception: all files under regeneration/ may be uploaded
-# ---------------------------------------------------------------------------
-!regeneration/
-!regeneration/**
+# Exceptions: keep these JSON files
+!all_data.json
+!data_splits/*.json
+!image_classifier/baseline/baseline_results.json
 
 # ---------------------------------------------------------------------------
-# Standard / env (from final_lightgbm_testing)
+# IDE / AI tool local config — do not track
+# ---------------------------------------------------------------------------
+.cursor/
+.gemini/
+
+# ---------------------------------------------------------------------------
+# GitHub Python default
 # ---------------------------------------------------------------------------
 *DS_Store*
 *.vscode*
-
-# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -68,12 +67,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
-# PyInstaller
 *.manifest
 *.spec
-
-# Unit test / coverage
 htmlcov/
 .tox/
 .nox/
@@ -86,11 +81,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-
-# Jupyter
 .ipynb_checkpoints
-
-# Environments
 .env
 .venv/
 venv/
@@ -98,47 +89,23 @@ env/
 ENV/
 env.bak/
 venv.bak/
-
-# mypy / Ruff
 .mypy_cache/
 .ruff_cache/
-
-# Pyre / pytype
 .pyre/
 .pytype/
+.pdm.toml
+.pdm-python
+.pdm-build/
+__pypackages__/
 
 # ---------------------------------------------------------------------------
-# Project / SLURM / training (from final_lightgbm_testing)
+# Project outputs
 # ---------------------------------------------------------------------------
-.git/
 *.out
 *.err
 */logs/
 outputs_*/
 **/outputs_*/
 *.bak
-analysis_instruction.txt
 training_curves.png
 metrics_*.json
-train_model_accuracy_mini.py
-test_gpu.py
-analysis/images/classifier/monitor_accuracy.sh
-
-# LightGBM / analysis exceptions (final_lightgbm_testing)
-*.md
-!README.md
-!analysis/images/classifier/efficientnet_image_classifier/README.md
-*.txt
-!files_to_add_to_main.txt
-!data_splits/*.json
-!all_data.json
-!split_data.py
-!analysis/images/classifier/efficientnet_image_classifier/*.py
-!file_utils/merge/merge_all_data.py
-!analysis/images/classifier/efficientnet_image_classifier/*.sh
-!analysis/images/classifier/efficientnet_image_classifier/*.s
-!analysis/metabolites/LightGBM/*.py
-!analysis/metabolites/LightGBM/*.sh
-!analysis/metabolites/LightGBM/*.s
-test_*/
-misclassified_samples*/
