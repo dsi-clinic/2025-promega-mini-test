@@ -11,7 +11,6 @@ from skimage.measure import find_contours
 from pyefd import elliptic_fourier_descriptors, reconstruct_contour
 from concurrent.futures import ProcessPoolExecutor
 
-import re
 from pathlib import Path
 from config import INFER_AUTO_PROCESSED_DIR
 from file_utils.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer

@@ -17,7 +17,7 @@ Outputs:
       - data/preprocessed/unmatched/unmatched_cases.csv
 """
 
-import json, re, csv, argparse
+import json, csv, argparse
 from collections import Counter, defaultdict
 from pathlib import Path
 

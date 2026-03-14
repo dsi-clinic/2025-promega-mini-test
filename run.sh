@@ -46,11 +46,10 @@ set +a  # stop automatically exporting
 
 
 
-# run split for training, validation and testing
-TRAIN_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/manual_mappings/processed_256x192/split/split/mapping_days2430_train.json
-VAL_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/manual_mappings/processed_256x192/split/split/mapping_days2430_val.json
-TEST_JSON=/net/projects2/promega/data-analysis/output/processed_dataset_256x192/manual_mappings/processed_256x192/split/split/mapping_days2430_test.json
-
+# Split paths: set TRAIN_SPLIT_JSON, VAL_SPLIT_JSON, TEST_SPLIT_JSON in .env
+TRAIN_JSON="${TRAIN_SPLIT_JSON:?Set TRAIN_SPLIT_JSON in .env}"
+VAL_JSON="${VAL_SPLIT_JSON:?Set VAL_SPLIT_JSON in .env}"
+TEST_JSON="${TEST_SPLIT_JSON:?Set TEST_SPLIT_JSON in .env}"
 
 echo "Using train split: $TRAIN_JSON"
 echo "Using   val split: $VAL_JSON"

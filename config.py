@@ -115,8 +115,9 @@ SURVEY_AGGREGATED_JSON = optional_env_path("SURVEY_AGGREGATED_JSON") or (
 )
 
 # ---- Data quality checks ----
-DATA_QUALITY_DIR = Path("/net/projects2/promega/data-analysis/data-quality-checks")
-# or wherever makes sense in your project structure
+DATA_QUALITY_DIR = optional_env_path("DATA_QUALITY_DIR") or (
+    BASE_PATH / "data-quality-checks"
+)
 
 # ---- Legacy aliases for backwards compatibility ----
 ORIGINAL_MAPPING = RAW_IMAGE_MAPPING_JSON

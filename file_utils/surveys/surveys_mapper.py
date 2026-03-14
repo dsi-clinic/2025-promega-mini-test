@@ -18,9 +18,6 @@ os.chdir(str(root))  # helps if config.py uses relative paths
 from config import SURVEY_RESULTS, SURVEY_AGGREGATED_JSON
 from file_utils.common.organoid_patterns import OrganoidNormalizer, clean_id_for_json
 
-input_dir = str(SURVEY_RESULTS)
-print("SURVEY_RESULTS =", input_dir)
-
 
 # --- Parse image_id into BA/day/well ---
 def parse_image_id(image_id):
@@ -211,6 +208,8 @@ def process_organoid_files(directory):
 
 # --- Run ---
 if __name__ == "__main__":
+    input_dir = str(SURVEY_RESULTS)
+    print("SURVEY_RESULTS =", input_dir)
     result = process_organoid_files(input_dir)
     print(f" Final organoid count: {len(result)}")
     SURVEY_AGGREGATED_JSON.parent.mkdir(parents=True, exist_ok=True)

@@ -192,9 +192,17 @@ def main():
         train_loss = running_loss / max(1, total)
         train_acc = correct / max(1, total)
 
-        val_loss, val_acc, val_prec, val_rec, val_f1, val_auc, val_ap, _, _ = (
-            evaluate_binary(model, val_loader, criterion, device)
-        )
+        (
+            val_loss,
+            val_acc,
+            val_prec,
+            val_rec,
+            val_f1,
+            val_auc,
+            val_ap,
+            _,
+            _,
+        ) = evaluate_binary(model, val_loader, criterion, device)
         scheduler.step(val_loss)
 
         print(

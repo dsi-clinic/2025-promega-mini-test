@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse, json, re
 from pathlib import Path
-from collections import defaultdict
 
 import numpy as np
 import matplotlib.pyplot as plt

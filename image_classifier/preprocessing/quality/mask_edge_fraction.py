@@ -1,12 +1,10 @@
 # analysis/images/mask_edge_fraction.py
 from __future__ import annotations
-import argparse, json
+import json
 from pathlib import Path
 import numpy as np
 from skimage.io import imread
 from tqdm import tqdm
-
-from config import ALL_DATA_JSON, OUTPUT_FOLDER
 
 
 def load_json(p: Path):

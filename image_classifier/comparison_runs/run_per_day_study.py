@@ -52,7 +52,6 @@ from image_classifier.cnn_lstm.train_base_model import (
     SingleDayOrganoidDataset,
     train_for_day,
     set_seed as set_seed_base,
-    SEED as BASE_SEED,
     TARGET_SIZE,
 )
 from image_classifier.cnn_lstm.train_temporal_ablation_attn import (
@@ -212,7 +211,6 @@ def run_per_day(
         return None
     from image_classifier.cnn_lstm.train_base_model import (
         BaselineEfficientNet,
-        evaluate,
     )
 
     eval_tf = T.Compose([T.Resize(TARGET_SIZE)])

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # Submit all 5 k-fold jobs at once; they will sit in queue and run as slots free.
 # If you hit QOSMaxSubmitJobPerUserLimit, cancel other jobs or run this when the
 # queue is light; you can re-run this script to submit any that failed.

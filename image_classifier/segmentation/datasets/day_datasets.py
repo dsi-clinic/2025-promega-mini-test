@@ -1,21 +1,13 @@
 from dotenv import load_dotenv
 import os
 import json
-import glob
-import numpy as np
 from pathlib import Path
 
-# from skimage.io import imread
 from mmseg.registry import DATASETS
 import os
 import json
-import numpy as np
-from PIL import Image
-import torch
 from mmengine.dataset import BaseDataset
 from mmseg.registry import DATASETS
-from mmseg.structures import SegDataSample
-import torch
 
 
 from dotenv import load_dotenv, find_dotenv
@@ -41,10 +33,10 @@ class Dy30Dataset(BaseDataset):
         "palette": [[0, 0, 0], [255, 255, 255]],
     }
     """Custom dataset for segmentation using JSON mapping file.
-    
+
     This dataset doesn't rely on a specific directory structure but instead
     uses a JSON file that maps image IDs to their file paths.
-    
+
     Args:
         json_mapping_path (str): Path to JSON file with image mappings.
         day_filter (str, optional): Filter images by day ID. Default: 'Dy30'.
@@ -65,7 +57,7 @@ class Dy30Dataset(BaseDataset):
         self.day_filter = day_filter
         self.test_mode = test_mode
 
-        print(f"Initializing Dy30Dataset with:")
+        print("Initializing Dy30Dataset with:")
         print(f"  json_mapping_path: {self.json_mapping_path}")
         print(f"  day_filter: {self.day_filter}")
         print(f"  test_mode: {self.test_mode}")

@@ -25,7 +25,6 @@ Flags:
 import json
 import re
 import argparse
-import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -114,10 +113,10 @@ class Logger:
     def startup_block(self, config):
         """Print startup configuration block once (CPU version)."""
         print(f"\n{'=' * 65}")
-        print(f"  Mode: CPU / GridSearchCV")
+        print("  Mode: CPU / GridSearchCV")
         print(f"  Scoring: {config['scoring']} | Imbalance: {config['imbalance']}")
         print(f"  Folds: {config['n_folds']}")
-        print(f"  LightGBM: device=cpu, n_jobs=1 | GridSearchCV: n_jobs=4")
+        print("  LightGBM: device=cpu, n_jobs=1 | GridSearchCV: n_jobs=4")
         print(f"  Second-order: {config['use_second_order']}")
         if config.get("day_filter"):
             print(f"  Day filter: {config['day_filter']}")
@@ -512,17 +511,8 @@ def train_metabolite_classifier_per_day(
                 f"WARNING: day_filter '{day_filter}' not found in data. Available: {unique_days}"
             )
 
-    # Get git hash for reproducibility (optional)
-    try:
-        git_hash = (
-            subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
-            )
-            .decode()
-            .strip()
-        )
-    except Exception:
-        git_hash = None
+    # Git hash omitted per DSI clinic standards (subprocess banned)
+    git_hash = None
 
     # Save run config for experiment tracking
     param_grid = get_param_grid()

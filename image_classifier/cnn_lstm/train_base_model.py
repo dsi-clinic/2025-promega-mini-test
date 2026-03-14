@@ -568,17 +568,17 @@ def train_for_day(
             },
             model_path,
         )
-        print(f"\nFinal TEST results:")
+        print("\nFinal TEST results:")
         print(
             f"  Acc {test_acc:.3f} | F1 {test_f1:.3f} | P {test_prec:.3f} | R {test_rec:.3f}"
         )
         print(f"  Saved → {model_path}")
     else:
-        print(f"\nFinal TEST results:")
+        print("\nFinal TEST results:")
         print(
             f"  Acc {test_acc:.3f} | F1 {test_f1:.3f} | P {test_prec:.3f} | R {test_rec:.3f}"
         )
-        print(f"  (model not saved, save_model=False)")
+        print("  (model not saved, save_model=False)")
 
     # Save confusion matrix
     model.eval()
@@ -594,8 +594,8 @@ def train_for_day(
     if len(all_preds) > 0:
         cm = confusion_matrix(all_labels, all_preds)
         print("\nConfusion Matrix (Test Set):")
-        print(f"              Predicted")
-        print(f"              Good   Bad")
+        print("              Predicted")
+        print("              Good   Bad")
         print(f"Actual Good   {cm[1, 1]:<6} {cm[1, 0]:<6}")
         print(f"Actual Bad    {cm[0, 1]:<6} {cm[0, 0]:<6}")
 

@@ -80,9 +80,6 @@ for transform in [
         TRANSFORMS.register_module(module=transform)
         MODELS.register_module(module=transform)
 
-# MODELS.register_module(module=PackSegInputs)
-
-# Add this import at the top of train.py
 from mmseg.evaluation import IoUMetric
 from mmengine.registry import METRICS
 
@@ -198,8 +195,6 @@ def main():
         runner = RUNNERS.build(cfg)
     # After loading and processing config
     # start training
-    from mmengine.registry import DATASETS as MMENGINE_DATASETS
-    from mmseg.registry import DATASETS as MMSEG_DATASETS
 
     # Debug sample
     sample = runner.train_dataloader.dataset[0]

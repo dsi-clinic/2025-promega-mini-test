@@ -66,94 +66,101 @@ def list_mask_files(batch_dirs):
     return files
 
 
-# Load mapping
-mapping = load_raw_mapping(RAW_IMAGE_MAPPING_JSON)
+def main():
+    mapping = load_raw_mapping(RAW_IMAGE_MAPPING_JSON)
 
-# Filter to Regular and Stitched only (exclude Split)
-filtered_mapping = {
-    k: v
-    for k, v in mapping.items()
-    if v.get("Classification") in ["Regular", "Stitched"]
-}
+    filtered_mapping = {
+        k: v
+        for k, v in mapping.items()
+        if v.get("Classification") in ["Regular", "Stitched"]
+    }
 
-print(f"[INFO] Total entries in raw mapping: {len(mapping)}")
-print(
-    f"[INFO] Regular entries: {sum(1 for v in mapping.values() if v.get('Classification') == 'Regular')}"
-)
-print(
-    f"[INFO] Stitched entries: {sum(1 for v in mapping.values() if v.get('Classification') == 'Stitched')}"
-)
-print(
-    f"[INFO] Split entries (EXCLUDED): {sum(1 for v in mapping.values() if v.get('Classification') == 'Split')}"
-)
-print(f"[INFO] Using for mapping: {len(filtered_mapping)}")
+    print(f"[INFO] Total entries in raw mapping: {len(mapping)}")
+    print(
+        f"[INFO] Regular entries: {sum(1 for v in mapping.values() if v.get('Classification') == 'Regular')}"
+    )
+    print(
+        f"[INFO] Stitched entries: {sum(1 for v in mapping.values() if v.get('Classification') == 'Stitched')}"
+    )
+    print(
+        f"[INFO] Split entries (EXCLUDED): {sum(1 for v in mapping.values() if v.get('Classification') == 'Split')}"
+    )
+    print(f"[INFO] Using for mapping: {len(filtered_mapping)}")
 
-batch_dirs = discover_batch_dirs(Path(MANUAL_MASKS_DIR))
-mask_paths = list_mask_files(batch_dirs)
+    batch_dirs = discover_batch_dirs(Path(MANUAL_MASKS_DIR))
+    mask_paths = list_mask_files(batch_dirs)
 
-if not mask_paths:
-    print("[FATAL] Found 0 mask files. Check MANUAL_MASKS_DIR.")
-    sys.exit(1)
+    if not mask_paths:
+        print("[FATAL] Found 0 mask files. Check MANUAL_MASKS_DIR.")
+        sys.exit(1)
 
-new_mapping = {}
-skipped_no_match = 0
+    new_mapping = {}
+    skipped_no_match = 0
 
-for key, info in filtered_mapping.items():  # Use filtered_mapping
-    ba = info.get("BA")
-    day = info.get("dayID")
-    well = info.get("wellID")
-    if not (ba and day and well):
-        continue
+    for key, info in filtered_mapping.items():
+        ba = info.get("BA")
+        day = info.get("dayID")
+        well = info.get("wellID")
+        if not (ba and day and well):
+            continue
 
-    # Build flexible patterns that handle old naming variations
-    ba_pat = flex_chunk(ba)
+        ba_pat = flex_chunk(ba)
 
-    m = re.search(r"(\d+)", day or "")
-    if m:
-        day_num = int(m.group(1))
-        day_pat = rf"(?:dy|day)[\W_]*0*{day_num}(?!\d)"
-    else:
-        day_pat = flex_chunk(day)
+        m = re.search(r"(\d+)", day or "")
+        if m:
+            day_num = int(m.group(1))
+            day_pat = rf"(?:dy|day)[\W_]*0*{day_num}(?!\d)"
+        else:
+            day_pat = flex_chunk(day)
 
-    wl = well[0].lower()
-    wn = int(well[1:])
-    # Match both "D11" and "D11(#)" or "D11(1)%" patterns
-    well_pat = rf"(?<![a-z0-9]){wl}0?{wn}(?:\([^)]*\))?(?!\d)"
+        wl = well[0].lower()
+        wn = int(well[1:])
+        well_pat = rf"(?<![a-z0-9]){wl}0?{wn}(?:\([^)]*\))?(?!\d)"
 
-    best_z = info.get("Best Z")
+        best_z = info.get("Best Z")
 
-    def score(s: str) -> int:
-        s = s.lower()
-        pts = 0
-        if re.search(rf"(?<![a-z0-9]){wl}{wn}(?!\d)", s):
-            pts += 2
-        if best_z is not None and re.search(rf"(?<!\d){best_z}(?!\d)", s):
-            pts += 1
-        return pts
+        def score(s: str) -> int:
+            s = s.lower()
+            pts = 0
+            if re.search(rf"(?<![a-z0-9]){wl}{wn}(?!\d)", s):
+                pts += 2
+            if best_z is not None and re.search(rf"(?<!\d){best_z}(?!\d)", s):
+                pts += 1
+            return pts
 
-    matches = []
-    for p in mask_paths:
-        s = str(p).lower()
-        if re.search(ba_pat, s) and re.search(day_pat, s) and re.search(well_pat, s):
-            matches.append(p)
+        matches = []
+        for p in mask_paths:
+            s = str(p).lower()
+            if (
+                re.search(ba_pat, s)
+                and re.search(day_pat, s)
+                and re.search(well_pat, s)
+            ):
+                matches.append(p)
 
-    if matches:
-        matches.sort(key=lambda p: score(str(p)), reverse=True)
-        mt_path = str(matches[0].resolve())
-        new_mapping[key] = {
-            "dayID": info.get("dayID"),
-            "BA": info.get("BA"),
-            "wellID": info.get("wellID"),
-            "Best Z Filename": info.get("Best Z Filename"),
-            "MT Mask Path": mt_path,
-        }
-    else:
-        skipped_no_match += 1
+        if matches:
+            matches.sort(key=lambda p: score(str(p)), reverse=True)
+            mt_path = str(matches[0].resolve())
+            new_mapping[key] = {
+                "dayID": info.get("dayID"),
+                "BA": info.get("BA"),
+                "wellID": info.get("wellID"),
+                "Best Z Filename": info.get("Best Z Filename"),
+                "MT Mask Path": mt_path,
+            }
+        else:
+            skipped_no_match += 1
 
-OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-with open(OUTPUT_PATH, "w") as f:
-    json.dump(new_mapping, f, indent=2)
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(OUTPUT_PATH, "w") as f:
+        json.dump(new_mapping, f, indent=2)
 
-print(f"[OK] Saved {len(new_mapping)} entries to: {OUTPUT_PATH}")
-print(f"[INFO] Skipped {skipped_no_match} entries with no matching masks")
-print(f"[INFO] Excluded ALL split entries from mapping (due to naming inconsistencies)")
+    print(f"[OK] Saved {len(new_mapping)} entries to: {OUTPUT_PATH}")
+    print(f"[INFO] Skipped {skipped_no_match} entries with no matching masks")
+    print(
+        "[INFO] Excluded ALL split entries from mapping (due to naming inconsistencies)"
+    )
+
+
+if __name__ == "__main__":
+    main()

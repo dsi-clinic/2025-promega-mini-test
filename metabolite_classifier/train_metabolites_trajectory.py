@@ -31,7 +31,6 @@ Usage:
 """
 
 import json
-import re
 import argparse
 from pathlib import Path
 
@@ -512,11 +511,11 @@ def train_trajectory_classifier_per_day(
     per_day_info = {}
 
     print(f"\n{'=' * 60}")
-    print(f"Training Cumulative Trajectory Classifier (CPU)")
+    print("Training Cumulative Trajectory Classifier (CPU)")
     print(f"Model name: {model_name}")
     print(f"Imbalance: {imbalance} | Scoring: {scoring}")
     print(f"CV Folds: {N_FOLDS}")
-    print(f"Threshold: validation-based, grid 0.3-0.7 (9 steps)")
+    print("Threshold: validation-based, grid 0.3-0.7 (9 steps)")
     print(f"{'=' * 60}\n")
 
     # Hyperparameter grid — same as CPU, plus colsample_bytree=0.6
@@ -584,7 +583,7 @@ def train_trajectory_classifier_per_day(
         }
 
     # ========== PHASE 2: Tune threshold on VALIDATION ==========
-    print(f"\n[PHASE 2] Threshold tuning on VALIDATION data (grid: 0.3-0.7)")
+    print("\n[PHASE 2] Threshold tuning on VALIDATION data (grid: 0.3-0.7)")
 
     thresholds_per_day = {}
     all_val_scores = []
@@ -649,7 +648,7 @@ def train_trajectory_classifier_per_day(
     save_calibration_diagnostic(model_dir, all_val_scores, all_val_labels)
 
     # ========== PHASE 3: Refit on train+val, evaluate on TEST ==========
-    print(f"\n[PHASE 3] Final refit on TRAIN+VAL, evaluate on TEST")
+    print("\n[PHASE 3] Final refit on TRAIN+VAL, evaluate on TEST")
 
     trainval_df = pd.concat([train_df, val_df], ignore_index=True)
 
@@ -1048,7 +1047,6 @@ def train_trajectory_classifier_per_day(
 
 
 # ---------------------------------------------------------------------
-# main()
 # ---------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(

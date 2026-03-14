@@ -14,7 +14,6 @@ Switch 3: Image gets ALL data from all 4 batches
 
 import json
 import argparse
-import numpy as np
 from sklearn.model_selection import train_test_split
 from pathlib import Path
 import sys
@@ -256,9 +255,9 @@ def collect_organoid_data(all_data, batches=["BA1", "BA2"], require_metabolites=
                         "initial_concentration" in malate_data
                         and malate_data["initial_concentration"] is not None
                     ):
-                        metabolites_dict["MalateGlo_initial_concentration"] = (
-                            malate_data["initial_concentration"]
-                        )
+                        metabolites_dict[
+                            "MalateGlo_initial_concentration"
+                        ] = malate_data["initial_concentration"]
 
             timepoint_data["metabolites"] = metabolites_dict
 
@@ -553,10 +552,10 @@ def main():
         all_data = json.load(f)
     print(f"✓ Loaded {len(all_data)} records", flush=True)
 
-    print(f"\nIMPORTANT: Splitting by ORGANOID, not by individual samples!")
-    print(f"   This prevents data leakage when training across timepoints.")
+    print("\nIMPORTANT: Splitting by ORGANOID, not by individual samples!")
+    print("   This prevents data leakage when training across timepoints.")
     print(f"\nUsing fixed random seed: {RANDOM_SEED}")
-    print(f"Split structure: 80% Training / 20% Test (held out)")
+    print("Split structure: 80% Training / 20% Test (held out)")
     print(
         f"Within Training: {int((1 - VAL_SIZE) * 100)}% Train / {int(VAL_SIZE * 100)}% Val"
     )

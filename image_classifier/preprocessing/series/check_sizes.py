@@ -2,7 +2,7 @@
 from __future__ import annotations
 import json
 from pathlib import Path
-from collections import Counter, defaultdict
+from collections import Counter
 from tqdm import tqdm
 from skimage.io import imread
 import numpy as np
@@ -73,35 +73,35 @@ def check_dimensions(data, series_metadata, sample_size=50):
 
     if final_scales_x:
         unique_x = len(set([round(s, 6) for s in final_scales_x]))
-        print(f"\nFinal um/px (X-axis):")
+        print("\nFinal um/px (X-axis):")
         print(f"  Mean: {np.mean(final_scales_x):.6f}")
         print(f"  Std:  {np.std(final_scales_x):.6f}")
         print(f"  Range: {min(final_scales_x):.6f} - {max(final_scales_x):.6f}")
         print(f"  Unique values (rounded to 6 decimals): {unique_x}")
 
         if unique_x == 1:
-            print(f"  [OK] Uniform X scale across all images")
+            print("  [OK] Uniform X scale across all images")
         else:
             print(
-                f"  [PROBLEM] Non-uniform X scale! LSTM will see inconsistent physical sizes!"
+                "  [PROBLEM] Non-uniform X scale! LSTM will see inconsistent physical sizes!"
             )
             scale_counts = Counter([round(s, 6) for s in final_scales_x])
-            print(f"  Top 5 scale values:")
+            print("  Top 5 scale values:")
             for scale, count in scale_counts.most_common(5):
                 print(f"    {scale:.6f} um/px: {count} images")
 
     if final_scales_y:
         unique_y = len(set([round(s, 6) for s in final_scales_y]))
-        print(f"\nFinal um/px (Y-axis):")
+        print("\nFinal um/px (Y-axis):")
         print(f"  Mean: {np.mean(final_scales_y):.6f}")
         print(f"  Std:  {np.std(final_scales_y):.6f}")
         print(f"  Range: {min(final_scales_y):.6f} - {max(final_scales_y):.6f}")
         print(f"  Unique values (rounded to 6 decimals): {unique_y}")
 
         if unique_y == 1:
-            print(f"  [OK] Uniform Y scale across all images")
+            print("  [OK] Uniform Y scale across all images")
         else:
-            print(f"  [PROBLEM] Non-uniform Y scale!")
+            print("  [PROBLEM] Non-uniform Y scale!")
 
     # CRITICAL CHECK 2: Aspect ratio preservation (X scale == Y scale?)
     print(f"\n{'=' * 70}")
@@ -110,17 +110,17 @@ def check_dimensions(data, series_metadata, sample_size=50):
 
     if final_scales_x and final_scales_y:
         scale_ratios = [x / y for x, y in zip(final_scales_x, final_scales_y)]
-        print(f"\nFinal um/px X / um/px Y ratio:")
+        print("\nFinal um/px X / um/px Y ratio:")
         print(f"  Mean: {np.mean(scale_ratios):.6f}")
         print(f"  Std:  {np.std(scale_ratios):.6f}")
         print(f"  Range: {min(scale_ratios):.6f} - {max(scale_ratios):.6f}")
 
         if np.std(scale_ratios) < 0.001 and abs(np.mean(scale_ratios) - 1.0) < 0.01:
-            print(f"  [OK] Aspect ratios preserved (X scale ≈ Y scale)")
+            print("  [OK] Aspect ratios preserved (X scale ≈ Y scale)")
         else:
-            print(f"  [PROBLEM] Aspect ratios NOT preserved!")
+            print("  [PROBLEM] Aspect ratios NOT preserved!")
             print(
-                f"  Images are stretched/squashed - this distorts organoid morphology!"
+                "  Images are stretched/squashed - this distorts organoid morphology!"
             )
 
     # CRITICAL CHECK 3: Original scale variation
@@ -134,17 +134,17 @@ def check_dimensions(data, series_metadata, sample_size=50):
 
     if orig_scales_x:
         unique_orig = len(set([round(s, 6) for s in orig_scales_x]))
-        print(f"\nOriginal um/px (X-axis):")
+        print("\nOriginal um/px (X-axis):")
         print(f"  Mean: {np.mean(orig_scales_x):.6f}")
         print(f"  Std:  {np.std(orig_scales_x):.6f}")
         print(f"  Range: {min(orig_scales_x):.6f} - {max(orig_scales_x):.6f}")
         print(f"  Unique values: {unique_orig}")
 
         if unique_orig == 1:
-            print(f"  [INFO] All original images had same scale - good!")
+            print("  [INFO] All original images had same scale - good!")
         else:
             print(f"  [INFO] Original images had {unique_orig} different scales")
-            print(f"  This is OK if final scales are uniform")
+            print("  This is OK if final scales are uniform")
 
     # Check processed dimensions
     print(f"\n{'=' * 70}")
@@ -153,7 +153,7 @@ def check_dimensions(data, series_metadata, sample_size=50):
 
     if dimension_data:
         dim_counts = Counter(dimension_data)
-        print(f"\nProcessed dimensions:")
+        print("\nProcessed dimensions:")
         for dims, count in dim_counts.most_common():
             print(f"  {dims[0]}×{dims[1]}: {count} images")
 
@@ -165,7 +165,7 @@ def check_dimensions(data, series_metadata, sample_size=50):
                 f"  Processed aspect ratio: {proc_aspect:.4f} ({width}/{height} = {width / height:.4f})"
             )
         else:
-            print(f"  [PROBLEM] Multiple processed dimensions found!")
+            print("  [PROBLEM] Multiple processed dimensions found!")
 
     # Sample actual files to verify
     print(f"\n{'=' * 70}")
@@ -216,9 +216,9 @@ def check_dimensions(data, series_metadata, sample_size=50):
             print(f"  {dims}: {count} images")
 
         if len(img_dim_counts) == 1:
-            print(f"  [OK] All sampled images have consistent dimensions")
+            print("  [OK] All sampled images have consistent dimensions")
         else:
-            print(f"  [WARNING] Multiple dimensions found in sampled images!")
+            print("  [WARNING] Multiple dimensions found in sampled images!")
 
     if actual_dims["masks"]:
         mask_dim_counts = Counter(actual_dims["masks"])
@@ -227,13 +227,13 @@ def check_dimensions(data, series_metadata, sample_size=50):
             print(f"  {dims}: {count} masks")
 
         if len(mask_dim_counts) == 1:
-            print(f"  [OK] All sampled masks have consistent dimensions")
+            print("  [OK] All sampled masks have consistent dimensions")
         else:
-            print(f"  [WARNING] Multiple dimensions found in sampled masks!")
+            print("  [WARNING] Multiple dimensions found in sampled masks!")
 
     # Check if images and masks match
     if actual_dims["images"] and actual_dims["masks"]:
-        print(f"\nImage-Mask dimension matching:")
+        print("\nImage-Mask dimension matching:")
         for img_dim in img_dim_counts.keys():
             if img_dim in mask_dim_counts:
                 print(f"  [OK] Images and masks both have {img_dim}")

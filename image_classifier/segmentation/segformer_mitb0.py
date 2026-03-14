@@ -3,21 +3,16 @@ custom_imports = dict(
     # allow_failed_imports=False
 )
 
-from day_datasets import Dy30Dataset
+import os
 
-# Dataset paths
-SPLIT_DIR = "/net/projects2/promega/data-analysis/output/train_resized_512x384/manual_mappings/processed_512x384/split"
+
+# Dataset paths: set TRAIN_SPLITS_DIR env for cluster; default relative path for local
+SPLIT_DIR = os.environ.get("TRAIN_SPLITS_DIR", "segmentation_splits")
 SPLIT_PREFIX = (
     "mapping_days1330"  # mapping_days0310 = early, mapping_days1330 = late models
 )
 
 norm_cfg = dict(type="SyncBN", requires_grad=True)
-# data_preprocessor = dict(
-#     type='ImgDataPreprocessor',
-#     mean=[127.5],
-#     std=[127.5],
-#     bgr_to_rgb=False
-# )
 data_preprocessor = dict(
     type="ImgDataPreprocessor",
     mean=[127.5, 127.5, 127.5],  # 3 channels (your PNGs are 3-ch even if grayscale)
@@ -63,7 +58,6 @@ model = dict(
                 use_sigmoid=False,
                 loss_name="loss_dice",
             ),
-            # dict(type='FocalLoss', loss_weight=2.0, gamma=2.0, use_sigmoid=False, loss_name='loss_focal'),
             dict(
                 type="CrossEntropyLoss",
                 loss_weight=1.0,
@@ -76,13 +70,6 @@ model = dict(
     test_cfg=dict(mode="whole"),
 )
 
-# # Define your normalization and augmentation pipelines explicitly here:
-# img_norm_cfg = dict(
-#     mean=[127.5],
-#     std=[127.5],
-#     to_rgb=False)
-
-# Import your custom transform at the top of your config
 custom_imports = dict(imports=["custom_transforms"])
 
 train_pipeline = [
@@ -90,11 +77,6 @@ train_pipeline = [
     dict(type="LoadAnnotations", with_bbox=False, with_label=False, with_seg=True),
     dict(type="Resize", scale=(512, 384), keep_ratio=False),
     dict(type="RandomFlip", prob=0.5),
-    # Add these augmentations:
-    # dict(type='RandomRotate', prob=0.5, degree=20),
-    # dict(type='PhotoMetricDistortion'),
-    # dict(type='RandomCrop', crop_size=(192, 192)),
-    # dict(type='Normalize', **img_norm_cfg),
     dict(type="Pad", size_divisor=32, pad_val=0),
     dict(type="PackSegInputs"),  # This is crucial for creating the 'inputs' key
 ]
@@ -104,7 +86,6 @@ val_pipeline = [
     dict(type="LoadImageFromFile"),
     dict(type="LoadAnnotations", with_bbox=False, with_label=False, with_seg=True),
     dict(type="Resize", scale=(512, 384), keep_ratio=False),
-    # dict(type='Normalize', **img_norm_cfg),
     dict(type="Pad", size_divisor=32, pad_val=0),
     dict(type="PackSegInputs"),  # This is crucial for creating the 'inputs' key
 ]

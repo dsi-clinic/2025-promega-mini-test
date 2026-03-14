@@ -82,7 +82,6 @@ sys.path.insert(0, str(REPO_ROOT))
 from image_classifier.cnn_lstm.load_split_data import load_split_data
 from image_classifier.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
-    compute_global_mean_from_ids,
 )
 from image_classifier.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 from image_classifier.cnn_lstm.train_organoid_lstm_single_phase import (
@@ -244,7 +243,7 @@ def main():
     print("=" * 70)
 
     # Load CNN-LSTM model
-    cnn_lstm_dir = Path(__file__).parent / "amanda_cnn_lstm_all_data"
+    cnn_lstm_dir = Path(__file__).parent / "cnn_lstm_baseline"
     cnn_lstm_model_path = cnn_lstm_dir / "best_model.pth"
 
     if not cnn_lstm_model_path.exists():
@@ -512,21 +511,21 @@ def main():
     print("SUMMARY")
     print("=" * 70)
     if cnn_lstm_results:
-        print(f"\nCNN-LSTM:")
+        print("\nCNN-LSTM:")
         print(f"  Optimal threshold: {cnn_lstm_results['optimal_threshold']:.3f}")
         print(
             f"  Test TNR: {cnn_lstm_results['test_results']['TNR']:.4f} ({cnn_lstm_results['test_results']['TNR'] * 100:.1f}%)"
         )
         print(f"  Test F1: {cnn_lstm_results['test_results']['f1']:.4f}")
     if effnet_results:
-        print(f"\nEfficientNet:")
+        print("\nEfficientNet:")
         print(f"  Optimal threshold: {effnet_results['optimal_threshold']:.3f}")
         print(
             f"  Test TNR: {effnet_results['test_results']['TNR']:.4f} ({effnet_results['test_results']['TNR'] * 100:.1f}%)"
         )
         print(f"  Test F1: {effnet_results['test_results']['f1']:.4f}")
     if effnet_timeseries_results:
-        print(f"\nEfficientNet Time-Series:")
+        print("\nEfficientNet Time-Series:")
         print(
             f"  Optimal threshold: {effnet_timeseries_results['optimal_threshold']:.3f}"
         )

@@ -13,28 +13,18 @@ The classifier sees all four signals concatenated, so it can learn that
 "high variance + large delta = good organoid" directly.
 """
 
-import os, sys, json, math
+import os, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 import numpy as np
-from tqdm import tqdm
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
-from torchvision import models, transforms
 from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
-from sklearn.metrics import precision_recall_fscore_support
 
-from config import OUTPUT_FOLDER
-from image_classifier.cnn_lstm.organoid_dataset import (
-    OrganoidTimeSeriesDataset,
-    load_data_and_create_splits,
-)
 
 BATCH_SIZE = 16
 NUM_WORKERS = 0

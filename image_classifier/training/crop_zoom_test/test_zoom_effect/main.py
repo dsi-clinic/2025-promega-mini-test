@@ -20,6 +20,7 @@ SEED = 42
 random.seed(SEED)
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def get_zoomed_versions(img_pil, n=5, scale=(0.5, 0.8), out_size=(256, 192)):
     zoomed = []
     w_orig, h_orig = img_pil.size
@@ -29,14 +30,16 @@ def get_zoomed_versions(img_pil, n=5, scale=(0.5, 0.8), out_size=(256, 192)):
         i, j, h, w = RandomResizedCrop.get_params(
             img_pil,
             scale=scale,
-            ratio=(ASPECT_RATIO, ASPECT_RATIO)  # ✅ Enforce 4:3 crop
+            ratio=(ASPECT_RATIO, ASPECT_RATIO),  # ✅ Enforce 4:3 crop
         )
-        crop = TF.resized_crop(img_pil, i, j, h, w, size=out_size,
-                               interpolation=InterpolationMode.BILINEAR)
+        crop = TF.resized_crop(
+            img_pil, i, j, h, w, size=out_size, interpolation=InterpolationMode.BILINEAR
+        )
         crop_area = h * w
         scale_ratio = crop_area / img_area
         zoomed.append((crop, scale_ratio))  # return both image and scale
     return zoomed
+
 
 def visualize_and_save(original, zooms_with_scale, save_path):
     cols = len(zooms_with_scale) + 1
@@ -55,6 +58,7 @@ def visualize_and_save(original, zooms_with_scale, save_path):
     plt.tight_layout()
     plt.savefig(save_path, dpi=150)
     plt.close()
+
 
 def main():
     records = json.loads(DATA_JSON.read_text())
@@ -79,7 +83,7 @@ def main():
             img,
             n=N_ZOOMS_PER_IMAGE,
             scale=ZOOM_SCALE,
-            out_size=TARGET_SIZE  # ✅ Resize to 256x192
+            out_size=TARGET_SIZE,  # ✅ Resize to 256x192
         )
 
         img.save(out_img_dir / f"{stem}_original.jpg")
@@ -90,6 +94,7 @@ def main():
 
         visualize_and_save(img, zooms, out_img_dir / f"{stem}_comparison.jpg")
         print(f"Processed {img_path.name}")
+
 
 if __name__ == "__main__":
     main()

@@ -6,8 +6,8 @@ per_day_study/
 per_day_study_overlay/
 per_day_study_rgb_mask/
 per_day_study_kfold/
-amanda_cnn_lstm/
-amanda_cnn_lstm_*/
+cnn_lstm_baseline/
+cnn_lstm_improved/
 our_efficientnet/
 our_effnet_timeseries_all_data/
 __pycache__/

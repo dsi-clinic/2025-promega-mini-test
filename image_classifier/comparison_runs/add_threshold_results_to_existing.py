@@ -75,7 +75,6 @@ from image_classifier.cnn_lstm.train_base_model import (
 )
 from image_classifier.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
-    compute_global_mean_from_ids,
 )
 from image_classifier.cnn_lstm.train_organoid_lstm_single_phase import (
     collate_variable_length,
@@ -289,7 +288,7 @@ def main():
                         in_channels=in_channels,
                     )
                 if tr is None:
-                    print(f"  Skip (no checkpoint or failed)")
+                    print("  Skip (no checkpoint or failed)")
                     continue
                 data_json["threshold_results"] = tr
                 with open(res_file, "w") as f:

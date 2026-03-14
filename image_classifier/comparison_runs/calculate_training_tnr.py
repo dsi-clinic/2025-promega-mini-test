@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import numpy as np
 import torch
-import torch.nn as nn
 from sklearn.metrics import confusion_matrix
 
 # Load environment variables
@@ -102,7 +101,7 @@ def main():
     print(f"\nData: train={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)}")
 
     # Load model
-    model_dir = Path(__file__).parent / "amanda_cnn_lstm_all_data"
+    model_dir = Path(__file__).parent / "cnn_lstm_baseline"
     model_path = model_dir / "best_model.pth"
     global_mean = np.load(model_dir / "global_mean.npy")
 
@@ -154,12 +153,12 @@ def main():
     print("\n" + "=" * 70)
     print("TRAINING SET METRICS (CNN-LSTM - All Data Trial)")
     print("=" * 70)
-    print(f"\nConfusion Matrix:")
-    print(f"                Predicted")
-    print(f"              Bad    Good")
+    print("\nConfusion Matrix:")
+    print("                Predicted")
+    print("              Bad    Good")
     print(f"Actual Bad   {TN:4d}   {FP:4d}")
     print(f"       Good  {FN:4d}   {TP:4d}")
-    print(f"\nMetrics:")
+    print("\nMetrics:")
     print(f"  TNR (Specificity): {TNR:.4f} ({TNR * 100:.1f}%)")
     print(f"  TPR (Sensitivity): {TPR:.4f} ({TPR * 100:.1f}%)")
     print(f"  Accuracy: {accuracy:.4f} ({accuracy * 100:.1f}%)")

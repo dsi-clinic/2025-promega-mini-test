@@ -142,7 +142,7 @@ def main():
     print(f"Using device: {device}")
 
     # Output directory
-    output_dir = Path(__file__).parent / "amanda_cnn_lstm_improved"
+    output_dir = Path(__file__).parent / "cnn_lstm_improved"
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving outputs to: {output_dir}")
 
@@ -253,7 +253,7 @@ def main():
     print("TRAINING WITH IMPROVED CLASS WEIGHTS AND THRESHOLD-AWARE EVALUATION")
     print("=" * 70)
     print(f"Using threshold: {args.threshold:.3f} (from tuning)")
-    print(f"Early stopping based on balanced accuracy (TNR + TPR) / 2")
+    print("Early stopping based on balanced accuracy (TNR + TPR) / 2")
 
     best_balanced_acc = 0
     best_val_acc = 0
@@ -365,9 +365,9 @@ def main():
     print(f"Test Balanced Acc: {test_balanced_acc:.4f}")
 
     cm = confusion_matrix(test_labels, test_preds, labels=[0, 1])
-    print(f"\nConfusion Matrix:")
-    print(f"                Predicted")
-    print(f"              Bad    Good")
+    print("\nConfusion Matrix:")
+    print("                Predicted")
+    print("              Bad    Good")
     print(f"Actual Bad   {cm[0, 0]:4d}   {cm[0, 1]:4d}")
     print(f"       Good  {cm[1, 0]:4d}   {cm[1, 1]:4d}")
 

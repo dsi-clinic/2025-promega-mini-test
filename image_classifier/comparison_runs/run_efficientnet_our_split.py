@@ -18,11 +18,6 @@ from image_classifier.cnn_lstm.train_base_model import (
     set_seed,
     DEVICE,
     SEED,
-    MAX_EPOCHS,
-    PATIENCE,
-    LR,
-    GRAD_CLIP,
-    TARGET_SIZE,
 )
 
 # Import our data loader (ONLY change)

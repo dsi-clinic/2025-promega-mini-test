@@ -181,7 +181,7 @@ def run_inference(
                     mask_vis = cv2.cvtColor(mask_vis, cv2.COLOR_GRAY2BGR)
                     collage_pairs.append(np.hstack((img_resized, mask_vis)))
 
-            except Exception as e:
+            except Exception:
                 failed += 1
 
         if not dry_run and collage_pairs:

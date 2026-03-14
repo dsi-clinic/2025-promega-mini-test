@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, json, argparse, re
+import json, argparse, re
 from pathlib import Path
 from collections import defaultdict
 

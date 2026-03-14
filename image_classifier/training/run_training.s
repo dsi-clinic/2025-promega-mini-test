@@ -12,7 +12,7 @@
 # Examples:
 #   # Multi-backbone training (default)
 #   sbatch --job-name=train-img run_training.s --input-path-key img_path
-#   
+#
 #   # EfficientNet TNR-optimized training
 #   sbatch --job-name=train-efficientnet-tnr run_training.s --script train_efficientnet_improved_tnr --input-path-key img_path --split-prefix both_train_exclude_stitch_only
 
@@ -94,7 +94,7 @@ if [[ "$SCRIPT" == "train_model_accuracy" ]]; then
         echo "Error: --input-path-key is required for train_model_accuracy (must be 'img_path' or 'overlay_path')"
         exit 1
     fi
-    
+
     if [[ "$INPUT_KEY" != "img_path" && "$INPUT_KEY" != "overlay_path" ]]; then
         echo "Error: --input-path-key must be 'img_path' or 'overlay_path'"
         exit 1
@@ -121,7 +121,7 @@ if [[ -z "$OUT_DIR" ]]; then
         else
             IMAGE_TYPE="overlay"
         fi
-        
+
         if [[ "$USE_MASK" == true ]]; then
             OUT_DIR=/net/projects2/promega/results/outputs_mask_${IMAGE_TYPE}
         else
@@ -164,7 +164,7 @@ else
         --input-path-key "${INPUT_KEY}"
         --outdir "${OUT_DIR}"
     )
-    
+
     if [[ "${USE_MASK}" == true ]]; then
         ARGS+=(--use-mask)
     fi
@@ -185,7 +185,7 @@ fi
 if [[ "$SCRIPT" == "train_efficientnet_improved_tnr" ]]; then
     echo ""
     echo "Training completed successfully. Generating summary table..."
-    
+
     SUMMARY_SCRIPT=${PROJ_ROOT}/image_classifier/training/generate_efficientnet_summary.py
     # Extract suffix for output name
     if [[ "$SPLIT_PREFIX" == both_train_* ]]; then
@@ -194,14 +194,14 @@ if [[ "$SCRIPT" == "train_efficientnet_improved_tnr" ]]; then
         SUMMARY_SUFFIX="$SPLIT_PREFIX"
     fi
     SUMMARY_OUTPUT_NAME="efficientnet_summary_$(echo "$SUMMARY_SUFFIX" | tr '[:lower:]' '[:upper:]')"
-    
+
     ${CONDA_PREFIX}/bin/python3 -u "${SUMMARY_SCRIPT}" \
         --results-dir "${OUT_DIR}" \
         --split-prefix "${SPLIT_PREFIX}" \
         --output-name "${SUMMARY_OUTPUT_NAME}"
-    
+
     SUMMARY_EXIT=$?
-    
+
     if [ $SUMMARY_EXIT -ne 0 ]; then
         echo "WARNING: Summary table generation failed with exit code $SUMMARY_EXIT"
         echo "Training completed successfully, but summary generation failed."
@@ -211,4 +211,3 @@ if [[ "$SCRIPT" == "train_efficientnet_improved_tnr" ]]; then
 fi
 
 echo "Done."
-

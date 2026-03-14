@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Filename: train_organoid.py
 
-import os, json, argparse, re, datetime
+import json, argparse, re, datetime
 from pathlib import Path
 from collections import defaultdict
 

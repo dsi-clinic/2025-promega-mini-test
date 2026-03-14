@@ -326,7 +326,7 @@ def sanity_check_splits(complete_series, data):
 
         # Check 1: Same number of presplit entries
         if len(split1_presplit) != len(split2_presplit):
-            print(f"   [ERROR] Different presplit counts!")
+            print("   [ERROR] Different presplit counts!")
             all_good = False
             continue
 
@@ -335,7 +335,7 @@ def sanity_check_splits(complete_series, data):
         split2_presplit_days = sorted([item["mdl_day"] for item in split2_presplit])
 
         if split1_presplit_days != split2_presplit_days:
-            print(f"   [ERROR] Different presplit days!")
+            print("   [ERROR] Different presplit days!")
             print(f"      Split1 presplit: {split1_presplit_days}")
             print(f"      Split2 presplit: {split2_presplit_days}")
             all_good = False
@@ -346,7 +346,7 @@ def sanity_check_splits(complete_series, data):
         split2_presplit_keys = sorted([item["key"] for item in split2_presplit])
 
         if split1_presplit_keys != split2_presplit_keys:
-            print(f"   [ERROR] Different presplit entry keys!")
+            print("   [ERROR] Different presplit entry keys!")
             all_good = False
             continue
 
@@ -366,7 +366,7 @@ def sanity_check_splits(complete_series, data):
         split2_daughter_days = sorted([item["mdl_day"] for item in split2_daughter])
         print(f"   [OK] Split1 daughter days: {split1_daughter_days}")
         print(f"   [OK] Split2 daughter days: {split2_daughter_days}")
-        print(f"   [OK] PASSED all checks")
+        print("   [OK] PASSED all checks")
 
     print(f"\n{'=' * 70}")
     if all_good:
@@ -412,7 +412,7 @@ def main():
     print("\nOrganizing by genealogy...")
     genealogy = organize_by_genealogy(data)
 
-    print(f"\nBuilding complete series...")
+    print("\nBuilding complete series...")
     complete_series, complete_with_blanks, incomplete_series = build_complete_series(
         genealogy
     )
@@ -441,7 +441,7 @@ def main():
 
     # Analyze complete with blanks
     if complete_with_blanks:
-        print(f"\nComplete series WITH BLANKS by type:")
+        print("\nComplete series WITH BLANKS by type:")
         split_types_blanks = defaultdict(int)
         for series in complete_with_blanks:
             split_types_blanks[series["split_genealogy"]] += 1
@@ -488,7 +488,7 @@ def main():
                     )
 
     # Create filtered data with only complete series (NO BLANKS)
-    print(f"\nCreating filtered dataset (NO BLANKS)...")
+    print("\nCreating filtered dataset (NO BLANKS)...")
     filtered_data = {}
     series_metadata = {}
 

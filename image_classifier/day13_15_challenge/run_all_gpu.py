@@ -10,45 +10,43 @@ Run: python run_all_gpu.py
      or: CUDA_VISIBLE_DEVICES=0 python run_all_gpu.py
 """
 
+import importlib.util
 import os
 import sys
-import subprocess
 from pathlib import Path
 
 CHALLENGE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = CHALLENGE_DIR.parent.parent
 
 
-def run_step(name, cmd, cwd=None, env=None):
-    """Run a command; return True if success, False otherwise. Print stdout/stderr on failure."""
+def run_step(name, script_path, cwd=None, env=None):
+    """Run a Python script as a module; return True if success, False otherwise."""
     cwd = cwd or str(CHALLENGE_DIR)
     env = env or os.environ.copy()
+    for k, v in env.items():
+        os.environ[k] = v
     print(f"\n{'=' * 60}\n>>> {name}\n{'=' * 60}")
     sys.stdout.flush()
     sys.stderr.flush()
+    orig_cwd = os.getcwd()
     try:
-        result = subprocess.run(
-            cmd,
-            cwd=cwd,
-            env=env,
-            shell=False,
-            timeout=3600 * 6,  # 6h max per step
-            capture_output=False,  # let output stream to terminal/log
-        )
-        if result.returncode != 0:
-            print(f"\n[FAIL] {name} exited with code {result.returncode}")
-            return False
+        os.chdir(cwd)
+        spec = importlib.util.spec_from_file_location("_challenge_step", script_path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["_challenge_step"] = mod
+        spec.loader.exec_module(mod)
+        if hasattr(mod, "main"):
+            mod.main()
         print(f"\n[OK] {name} finished.")
         return True
-    except subprocess.TimeoutExpired as e:
-        print(f"\n[FAIL] {name} timed out after {e.timeout}s.")
-        return False
     except Exception as e:
         print(f"\n[FAIL] {name} raised: {e}")
         import traceback
 
         traceback.print_exc()
         return False
+    finally:
+        os.chdir(orig_cwd)
 
 
 def main():
@@ -60,23 +58,23 @@ def main():
     steps = [
         (
             "1. Compute grayscale mean/std",
-            [python, str(CHALLENGE_DIR / "01_compute_grayscale_mean_std.py")],
+            CHALLENGE_DIR / "01_compute_grayscale_mean_std.py",
         ),
         (
             "2. Audit transforms",
-            [python, str(CHALLENGE_DIR / "02_audit_transforms.py")],
+            CHALLENGE_DIR / "02_audit_transforms.py",
         ),
         (
             "3. Train grayscale-norm (effnet_ts + per_day, days 13 & 15)",
-            [python, str(CHALLENGE_DIR / "run_1_grayscale_norm.py")],
+            CHALLENGE_DIR / "run_1_grayscale_norm.py",
         ),
         (
             "4. Train filled-mask (effnet_ts + per_day, days 13 & 15)",
-            [python, str(CHALLENGE_DIR / "run_4_filled_mask.py")],
+            CHALLENGE_DIR / "run_4_filled_mask.py",
         ),
     ]
-    for name, cmd in steps:
-        if not run_step(name, cmd, cwd=str(CHALLENGE_DIR), env=env):
+    for name, script_path in steps:
+        if not run_step(name, script_path, cwd=str(CHALLENGE_DIR), env=env):
             print(
                 "\nPipeline stopped. Fix the error above and re-run: python run_all_gpu.py"
             )

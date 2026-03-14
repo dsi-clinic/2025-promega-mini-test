@@ -55,7 +55,6 @@ for k, v in _defaults:
 
 import numpy as np
 import torch
-import torch.nn as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
 from tqdm import tqdm
@@ -63,9 +62,7 @@ from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
 from image_classifier.cnn_lstm.load_split_data import load_split_data
 from image_classifier.cnn_lstm.train_base_model import (
-    SingleDayOrganoidDataset,
     BaselineEfficientNet,
-    train_for_day,
     set_seed as set_seed_base,
     TARGET_SIZE,
     BATCH_SIZE,
@@ -74,7 +71,6 @@ from image_classifier.cnn_lstm.train_base_model import (
     PATIENCE,
     LR,
     GRAD_CLIP,
-    SEED as BASE_SEED,
 )
 from image_classifier.cnn_lstm.train_organoid_lstm_single_phase import (
     collate_variable_length,

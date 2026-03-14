@@ -4,9 +4,8 @@
 #  EfficientNet-B0 backbone  + mask-CNN  + EarlyStopping
 #  Now with **Random Zoom-in + Crop** augmentation                <-- NEW
 # --------------------------------------------------------------
-import json, argparse, os
+import json
 from pathlib import Path
-from collections import Counter
 
 import numpy as np
 from PIL import Image

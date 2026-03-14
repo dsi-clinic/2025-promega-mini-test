@@ -127,7 +127,7 @@ def main():
     base_dir = output_dir / "per_day_study_overlay"
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Seed-rotation threshold study")
+    print("Seed-rotation threshold study")
     print(f"  split_dir : {split_dir}")
     print(f"  output_dir: {output_dir}")
     print(f"  models    : {args.models}")

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # After a job leaves the queue, check if it actually succeeded or failed.
 # Usage: ./check_job_outcome.sh JOB_ID [log_prefix]
 #   log_prefix e.g. per_day_study_kfold_0 (default: guess from first .err file matching JOB_ID)

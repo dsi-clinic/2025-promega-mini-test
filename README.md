@@ -6,68 +6,136 @@ Organoid quality classification using image and metabolite data. This repository
 - **Metabolite classifier** – LightGBM on metabolite features
 - **Combined classifier** – Joint image + metabolite LightGBM model
 
+## Contributors
+
+- Amanda Johnson
+- Andres F. Camacho B.
+- Ethan Waggoner
+- Jiawei Zhang
+- Karim Derbali
+- Lucy Li
+- Nick Ross
+- Nikki Tebaldi
+- Raabiyaal Ishaq
+- Tony Luo
+- Wenxu Zu
+
 ## Directory Structure
 
 ```
-├── README.md              (this file)
-├── all_data.json          (merged organoid data; required)
-├── config.py              (paths, env vars)
-├── split_data.py          (train/val/test split generation)
-├── split_data_reproducible.py  (reproducible splits by seed)
-├── data_splits/           (JSON splits: both_train_base.json, etc.)
-├── file_utils/            (data mapping: images, metabolites, surveys)
-├── image_classifier/       (see image_classifier/README.md)
-├── metabolite_classifier/ (see metabolite_classifier/README.md)
-└── combined_classifier/   (see combined_classifier/README.md)
+├── README.md                   This file
+├── config.py                   Centralized path and env-var configuration
+├── all_data.json               Merged organoid data (images + metabolites + surveys)
+├── split_data.py               Train/val/test split generation
+├── split_data_reproducible.py  Reproducible splits by seed
+├── Makefile                    Make targets for the full data and training pipeline
+├── Dockerfile                  Docker image (CUDA 12.1 + Python dependencies)
+├── pyproject.toml              Python project metadata and dependency list
+├── core_env.yaml               Conda environment spec for cluster use
+├── run.sh                      Wrapper script for SLURM compute nodes
+├── .pre-commit-config.yaml     Pre-commit hooks (ruff, trailing whitespace, etc.)
+├── .env                        Local environment variables (not committed)
+├── .gitignore                  Git ignore rules
+├── data_splits/                JSON train/val/test splits (see data_splits/README.md)
+├── file_utils/                 Data mapping utilities (see file_utils/README.md)
+├── image_classifier/           Image models (see image_classifier/README.md)
+├── metabolite_classifier/      Metabolite models (see metabolite_classifier/README.md)
+└── combined_classifier/        Joint image+metabolite model (see combined_classifier/README.md)
 ```
 
-## Path configuration
+## Data
 
-Scripts and SLURM jobs use **`YOUR_GITHUB_USERNAME`** as a placeholder for your local path. Configure in one of two ways:
+All raw data is provided by Promega Corporation and resides on the UChicago DSI cluster under `/net/projects2/promega/`. It is not included in this repository. All models use **`all_data.json`**, a merged artifact produced by `file_utils/merge/merge_all_data.py` that combines the following sources:
 
-1. **Replace the placeholder** – In shell/SLURM scripts, change `/home/YOUR_GITHUB_USERNAME/promega-classifier` to your actual repo path (e.g. `/home/jsmith/promega-classifier`).
+### Raw images
 
-2. **Export `PROJ_ROOT`** (recommended) – Set before running:
-   ```bash
-   export PROJ_ROOT=/home/yourname/promega-classifier
-   ```
-   For SLURM:
-   ```bash
-   sbatch --export=PROJ_ROOT=/path/to/repo image_classifier/regeneration/submit_regeneration_run.slurm
-   ```
-   Or add `PROJ_ROOT` to your `.env` so it’s picked up automatically.
+Z-stack microscopy TIFs of organoid cultures imaged at multiple timepoints. Each sample is identified by batch (BA1 or BA2), plate (96-well format), day (Dy03 through Dy30), and well. Multiple images per sample can exist: split/pre-split variants, stitched composites, or single best-Z frames. Raw images live on the cluster at the path specified by `RAW_IMAGE_DATA` in `.env`. The raw mapping JSON is built by `file_utils/images/`.
 
-Scripts that respect `PROJ_ROOT` include: regeneration scripts, comparison runs, training, metabolite/combined classifiers, and all `submit_*.slurm` jobs.
+### Processed images
 
-## Quick Start
+Each record includes paths to resized, preprocessed organoid images (`img_path`) and segmentation masks (`mask_path`). Masks are produced by MMSegmentation on the inference pipeline; overlays and other derived assets are stored alongside. Images are normalized to a target size (e.g. 512x384) for model input.
+
+### Survey labels
+
+Human expert quality labels (Acceptable / Not Acceptable) used as ground truth. Five raters evaluated each organoid; the split pipeline requires a 4/5 vote consensus for inclusion. Labels are sourced from "Organoid Classification" and "Image Classification" Excel forms in the `SURVEY_RESULTS` directory, aggregated into `organoid_surveys_aggregated.json` by `file_utils/surveys/surveys_mapper.py`. The target label day for classification is Dy30.
+
+### Metabolite data
+
+Assay concentration values (uM) for each organoid at each timepoint. Primary metabolites used: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo; MalateGlo is optionally included for days > 10. BCAAGlo is excluded. The source Excel file `metabolite_data_07_23_25.xlsx` (sheet "Experimental Values") is converted to `metabolite_map.json` by `file_utils/metabolites/metabolite_mapper.py`. Each metabolite entry includes concentration, initial concentration, outlier flag, and 384-well mapping.
+
+### Manual masks
+
+Manually annotated segmentation masks used for verification and training. Stored under `MANUAL_MASKS_DIR` on the cluster and referenced via `manual_mask_path` in the merged records.
+
+### Data splits
+
+Train/val/test splits in `data_splits/both_{train,val,test}_*.json` are defined at the **organoid level**: the same organoid across all timepoints stays in one split to avoid leakage when predicting Dy30 from earlier days. Only BA1 and BA2 batches are used (high-quality data). Inclusion criteria: 4/5 survey consensus, complete metabolite data for required assays, and valid processed image paths. Splits are generated by `split_data.py` or `split_data_reproducible.py` (with `--seed` for reproducibility). Variants include `base`, `base_no_stitch`, and style/class-balanced/unbalanced splits. See `data_splits/README.md` for the full list of split files.
+
+## Development Process
+
+Development followed a feature-branch workflow on the `dsi-clinic/2025-promega-mini-test` GitHub repository. Each contributor worked on a dedicated branch (e.g. `feature/raabiyaal`, `lstm-models`, `metabolite_models`, `lucy/all-organoid-preds`). Branches were merged into `main` via pull request after code review. Quarterly final submissions were collected on long-lived submission branches (`promega_project_2025_autumn_final_submission`, `image-classifier-final`, `2026-winter-promega-final-submission`). Pre-commit hooks (`ruff`, trailing-whitespace, end-of-file-fixer) enforce formatting on every commit.
+
+## How to Run
 
 ### Prerequisites
 
 - Python 3.9+
-- CUDA (for image models)
-- See `pyproject.toml` for dependencies
+- CUDA-capable GPU (for image models)
+- All Python dependencies are listed in `pyproject.toml`
 
 ### Run via Docker
 
 ```bash
 docker build . -t promega-classifier
-docker run -p 8888:8888 -v ${PWD}:/workspace promega-classifier
+docker run -v ${PWD}:/workspace promega-classifier
+```
+
+### Run on the UChicago DSI Cluster
+
+Create the conda environment from the provided spec:
+
+```bash
+conda env create -f core_env.yaml
+conda activate core_env
+```
+
+Create a `.env` file with required paths (see [Environment variables](#environment-variables-env) below), or export `PROJ_ROOT`:
+
+```bash
+export PROJ_ROOT=/home/yourname/promega-classifier
+```
+
+SLURM jobs accept `PROJ_ROOT` as an export:
+
+```bash
+sbatch --export=PROJ_ROOT=$PROJ_ROOT image_classifier/regeneration/submit_regeneration_run.slurm
 ```
 
 ### Data Pipeline
 
-1. Ensure `all_data.json` exists (merge of images, metabolites, surveys).
+1. Build `all_data.json` (merge images, metabolites, surveys): `make data` or `python file_utils/merge/merge_all_data.py`.
 2. Generate splits: `python split_data.py` or `python split_data_reproducible.py --seed 42`.
-3. Train image models: `image_classifier/training/train_model_accuracy.py`.
-4. Train metabolite models: `metabolite_classifier/train_metabolites_cpu.py`.
-5. Train combined model: `combined_classifier/train_combined_lgbm.py`.
+3. Train image models: `python image_classifier/training/train_model_accuracy.py`.
+4. Train metabolite models: `python metabolite_classifier/train_metabolites_cpu.py`.
+5. Train combined model: `python combined_classifier/train_combined_lgbm.py`.
 
-### Environment
+Run `make help` to see all available Make targets.
 
-Set env vars in `.env` or export: `BASE_PATH`, `OUTPUT_FOLDER`, `RAW_IMAGE_DATA`, etc. See `config.py` for full list.
+### Environment variables (.env)
+
+Create a `.env` file in the repo root with paths for your environment. See `config.py` for the full list. Key variables:
+
+- **PROJ_ROOT** – Repo path (for SLURM and scripts).
+- **BASE_PATH**, **OUTPUT_FOLDER**, **RAW_IMAGE_DATA**, etc. – Data paths on the cluster (see `config.py`).
+- **TRAIN_SPLIT_JSON**, **VAL_SPLIT_JSON**, **TEST_SPLIT_JSON** – Paths to MMSegmentation split JSONs (required by `run.sh` for segmentation training). Example: `TRAIN_SPLIT_JSON=/path/to/mapping_days2430_train.json`.
+- **TRAIN_SPLITS_DIR** – For segmentation config; set on cluster or use default `segmentation_splits`.
+
+If an env var is missing, scripts will fail with a clear error indicating what to set.
 
 ## Links
 
 - [Image classifier](image_classifier/README.md)
 - [Metabolite classifier](metabolite_classifier/README.md)
 - [Combined classifier](combined_classifier/README.md)
+- [File utilities](file_utils/README.md)
+- [Data splits](data_splits/README.md)

@@ -221,7 +221,6 @@ def _single_day_getitem_grayscale_norm(self, idx):
     from PIL import Image
     from image_classifier.cnn_lstm.train_base_model import (
         _draw_outline_overlay,
-        SingleDayOrganoidDataset,
     )
 
     sample = self.samples[idx]

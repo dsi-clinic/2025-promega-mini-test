@@ -25,7 +25,6 @@ Usage:
 import json
 import re
 import argparse
-import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -52,8 +51,6 @@ from sklearn.utils.class_weight import compute_class_weight
 from lightgbm import LGBMClassifier
 
 import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
 import timm
 import torchvision.transforms as T
 from PIL import Image
@@ -478,16 +475,8 @@ def train_combined_per_day(
                 f"WARNING: day_filter '{day_filter}' not in data. Available: {unique_days}"
             )
 
-    try:
-        git_hash = (
-            subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
-            )
-            .decode()
-            .strip()
-        )
-    except Exception:
-        git_hash = None
+    # Git hash omitted per DSI clinic standards (subprocess banned)
+    git_hash = None
 
     run_config = {
         "model_type": "combined_metabolite_image",

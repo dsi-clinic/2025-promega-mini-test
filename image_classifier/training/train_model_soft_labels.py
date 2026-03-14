@@ -22,7 +22,7 @@ Example:
         --th-method max_f1
 """
 
-import os, json, argparse, re, math, csv
+import json, argparse, re, math, csv
 from pathlib import Path
 from collections import defaultdict
 

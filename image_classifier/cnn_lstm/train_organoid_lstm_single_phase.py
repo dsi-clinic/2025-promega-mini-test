@@ -400,9 +400,9 @@ def main():
 
     # Confusion matrix
     cm = confusion_matrix(test_labels, test_preds)
-    print(f"\nConfusion Matrix:")
-    print(f"                Predicted")
-    print(f"              Bad    Good")
+    print("\nConfusion Matrix:")
+    print("                Predicted")
+    print("              Bad    Good")
     print(f"Actual Bad   {cm[0, 0]:4d}   {cm[0, 1]:4d}")
     print(f"       Good  {cm[1, 0]:4d}   {cm[1, 1]:4d}")
 

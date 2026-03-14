@@ -111,7 +111,7 @@ def load_split_data(train_split_path, val_split_path, test_split_path):
     val_ids = list(val_split.keys())
     test_ids = list(test_split.keys())
 
-    print(f"\nSplit sizes:")
+    print("\nSplit sizes:")
     print(f"  Train: {len(train_ids)} organoids")
     print(f"  Val:   {len(val_ids)} organoids")
     print(f"  Test:  {len(test_ids)} organoids")
@@ -206,7 +206,7 @@ def load_split_data(train_split_path, val_split_path, test_split_path):
     val_acc, val_not, val_tot = get_label_stats(val_ids)
     te_acc, te_not, te_tot = get_label_stats(test_ids)
 
-    print(f"\nLabel distribution:")
+    print("\nLabel distribution:")
     print(f"  Train: {tr_acc} Acceptable, {tr_not} Not Acceptable ({tr_tot} total)")
     print(f"  Val:   {val_acc} Acceptable, {val_not} Not Acceptable ({val_tot} total)")
     print(f"  Test:  {te_acc} Acceptable, {te_not} Not Acceptable ({te_tot} total)")
@@ -219,9 +219,9 @@ if __name__ == "__main__":
     repo_root = Path(__file__).resolve().parents[2]
     base_dir = repo_root / "data_splits"
     train_ids, val_ids, test_ids, series_metadata, data = load_split_data(
-        base_dir / "both_train_amanda_style.json",
-        base_dir / "both_val_amanda_style.json",
-        base_dir / "both_test_amanda_style.json",
+        base_dir / "both_train_style.json",
+        base_dir / "both_val_style.json",
+        base_dir / "both_test_style.json",
     )
 
     print("\n" + "=" * 80)

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # Submit only k-fold jobs 1–4 (array 99–197, 198–296, 297–395, 396–494).
 # Use this when job 0 (698390, array 0–98) is already submitted and the queue allows more.
 # Usage: cd comparison_runs && bash submit_kfold_jobs_1_to_4.sh

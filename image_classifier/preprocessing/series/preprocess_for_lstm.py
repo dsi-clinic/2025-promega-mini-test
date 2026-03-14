@@ -2,12 +2,10 @@
 from __future__ import annotations
 import argparse, json
 from pathlib import Path
-from collections import defaultdict
 from tqdm import tqdm
 import numpy as np
 from skimage.io import imread, imsave
 from skimage.transform import resize
-import cv2
 
 from config import OUTPUT_FOLDER, RAW_IMAGE_DATA
 
@@ -100,7 +98,7 @@ def analyze_target_dimension_distribution(data, target_um_per_px):
     )
 
     # Count how many exceed different thresholds
-    print(f"\nImages exceeding various sizes:")
+    print("\nImages exceeding various sizes:")
     for size in [512, 768, 1024, 1200]:
         exceeding = np.sum((widths > size) | (heights > size))
         pct = 100 * exceeding / len(widths) if len(widths) > 0 else 0
@@ -415,7 +413,7 @@ def main():
     print(f"{'=' * 70}")
     print(f"Target physical scale: {TARGET_UM_PER_PX} um/px")
     print(f"Target dimensions: {TARGET_SIZE}×{TARGET_SIZE} px")
-    print(f"Padding: WHITE (255) for images, BLACK (0) for masks")
+    print("Padding: WHITE (255) for images, BLACK (0) for masks")
 
     # Load data
     data_path = OUTPUT_FOLDER / "complete_series_data_no_blanks.json"
@@ -446,7 +444,7 @@ def main():
         print(f"{'=' * 70}")
 
         max_w, max_h = find_max_target_dimensions(data, TARGET_UM_PER_PX)
-        print(f"\nMaximum target dimensions:")
+        print("\nMaximum target dimensions:")
         print(f"  Width:  {max_w}px")
         print(f"  Height: {max_h}px")
 
@@ -466,7 +464,7 @@ def main():
             print(
                 f"  {recommended_size - TARGET_SIZE}px will be CROPPED from largest images"
             )
-            print(f"  This means losing organoid content at the edges!")
+            print("  This means losing organoid content at the edges!")
             print(f"\nRecommendation: Use --target-size {recommended_size}")
             response = input("\nContinue anyway? (y/n): ")
             if response.lower() != "y":
@@ -486,7 +484,7 @@ def main():
     print(f"\n{'=' * 70}")
     print("PROCESSING IMAGES AND MASKS")
     print(f"{'=' * 70}")
-    print(f"Output directories:")
+    print("Output directories:")
     print(f"  Images: {output_images_dir}")
     print(f"  Masks:  {output_masks_dir}")
     if args.save_debug:
@@ -533,16 +531,16 @@ def main():
     print(f"Warnings: {len(stats['warnings'])}")
 
     if stats["errors"]:
-        print(f"\nFirst 10 errors:")
+        print("\nFirst 10 errors:")
         for error in stats["errors"][:10]:
             print(f"  - {error}")
 
     if stats["warnings"]:
-        print(f"\nFirst 10 warnings:")
+        print("\nFirst 10 warnings:")
         for warning in stats["warnings"][:10]:
             print(f"  - {warning}")
 
-    print(f"\nOutput saved to:")
+    print("\nOutput saved to:")
     print(f"  Images: {output_images_dir} (white padding)")
     print(f"  Masks: {output_masks_dir} (black padding)")
     print(f"  Updated data: {data_path} (added 'lstm_processed' field)")
@@ -557,11 +555,11 @@ def main():
         )
         print(f"All images now uniformly at {TARGET_UM_PER_PX} um/px")
         print(f"All images now uniformly {TARGET_SIZE}×{TARGET_SIZE} pixels")
-        print(f"\n[OK] Ready for LSTM training!")
-        print(f"\nFor LSTM training:")
-        print(f"  1. Load complete_series_metadata_no_blanks.json for sequences")
-        print(f"  2. Load complete_series_data_no_blanks.json for entry data")
-        print(f"  3. Access processed images via entry['lstm_processed']['image_path']")
+        print("\n[OK] Ready for LSTM training!")
+        print("\nFor LSTM training:")
+        print("  1. Load complete_series_metadata_no_blanks.json for sequences")
+        print("  2. Load complete_series_data_no_blanks.json for entry data")
+        print("  3. Access processed images via entry['lstm_processed']['image_path']")
 
 
 if __name__ == "__main__":

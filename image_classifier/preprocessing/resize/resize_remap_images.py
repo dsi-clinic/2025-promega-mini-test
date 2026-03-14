@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import json
 import argparse
-import shutil
 import sys
 from pathlib import Path
 import cv2

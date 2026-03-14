@@ -39,7 +39,6 @@ sys.path.insert(0, str(COMPARISON_RUNS))
 from image_classifier.cnn_lstm.load_split_data import load_split_data
 from run_per_day_study import (
     DAYS_11,
-    filter_ids_with_frames_up_to_day,
     run_per_day,
     run_cnn_lstm_accumulated,
     run_effnet_ts_accumulated,

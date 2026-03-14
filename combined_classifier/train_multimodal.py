@@ -4,7 +4,6 @@ Multimodal Organoid Quality Classification
 Combines image and metabolite data for prediction using configurable fusion strategies.
 """
 
-import os
 import json
 import re
 import argparse
@@ -683,7 +682,7 @@ def pretrain_shared_backbone(train_df, val_df, config):
     best_val_acc, best_state = -np.inf, None
     es = EarlyStopping(config["early_stopping_patience"])
 
-    print(f"Training shared backbone (all parameters trainable)")
+    print("Training shared backbone (all parameters trainable)")
     for epoch in range(config["num_epochs_phase1"]):
         tl, ta = train_epoch(model, train_loader, opt, crit, class_weights, config)
         vr = eval_epoch(model, val_loader, config)
@@ -805,7 +804,7 @@ def train_for_day(
     es = EarlyStopping(config["early_stopping_patience"])
 
     # Train day-specific classifier head (backbone remains frozen)
-    print(f"Training day-specific head (backbone frozen)")
+    print("Training day-specific head (backbone frozen)")
     for epoch in range(config["num_epochs_phase1"]):
         tl, ta = train_epoch(model, train_loader, opt, crit, class_weights, config)
         vr = eval_epoch(model, val_loader, config)

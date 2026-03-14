@@ -27,7 +27,6 @@ Flags:
 import json
 import re
 import argparse
-import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -122,13 +121,13 @@ class Logger:
     def startup_block(self, config):
         """Print startup configuration block once."""
         print(f"\n{'=' * 65}")
-        print(f"  Mode: GPU / RandomizedSearchCV (nested CV)")
+        print("  Mode: GPU / RandomizedSearchCV (nested CV)")
         print(f"  Scoring: {config['scoring']} | Imbalance: {config['imbalance']}")
         print(f"  Outer folds: {config['n_folds']} | Inner folds: {INNER_FOLDS}")
         print(
             f"  Search iters: {config['n_iter']} | search_n_jobs: {config['search_n_jobs']}"
         )
-        print(f"  LightGBM: device=gpu, n_jobs=1")
+        print("  LightGBM: device=gpu, n_jobs=1")
         print(f"  Second-order: {config['use_second_order']}")
         if config.get("day_filter"):
             print(f"  Day filter: {config['day_filter']}")
@@ -189,8 +188,8 @@ class Logger:
                     f"{day}: fold has only {min_fold_minority} minority samples (< {MIN_FOLD_MINORITY})",
                 )
                 return self.strict  # skip if strict
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warn("004", f"Day {day}: fold check failed: {e}")
         return False
 
     def check_smote_safety(self, minority_count, k_neighbors, day):
@@ -516,8 +515,6 @@ def get_scoring_function(scoring):
     else:
         raise ValueError(f"Unknown scoring: {scoring}")
 
-    return best_t, best_score
-
 
 def tune_threshold(y_true_bin, y_prob, scoring):
     """Tune classification threshold on binary labels.
@@ -561,7 +558,8 @@ def tune_threshold(y_true_bin, y_prob, scoring):
                 )
             else:
                 score = f1_score(y_true_bin, y_pred_bin, zero_division=0)
-        except Exception:
+        except Exception as e:
+            logger.warn("011", f"Threshold search f1_score failed: {e}, using 0.0")
             score = 0.0
 
         if score > best_score:
@@ -729,17 +727,8 @@ def train_metabolite_classifier_per_day(
                 f"WARNING: day_filter '{day_filter}' not found in data. Available: {unique_days}"
             )
 
-    # Get git hash for reproducibility (optional)
-    try:
-        git_hash = (
-            subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
-            )
-            .decode()
-            .strip()
-        )
-    except Exception:
-        git_hash = None
+    # Git hash omitted per DSI clinic standards (subprocess banned)
+    git_hash = None
 
     # Save run config for experiment tracking (G)
     param_dist = get_param_distributions()
@@ -919,7 +908,7 @@ def train_metabolite_classifier_per_day(
                     threshold, _ = tune_threshold(
                         y_tr_bin, oof_prob_acceptable, scoring
                     )
-            except Exception as e:
+            except Exception:
                 # print(f"    Fold {fold_idx}: OOF threshold tuning failed ({e}), using 0.5")  # Reduce clutter
                 threshold = 0.5
 

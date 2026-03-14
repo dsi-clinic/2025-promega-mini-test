@@ -206,9 +206,9 @@ def process_mapping_json(
 
     # strict check per-file
     if strict:
-        assert overlays_on_disk == pairs_total, (
-            f"[STRICT] {mapping_path.name}: overlays_on_disk({overlays_on_disk}) != pairs_total({pairs_total})"
-        )
+        assert (
+            overlays_on_disk == pairs_total
+        ), f"[STRICT] {mapping_path.name}: overlays_on_disk({overlays_on_disk}) != pairs_total({pairs_total})"
 
     # sampling control for summaries vs. full report
     if sample_limit is None:
@@ -301,9 +301,9 @@ def main(overwrite=False, strict=False):
 
     # global strict check: overlays_on_disk == pairs_total
     if strict:
-        assert totals["overlays_on_disk"] == totals["pairs_total"], (
-            f"[STRICT] GLOBAL: overlays_on_disk({totals['overlays_on_disk']}) != pairs_total({totals['pairs_total']})"
-        )
+        assert (
+            totals["overlays_on_disk"] == totals["pairs_total"]
+        ), f"[STRICT] GLOBAL: overlays_on_disk({totals['overlays_on_disk']}) != pairs_total({totals['pairs_total']})"
     else:
         if totals["overlays_on_disk"] != totals["pairs_total"]:
             print("\n Mismatch detected (non-strict mode). Examples:")

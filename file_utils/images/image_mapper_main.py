@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Entry point for building the RAW image mapping JSON."""
 
-import sys, logging, os, subprocess
+import sys
+import logging
+import os
 from pathlib import Path
 
 # ---- Force console logging early and unconditionally ----
@@ -17,22 +19,16 @@ logging.captureWarnings(True)
 
 
 def _find_root(start: Path) -> Path | None:
+    """Locate repo root by walking up and checking for .env and paths.py."""
     p = start
     for _ in range(8):
         if (p / ".env").exists() and (
             (p / "paths.py").exists() or (p / "file_utils/common/paths.py").exists()
         ):
             return p
-        p = p.parent
-    try:
-        root = subprocess.check_output(
-            ["git", "rev-parse", "--show-toplevel"], text=True
-        ).strip()
-        p = Path(root)
-        if (p / "file_utils").exists():
+        if (p / ".env").exists() and (p / "config.py").exists():
             return p
-    except Exception:
-        pass
+        p = p.parent
     return None
 
 

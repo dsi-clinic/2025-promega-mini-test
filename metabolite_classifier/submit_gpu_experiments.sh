@@ -30,14 +30,14 @@ for SCORING in f1_notacceptable recall_notacceptable; do
         SCORE_SHORT=$(echo $SCORING | sed 's/f1_notacceptable/f1na/' | sed 's/recall_notacceptable/recna/')
         IMB_SHORT=$(echo $IMBALANCE | sed 's/class_weight/cw/' | sed 's/scale_pos_weight/spw/' | sed 's/focal_loss/fl/' | sed 's/both/both/')
         JOB_NAME="lgbm-gpu-${SCORE_SHORT}-${IMB_SHORT}"
-        
+
         echo "Submitting: ${JOB_NAME}"
         echo "  --scoring ${SCORING} --imbalance ${IMBALANCE}"
-        
+
         sbatch --job-name="${JOB_NAME}" "${SLURM_SCRIPT}" \
             --scoring "${SCORING}" \
             --imbalance "${IMBALANCE}"
-        
+
         JOB_COUNT=$((JOB_COUNT + 1))
         echo ""
     done
