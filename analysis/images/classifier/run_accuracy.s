@@ -12,7 +12,7 @@ set -euo pipefail
 # ====== adjust these paths ======
 PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY
 PY=${PROJ_ROOT}/analysis/images/classifier/train_model_accuracy.py
-DATA_DIR=/path/to/data/images
+DATA_DIR=/path/to/data
 ALL_DATA_JSON=/path/to/all_data.json
 CONDA_PREFIX=/net/projects2/promega                           # conda env path (same you used before)
 # ================================
