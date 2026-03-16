@@ -1,8 +1,0 @@
-{
-  "day": "Dy17",
-  "split": "val",
-  "accuracy": 1.0,
-  "f1": 1.0,
-  "n": 25,
-  "batch_size": 16
-}
