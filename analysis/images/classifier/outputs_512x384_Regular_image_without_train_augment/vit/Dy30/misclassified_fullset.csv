@@ -1,7 +1,0 @@
-img_path,true_label,pred_prob,pred_label
-/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba196_1_Dy30/BA1_96_1_Dy30_B10.png,1,0.4441719353199005,0
-/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_A12.png,0,0.9983711838722229,1
-/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_B9.png,1,0.05382279306650162,0
-/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_1_Dy30/BA2_96_1_Dy30_D8.png,0,0.9988495111465454,1
-/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba296_2_Dy30/BA2_96_2_Dy30_A6.png,0,0.8134213089942932,1
-/net/projects2/promega/data-analysis/output/infer_resized_512x384/auto_processed/ba496_1_Dy30/BA4_96_1_Dy30_H5.png,0,0.81465083360672,1

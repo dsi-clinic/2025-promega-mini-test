@@ -12,7 +12,7 @@ set -euo pipefail
 # ====== adjust these paths ======
 PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY
 PY=${PROJ_ROOT}/analysis/surveys/classifier/simple_classifier.py
-DATA_DIR=/path/to/data/surveys
+DATA_DIR=/path/to/data
 CONDA_PREFIX=/net/projects2/promega
 # ================================
 

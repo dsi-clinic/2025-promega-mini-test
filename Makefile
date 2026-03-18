@@ -73,8 +73,8 @@ RESUME           ?=
 # Segmentation models (outputs from step8)
 # Config: latest timestamped run dir (e.g. .../late/late/20260209_103224/vis_data/config.py)
 # Checkpoint: in phase dir, not run dir (mmseg saves .../late/late/iter_1000.pth)
-EARLY_RUN_DIR    := $(shell ls -t $(SEG_WORK_ROOT)/early/early/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
-LATE_RUN_DIR     := $(shell ls -t $(SEG_WORK_ROOT)/late/late/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
+EARLY_RUN_DIR    = $(shell ls -t $(SEG_WORK_ROOT)/early/early/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
+LATE_RUN_DIR     = $(shell ls -t $(SEG_WORK_ROOT)/late/late/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
 EARLY_CONFIG     ?= $(SEG_WORK_ROOT)/early/early/$(EARLY_RUN_DIR)/vis_data/config.py
 EARLY_CHECKPOINT ?= $(SEG_WORK_ROOT)/early/early/iter_1000.pth
 LATE_CONFIG      ?= $(SEG_WORK_ROOT)/late/late/$(LATE_RUN_DIR)/vis_data/config.py
@@ -283,11 +283,11 @@ step8: step7
 # Note: Requires checkpoint from step8
 # Choose correct model files based on PHASE
 ifeq ($(PHASE),early)
-  CONFIG_FILE := $(EARLY_CONFIG)
-  CHECKPOINT  := $(EARLY_CHECKPOINT)
+  CONFIG_FILE = $(EARLY_CONFIG)
+  CHECKPOINT  = $(EARLY_CHECKPOINT)
 else ifeq ($(PHASE),late)
-  CONFIG_FILE := $(LATE_CONFIG)
-  CHECKPOINT  := $(LATE_CHECKPOINT)
+  CONFIG_FILE = $(LATE_CONFIG)
+  CHECKPOINT  = $(LATE_CHECKPOINT)
 else
   $(error PHASE must be early or late)
 endif
