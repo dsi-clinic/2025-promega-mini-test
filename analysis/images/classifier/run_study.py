@@ -46,7 +46,7 @@ from analysis.data_loader import DAY_ORDER, OrganoidDataset
 warnings.filterwarnings("ignore", category=UserWarning)
 os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
-SEED = 42
+SEED = 1  # student code used seed=1 for image models
 ALL_DATA_PATH = "data/all_data.json"
 SPLITS_CSV = "data/organoid_splits.csv"
 OUTPUT_DIR = Path("analysis/outputs/images")
@@ -54,11 +54,11 @@ FIGURE_DIR = Path("analysis/outputs/figures")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Training hyperparameters (matching student code)
+# Training hyperparameters (matching student code exactly)
 BATCH_SIZE = 16
 MAX_EPOCHS = 100
 LR_HEAD = 5e-4
-LR_BACKBONE = 1e-4
+LR_BACKBONE = 5e-5  # student: LR * 0.1 = 5e-5
 UNFREEZE_AFTER = 4  # epochs before unfreezing backbone
 PATIENCE = 15
 GRAD_CLIP = 1.0
@@ -172,7 +172,7 @@ def get_transforms(train=True):
             T.Resize((IMG_HEIGHT, IMG_WIDTH)),
             T.RandomHorizontalFlip(p=0.5),
             T.RandomVerticalFlip(p=0.5),
-            T.ColorJitter(brightness=0.2, contrast=0.2),
+            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
             T.ToTensor(),
             T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ])
@@ -265,38 +265,37 @@ def train_one_day(
     pos_weight = torch.tensor([n_neg / n_pos], dtype=torch.float32).to(DEVICE)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-    # Optimizer — initially only head params
+    # Optimizer — initially only head params (student code)
     optimizer = optim.Adam(
         [p for p in model.head.parameters() if p.requires_grad],
         lr=LR_HEAD,
     )
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="max", factor=0.5, patience=5
+        optimizer, mode="min", factor=0.5, patience=5  # student: minimize val_loss
     )
 
-    # Training loop
-    best_val_bal_acc = 0.0
+    # Training loop — student code selects by val accuracy (not balanced accuracy)
+    best_val_acc = 0.0
     best_model_state = None
     patience_counter = 0
     backbone_unfrozen = False
 
     for epoch in range(MAX_EPOCHS):
-        # Unfreeze backbone after warmup
+        # Unfreeze backbone after warmup (epoch 4)
         if epoch == UNFREEZE_AFTER and not backbone_unfrozen:
             model.unfreeze_last_blocks()
             backbone_unfrozen = True
-            optimizer = optim.Adam([
-                {"params": model.head.parameters(), "lr": LR_HEAD},
-                {"params": [p for p in model.backbone.parameters() if p.requires_grad],
-                 "lr": LR_BACKBONE},
-            ])
+            # Student code: LR * 0.1 for all params after unfreeze
+            optimizer = optim.Adam(model.parameters(), lr=LR_BACKBONE)
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, mode="max", factor=0.5, patience=5
+                optimizer, mode="min", factor=0.5, patience=5
             )
 
         # Train
         model.train()
         train_loss = 0.0
+        correct = 0
+        total = 0
         for imgs, labels in train_loader:
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
             optimizer.zero_grad()
@@ -306,27 +305,34 @@ def train_one_day(
             nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
             optimizer.step()
             train_loss += loss.item() * len(labels)
+            preds = (torch.sigmoid(logits) > 0.5).long()
+            correct += (preds == labels.long()).sum().item()
+            total += len(labels)
         train_loss /= len(train_ds)
 
         # Validate
         model.eval()
+        val_loss = 0.0
         val_preds = []
         val_true = []
         with torch.no_grad():
             for imgs, labels in val_loader:
-                imgs = imgs.to(DEVICE)
+                imgs, labels_v = imgs.to(DEVICE), labels.to(DEVICE)
                 logits = model(imgs)
+                vloss = criterion(logits, labels_v)
+                val_loss += vloss.item() * len(labels_v)
                 probs = torch.sigmoid(logits)
                 preds = (probs >= 0.5).long()
                 val_preds.extend(preds.cpu().numpy())
                 val_true.extend(labels.numpy().astype(int))
+        val_loss /= max(len(val_ds), 1)
 
-        val_bal_acc = balanced_accuracy_score(val_true, val_preds)
-        scheduler.step(val_bal_acc)
+        val_acc = accuracy_score(val_true, val_preds)
+        scheduler.step(val_loss)
 
-        # Early stopping / best model
-        if val_bal_acc > best_val_bal_acc:
-            best_val_bal_acc = val_bal_acc
+        # Early stopping on val accuracy (matching student code)
+        if val_acc > best_val_acc + 1e-4:
+            best_val_acc = val_acc
             best_model_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
             patience_counter = 0
         else:
@@ -338,7 +344,8 @@ def train_one_day(
             break
 
         if verbose and (epoch + 1) % 10 == 0:
-            print(f"  Epoch {epoch+1}: loss={train_loss:.4f}, val_bal_acc={val_bal_acc:.4f}")
+            val_bal_acc = balanced_accuracy_score(val_true, val_preds)
+            print(f"  Epoch {epoch+1}: loss={train_loss:.4f}, val_acc={val_acc:.4f}, val_bal_acc={val_bal_acc:.4f}")
 
     # Load best model and evaluate on test
     if best_model_state is not None:
@@ -364,7 +371,7 @@ def train_one_day(
     test_probs_arr = np.array(test_probs_list)
 
     metrics = compute_metrics(test_true, test_preds, test_probs_arr)
-    metrics["best_val_balanced_accuracy"] = round(best_val_bal_acc, 4)
+    metrics["best_val_accuracy"] = round(best_val_acc, 4)
     metrics["threshold"] = 0.5
 
     if verbose:
