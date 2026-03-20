@@ -63,15 +63,16 @@ LGBM_PARAM_GRID = {
     "n_estimators": [200, 500],
 }
 
-# Logistic regression grid
+# Logistic regression grid (student code included l1 + l2)
 LR_PARAM_GRID = {
     "C": [0.01, 0.1, 1.0, 10.0],
-    "penalty": ["l2"],
+    "penalty": ["l1", "l2"],
     "max_iter": [1000],
 }
 
-# Threshold grid for tuning
-THRESHOLD_GRID = np.linspace(0.3, 0.7, 9)
+# Threshold grids — student code used different ranges per model
+LGBM_THRESHOLD_GRID = np.linspace(0.3, 0.7, 9)    # LightGBM: 0.3–0.7, 9 points
+LR_THRESHOLD_GRID = np.linspace(0.1, 0.9, 17)      # LR: 0.1–0.9, 17 points
 
 
 def _get_growth_features(
@@ -244,12 +245,12 @@ def train_lgbm_day(ds, day, verbose=True):
     if verbose:
         print(f"  Best params: {best_params}")
 
-    # Phase 2: Threshold tuning on validation
+    # Phase 2: Threshold tuning on validation (f1 for Not Acceptable)
     if len(X_val) > 0 and len(np.unique(y_val)) > 1:
         val_probs = grid.predict_proba(X_val)[:, 1]
         best_threshold = 0.5
         best_f1 = 0.0
-        for t in THRESHOLD_GRID:
+        for t in LGBM_THRESHOLD_GRID:
             preds = (val_probs >= t).astype(int)
             f = f1_score(y_val, preds, pos_label=1, zero_division=0)
             if f > best_f1:
@@ -300,7 +301,14 @@ def train_lgbm_day(ds, day, verbose=True):
 
 
 def train_logreg_day(ds, day, verbose=True):
-    """Train Logistic Regression for one day."""
+    """Train Logistic Regression for one day.
+
+    Key differences from LightGBM (matching student code):
+    - CV scoring: f1_weighted (not f1 for minority class)
+    - Threshold grid: 0.1–0.9 (17 points)
+    - Threshold metric: f1_weighted
+    - Solver: saga (supports l1 + l2)
+    """
     X_train, y_train, feat_names, ids_train = get_features_with_growth(ds, "train", day)
     X_val, y_val, _, ids_val = get_features_with_growth(ds, "val", day)
     X_test, y_test, _, ids_test = get_features_with_growth(ds, "test", day)
@@ -316,17 +324,18 @@ def train_logreg_day(ds, day, verbose=True):
     groups = np.array([oid for oid in ids_train])
     cv = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=SEED)
 
+    # Student code used saga solver (supports l1+l2) and f1_weighted scoring
     base_model = LogisticRegression(
         class_weight="balanced",
         random_state=SEED,
-        solver="lbfgs",
+        solver="saga",
     )
 
     grid = GridSearchCV(
         base_model,
         LR_PARAM_GRID,
         cv=cv,
-        scoring="f1",
+        scoring="f1_weighted",  # student code default for LR
         n_jobs=-1,
         refit=True,
     )
@@ -336,16 +345,16 @@ def train_logreg_day(ds, day, verbose=True):
     if verbose:
         print(f"  Best params: {best_params}")
 
-    # Threshold tuning on validation
+    # Threshold tuning on validation — f1_weighted, wider grid (0.1–0.9)
     if len(X_val_s) > 0 and len(np.unique(y_val)) > 1:
         val_probs = grid.predict_proba(X_val_s)[:, 1]
         best_threshold = 0.5
-        best_f1 = 0.0
-        for t in THRESHOLD_GRID:
+        best_score = 0.0
+        for t in LR_THRESHOLD_GRID:
             preds = (val_probs >= t).astype(int)
-            f = f1_score(y_val, preds, pos_label=1, zero_division=0)
-            if f > best_f1:
-                best_f1 = f
+            score = f1_score(y_val, preds, average="weighted", zero_division=0)
+            if score > best_score:
+                best_score = score
                 best_threshold = t
     else:
         best_threshold = 0.5
@@ -361,7 +370,7 @@ def train_logreg_day(ds, day, verbose=True):
         **best_params,
         class_weight="balanced",
         random_state=SEED,
-        solver="lbfgs",
+        solver="saga",
     )
     final_model.fit(X_trainval, y_trainval)
 
