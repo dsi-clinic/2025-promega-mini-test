@@ -56,55 +56,55 @@
     "28.0": 474,
     "30.0": 470
   },
-  "num_labels": 2931,
+  "num_labels": 2984,
   "label_distr": {
-    "Acceptable": 2125,
-    "Not Acceptable": 806
+    "Acceptable": 2144,
+    "Not Acceptable": 840
   },
   "label_day_distr": {
     "3.0": {
-      "Acceptable": 192,
-      "Not Acceptable": 73
+      "Acceptable": 194,
+      "Not Acceptable": 76
     },
     "6.0": {
-      "Acceptable": 192,
-      "Not Acceptable": 73
+      "Acceptable": 194,
+      "Not Acceptable": 76
     },
     "8.0": {
-      "Acceptable": 192,
-      "Not Acceptable": 73
+      "Acceptable": 194,
+      "Not Acceptable": 76
     },
     "10.0": {
-      "Acceptable": 192,
-      "Not Acceptable": 73
+      "Acceptable": 194,
+      "Not Acceptable": 76
     },
     "13.0": {
-      "Acceptable": 192,
-      "Not Acceptable": 73
+      "Acceptable": 194,
+      "Not Acceptable": 76
     },
     "15.0": {
-      "Acceptable": 192,
-      "Not Acceptable": 73
+      "Acceptable": 194,
+      "Not Acceptable": 76
     },
     "17.0": {
-      "Acceptable": 192,
-      "Not Acceptable": 73
+      "Acceptable": 194,
+      "Not Acceptable": 76
     },
     "20.5": {
-      "Acceptable": 195,
-      "Not Acceptable": 73
+      "Acceptable": 196,
+      "Not Acceptable": 76
     },
     "24.0": {
-      "Acceptable": 194,
-      "Not Acceptable": 74
+      "Acceptable": 197,
+      "Not Acceptable": 77
     },
     "28.0": {
       "Acceptable": 196,
-      "Not Acceptable": 74
+      "Not Acceptable": 79
     },
     "30.0": {
-      "Acceptable": 196,
-      "Not Acceptable": 74
+      "Acceptable": 197,
+      "Not Acceptable": 76
     }
   },
   "num_metabolites": 4154,
@@ -224,5 +224,72 @@
       "Not Acceptable": 706,
       "Acceptable": 1279
     }
-  }
+  },
+  "label_day_coverage_distr": {
+    "10": 3,
+    "11": 267
+  },
+  "metabolite_value_stats": {
+    "BCAAGlo": {
+      "count": 4154.0,
+      "min": -0.089,
+      "max": 35.479,
+      "mean": 8.956,
+      "std": 7.115
+    },
+    "GlucoseGlo": {
+      "count": 4154.0,
+      "min": -0.095,
+      "max": 19.92,
+      "mean": 11.725,
+      "std": 2.621
+    },
+    "GlutamateGlo": {
+      "count": 4154.0,
+      "min": -0.037,
+      "max": 22.902,
+      "mean": 1.304,
+      "std": 0.875
+    },
+    "LactateGlo": {
+      "count": 4154.0,
+      "min": 0.012,
+      "max": 46.68,
+      "mean": 9.709,
+      "std": 6.28
+    },
+    "MalateGlo": {
+      "count": 4154.0,
+      "min": -5662.321,
+      "max": 26.818,
+      "mean": -57.595,
+      "std": 407.614
+    },
+    "PyruvateGlo": {
+      "count": 4154.0,
+      "min": -0.462,
+      "max": 9.232,
+      "mean": 2.773,
+      "std": 0.865
+    }
+  },
+  "survey_consensus_distr": {
+    "5-0": 156,
+    "4-1": 128,
+    "3-2": 81,
+    "8-2": 6,
+    "10-0": 12,
+    "9-1": 5,
+    "6-4": 2,
+    "5-5": 1,
+    "7-3": 2
+  },
+  "label_survey_agreement": {
+    "total": 286,
+    "agreed": 286,
+    "disagreed": 0,
+    "no_majority": 0,
+    "agreement_pct": 100.0
+  },
+  "num_fully_annotated": 286
 }

@@ -99,6 +99,136 @@ def get_distribution_by_day(json_data: dict, value_fn) -> dict:
     return {day: len(elements) for day, elements in elements_by_day.items()}
 
 
+def survey_consensus_distribution(json_data: dict) -> dict:
+    """Compute distribution of majority/minority vote splits across surveyed records.
+
+    Args:
+        json_data: Full record dict loaded from all_data.json.
+
+    Returns:
+        Dict mapping split string (e.g. "9-1", "10-0") to record count.
+    """
+    counter: collections.Counter = collections.Counter()
+    for record in json_data.values():
+        evaluations = record.get("survey", {}).get("evaluations", [])
+        if not evaluations:
+            continue
+        vote_counts = collections.Counter(e["evaluation"] for e in evaluations if e.get("evaluation"))
+        top_count = vote_counts.most_common(1)[0][1]
+        minority_count = len(evaluations) - top_count
+        counter[f"{top_count}-{minority_count}"] += 1
+    return dict(counter)
+
+
+def label_survey_agreement(json_data: dict) -> tuple[dict, list[str]]:
+    """Compare expert label against survey majority vote for records with both.
+
+    Args:
+        json_data: Full record dict loaded from all_data.json.
+
+    Returns:
+        Tuple of (stats_dict, disagreeing_ids) where stats_dict contains
+        agreed/disagreed/no_majority counts and agreement_pct, and
+        disagreeing_ids is the list of record IDs where label != majority vote.
+    """
+    agreed = disagreed = no_majority = 0
+    disagreeing_ids: list[str] = []
+
+    for record in json_data.values():
+        label = record.get("label", {}).get("value")
+        evaluations = record.get("survey", {}).get("evaluations", [])
+        if not label or not evaluations:
+            continue
+
+        vote_counts = collections.Counter(e["evaluation"] for e in evaluations if e.get("evaluation"))
+        top_votes = vote_counts.most_common()
+
+        if len(top_votes) > 1 and top_votes[0][1] == top_votes[1][1]:
+            no_majority += 1
+            continue
+
+        if top_votes[0][0] == label:
+            agreed += 1
+        else:
+            disagreed += 1
+            disagreeing_ids.append(record["id"])
+
+    total = agreed + disagreed + no_majority
+    stats = {
+        "total": total,
+        "agreed": agreed,
+        "disagreed": disagreed,
+        "no_majority": no_majority,
+        "agreement_pct": round(agreed / (agreed + disagreed) * 100, 1) if (agreed + disagreed) > 0 else 0,
+    }
+    return stats, disagreeing_ids
+
+
+def modality_cooccurrence(json_data: dict, modality_fns: dict) -> list[dict]:
+    """Build modality co-occurrence rows for DataFrame display.
+
+    Args:
+        json_data: Full record dict loaded from all_data.json.
+        modality_fns: Ordered dict mapping modality name → predicate callable.
+
+    Returns:
+        List of row dicts sorted by descending modality count, then alphabetically.
+        Each row has one key per modality ("✓" or "") plus "n".
+    """
+    combo_counter: collections.Counter = collections.Counter()
+    for record in json_data.values():
+        key = tuple(name for name, fn in modality_fns.items() if fn(record))
+        combo_counter[key] += 1
+
+    rows = []
+    for combo, count in sorted(combo_counter.items(), key=lambda x: (-len(x[0]), x[0])):
+        row: dict = {m: "✓" if m in combo else "" for m in modality_fns}
+        row["n"] = count
+        rows.append(row)
+    return rows
+
+
+def organoid_label_coverage(json_data: dict) -> dict:
+    """Compute distribution of how many days each organoid has a label.
+
+    Args:
+        json_data: Full record dict loaded from all_data.json.
+
+    Returns:
+        Dict mapping number-of-labeled-days → organoid count, sorted by day count.
+    """
+    labeled_days: dict[str, set] = collections.defaultdict(set)
+    for record in json_data.values():
+        if record.get("label", {}).get("value") is not None:
+            oid = record.get("organoid_id")
+            day = record.get("day", {}).get("number")
+            if oid and day is not None:
+                labeled_days[oid].add(day)
+    coverage = collections.Counter(len(days) for days in labeled_days.values())
+    return dict(sorted(coverage.items()))
+
+
+def metabolite_value_stats(json_data: dict) -> dict:
+    """Compute per-metabolite descriptive statistics for concentration_uM.
+
+    Args:
+        json_data: Full record dict loaded from all_data.json.
+
+    Returns:
+        Dict mapping metabolite name → {count, min, max, mean, std}.
+    """
+    values: dict[str, list] = collections.defaultdict(list)
+    for record in json_data.values():
+        for name, data in record.get("metabolite", {}).items():
+            conc = data.get("concentration_uM")
+            if conc is not None:
+                values[name].append(conc)
+    return {
+        name: pd.Series(vals).agg(["count", "min", "max", "mean", "std"]).round(3).to_dict()
+        for name, vals in sorted(values.items())
+    }
+
+
 def print_table(data: dict, col1: str = "Key", col2: str = "Count",
                 col1_width: int = 20, col2_width: int = 10) -> None:
     """Print a dict as a left-aligned table."""
