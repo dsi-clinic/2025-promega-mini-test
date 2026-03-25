@@ -49,9 +49,6 @@ class Config:
         "help": "Minimum number of votes required to indicate acceptable" \
                 + "or not acceptable survey results"
     })
-    survey_days: list = dataclasses.field(default_factory=lambda: [28, 30], metadata={
-        "help": "Days that surveys were conducted (used for split conflict detection)"
-    })
     target_width: int = dataclasses.field(default=512, metadata={
         "help": "Target input image width (pixels)"
     })
@@ -321,9 +318,8 @@ def build_normalized_records(cfg, combined, image_meta: dict):
     """
     builder = OrganoidRecordBuilder(
         min_survey_votes=cfg.min_survey_votes,
-        survey_days=cfg.survey_days,
         target_size=(cfg.target_width, cfg.target_height),
-        record_metrics = RecordMetrics()
+        record_metrics=RecordMetrics()
     )
 
     records = { source_id: builder.build(source_id, entry) for source_id, entry in combined.items() }
