@@ -121,13 +121,15 @@ class OrganoidRecordBuilder:
 
     LABEL_MAP = {"Accepted": 1, "Not Accepted": 0, "Acceptable": 1, "Not Acceptable": 0}
 
-    def __init__(self, *, min_survey_votes: int = 4, survey_day: int = 30,
+    def __init__(self, *, min_survey_votes: int = 4, survey_days: list[int] = (28, 30),
                  target_size: tuple[int, int] = (512, 384), record_metrics: RecordMetrics):
         self.min_survey_votes = min_survey_votes
-        self.survey_day = f"Dy{survey_day:02d}"
+        self.survey_days = frozenset(f"Dy{d:02d}" for d in survey_days)
         self.target_size = target_size
         self.record_metrics = record_metrics
         self.organoid_dict = {}
+        self.organoid_survey_no_label: set = set()  # organoid_ids seen at survey_day without a label
+        self.conflicted_organoids: set = set()       # organoid_ids with split label conflicts
 
     def build(self, source_id: str, entry: SchemaDict) -> OrganoidRecord:
         survey = entry.get("survey", {})
@@ -138,7 +140,16 @@ class OrganoidRecordBuilder:
         label = entry.get("label", {})
         organoid_id = f"{entry.get('BA')} {entry.get('wellID')}".replace(" ", "_")
         if label:
-            label = self._get_organoid_labels(entry, organoid_id, source_id, label)
+            label = self._get_organoid_labels(organoid_id, source_id, label)
+            # If a no-label split was seen earlier for this organoid on the survey day, conflict
+            if organoid_id in self.organoid_survey_no_label:
+                self._register_split_conflict(organoid_id, source_id)
+                label = {}
+        elif (entry.get('dayID') or '') in self.survey_days:
+            # Survey-day record with no label — track it and check for conflict with a labeled split
+            self.organoid_survey_no_label.add(organoid_id)
+            if organoid_id in self.organoid_dict:
+                self._register_split_conflict(organoid_id, source_id)
 
         day_value = entry.get("mdl_day")
         formatted_day = f"{day_value:.1f}".rstrip("0").rstrip(".") if day_value is not None else ""
@@ -169,10 +180,9 @@ class OrganoidRecordBuilder:
         self._get_record_metrics(payload)
         return OrganoidRecord(source_id=source_id, data=payload)
 
-    def _get_organoid_labels(self, entry: SchemaDict, organoid_id: str, source_id: str, label: dict) -> dict:
+    def _get_organoid_labels(self, organoid_id: str, source_id: str, label: dict) -> dict:
         """Get organoid labels and track them in the organoid dictionary.
         Args:
-            entry: The entry
             source_id: The source ID
             label: The label
             organoid_id: The organoid ID
@@ -182,14 +192,21 @@ class OrganoidRecordBuilder:
         """
         if organoid_id in self.organoid_dict:
             if label.get("value") != self.organoid_dict[organoid_id]["label"].get("value"):
-                logging.warning(f"Labels do not match between days or splits: {source_id}/{organoid_id}. This organoid will be skipped.")
-                self.record_metrics.num_label_skipped += 1
-                del self.organoid_dict[organoid_id]
+                logging.warning(f"Labels do not match between days or splits: {source_id}/{organoid_id}. All labels for this organoid will be cleared.")
+                self._register_split_conflict(organoid_id, source_id)
                 label = {}
         else:
             self.organoid_dict[organoid_id] = { "source_id": source_id, "label": label }    # Track label by organoid
 
         return label
+
+    def _register_split_conflict(self, organoid_id: str, source_id: str) -> None:
+        """Register a split label conflict for an organoid, clearing it from propagation tracking."""
+        logging.warning(f"Split label conflict registered for {source_id}/{organoid_id}. All labels will be removed after propagation.")
+        self.record_metrics.num_label_skipped += 1
+        self.conflicted_organoids.add(organoid_id)
+        if organoid_id in self.organoid_dict:
+            del self.organoid_dict[organoid_id]
 
     def _build_images(
         self,
