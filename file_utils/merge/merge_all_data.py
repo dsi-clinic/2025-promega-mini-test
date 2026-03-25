@@ -358,12 +358,20 @@ def build_normalized_records(cfg, combined, image_meta: dict):
     return records, stats_clean
 
 def propogate_labels(records_dict: dict, organoid_dict: dict) -> dict:
-    """Propogate labels for day 30 organoids to previous days organoids."""
+    """Propagate survey-day labels to all other days for the same organoid.
+
+    Records that already have a direct survey label (e.g. Day 28/30 records)
+    are left unchanged. Only records without a label receive the propagated value.
+    """
     stats = {
         "num_labels": 0,
         "num_no_labels": 0,
     }
     for record_data in records_dict.values():
+        if record_data.get("label"):
+            # Record has its own direct survey label — do not overwrite.
+            stats["num_labels"] += 1
+            continue
         organoid_id = record_data["organoid_id"]
         if organoid_id in organoid_dict:
             record_data["label"] = organoid_dict[organoid_id]["label"]
