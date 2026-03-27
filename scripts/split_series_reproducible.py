@@ -10,7 +10,7 @@ Key design decisions:
   Split daughters (split1 + split2) from the same well share presplit
   timepoints, so they must land in the same partition to avoid data leakage.
 - Requires ALL 11 timepoints to be present (no partial series).
-- Labels come from the Dy30 survey majority vote (>= 4/5 agree).
+- Labels come from the pre-computed label.value field (new schema).
 - Handles organoid genealogy: nosplit, presplit+split1, presplit+split2.
 
 Expected timepoints (mdl_day values):
@@ -53,17 +53,27 @@ LABEL_DAY = 30.0  # Survey labels come from Dy30
 # HELPERS
 # ============================================================
 
-def extract_mdl_day(day_id: str) -> float | None:
-    """Convert dayID string to float mdl_day. Dy20/Dy21 -> 20.5."""
+def extract_mdl_day(value: dict) -> float | None:
+    """
+    NEW SCHEMA: day number is pre-computed as a float at value["day"]["number"].
+    Falls back to parsing value["day"]["id"] string for safety.
+    Dy20/Dy21 -> 20.5 is handled upstream in the new schema.
+    """
+    day = value.get('day', {})
+    number = day.get('number')
+    if number is not None:
+        return float(number)
+    # Fallback: parse day.id string (e.g. "Dy3", "Dy30")
+    day_id = day.get('id', '')
     if not day_id:
         return None
-    m = re.match(r'^Dy(\d+)$', day_id)
+    m = re.match(r'^Dy(\d+(?:\.\d+)?)$', day_id)
     if not m:
         return None
-    n = int(m.group(1))
+    n = float(m.group(1))
     if n in [20, 21]:
         return 20.5
-    return float(n)
+    return n
 
 def parse_split_type(main_id: str) -> str:
     """
@@ -82,38 +92,40 @@ def parse_split_type(main_id: str) -> str:
         return 'split1'
     return 'nosplit'
 
-def get_base_well(ba: str, well_id: str) -> str:
-    """Canonical base well ID: 'BA1_96_1_A1'."""
-    return f"{ba.replace(' ', '_')}_{well_id}"
+def get_base_well(value: dict) -> str:
+    """
+    NEW SCHEMA: batch and well are under value["plate"].
+    Canonical base well ID: 'BA1_96_1_A1'.
+    """
+    plate = value.get('plate', {})
+    batch = plate.get('batch', '').replace(' ', '_')
+    well = plate.get('well', '')
+    return f"{batch}_{well}"
 
 def is_blank(value: dict) -> bool:
-    """True if this entry is a blank well."""
-    return value.get('verification', {}).get('blank', False) is True
+    """True if this entry is a blank well. NEW SCHEMA: nested under metadata.verification."""
+    return value.get('metadata', {}).get('verification', {}).get('blank', False) is True
 
-def compute_majority_label(evaluations: list, min_votes: int = 4) -> str | None:
-    """Majority vote from survey evaluations. Returns None if no consensus."""
-    if not evaluations:
+def get_label(value: dict) -> str | None:
+    """
+    NEW SCHEMA: label is pre-computed as an object at value["label"].
+    Returns the string value ('Acceptable' / 'Not Acceptable') or None.
+    """
+    label = value.get('label')
+    if not label:
         return None
-    votes: dict[str, int] = {}
-    for e in evaluations:
-        ev = e.get('evaluation', '')
-        if ev:
-            votes[ev] = votes.get(ev, 0) + 1
-    acceptable = votes.get('Acceptable', 0)
-    not_acceptable = votes.get('Not Acceptable', 0)
-    if acceptable >= min_votes:
-        return 'Acceptable'
-    if not_acceptable >= min_votes:
-        return 'Not Acceptable'
-    return None
+    return label.get('value')
 
 def has_image(value: dict) -> bool:
-    """True if the record has a processed image path."""
+    """
+    True if the record has a processed image path.
+    NEW SCHEMA: key is 'images' (was 'processed').
+    """
     return (
-        'processed' in value
-        and isinstance(value['processed'], dict)
-        and 'img_path' in value['processed']
-        and value['processed']['img_path']
+        'images' in value
+        and isinstance(value['images'], dict)
+        and 'img_path' in value['images']
+        and value['images']['img_path']
     )
 
 # ============================================================
@@ -144,20 +156,24 @@ def build_genealogy(all_data: dict) -> dict:
             continue
 
         # Need a valid timepoint
-        mdl_day = extract_mdl_day(value.get('dayID'))
+        # NEW SCHEMA: day number is at value["day"]["number"]
+        mdl_day = extract_mdl_day(value)
         if mdl_day is None:
             skipped['no_day'] += 1
             continue
 
         # Need a main_id to determine split type
-        main_id = value.get('main_id') or value.get('verification', {}).get('main_id', '')
+        # NEW SCHEMA: main_id is at value["images"]["main_id"] or metadata.verification.main_id
+        main_id = (
+            value.get('images', {}).get('main_id')
+            or value.get('metadata', {}).get('verification', {}).get('main_id', '')
+        )
         if not main_id:
             skipped['no_main_id'] += 1
             continue
 
-        ba = value.get('BA', '')
-        well_id = value.get('wellID', '')
-        base_well = get_base_well(ba, well_id)
+        # NEW SCHEMA: batch/well are under value["plate"]
+        base_well = get_base_well(value)
         split_type = parse_split_type(main_id)
 
         genealogy[base_well][split_type].append({
@@ -275,7 +291,8 @@ def _add_series(organoid_id, base_well, genealogy_type, items, complete, incompl
 
 def attach_labels(complete_series: list) -> tuple[list, int]:
     """
-    For each complete series, find the Dy30 entry and derive a majority-vote label.
+    For each complete series, find the Dy30 entry and read the pre-computed label.
+    NEW SCHEMA: label is at value["label"]["value"], survey.evaluations is gone.
     Returns the labeled series and a count of how many were dropped for missing labels.
     """
     labeled = []
@@ -287,11 +304,9 @@ def attach_labels(complete_series: list) -> tuple[list, int]:
             dropped += 1
             continue
 
-        # There should be exactly one Dy30 per organoid series
+        # NEW SCHEMA: read pre-computed label directly
         dy30_value = dy30_items[0]['value']
-        survey = dy30_value.get('survey', {})
-        evaluations = survey.get('evaluations', [])
-        label = compute_majority_label(evaluations, min_votes=4)
+        label = get_label(dy30_value)
 
         if label is None:
             dropped += 1
@@ -373,13 +388,14 @@ def series_to_output(series: dict) -> dict:
             continue
         seen_days.add(day)
         value = item['value']
-        processed = value.get('processed', {})
+        # NEW SCHEMA: image paths are under value["images"]
+        images = value.get('images', {})
         timepoints.append({
             'key': item['key'],
             'mdl_day': day,
-            'dayID': value.get('dayID'),
-            'img_path': processed.get('img_path'),
-            'mask_path': processed.get('mask_path'),
+            'dayID': value.get('day', {}).get('id'),
+            'img_path': images.get('img_path'),
+            'mask_path': images.get('mask_path'),
             'main_id': item['main_id'],
             'split_type': parse_split_type(item['main_id']),
         })

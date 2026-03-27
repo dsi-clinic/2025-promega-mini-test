@@ -17,30 +17,30 @@
   "total_records_loaded": 5168,
   "complete_series": 461,
   "incomplete_dropped": 22,
-  "no_label_dropped": 172,
-  "total_labeled": 289,
+  "no_label_dropped": 190,
+  "total_labeled": 271,
   "train": {
-    "organoids": 205,
-    "wells": 201,
+    "organoids": 194,
+    "wells": 193,
     "label_counts": {
-      "Not Acceptable": 61,
-      "Acceptable": 144
+      "Acceptable": 140,
+      "Not Acceptable": 54
     }
   },
   "val": {
-    "organoids": 25,
-    "wells": 23,
+    "organoids": 22,
+    "wells": 22,
     "label_counts": {
-      "Not Acceptable": 8,
-      "Acceptable": 17
+      "Acceptable": 16,
+      "Not Acceptable": 6
     }
   },
   "test": {
-    "organoids": 59,
-    "wells": 57,
+    "organoids": 55,
+    "wells": 54,
     "label_counts": {
-      "Not Acceptable": 18,
-      "Acceptable": 41
+      "Acceptable": 40,
+      "Not Acceptable": 15
     }
   }
 }
