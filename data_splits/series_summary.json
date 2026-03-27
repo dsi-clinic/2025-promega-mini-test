@@ -1,0 +1,46 @@
+{
+  "random_seed": 42,
+  "expected_days": [
+    3.0,
+    6.0,
+    8.0,
+    10.0,
+    13.0,
+    15.0,
+    17.0,
+    20.5,
+    24.0,
+    28.0,
+    30.0
+  ],
+  "label_day": 30.0,
+  "total_records_loaded": 5168,
+  "complete_series": 461,
+  "incomplete_dropped": 22,
+  "no_label_dropped": 172,
+  "total_labeled": 289,
+  "train": {
+    "organoids": 205,
+    "wells": 201,
+    "label_counts": {
+      "Not Acceptable": 61,
+      "Acceptable": 144
+    }
+  },
+  "val": {
+    "organoids": 25,
+    "wells": 23,
+    "label_counts": {
+      "Not Acceptable": 8,
+      "Acceptable": 17
+    }
+  },
+  "test": {
+    "organoids": 59,
+    "wells": 57,
+    "label_counts": {
+      "Not Acceptable": 18,
+      "Acceptable": 41
+    }
+  }
+}
