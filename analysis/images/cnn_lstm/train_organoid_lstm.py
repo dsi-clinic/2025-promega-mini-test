@@ -98,6 +98,8 @@ def main():
     parser.add_argument('--lstm-hidden', type=int, default=256, help='LSTM hidden size')
     parser.add_argument('--lstm-layers', type=int, default=2, help='Number of LSTM layers')
     parser.add_argument('--output-dir', type=str, default='outputs/cnn_lstm', help='Output directory')
+    parser.add_argument('--image-type', type=str, default='clipped', choices=['clipped', 'std'],
+                        help='Image variant to use: clipped (575x575 AR meanfill) or std (512x384)')
     args = parser.parse_args()
 
     # Setup
@@ -119,10 +121,11 @@ def main():
     val_ids,   val_meta   = load_split_from_json('data_splits/series_val.json')
     test_ids,  test_meta  = load_split_from_json('data_splits/series_test.json')
 
-    # Create datasets (clipped images are already meanfill-processed on disk)
-    train_dataset = OrganoidTimeSeriesDataset(train_ids, train_meta)
-    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   val_meta)
-    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  test_meta)
+    # Create datasets
+    print(f"Using image type: {args.image_type}")
+    train_dataset = OrganoidTimeSeriesDataset(train_ids, train_meta, image_type=args.image_type)
+    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   val_meta,   image_type=args.image_type)
+    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  test_meta,  image_type=args.image_type)
 
     # Create dataloaders (no changes)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)

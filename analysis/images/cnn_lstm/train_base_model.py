@@ -6,7 +6,7 @@ Uses the same data splits as CNN-LSTM temporal models for fair comparison.
 Run: python train_baseline_effnet.py
 """
 
-import sys, json, random
+import sys, json, random, argparse
 import os
 from pathlib import Path
 
@@ -65,7 +65,7 @@ class SingleDayOrganoidDataset(Dataset):
     Dataset for single timepoint organoid images.
     Uses the LSTM processed images (same as LSTM but picks one timepoint).
     """
-    def __init__(self, organoid_ids, series_metadata, target_day, transform=None):
+    def __init__(self, organoid_ids, series_metadata, target_day, transform=None, image_type='std'):
         self.samples = []
 
         for org_id in organoid_ids:
@@ -80,8 +80,7 @@ class SingleDayOrganoidDataset(Dataset):
             # Find the timepoint closest to target_day
             best_tp = min(timepoints, key=lambda tp: abs(tp['mdl_day'] - target_day))
 
-            # Use std image for single-day baseline (matches original 512x384 EfficientNet)
-            img_path = best_tp.get('img_paths', {}).get('std')
+            img_path = best_tp.get('img_paths', {}).get(image_type)
             if img_path is None or not Path(img_path).exists():
                 continue
 
@@ -230,7 +229,7 @@ def evaluate(model, loader, criterion, device):
 
 # ---------- Training ----------
 def train_for_day(target_day, train_ids, val_ids, test_ids,
-                  train_meta, val_meta, test_meta, device, output_dir):
+                  train_meta, val_meta, test_meta, device, output_dir, image_type='std'):
     print(f"\n{'='*70}\nTRAINING BASELINE for DAY {target_day}\n{'='*70}")
 
     train_tf = T.Compose([
@@ -244,9 +243,9 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
         T.Resize(TARGET_SIZE),
     ])
 
-    train_dataset = SingleDayOrganoidDataset(train_ids, train_meta, target_day, transform=train_tf)
-    val_dataset   = SingleDayOrganoidDataset(val_ids,   val_meta,   target_day, transform=eval_tf)
-    test_dataset  = SingleDayOrganoidDataset(test_ids,  test_meta,  target_day, transform=eval_tf)
+    train_dataset = SingleDayOrganoidDataset(train_ids, train_meta, target_day, transform=train_tf, image_type=image_type)
+    val_dataset   = SingleDayOrganoidDataset(val_ids,   val_meta,   target_day, transform=eval_tf, image_type=image_type)
+    test_dataset  = SingleDayOrganoidDataset(test_ids,  test_meta,  target_day, transform=eval_tf, image_type=image_type)
     
     if len(train_dataset) == 0:
         print(f"  ⚠ No training samples for day {target_day}, skipping")
@@ -394,11 +393,18 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
 
 # ---------- Main ----------
 def main():
+    parser = argparse.ArgumentParser(description='Train single-day EfficientNet baseline')
+    parser.add_argument('--output-dir', type=str, default='outputs/base_models/base_effnet',
+                        help='Output directory for model checkpoints and results')
+    parser.add_argument('--image-type', type=str, default='std', choices=['clipped', 'std'],
+                        help='Image variant: std (512x384) or clipped (575x575 AR meanfill)')
+    args = parser.parse_args()
+
     set_seed(SEED)
     device = torch.device(DEVICE)
     print(f"Using device: {device}")
-    
-    out_dir = Path('outputs/base_models/base_effnet')
+
+    out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {out_dir}")
     
@@ -423,7 +429,8 @@ def main():
         result = train_for_day(
             target_day, train_ids, val_ids, test_ids,
             train_meta, val_meta, test_meta, device,
-            out_dir / f"day_{target_day}"
+            out_dir / f"day_{target_day}",
+            image_type=args.image_type
         )
         if result:
             results.append(result)
