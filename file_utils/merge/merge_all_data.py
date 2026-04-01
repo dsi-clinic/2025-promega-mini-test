@@ -49,9 +49,6 @@ class Config:
         "help": "Minimum number of votes required to indicate acceptable" \
                 + "or not acceptable survey results"
     })
-    survey_day: int = dataclasses.field(default=30, metadata={
-        "help": "Day that survey was conducted"
-    })
     target_width: int = dataclasses.field(default=512, metadata={
         "help": "Target input image width (pixels)"
     })
@@ -114,6 +111,10 @@ def create_args() -> argparse.ArgumentParser:
         # Determine argument type
         if field.type == bool:
             kwargs["action"] = "store_true" if field.default is False else "store_false"
+        elif field.type == list:
+            kwargs["type"] = int
+            kwargs["nargs"] = "+"
+            kwargs["default"] = field.default_factory()
         else:
             kwargs["type"] = field.type
         parser.add_argument(*flags, **kwargs)
@@ -175,7 +176,7 @@ def load_data_sources(cfg: Config) -> DataSources:
         DataSources object containing all data sources
     """
     image_entries, image_meta = load_image_map(cfg)
-    
+
     return DataSources(
         identifiers_map=load_identifiers_map(cfg),
         image_entries=image_entries,
@@ -317,20 +318,23 @@ def build_normalized_records(cfg, combined, image_meta: dict):
     """
     builder = OrganoidRecordBuilder(
         min_survey_votes=cfg.min_survey_votes,
-        survey_day=cfg.survey_day,
         target_size=(cfg.target_width, cfg.target_height),
-        record_metrics = RecordMetrics()
+        record_metrics=RecordMetrics()
     )
 
     records = { source_id: builder.build(source_id, entry) for source_id, entry in combined.items() }
     stats = builder.record_metrics.to_dict()
-    
 
     # Propograte labels for day 30 organoids to previous days organoids
     logging.info("Propogating labels for day 30 organoids to previous days organoids...")
     records_dict = { source_id: record.to_dict() for source_id, record in records.items() }
-    label_stats =propogate_labels(records_dict, builder.organoid_dict)
+    label_stats = propogate_labels(records_dict, builder.organoid_dict)
     stats.update(label_stats)
+
+    # Clear all labels for organoids with split conflicts
+    if builder.conflicted_organoids:
+        logging.info(f"Clearing labels for {len(builder.conflicted_organoids)} organoids with split label conflicts...")
+        clear_conflicted_labels(records_dict, builder.conflicted_organoids)
 
     # Get final number of organoids
     stats["num_organoids"] = get_num_organoids(records_dict)
@@ -357,13 +361,32 @@ def build_normalized_records(cfg, combined, image_meta: dict):
 
     return records, stats_clean
 
+def clear_conflicted_labels(records_dict: dict, conflicted_organoids: set) -> None:
+    """Remove all labels from every record belonging to organoids with split conflicts.
+
+    This ensures that if two splits of the same organoid on the survey day have
+    different (or missing) labels, no label is propagated to any timepoint for
+    that organoid.
+    """
+    for record_data in records_dict.values():
+        if record_data["organoid_id"] in conflicted_organoids:
+            record_data["label"] = {}
+
 def propogate_labels(records_dict: dict, organoid_dict: dict) -> dict:
-    """Propogate labels for day 30 organoids to previous days organoids."""
+    """Propagate survey-day labels to all other days for the same organoid.
+
+    Records that already have a direct survey label (e.g. Day 28/30 records)
+    are left unchanged. Only records without a label receive the propagated value.
+    """
     stats = {
         "num_labels": 0,
         "num_no_labels": 0,
     }
     for record_data in records_dict.values():
+        if record_data.get("label"):
+            # Record has its own direct survey label — do not overwrite.
+            stats["num_labels"] += 1
+            continue
         organoid_id = record_data["organoid_id"]
         if organoid_id in organoid_dict:
             record_data["label"] = organoid_dict[organoid_id]["label"]
