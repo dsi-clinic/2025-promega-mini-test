@@ -118,15 +118,11 @@ def get_label(value: dict) -> str | None:
 
 def has_image(value: dict) -> bool:
     """
-    True if the record has a processed image path.
-    NEW SCHEMA: key is 'images' (was 'processed').
+    True if the record has a clipped meanfill image (the variant used for LSTM training).
+    Requires both the image and its corresponding AR mask.
     """
-    return (
-        'images' in value
-        and isinstance(value['images'], dict)
-        and 'img_path' in value['images']
-        and value['images']['img_path']
-    )
+    cm = value.get('images', {}).get('clipped_meanfill', {})
+    return bool(cm.get('cm_image_abs') and cm.get('cm_source_mask_abs'))
 
 # ============================================================
 # STEP 1: BUILD GENEALOGY FROM all_data.json
@@ -304,15 +300,20 @@ def attach_labels(complete_series: list) -> tuple[list, int]:
             dropped += 1
             continue
 
-        # NEW SCHEMA: read pre-computed label directly
+        # NEW SCHEMA: read pre-computed label and vote counts directly
         dy30_value = dy30_items[0]['value']
-        label = get_label(dy30_value)
+        label_obj = dy30_value.get('label') or {}
+        label = label_obj.get('value')
 
         if label is None:
             dropped += 1
             continue
 
         series['label'] = label
+        # Vote counts for confidence weighting in the dataset
+        votes = label_obj.get('votes', {})
+        series['n_votes_good'] = votes.get('Acceptable', 0)
+        series['n_votes_total'] = label_obj.get('total_evaluations', 0)
         labeled.append(series)
 
     return labeled, dropped
@@ -388,14 +389,20 @@ def series_to_output(series: dict) -> dict:
             continue
         seen_days.add(day)
         value = item['value']
-        # NEW SCHEMA: image paths are under value["images"]
         images = value.get('images', {})
+        cm = images.get('clipped_meanfill', {})
         timepoints.append({
             'key': item['key'],
             'mdl_day': day,
             'dayID': value.get('day', {}).get('id'),
-            'img_path': images.get('img_path'),
-            'mask_path': images.get('mask_path'),
+            'img_paths': {
+                'std':     images.get('img_path'),
+                'clipped': cm.get('cm_image_abs'),
+            },
+            'mask_paths': {
+                'std':     images.get('mask_path'),
+                'clipped': cm.get('cm_source_mask_abs'),
+            },
             'main_id': item['main_id'],
             'split_type': parse_split_type(item['main_id']),
         })
@@ -405,6 +412,8 @@ def series_to_output(series: dict) -> dict:
         'base_well': series['base_well'],
         'genealogy_type': series['genealogy_type'],
         'label': series['label'],
+        'n_votes_good': series.get('n_votes_good', 0),
+        'n_votes_total': series.get('n_votes_total', 0),
         'n_timepoints': len(timepoints),
         'timepoints': timepoints,
     }

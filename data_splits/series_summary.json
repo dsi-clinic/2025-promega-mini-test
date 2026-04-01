@@ -23,24 +23,24 @@
     "organoids": 194,
     "wells": 193,
     "label_counts": {
-      "Acceptable": 140,
-      "Not Acceptable": 54
+      "Not Acceptable": 54,
+      "Acceptable": 140
     }
   },
   "val": {
     "organoids": 22,
     "wells": 22,
     "label_counts": {
-      "Acceptable": 16,
-      "Not Acceptable": 6
+      "Not Acceptable": 6,
+      "Acceptable": 16
     }
   },
   "test": {
     "organoids": 55,
     "wells": 54,
     "label_counts": {
-      "Acceptable": 40,
-      "Not Acceptable": 15
+      "Not Acceptable": 15,
+      "Acceptable": 40
     }
   }
 }

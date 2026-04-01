@@ -28,7 +28,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from config import OUTPUT_FOLDER
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
-    load_data_and_create_splits,
+    load_split_from_json,
 )
 
 
@@ -197,7 +197,7 @@ def evaluate_binary(model, loader, criterion, device):
 
 # -------------- Training (one day range) --------------
 def train_for_day_range(max_day, train_ids, val_ids, test_ids,
-                        series_metadata, data, global_mean, device, output_dir):
+                        train_meta, val_meta, test_meta, global_mean, device, output_dir):
     print(f"\n{'='*70}\nTRAINING WITH DAYS 3–{max_day}\n{'='*70}")
 
     # ---- ADD/REPLACE THIS SECTION ----
@@ -218,18 +218,9 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         transforms.Resize((384, 384), interpolation=BILINEAR),
     ])
 
-    train_dataset = OrganoidTimeSeriesDataset(
-        train_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=train_tf
-    )
-    val_dataset = OrganoidTimeSeriesDataset(
-        val_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=eval_tf
-    )
-    test_dataset = OrganoidTimeSeriesDataset(
-        test_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=eval_tf
-    )
+    train_dataset = OrganoidTimeSeriesDataset(train_ids, train_meta, global_mean=global_mean, max_day=max_day, transform=train_tf)
+    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   val_meta,   global_mean=global_mean, max_day=max_day, transform=eval_tf)
+    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  test_meta,  global_mean=global_mean, max_day=max_day, transform=eval_tf)
 
     pin = (device.type == "cuda")
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
@@ -446,12 +437,9 @@ def main():
     print("LOADING DATA")
     print("="*70)
 
-    series_metadata_path = OUTPUT_FOLDER / "complete_series_metadata_no_blanks.json"
-    data_path = OUTPUT_FOLDER / "complete_series_data_no_blanks.json"
-
-    train_ids, val_ids, test_ids, series_metadata, data = load_data_and_create_splits(
-        series_metadata_path, data_path, random_seed=SEED
-    )
+    train_ids, train_meta = load_split_from_json('data_splits/series_train.json')
+    val_ids,   val_meta   = load_split_from_json('data_splits/series_val.json')
+    test_ids,  test_meta  = load_split_from_json('data_splits/series_test.json')
 
     global_mean_path = OUTPUT_FOLDER / "cnn_lstm" / "global_mean.npy"
     if not global_mean_path.exists():
@@ -470,7 +458,7 @@ def main():
     for max_day in DAY_RANGES:
         res = train_for_day_range(
             max_day, train_ids, val_ids, test_ids,
-            series_metadata, data, global_mean, device,
+            train_meta, val_meta, test_meta, global_mean, device,
             out_dir / f"days_3-{max_day}"
         )
         results.append(res)

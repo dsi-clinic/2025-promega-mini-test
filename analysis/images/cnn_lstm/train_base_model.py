@@ -35,7 +35,7 @@ from sklearn.metrics import (
 )
 
 from config import OUTPUT_FOLDER
-from analysis.images.cnn_lstm.organoid_dataset import load_data_and_create_splits
+from analysis.images.cnn_lstm.organoid_dataset import load_split_from_json
 
 # -------- Config --------
 DAY_RANGES = [3, 6, 8, 10, 13, 15, 17, 20.5, 24, 30]  # Same as LSTM
@@ -66,49 +66,31 @@ class SingleDayOrganoidDataset(Dataset):
     Dataset for single timepoint organoid images.
     Uses the LSTM processed images (same as LSTM but picks one timepoint).
     """
-    def __init__(self, organoid_ids, series_metadata, data, target_day, transform=None):
+    def __init__(self, organoid_ids, series_metadata, target_day, transform=None):
         self.samples = []
-        
+
         for org_id in organoid_ids:
             metadata = series_metadata.get(org_id, {})
             label_str = str(metadata.get("label", "")).strip().lower()
             label = 1 if label_str in ("good", "acceptable", "accepted") else 0
-            
-            # Get entry_keys and days (SAME AS LSTM!)
-            entry_keys = metadata.get('entry_keys', [])
-            days = metadata.get('days', [])
-            
-            if not entry_keys or not days:
+
+            timepoints = metadata.get('timepoints', [])
+            if not timepoints:
                 continue
-            
-            # Find the entry closest to target_day
-            best_idx = None
-            min_diff = float('inf')
-            for i, day in enumerate(days):
-                diff = abs(day - target_day)
-                if diff < min_diff:
-                    min_diff = diff
-                    best_idx = i
-            
-            if best_idx is None:
-                continue
-            
-            # Get the entry for that day
-            entry_key = entry_keys[best_idx]
-            entry = data.get(entry_key, {})
-            
-            # Get processed image path (512x384 resized images)
-            processed = entry.get('processed', {})
-            img_path = processed.get('img_path')
-            
+
+            # Find the timepoint closest to target_day
+            best_tp = min(timepoints, key=lambda tp: abs(tp['mdl_day'] - target_day))
+
+            # Use std image for single-day baseline (matches original 512x384 EfficientNet)
+            img_path = best_tp.get('img_paths', {}).get('std')
             if img_path is None or not Path(img_path).exists():
                 continue
-            
+
             self.samples.append({
                 "img_path": img_path,
                 "label": label,
                 "org_id": org_id,
-                "actual_day": days[best_idx],
+                "actual_day": best_tp['mdl_day'],
             })
         
         self.transform = transform
@@ -248,32 +230,24 @@ def evaluate(model, loader, criterion, device):
 
 
 # ---------- Training ----------
-def train_for_day(target_day, train_ids, val_ids, test_ids, 
-                  series_metadata, data, device, output_dir):
+def train_for_day(target_day, train_ids, val_ids, test_ids,
+                  train_meta, val_meta, test_meta, device, output_dir):
     print(f"\n{'='*70}\nTRAINING BASELINE for DAY {target_day}\n{'='*70}")
-    
-    # Transforms (no ToTensor - we do that in __getitem__)
+
     train_tf = T.Compose([
         T.Resize(TARGET_SIZE),
         T.RandomHorizontalFlip(0.5),
         T.RandomVerticalFlip(0.5),
         T.ColorJitter(0.2, 0.2, 0.2, 0.1),
     ])
-    
+
     eval_tf = T.Compose([
         T.Resize(TARGET_SIZE),
     ])
-    
-    # Datasets
-    train_dataset = SingleDayOrganoidDataset(
-        train_ids, series_metadata, data, target_day, transform=train_tf
-    )
-    val_dataset = SingleDayOrganoidDataset(
-        val_ids, series_metadata, data, target_day, transform=eval_tf
-    )
-    test_dataset = SingleDayOrganoidDataset(
-        test_ids, series_metadata, data, target_day, transform=eval_tf
-    )
+
+    train_dataset = SingleDayOrganoidDataset(train_ids, train_meta, target_day, transform=train_tf)
+    val_dataset   = SingleDayOrganoidDataset(val_ids,   val_meta,   target_day, transform=eval_tf)
+    test_dataset  = SingleDayOrganoidDataset(test_ids,  test_meta,  target_day, transform=eval_tf)
     
     if len(train_dataset) == 0:
         print(f"  ⚠ No training samples for day {target_day}, skipping")
@@ -434,13 +408,10 @@ def main():
     print("LOADING DATA")
     print("="*70)
     
-    series_metadata_path = OUTPUT_FOLDER / "complete_series_metadata_no_blanks.json"
-    data_path = OUTPUT_FOLDER / "complete_series_data_no_blanks.json"
-    
-    train_ids, val_ids, test_ids, series_metadata, data = load_data_and_create_splits(
-        series_metadata_path, data_path, random_seed=SEED
-    )
-    
+    train_ids, train_meta = load_split_from_json('data_splits/series_train.json')
+    val_ids,   val_meta   = load_split_from_json('data_splits/series_val.json')
+    test_ids,  test_meta  = load_split_from_json('data_splits/series_test.json')
+
     print(f"Splits: train={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)}")
     
     print("\n" + "="*70)
@@ -452,7 +423,7 @@ def main():
     for target_day in DAY_RANGES:
         result = train_for_day(
             target_day, train_ids, val_ids, test_ids,
-            series_metadata, data, device,
+            train_meta, val_meta, test_meta, device,
             out_dir / f"day_{target_day}"
         )
         if result:

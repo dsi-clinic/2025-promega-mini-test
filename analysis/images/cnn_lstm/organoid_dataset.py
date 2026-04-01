@@ -18,56 +18,47 @@ import numpy as np
 import cv2
 
 
-def compute_global_mean(series_metadata, data):
-    """Compute mean RGB across entire dataset"""
+def compute_global_mean(series_metadata, image_type='clipped'):
+    """Compute mean RGB across entire dataset using series split JSON format."""
     print("Computing global dataset mean...")
     all_means = []
-    
+
     for org_id in series_metadata.keys():
-        entry_keys = series_metadata[org_id]['entry_keys']
-        for key in entry_keys:
-            img_path = data[key]['lstm_processed']['image_path']
+        for tp in series_metadata[org_id]['timepoints']:
+            img_path = tp['img_paths'][image_type]
             img = imread(img_path)
             if img.ndim == 2:
                 img = np.stack([img] * 3, axis=-1)
-            
-            # Get mean of foreground pixels only (use mask if available)
-            mask_path = data[key]['lstm_processed'].get('mask_path')
+
+            mask_path = tp.get('mask_paths', {}).get(image_type)
             if mask_path and Path(mask_path).exists():
                 mask = imread(mask_path)
                 if mask.ndim == 3:
                     mask = mask[:, :, 0]
-                mask = (mask > 127).astype(bool)  # Binary mask
-                
-                # Mean of only foreground pixels
+                mask = (mask > 127).astype(bool)
                 foreground = img[mask]
                 if len(foreground) > 0:
                     all_means.append(foreground.mean(axis=0))
-    
+
     global_mean = np.mean(all_means, axis=0)
     print(f"Global mean RGB: {global_mean}")
     return global_mean
 
-def compute_global_mean_from_ids(organoid_ids, series_metadata, data):
-    """Compute mean RGB across all pixels in training images (simple!)"""
+def compute_global_mean_from_ids(organoid_ids, series_metadata, image_type='clipped'):
+    """Compute mean RGB across all pixels in training images using series split JSON format."""
     print(f"Computing global mean from {len(organoid_ids)} organoids...")
     all_means = []
-    
+
     for org_id in organoid_ids:
-        entry_keys = series_metadata[org_id]['entry_keys']
-        for key in entry_keys:
-            img_path = data[key]['lstm_processed']['image_path']
+        for tp in series_metadata[org_id]['timepoints']:
+            img_path = tp['img_paths'][image_type]
             img = imread(img_path)
-            
             if img.ndim == 2:
                 img = np.stack([img] * 3, axis=-1)
-            
-            # Just get mean of ENTIRE image (all pixels)
             img_mean = img.reshape(-1, 3).mean(axis=0)
             all_means.append(img_mean)
-    
-    # Average across all images
-    global_mean = np.mean(all_means, axis=0) / 255.0  # Normalize to [0,1]
+
+    global_mean = np.mean(all_means, axis=0) / 255.0
     print(f"Global mean RGB: {global_mean}")
     return global_mean
 
@@ -77,17 +68,28 @@ class OrganoidTimeSeriesDataset(Dataset):
     Loads organoid image sequences WITH MEAN-FILL MASK for CNN-LSTM training.
     """
 
-    def __init__(self, organoid_ids, series_metadata, data, 
-                 transform=None, use_clipping_mask=False, 
+    def __init__(self, organoid_ids, series_metadata,
+                 transform=None, use_clipping_mask=False,
                  global_mean=None,
-                 max_day=None):
+                 max_day=None,
+                 image_type='clipped'):
+        """
+        Args:
+            organoid_ids:    list of organoid_id strings (keys into series_metadata)
+            series_metadata: dict loaded from series_train/val/test.json
+                             Each entry has: label, n_votes_good, n_votes_total,
+                             base_well, genealogy_type, timepoints (list of
+                             {key, mdl_day, img_paths, mask_paths, ...})
+            image_type:      which image variant to use — 'clipped' (default, meanfill
+                             575x575) or 'std' (512x384 standard resize)
+        """
         self.organoid_ids = organoid_ids
         self.series_metadata = series_metadata
-        self.data = data
         self.transform = transform
         self.use_clipping_mask = use_clipping_mask
         self.global_mean = global_mean
         self.max_day = max_day
+        self.image_type = image_type
         
     def __len__(self):
         return len(self.organoid_ids)
@@ -151,21 +153,18 @@ class OrganoidTimeSeriesDataset(Dataset):
 
     def __getitem__(self, idx):
         organoid_id = self.organoid_ids[idx]
-        entry_keys = self.series_metadata[organoid_id]['entry_keys']
-        days = self.series_metadata[organoid_id]['days']
-        # --- build frames + keep matched days ---
-        images = []
-        days_used = []   # <— track the days that produced frames
+        # NEW: read directly from timepoints list in split JSON
+        timepoints = self.series_metadata[organoid_id]['timepoints']
 
-        for i, key in enumerate(entry_keys):
+        images = []
+        days_used = []
+
+        for tp in timepoints:
             # stop at max_day if set
-            if self.max_day is not None and days[i] > self.max_day:
+            if self.max_day is not None and tp['mdl_day'] > self.max_day:
                 break
 
-            entry = self.data[key]
-            img_path = entry['lstm_processed'].get('clipped_image_path',
-                                       entry['lstm_processed']['image_path'])
-
+            img_path = tp['img_paths'][self.image_type]
             img = imread(img_path)
 
             if img.ndim == 2:
@@ -173,13 +172,11 @@ class OrganoidTimeSeriesDataset(Dataset):
             img = img.astype(np.float32)
 
             if self.use_clipping_mask:
-                mask_path = entry['lstm_processed'].get('mask_path')
+                mask_path = tp.get('mask_paths', {}).get(self.image_type)
                 if mask_path and Path(mask_path).exists():
                     mask = imread(mask_path)
                     if mask.ndim == 3: mask = mask[:, :, 0]
                     img = self.apply_mean_fill(img, mask)
-
-            #img = np.clip(img / 255.0, 0, 1)
 
             if self.transform:
                 from PIL import Image
@@ -188,7 +185,7 @@ class OrganoidTimeSeriesDataset(Dataset):
                 img = np.array(img_pil).astype(np.float32) / 255.0
 
             images.append(img)
-            days_used.append(days[i])  # <— keep exactly the day for this frame
+            days_used.append(tp['mdl_day'])
 
         # stack to tensor (T,C,H,W)
         sequence = np.stack(images)
@@ -237,116 +234,33 @@ class OrganoidTimeSeriesDataset(Dataset):
 
 
 
-from collections import defaultdict
-import numpy as np
-import json
+def load_split_from_json(split_path):
+    """
+    Load a pre-made split JSON produced by scripts/split_series_reproducible.py.
 
-def load_data_and_create_splits(series_metadata_path, data_path,
-                                train_ratio=0.7, val_ratio=0.15, test_ratio=0.15,
-                                random_seed=42,
-                                min_good_votes=4,   # keep only confident labels
-                                min_total_votes=5):
-    with open(series_metadata_path) as f:
-        series_metadata = json.load(f)
-    with open(data_path) as f:
-        data = json.load(f)
-        
-    # ---- filter to only nosplit organoids ----
-    nosplit_series_metadata = {}
-    for oid, meta in series_metadata.items():
-        # Only keep those explicitly marked as nosplit or missing split_genealogy
-        sg = str(meta.get("split_genealogy", "")).lower()
-        if sg == "nosplit" or sg == "" or sg == "none":
-            nosplit_series_metadata[oid] = meta
+    Returns:
+        organoid_ids  - list of organoid_id strings
+        series_data   - dict {organoid_id: {label, n_votes_good, n_votes_total,
+                                            base_well, genealogy_type, n_timepoints,
+                                            timepoints: [{key, mdl_day, img_path,
+                                                          mask_path, ...}]}}
 
-    print(f"Filtered to {len(nosplit_series_metadata)} nosplit organoids out of {len(series_metadata)} total")
-    series_metadata = nosplit_series_metadata
+    Usage:
+        train_ids, train_data = load_split_from_json('data_splits/series_train.json')
+        val_ids,   val_data   = load_split_from_json('data_splits/series_val.json')
+        test_ids,  test_data  = load_split_from_json('data_splits/series_test.json')
 
+        train_dataset = OrganoidTimeSeriesDataset(train_ids, train_data, ...)
+    """
+    with open(split_path) as f:
+        series_data = json.load(f)
 
-    # ---- 1) keep only confidently labeled organoids (optional but recommended) ----
-    def hard_label(oid):
-        meta = series_metadata[oid]
-        s = str(meta.get("label","")).strip().lower()
-        # prefer vote counts if present
-        ng = int(meta.get("n_votes_good", -1))
-        nt = int(meta.get("n_votes_total", -1))
-        if nt >= min_total_votes and ng >= 0:
-            if ng >= min_good_votes: return 1
-            if (nt - ng) >= min_good_votes: return 0
-        # fallback to coarse label
-        if s in ("good","acceptable","accepted"): return 1
-        if s in ("bad","not acceptable","rejected","not_good"): return 0
-        return None
+    organoid_ids = list(series_data.keys())
 
-    labeled = []
-    labels  = {}
-    for oid in series_metadata.keys():
-        y = hard_label(oid)
-        if y is not None:
-            labeled.append(oid)
-            labels[oid] = y
+    labels = [series_data[oid]['label'] for oid in organoid_ids]
+    acc    = labels.count('Acceptable')
+    na     = labels.count('Not Acceptable')
+    print(f"Loaded {len(organoid_ids)} organoids from {split_path} "
+          f"({acc} Acceptable, {na} Not Acceptable)")
 
-    # ---- 2) group organoids by base_well_id (parent + all splits) ----
-    groups = defaultdict(list)
-    for oid in labeled:
-        gid = series_metadata[oid].get("base_well_id", oid)
-        groups[gid].append(oid)
-
-    # ---- 3) give each group a "group label" for stratification (majority of its members) ----
-    group_ids = list(groups.keys())
-    group_labels = []
-    for gid in group_ids:
-        ys = [labels[oid] for oid in groups[gid] if oid in labels]
-        # if mixed, use majority; if tie, just pick 0 to be conservative
-        if len(ys) == 0:
-            group_labels.append(None)
-        else:
-            maj = int(np.round(np.mean(ys)))  # >=0.5 → 1
-            group_labels.append(maj)
-
-    # keep only groups that have at least one labeled member
-    kept = [(g, y) for g, y in zip(group_ids, group_labels) if y is not None]
-    group_ids, group_labels = zip(*kept) if kept else ([], [])
-
-    # ---- 4) stratified shuffle split on groups ----
-    rng = np.random.RandomState(random_seed)
-    idx = np.arange(len(group_ids))
-    # stratify by label: shuffle positives and negatives separately, then interleave
-    pos_idx = idx[np.array(group_labels) == 1]
-    neg_idx = idx[np.array(group_labels) == 0]
-    rng.shuffle(pos_idx); rng.shuffle(neg_idx)
-    mixed = np.concatenate([pos_idx, neg_idx])
-    # simple shuffle that approximately preserves class balance
-    rng.shuffle(mixed)
-
-    n = len(mixed)
-    n_train = int(n * train_ratio)
-    n_val   = int(n * val_ratio)
-    train_g = [group_ids[i] for i in mixed[:n_train]]
-    val_g   = [group_ids[i] for i in mixed[n_train:n_train+n_val]]
-    test_g  = [group_ids[i] for i in mixed[n_train+n_val:]]
-
-    # ---- 5) expand group → organoid ids for each split ----
-    train_ids = [oid for g in train_g for oid in groups[g]]
-    val_ids   = [oid for g in val_g   for oid in groups[g]]
-    test_ids  = [oid for g in test_g  for oid in groups[g]]
-
-    # sanity: no leakage
-    assert set(train_ids).isdisjoint(val_ids)
-    assert set(train_ids).isdisjoint(test_ids)
-    assert set(val_ids).isdisjoint(test_ids)
-
-    # quick stats
-    def split_stats(ids):
-        ys = [labels[i] for i in ids if i in labels]
-        if len(ys)==0: return (0,0,0.0)
-        return (sum(ys), len(ys)-sum(ys), sum(ys)/len(ys))
-    gtr, btr, prtr = split_stats(train_ids)
-    gva, bva, prva = split_stats(val_ids)
-    gte, bte, prte = split_stats(test_ids)
-    print(f"Groups: {len(group_ids)}  | Train groups {len(train_g)}, Val {len(val_g)}, Test {len(test_g)}")
-    print(f"Train: {len(train_ids)} ids (good {gtr}, bad {btr}, pos {prtr:.2f})")
-    print(f"Val:   {len(val_ids)} ids (good {gva}, bad {bva}, pos {prva:.2f})")
-    print(f"Test:  {len(test_ids)} ids (good {gte}, bad {bte}, pos {prte:.2f})")
-
-    return train_ids, val_ids, test_ids, series_metadata, data
+    return organoid_ids, series_data
