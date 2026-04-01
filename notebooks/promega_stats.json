@@ -1,0 +1,295 @@
+{
+  "num_organoids": 475,
+  "organoid_distr": {
+    "3.0": 475,
+    "6.0": 475,
+    "8.0": 473,
+    "10.0": 470,
+    "13.0": 467,
+    "15.0": 462,
+    "17.0": 460,
+    "20.5": 461,
+    "24.0": 466,
+    "28.0": 460,
+    "30.0": 456
+  },
+  "num_records": 5168,
+  "num_images": 5168,
+  "image_distr": {
+    "3.0": 475,
+    "6.0": 475,
+    "8.0": 473,
+    "10.0": 470,
+    "13.0": 467,
+    "15.0": 462,
+    "17.0": 461,
+    "20.5": 466,
+    "24.0": 475,
+    "28.0": 474,
+    "30.0": 470
+  },
+  "num_masks_manual": 2090,
+  "masks_manual_distr": {
+    "3.0": 221,
+    "6.0": 210,
+    "8.0": 122,
+    "10.0": 162,
+    "13.0": 183,
+    "15.0": 170,
+    "17.0": 200,
+    "20.5": 184,
+    "24.0": 206,
+    "28.0": 219,
+    "30.0": 213
+  },
+  "num_masks_predicted": 5168,
+  "masks_predicted_distr": {
+    "3.0": 475,
+    "6.0": 475,
+    "8.0": 473,
+    "10.0": 470,
+    "13.0": 467,
+    "15.0": 462,
+    "17.0": 461,
+    "20.5": 466,
+    "24.0": 475,
+    "28.0": 474,
+    "30.0": 470
+  },
+  "num_labels": 2984,
+  "label_distr": {
+    "Acceptable": 2144,
+    "Not Acceptable": 840
+  },
+  "label_day_distr": {
+    "3.0": {
+      "Acceptable": 194,
+      "Not Acceptable": 76
+    },
+    "6.0": {
+      "Acceptable": 194,
+      "Not Acceptable": 76
+    },
+    "8.0": {
+      "Acceptable": 194,
+      "Not Acceptable": 76
+    },
+    "10.0": {
+      "Acceptable": 194,
+      "Not Acceptable": 76
+    },
+    "13.0": {
+      "Acceptable": 194,
+      "Not Acceptable": 76
+    },
+    "15.0": {
+      "Acceptable": 194,
+      "Not Acceptable": 76
+    },
+    "17.0": {
+      "Acceptable": 194,
+      "Not Acceptable": 76
+    },
+    "20.5": {
+      "Acceptable": 196,
+      "Not Acceptable": 76
+    },
+    "24.0": {
+      "Acceptable": 197,
+      "Not Acceptable": 77
+    },
+    "28.0": {
+      "Acceptable": 196,
+      "Not Acceptable": 79
+    },
+    "30.0": {
+      "Acceptable": 197,
+      "Not Acceptable": 76
+    }
+  },
+  "num_metabolites": 4154,
+  "metabolite_distr": {
+    "GlucoseGlo": 4154,
+    "GlutamateGlo": 4154,
+    "MalateGlo": 4154,
+    "BCAAGlo": 4154,
+    "LactateGlo": 4154,
+    "PyruvateGlo": 4154
+  },
+  "metabolite_day_distr": {
+    "3.0": {
+      "GlucoseGlo": 379,
+      "GlutamateGlo": 379,
+      "MalateGlo": 379,
+      "BCAAGlo": 379,
+      "LactateGlo": 379,
+      "PyruvateGlo": 379
+    },
+    "6.0": {
+      "GlucoseGlo": 379,
+      "GlutamateGlo": 379,
+      "MalateGlo": 379,
+      "BCAAGlo": 379,
+      "LactateGlo": 379,
+      "PyruvateGlo": 379
+    },
+    "8.0": {
+      "GlucoseGlo": 378,
+      "GlutamateGlo": 378,
+      "MalateGlo": 378,
+      "BCAAGlo": 378,
+      "LactateGlo": 378,
+      "PyruvateGlo": 378
+    },
+    "10.0": {
+      "GlucoseGlo": 377,
+      "GlutamateGlo": 377,
+      "MalateGlo": 377,
+      "BCAAGlo": 377,
+      "LactateGlo": 377,
+      "PyruvateGlo": 377
+    },
+    "13.0": {
+      "GlucoseGlo": 374,
+      "GlutamateGlo": 374,
+      "MalateGlo": 374,
+      "BCAAGlo": 374,
+      "LactateGlo": 374,
+      "PyruvateGlo": 374
+    },
+    "15.0": {
+      "GlucoseGlo": 371,
+      "GlutamateGlo": 371,
+      "MalateGlo": 371,
+      "BCAAGlo": 371,
+      "LactateGlo": 371,
+      "PyruvateGlo": 371
+    },
+    "17.0": {
+      "GlucoseGlo": 371,
+      "GlutamateGlo": 371,
+      "MalateGlo": 371,
+      "BCAAGlo": 371,
+      "LactateGlo": 371,
+      "PyruvateGlo": 371
+    },
+    "20.5": {
+      "GlucoseGlo": 376,
+      "GlutamateGlo": 376,
+      "MalateGlo": 376,
+      "BCAAGlo": 376,
+      "LactateGlo": 376,
+      "PyruvateGlo": 376
+    },
+    "24.0": {
+      "GlucoseGlo": 385,
+      "GlutamateGlo": 385,
+      "MalateGlo": 385,
+      "BCAAGlo": 385,
+      "LactateGlo": 385,
+      "PyruvateGlo": 385
+    },
+    "28.0": {
+      "GlucoseGlo": 384,
+      "GlutamateGlo": 384,
+      "MalateGlo": 384,
+      "BCAAGlo": 384,
+      "LactateGlo": 384,
+      "PyruvateGlo": 384
+    },
+    "30.0": {
+      "GlucoseGlo": 380,
+      "GlutamateGlo": 380,
+      "MalateGlo": 380,
+      "BCAAGlo": 380,
+      "LactateGlo": 380,
+      "PyruvateGlo": 380
+    }
+  },
+  "num_surveys": 393,
+  "survey_day_distr": {
+    "28.0": 24,
+    "30.0": 369
+  },
+  "survey_vote_distr": {
+    "Acceptable": 1356,
+    "Not Acceptable": 749
+  },
+  "survey_votes_by_day": {
+    "28.0": {
+      "Acceptable": 77,
+      "Not Acceptable": 43
+    },
+    "30.0": {
+      "Not Acceptable": 706,
+      "Acceptable": 1279
+    }
+  },
+  "label_day_coverage_distr": {
+    "10": 3,
+    "11": 267
+  },
+  "metabolite_value_stats": {
+    "BCAAGlo": {
+      "count": 4154.0,
+      "min": -0.089,
+      "max": 35.479,
+      "mean": 8.956,
+      "std": 7.115
+    },
+    "GlucoseGlo": {
+      "count": 4154.0,
+      "min": -0.095,
+      "max": 19.92,
+      "mean": 11.725,
+      "std": 2.621
+    },
+    "GlutamateGlo": {
+      "count": 4154.0,
+      "min": -0.037,
+      "max": 22.902,
+      "mean": 1.304,
+      "std": 0.875
+    },
+    "LactateGlo": {
+      "count": 4154.0,
+      "min": 0.012,
+      "max": 46.68,
+      "mean": 9.709,
+      "std": 6.28
+    },
+    "MalateGlo": {
+      "count": 4154.0,
+      "min": -5662.321,
+      "max": 26.818,
+      "mean": -57.595,
+      "std": 407.614
+    },
+    "PyruvateGlo": {
+      "count": 4154.0,
+      "min": -0.462,
+      "max": 9.232,
+      "mean": 2.773,
+      "std": 0.865
+    }
+  },
+  "survey_consensus_distr": {
+    "5-0": 156,
+    "4-1": 128,
+    "3-2": 81,
+    "8-2": 6,
+    "10-0": 12,
+    "9-1": 5,
+    "6-4": 2,
+    "5-5": 1,
+    "7-3": 2
+  },
+  "label_survey_agreement": {
+    "total": 286,
+    "agreed": 286,
+    "disagreed": 0,
+    "no_majority": 0,
+    "agreement_pct": 100.0
+  },
+  "num_fully_annotated": 286
+}
