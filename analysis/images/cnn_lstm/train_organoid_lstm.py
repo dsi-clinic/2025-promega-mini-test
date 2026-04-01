@@ -16,13 +16,11 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
     load_split_from_json,
-    compute_global_mean_from_ids
 )
 from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 
@@ -121,18 +119,10 @@ def main():
     val_ids,   val_meta   = load_split_from_json('data_splits/series_val.json')
     test_ids,  test_meta  = load_split_from_json('data_splits/series_test.json')
 
-    # Compute global mean from training set
-    print("\nComputing global mean from training set...")
-    global_mean = compute_global_mean_from_ids(train_ids, train_meta)
-
-    # Save
-    np.save(output_dir / 'global_mean.npy', global_mean)
-    print(f"Saved global mean to {output_dir / 'global_mean.npy'}")
-
-    # Create datasets
-    train_dataset = OrganoidTimeSeriesDataset(train_ids, train_meta, global_mean=global_mean)
-    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   val_meta,   global_mean=global_mean)
-    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  test_meta,  global_mean=global_mean)
+    # Create datasets (clipped images are already meanfill-processed on disk)
+    train_dataset = OrganoidTimeSeriesDataset(train_ids, train_meta)
+    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   val_meta)
+    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  test_meta)
 
     # Create dataloaders (no changes)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
