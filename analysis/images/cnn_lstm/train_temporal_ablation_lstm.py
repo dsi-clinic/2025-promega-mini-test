@@ -3,7 +3,7 @@ Temporal ablation with EfficientNet features + Temporal Attention (BCE) + LSTM?
 Run: python analysis/images/cnn_lstm/train_temporal_ablation_attn.py
 """
 
-import sys, json, math
+import sys, json, math, argparse
 import os, random
 from pathlib import Path
 from sklearn.metrics import confusion_matrix
@@ -196,7 +196,7 @@ def evaluate_binary(model, loader, criterion, device):
 
 # -------------- Training (one day range) --------------
 def train_for_day_range(max_day, train_ids, val_ids, test_ids,
-                        train_meta, val_meta, test_meta, global_mean, device, output_dir):
+                        train_meta, val_meta, test_meta, device, output_dir, image_type='clipped'):
     print(f"\n{'='*70}\nTRAINING WITH DAYS 3–{max_day}\n{'='*70}")
 
     # ---- ADD/REPLACE THIS SECTION ----
@@ -217,9 +217,9 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         transforms.Resize((384, 384), interpolation=BILINEAR),
     ])
 
-    train_dataset = OrganoidTimeSeriesDataset(train_ids, train_meta, global_mean=global_mean, max_day=max_day, transform=train_tf)
-    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   val_meta,   global_mean=global_mean, max_day=max_day, transform=eval_tf)
-    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  test_meta,  global_mean=global_mean, max_day=max_day, transform=eval_tf)
+    train_dataset = OrganoidTimeSeriesDataset(train_ids, train_meta, max_day=max_day, transform=train_tf, image_type=image_type)
+    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   val_meta,   max_day=max_day, transform=eval_tf, image_type=image_type)
+    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  test_meta,  max_day=max_day, transform=eval_tf, image_type=image_type)
 
     pin = (device.type == "cuda")
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
@@ -424,11 +424,18 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
 # -------------- Orchestrator --------------
 def main():
+    parser = argparse.ArgumentParser(description='Temporal ablation: LSTM pool')
+    parser.add_argument('--output-dir', type=str, default='outputs/cnn_lstm/temporal_ablation_lstm',
+                        help='Output directory')
+    parser.add_argument('--image-type', type=str, default='clipped', choices=['clipped', 'std'],
+                        help='Image variant: clipped (575x575 AR meanfill) or std (512x384)')
+    args = parser.parse_args()
+
     set_seed(SEED)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    out_dir = Path('outputs/cnn_lstm/temporal_ablation_lstm')
+    out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving outputs to: {out_dir}")
 
@@ -439,15 +446,7 @@ def main():
     train_ids, train_meta = load_split_from_json('data_splits/series_train.json')
     val_ids,   val_meta   = load_split_from_json('data_splits/series_val.json')
     test_ids,  test_meta  = load_split_from_json('data_splits/series_test.json')
-
-    global_mean_path = Path('outputs/cnn_lstm/global_mean.npy')
-    if not global_mean_path.exists():
-        raise FileNotFoundError(
-            f"Global mean not found at {global_mean_path}. "
-            "Run your main training to create it or compute it separately."
-        )
-    global_mean = np.load(global_mean_path)
-    print(f"Loaded global mean: {global_mean}")
+    print(f"Using image type: {args.image_type}")
 
     print("\n" + "="*70)
     print("STARTING TEMPORAL ABLATION (LSTM POOL)")
@@ -457,8 +456,9 @@ def main():
     for max_day in DAY_RANGES:
         res = train_for_day_range(
             max_day, train_ids, val_ids, test_ids,
-            train_meta, val_meta, test_meta, global_mean, device,
-            out_dir / f"days_3-{max_day}"
+            train_meta, val_meta, test_meta, device,
+            out_dir / f"days_3-{max_day}",
+            image_type=args.image_type
         )
         results.append(res)
 
