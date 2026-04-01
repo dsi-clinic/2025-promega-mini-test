@@ -1,20 +1,15 @@
 import torch
 import json
 from pathlib import Path
-from analysis.images.cnn_lstm.organoid_dataset import OrganoidTimeSeriesDataset, load_data_and_create_splits
+from analysis.images.cnn_lstm.organoid_dataset import OrganoidTimeSeriesDataset, load_split_from_json
 from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
-from config import OUTPUT_FOLDER
 
 # Setup
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-output_dir = OUTPUT_FOLDER / 'cnn_lstm'
+output_dir = Path('outputs/cnn_lstm')
 
 # Load data splits
-series_metadata_path = OUTPUT_FOLDER / 'complete_series_metadata_no_blanks.json'
-data_path = OUTPUT_FOLDER / 'complete_series_data_no_blanks.json'
-train_ids, val_ids, test_ids, series_metadata, data = load_data_and_create_splits(
-    series_metadata_path, data_path, random_seed=42  # Same seed as training!
-)
+test_ids, series_metadata = load_split_from_json('data_splits/series_test.json')
 
 # Load model
 model = OrganoidCNN_LSTM(num_classes=2, lstm_hidden=256, lstm_layers=2).to(device)
@@ -34,7 +29,7 @@ misclassified = {
 
 with torch.no_grad():
     for org_id in test_ids:
-        dataset = OrganoidTimeSeriesDataset([org_id], series_metadata, data)
+        dataset = OrganoidTimeSeriesDataset([org_id], series_metadata)
         images, label = dataset[0]
         images = images.unsqueeze(0).to(device)
         

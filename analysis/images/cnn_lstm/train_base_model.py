@@ -34,7 +34,6 @@ from sklearn.metrics import (
     confusion_matrix
 )
 
-from config import OUTPUT_FOLDER
 from analysis.images.cnn_lstm.organoid_dataset import load_split_from_json
 
 # -------- Config --------
@@ -399,7 +398,7 @@ def main():
     device = torch.device(DEVICE)
     print(f"Using device: {device}")
     
-    out_dir = OUTPUT_FOLDER / "base_models" / "base_effnet"
+    out_dir = Path('outputs/base_models/base_effnet')
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {out_dir}")
     

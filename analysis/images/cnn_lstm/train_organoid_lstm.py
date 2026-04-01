@@ -19,7 +19,6 @@ from tqdm import tqdm
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 
-from config import OUTPUT_FOLDER
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
     load_split_from_json,
@@ -100,18 +99,15 @@ def main():
     parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
     parser.add_argument('--lstm-hidden', type=int, default=256, help='LSTM hidden size')
     parser.add_argument('--lstm-layers', type=int, default=2, help='Number of LSTM layers')
-    parser.add_argument('--output-dir', type=str, default=None, help='Output directory (default: OUTPUT_FOLDER/cnn_lstm)')
+    parser.add_argument('--output-dir', type=str, default='outputs/cnn_lstm', help='Output directory')
     args = parser.parse_args()
-    
+
     # Setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-    
+
     # Set output directory
-    if args.output_dir:
-        output_dir = Path(args.output_dir)
-    else:
-        output_dir = OUTPUT_FOLDER / 'cnn_lstm'
+    output_dir = Path(args.output_dir)
     
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving outputs to: {output_dir}")

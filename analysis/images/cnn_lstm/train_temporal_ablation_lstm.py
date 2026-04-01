@@ -25,7 +25,6 @@ from torchvision import models, transforms
 from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 from sklearn.metrics import precision_recall_fscore_support
 
-from config import OUTPUT_FOLDER
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
     load_split_from_json,
@@ -429,7 +428,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    out_dir = OUTPUT_FOLDER / "cnn_lstm" / "temporal_ablation_lstm"
+    out_dir = Path('outputs/cnn_lstm/temporal_ablation_lstm')
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving outputs to: {out_dir}")
 
@@ -441,7 +440,7 @@ def main():
     val_ids,   val_meta   = load_split_from_json('data_splits/series_val.json')
     test_ids,  test_meta  = load_split_from_json('data_splits/series_test.json')
 
-    global_mean_path = OUTPUT_FOLDER / "cnn_lstm" / "global_mean.npy"
+    global_mean_path = Path('outputs/cnn_lstm/global_mean.npy')
     if not global_mean_path.exists():
         raise FileNotFoundError(
             f"Global mean not found at {global_mean_path}. "
