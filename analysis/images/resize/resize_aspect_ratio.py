@@ -4,8 +4,13 @@ import argparse
 import dataclasses
 import json
 import logging
+import sys
 from pathlib import Path
+from pathlib import Path as _Path
 from typing import Any, Dict, Tuple
+
+sys.path.insert(0, str(_Path(__file__).parent.parent))
+from preprocessing.stitched_image_preprocessing import remove_red_scalebar, remove_corner_blackbox
 
 import cv2
 import numpy as np
@@ -312,6 +317,12 @@ def main() -> None:
                 interpolation=cv2.INTER_LINEAR,
             )
 
+            # 2b) Remove stitching artifacts (scalebar, black corners) for stitched images
+            if '_stitched' in main_id.lower():
+                img_rgb = img_scaled[:, :, ::-1]  # BGR → RGB
+                img_rgb = remove_red_scalebar(img_rgb)
+                img_rgb = remove_corner_blackbox(img_rgb)
+                img_scaled = img_rgb[:, :, ::-1]  # RGB → BGR
 
             # 3) Pad to square
             img_final = pad_to_square_image(img_scaled, args.target_size)

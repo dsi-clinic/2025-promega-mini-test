@@ -1,13 +1,15 @@
+import numpy as np
+from PIL import Image
 from scipy.interpolate import interp1d
-from skimage.restoration import inpaint
 from simple_lama_inpainting import SimpleLama
+from skimage.restoration import inpaint
 
 def remove_red_scalebar(img):
     img_remove_red = img.copy()
     diff = img[:,:,0] - img[:,:,1]
     mask = diff >0
     # print(mask.shape)
-    r_ch = img[:,:,0]    
+    r_ch = img[:,:,0]
     out = inpaint.inpaint_biharmonic(r_ch, mask)
     img_remove_red[:,:,0] = out*255
     img_remove_red[:,:,1] = out*255
@@ -23,10 +25,6 @@ def fill_edge_line(x,mask_missing):
     x_filled = x.copy()
     x_filled[mask_missing] = f(t[mask_missing])
     return x_filled
-
-from simple_lama_inpainting import SimpleLama
-from PIL import Image
-import numpy as np
 
 def remove_corner_blackbox(img):
     img_remove_black = img.copy()

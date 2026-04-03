@@ -191,12 +191,13 @@ def train_for_day(day, train_df, val_df, test_df, config, output_dir,
     cm = test_res['confusion_matrix']
     with open(day_dir / 'metrics_test.json', 'w') as f:
         json.dump({
-            'day':              day,
-            'test_acc':         float(test_res['acc']),
-            'test_f1':          float(test_res['f1']),
-            'test_recall':      float(test_res['recall']),
-            'test_precision':   float(test_res['precision']),
-            'test_specificity': float(test_res['specificity']),
+            'day':                  day,
+            'test_acc':             float(test_res['acc']),
+            'test_balanced_acc':    float(test_res['balanced_acc']),
+            'test_f1':              float(test_res['f1']),
+            'test_recall':          float(test_res['recall']),
+            'test_precision':       float(test_res['precision']),
+            'test_specificity':     float(test_res['specificity']),
             'test_auc':         float(test_res['auc']) if test_res['auc'] else None,
             'test_pr_auc':      float(test_res['pr_auc']) if test_res['pr_auc'] else None,
             'test_acc_opt':     float(test_res['acc_opt']),
@@ -216,16 +217,17 @@ def train_for_day(day, train_df, val_df, test_df, config, output_dir,
     plt.close()
 
     return {
-        'day':              day,
-        'day_no':           day_to_int(day),
-        'val_acc':          best_val_acc,
-        'test_acc':         test_res['acc'],
-        'test_f1':          test_res['f1'],
-        'test_recall':      test_res['recall'],
-        'test_precision':   test_res['precision'],
-        'test_specificity': test_res['specificity'],
-        'test_auc':         test_res['auc'],
-        'confusion_matrix': cm,
+        'day':                  day,
+        'day_no':               day_to_int(day),
+        'val_acc':              best_val_acc,
+        'test_acc':             test_res['acc'],
+        'test_balanced_acc':    test_res['balanced_acc'],
+        'test_f1':              test_res['f1'],
+        'test_recall':          test_res['recall'],
+        'test_precision':       test_res['precision'],
+        'test_specificity':     test_res['specificity'],
+        'test_auc':             test_res['auc'],
+        'confusion_matrix':     cm,
     }
 
 
@@ -340,6 +342,7 @@ def main():
             'Day': day, 'Day_No': res['day_no'],
             'Backbone': config['backbone'],
             'Test_Accuracy': res['test_acc'],
+            'Test_Balanced_Acc': res['test_balanced_acc'],
             'Test_F1': res['test_f1'],
             'Test_Recall': res['test_recall'],
             'Test_Precision': res['test_precision'],
@@ -365,8 +368,9 @@ def main():
         Use_Metabolites=config['use_metabolites'],
     )
     col_order = ['Model_ID', 'Backbone', 'Input_Mode', 'Fusion_Strategy', 'Use_Metabolites',
-                 'Day', 'Day_No', 'Test_Accuracy', 'Test_F1', 'Test_Recall', 'Test_Precision',
-                 'Test_Specificity', 'Test_ROC_AUC', 'TP', 'FP', 'TN', 'FN']
+                 'Day', 'Day_No', 'Test_Accuracy', 'Test_Balanced_Acc', 'Test_F1',
+                 'Test_Recall', 'Test_Precision', 'Test_Specificity', 'Test_ROC_AUC',
+                 'TP', 'FP', 'TN', 'FN']
     summary = summary[col_order]
 
     overall_dir = output_dir.parent / 'overall'

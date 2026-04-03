@@ -533,12 +533,16 @@ def _compute_metrics(preds: np.ndarray, labels: np.ndarray) -> dict:
         acc_opt = accuracy_score(labels, preds_opt)
         f1_opt  = f1_score(labels, preds_opt, zero_division=0)
 
+    recall = recall_score(labels, preds_bin, zero_division=0)
+    balanced_acc = (recall + specificity) / 2.0
+
     return {
-        'acc':        accuracy_score(labels, preds_bin),
-        'f1':         f1_score(labels, preds_bin, zero_division=0),
-        'recall':     recall_score(labels, preds_bin, zero_division=0),
-        'precision':  precision_score(labels, preds_bin, zero_division=0),
-        'specificity': specificity,
+        'acc':          accuracy_score(labels, preds_bin),
+        'balanced_acc': balanced_acc,
+        'f1':           f1_score(labels, preds_bin, zero_division=0),
+        'recall':       recall,
+        'precision':    precision_score(labels, preds_bin, zero_division=0),
+        'specificity':  specificity,
         'auc':        roc_auc_score(labels, preds) if len(np.unique(labels)) > 1 else None,
         'pr_auc':     average_precision_score(labels, preds) if len(np.unique(labels)) > 1 else None,
         'acc_opt':    acc_opt,
