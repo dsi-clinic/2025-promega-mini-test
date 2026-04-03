@@ -16,11 +16,11 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from analysis.data_loader import CONDITIONAL_METABOLITES, OrganoidDataset, _get_day_number
+from analysis.data_loader import CONDITIONAL_METABOLITES, FIGURE_DIR, OrganoidDataset, _get_day_number
 
 ALL_DATA_PATH = "data/all_data.json"
-SPLITS_CSV = "data/organoid_splits.csv"
-OUTPUT_DIR = Path("analysis/outputs/figures")
+SPLITS_CSV = "data/2026_winter_student_splits.csv"
+OUTPUT_DIR = FIGURE_DIR
 
 METABOLITE_NAMES = [
     "GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "MalateGlo"
@@ -35,7 +35,7 @@ DISPLAY_NAMES = {
 
 
 def main():
-    ds = OrganoidDataset(ALL_DATA_PATH, SPLITS_CSV)
+    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
 
     # Collect all concentration values across all organoids and days
     rows = []

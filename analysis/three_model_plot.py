@@ -15,14 +15,11 @@ Usage:
 """
 
 import json
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from analysis.data_loader import DAY_ORDER
-
-FIGURE_DIR = Path("analysis/outputs/figures")
+from analysis.data_loader import ANALYSIS_OUTPUT_DIR, DAY_ORDER, FIGURE_DIR
 
 
 def load_results(path):
@@ -33,9 +30,9 @@ def load_results(path):
 
 
 def main():
-    img_results = load_results(Path("analysis/outputs/images/perday_results.json"))
-    met_results = load_results(Path("analysis/outputs/metabolites/results.json"))
-    combined_results = load_results(Path("analysis/outputs/combined/results.json"))
+    img_results = load_results(ANALYSIS_OUTPUT_DIR / "images" / "perday_results.json")
+    met_results = load_results(ANALYSIS_OUTPUT_DIR / "metabolites" / "results.json")
+    combined_results = load_results(ANALYSIS_OUTPUT_DIR / "combined" / "results.json")
 
     if not img_results and not met_results:
         print("No results found.")

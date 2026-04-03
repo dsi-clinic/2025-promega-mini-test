@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-One-time script to produce data/organoid_splits.csv from all_data.json.
+One-time script to produce a splits CSV from all_data.json.
 
 Applies the paper's default filters (BA1+BA2, complete metabolites, 4/5
 consensus labels at Dy30), then performs stratified organoid-level splitting:
@@ -45,7 +45,7 @@ DEFAULT_SEED = 42
 
 # Paths (relative to repo root)
 ALL_DATA_PATH = Path("data/all_data.json")
-OUTPUT_PATH = Path("data/organoid_splits.csv")
+OUTPUT_PATH = Path("data/2026_winter_student_splits.csv")
 
 
 # ---------------------------------------------------------------------------

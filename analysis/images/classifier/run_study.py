@@ -40,7 +40,7 @@ from sklearn.metrics import (
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 
-from analysis.data_loader import DAY_ORDER, OrganoidDataset
+from analysis.data_loader import ANALYSIS_OUTPUT_DIR, DAY_ORDER, FIGURE_DIR, OrganoidDataset
 
 # Suppress warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -48,9 +48,8 @@ os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
 SEED = 1  # student code used seed=1 for image models
 ALL_DATA_PATH = "data/all_data.json"
-SPLITS_CSV = "data/organoid_splits.csv"
-OUTPUT_DIR = Path("analysis/outputs/images")
-FIGURE_DIR = Path("analysis/outputs/figures")
+SPLITS_CSV = "data/2026_winter_student_splits.csv"
+OUTPUT_DIR = ANALYSIS_OUTPUT_DIR / "images"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -419,7 +418,7 @@ def main():
     args = parser.parse_args()
 
     set_seed(SEED)
-    ds = OrganoidDataset(ALL_DATA_PATH, SPLITS_CSV)
+    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
     print(ds.summary())
     print(f"Device: {DEVICE}")
 

@@ -7,16 +7,14 @@
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 
-set -euo pipefail
+set -eo pipefail
 
-PROJ_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+PROJ_ROOT="/home/nickross/2025-promega-mini-test"
 CONDA_PREFIX=/net/projects2/promega
 
 mkdir -p "${PROJ_ROOT}/logs"
 
-if command -v module >/dev/null 2>&1; then
-  module purge
-fi
+module purge 2>/dev/null || true
 
 echo "Project root: ${PROJ_ROOT}"
 echo "Conda prefix: ${CONDA_PREFIX}"
@@ -24,6 +22,7 @@ nvidia-smi || true
 
 cd "${PROJ_ROOT}"
 export PYTHONPATH=.
+export ANALYSIS_OUTPUT_DIR=/net/projects2/promega/analysis_output
 
 echo "=== Running per-day image study ==="
 "${CONDA_PREFIX}/bin/python" -u -m analysis.images.classifier.run_study "$@"

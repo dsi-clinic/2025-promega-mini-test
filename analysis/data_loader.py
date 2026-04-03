@@ -1,22 +1,29 @@
 """
 Core runtime data loader for paper reproducibility.
 
-Loads all_data.json + organoid_splits.csv and provides composable filters
-and label derivation. Everything except split assignment is derived at runtime
-from all_data.json, making it trivial to swap filters for new experiments.
+Loads all_data.json, applies composable filters, derives labels, and assigns
+splits. Splits can come from a CSV file or be generated at runtime.
 
 Usage:
     from analysis.data_loader import OrganoidDataset, default_filters, paper_label_fn
 
-    ds = OrganoidDataset("data/all_data.json", "data/organoid_splits.csv")
-    ds.summary()
+    # From a CSV:
+    ds = OrganoidDataset("data/all_data.json",
+                         splits_csv="data/2026_winter_student_splits.csv")
 
+    # Random stratified split at runtime:
+    ds = OrganoidDataset("data/all_data.json",
+                         split_ratios={"train": 0.72, "val": 0.08, "test": 0.20},
+                         split_seed=42)
+
+    ds.summary()
     train = ds.get_split("train", day="Dy13")
     X, y, ids = ds.get_metabolite_features("train", day="Dy13")
 """
 
 import csv
 import json
+import os
 import re
 import warnings
 from collections import Counter
@@ -24,6 +31,13 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
+
+# ---------------------------------------------------------------------------
+# Output directory (set ANALYSIS_OUTPUT_DIR env var before running)
+# ---------------------------------------------------------------------------
+
+ANALYSIS_OUTPUT_DIR = Path(os.environ["ANALYSIS_OUTPUT_DIR"])
+FIGURE_DIR = ANALYSIS_OUTPUT_DIR / "figures"
 
 # ---------------------------------------------------------------------------
 # Constants matching the paper
@@ -225,28 +239,41 @@ def default_filters() -> List[Callable]:
 # ---------------------------------------------------------------------------
 
 class OrganoidDataset:
-    """Runtime dataset built from all_data.json + split CSV.
+    """Runtime dataset built from all_data.json with flexible split assignment.
 
     Groups records by organoid, applies filters, derives labels, and provides
     accessors for metabolite features and image paths by split and day.
+
+    Split assignment can come from:
+      - A CSV file (splits_csv): only organoids in the CSV are included.
+      - Runtime generation (split_ratios + split_seed): stratified random split
+        over all organoids that pass filters and have a valid label.
     """
 
     def __init__(
         self,
         all_data_path: str,
-        splits_csv_path: str,
+        splits_csv: Optional[str] = None,
+        split_ratios: Optional[Dict[str, float]] = None,
+        split_seed: int = 42,
         filters: Optional[List[Callable]] = None,
         label_fn: Optional[Callable] = None,
     ):
+        if splits_csv is None and split_ratios is None:
+            raise ValueError("Provide either splits_csv or split_ratios")
+        if splits_csv is not None and split_ratios is not None:
+            raise ValueError("Provide splits_csv or split_ratios, not both")
+
         self.all_data_path = Path(all_data_path)
-        self.splits_csv_path = Path(splits_csv_path)
+        self.splits_csv = Path(splits_csv) if splits_csv else None
+        self.split_ratios = split_ratios
+        self.split_seed = split_seed
         self.filters = filters if filters is not None else default_filters()
         self.label_fn = label_fn or paper_label_fn
 
         # Load sources
         with open(self.all_data_path) as f:
             self.all_data: dict = json.load(f)
-        self._csv_splits = self._load_splits_csv()
 
         # Build dataset
         self._organoids: Dict[str, dict] = {}  # org_id → {label, split, records}
@@ -254,61 +281,122 @@ class OrganoidDataset:
 
     # -- construction --------------------------------------------------------
 
-    def _load_splits_csv(self) -> Dict[str, str]:
+    @staticmethod
+    def _load_splits_csv(path: Path) -> Dict[str, str]:
         """Load CSV → {organoid_id: split}."""
         splits = {}
-        with open(self.splits_csv_path, newline="") as f:
+        with open(path, newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 splits[row["organoid_id"]] = row["split"]
         return splits
 
+    def _stratified_split(
+        self, org_labels: Dict[str, str]
+    ) -> Dict[str, str]:
+        """Assign organoids to splits via stratified random split."""
+        rng = np.random.RandomState(self.split_seed)
+        split_names = list(self.split_ratios.keys())
+        # Group by label for stratification
+        by_label: Dict[str, List[str]] = {}
+        for org_id, label in org_labels.items():
+            by_label.setdefault(label, []).append(org_id)
+
+        assignments: Dict[str, str] = {}
+        for label, ids in by_label.items():
+            shuffled = list(ids)
+            rng.shuffle(shuffled)
+            n = len(shuffled)
+            boundaries = []
+            cumulative = 0.0
+            for name in split_names[:-1]:
+                cumulative += self.split_ratios[name]
+                boundaries.append(int(round(cumulative * n)))
+            boundaries.append(n)
+
+            start = 0
+            for name, end in zip(split_names, boundaries):
+                for org_id in shuffled[start:end]:
+                    assignments[org_id] = name
+                start = end
+        return assignments
+
     def _build(self):
         """Group all_data records by organoid, apply filters, derive labels."""
         # Step 1: group records by organoid_id
-        grouped: Dict[str, Dict[str, dict]] = {}  # org_id → {canonical_day: record}
+        grouped: Dict[str, Dict[str, dict]] = {}
         for key, rec in self.all_data.items():
             org_id = _extract_organoid_id(key)
             day_raw = rec.get("dayID", "")
             day = _canonicalize_day(day_raw)
             grouped.setdefault(org_id, {})[day] = rec
 
-        # Step 2: keep only organoids present in the CSV
-        csv_ids = set(self._csv_splits.keys())
-        dropped_not_in_csv = 0
+        if self.splits_csv is not None:
+            self._build_from_csv(grouped)
+        else:
+            self._build_from_ratios(grouped)
+
+    def _build_from_csv(self, grouped: Dict[str, Dict[str, dict]]):
+        """Build using pre-assigned splits from CSV."""
+        csv_splits = self._load_splits_csv(self.splits_csv)
+        csv_ids = set(csv_splits.keys())
 
         for org_id, records in grouped.items():
             if org_id not in csv_ids:
                 continue
 
-            # Step 3: apply filters
             keep = True
             for filt in self.filters:
                 if not filt(org_id, records):
                     keep = False
                     break
             if not keep:
-                dropped_not_in_csv += 1
                 continue
 
-            # Step 4: derive label
             label = self.label_fn(org_id, records)
             if label is None:
-                dropped_not_in_csv += 1
                 continue
 
             self._organoids[org_id] = {
                 "label": label,
-                "split": self._csv_splits[org_id],
+                "split": csv_splits[org_id],
                 "records": records,
             }
 
-        # Warn about CSV organoids that got dropped by filters
         csv_only = csv_ids - set(self._organoids.keys())
         if csv_only:
             warnings.warn(
                 f"{len(csv_only)} organoids in CSV were dropped by filters/label derivation"
             )
+
+    def _build_from_ratios(self, grouped: Dict[str, Dict[str, dict]]):
+        """Build by filtering first, then generating stratified splits."""
+        # First pass: filter and derive labels
+        eligible: Dict[str, Tuple[str, dict]] = {}  # org_id → (label, records)
+        for org_id, records in grouped.items():
+            keep = True
+            for filt in self.filters:
+                if not filt(org_id, records):
+                    keep = False
+                    break
+            if not keep:
+                continue
+
+            label = self.label_fn(org_id, records)
+            if label is None:
+                continue
+            eligible[org_id] = (label, records)
+
+        # Generate splits
+        org_labels = {org_id: lbl for org_id, (lbl, _) in eligible.items()}
+        assignments = self._stratified_split(org_labels)
+
+        for org_id, (label, records) in eligible.items():
+            self._organoids[org_id] = {
+                "label": label,
+                "split": assignments[org_id],
+                "records": records,
+            }
 
     # -- accessors -----------------------------------------------------------
 
@@ -535,7 +623,8 @@ class OrganoidDataset:
         lines = []
         lines.append(f"OrganoidDataset: {len(self._organoids)} organoids")
         lines.append(f"  Source: {self.all_data_path}")
-        lines.append(f"  Splits CSV: {self.splits_csv_path}")
+        splits_label = str(self.splits_csv) if self.splits_csv else f"runtime (seed={self.split_seed})"
+        lines.append(f"  Splits: {splits_label}")
         lines.append(f"  Days: {', '.join(self.days)}")
         lines.append("")
 

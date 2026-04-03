@@ -15,6 +15,7 @@
 
 # -------- Configuration --------
 DATA_DIR           ?= /net/projects2/promega/data_reorg/data
+ANALYSIS_OUTPUT_DIR ?= /net/projects2/promega/analysis_output
 PYTHON             ?= conda run --no-capture-output -p /net/projects2/promega python3
 PYTHON_MMCV        ?= conda run --no-capture-output -p /net/scratch2/ntebaldi/conda_envs/mmcv_env python
 PYTHONPATH         := $(shell pwd)
@@ -102,7 +103,7 @@ SEED               ?= 1
 #        make run ARGS="scripts/my_script.py --flag value"
 ARGS ?=
 run:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) $(ARGS)
+	PYTHONPATH=$(PYTHONPATH) ANALYSIS_OUTPUT_DIR=$(ANALYSIS_OUTPUT_DIR) $(PYTHON) $(ARGS)
 
 .PHONY: seg-train-early seg-train-late
 

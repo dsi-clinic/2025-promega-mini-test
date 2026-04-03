@@ -19,9 +19,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from analysis.data_loader import FIGURE_DIR
+
 ALL_DATA_PATH = Path("data/all_data.json")
-SPLITS_CSV = Path("data/organoid_splits.csv")
-OUTPUT_DIR = Path("analysis/outputs/figures")
+SPLITS_CSV = Path("data/2026_winter_student_splits.csv")
+OUTPUT_DIR = FIGURE_DIR
 
 METABOLITE_NAMES = [
     "GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "MalateGlo"
@@ -68,7 +70,7 @@ def main():
 
     # --- Load splits dataset for label distribution ---
     from analysis.data_loader import OrganoidDataset
-    ds = OrganoidDataset(str(ALL_DATA_PATH), str(SPLITS_CSV))
+    ds = OrganoidDataset(str(ALL_DATA_PATH), splits_csv=str(SPLITS_CSV))
     print(f"\n--- Filtered dataset (paper config) ---")
     print(ds.summary())
 

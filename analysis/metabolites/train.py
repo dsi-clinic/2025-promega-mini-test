@@ -40,7 +40,9 @@ from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold
 from sklearn.preprocessing import StandardScaler
 
 from analysis.data_loader import (
+    ANALYSIS_OUTPUT_DIR,
     DAY_ORDER,
+    FIGURE_DIR,
     OrganoidDataset,
 )
 
@@ -48,9 +50,8 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 SEED = 42
 ALL_DATA_PATH = "data/all_data.json"
-SPLITS_CSV = "data/organoid_splits.csv"
-OUTPUT_DIR = Path("analysis/outputs/metabolites")
-FIGURE_DIR = Path("analysis/outputs/figures")
+SPLITS_CSV = "data/2026_winter_student_splits.csv"
+OUTPUT_DIR = ANALYSIS_OUTPUT_DIR / "metabolites"
 
 # LightGBM hyperparameter grid (compact, matching student code)
 LGBM_PARAM_GRID = {
@@ -475,7 +476,7 @@ def main():
                         help="Skip LightGBM")
     args = parser.parse_args()
 
-    ds = OrganoidDataset(ALL_DATA_PATH, SPLITS_CSV)
+    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
     print(ds.summary())
 
     days_to_train = args.days if args.days else DAY_ORDER

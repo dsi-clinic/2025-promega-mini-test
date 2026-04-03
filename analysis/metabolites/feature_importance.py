@@ -13,13 +13,13 @@ Usage:
 """
 
 import json
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-RESULTS_PATH = Path("analysis/outputs/metabolites/results.json")
-FIGURE_DIR = Path("analysis/outputs/figures")
+from analysis.data_loader import ANALYSIS_OUTPUT_DIR, FIGURE_DIR
+
+RESULTS_PATH = ANALYSIS_OUTPUT_DIR / "metabolites" / "results.json"
 
 # Days shown in the paper's feature importance figure
 SELECTED_DAYS = ["Dy06", "Dy15", "Dy24", "Dy30"]

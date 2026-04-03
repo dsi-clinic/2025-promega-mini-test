@@ -1,0 +1,76 @@
+ Thanks for sharing the first draft — the team has done a really solid job. Stevens and I both want to share our combined feedback, along with some questions from Jolanta Vidugiriene on the Promega side, who reviewed the presentation slides.
+
+ 
+
+Before diving in: most of this feedback is ready to act on now. The one exception is the BCAA and malate reincorporation, which we'd ask you to hold until we've had a brief alignment conversation — explained below. Everything else can move forward in parallel.
+
+ 
+
+Reconciling with Goto-Silva et al.
+
+ 
+
+This is the most important issue and one we should work through together. The two papers currently reach different conclusions on multimodal fusion from the same dataset — Goto-Silva et al. report that the combined morpho-metabolic model outperforms morphology alone (AUC 0.96 vs. 0.80), while this paper concludes that fusion does not consistently outperform the best single modality. Reviewers who encounter both papers will flag this immediately.
+
+ 
+
+The discrepancy is explainable — differences in metabolite normalization, evaluation metrics, and fusion architecture — and needs to be explicitly discussed. The framing that works best is positioning this paper as a methodological companion to Goto-Silva et al., going deeper on ML strategies and architectures while explicitly referencing the shared dataset. That framing also handles journal disclosure requirements around parallel work on the same data.
+
+ 
+
+Metabolite panel — BCAA and malate: please hold on this for now
+
+ 
+
+BCAA and malate before day 13 are missing from the panel, and a reviewer familiar with both papers will ask why — the omission may partly explain the fusion discrepancy. We'd like to add that data back in; if possible Amanda and Nikki could do that, or alternatively Eric can help on our side.
+
+ 
+
+Before reincorporation, though, we need a brief alignment conversation — specifically whether those metabolites enter the model as raw concentrations or as consumption/secretion values. This is a feature engineering decision that affects model outputs directly and getting it wrong could move the fusion results further from Goto-Silva et al. rather than closer. Once that's settled and the models are rerun with the complete panel, any normalization divergence between the two papers can be named explicitly as a methodological variable — which is the strongest version of the companion paper argument. I'd also like that data to be in the dataset paper.
+
+ 
+
+Organoid numbers
+
+ 
+
+The paper uses 265 throughout, but the ground truth labels — the actual supervisory signal for all classification models — come from the 248 organoids rated by the expert panel. 248 is the number that should anchor the paper.
+
+ 
+
+Other points worth addressing
+
+ 
+
+- The intro would benefit from emphasizing non-destructive assessment more explicitly — most existing QC methods are destructive, and that's a key differentiator.
+
+- The per-day vs. time-series conclusion is somewhat threshold-dependent (you acknowledge that validation-based tuning can reverse it at late days) — worth either strengthening the argument for the fixed threshold or softening the claim.
+
+- The single iPSC line isn't discussed as a limitation. Reviewers will call it out.
+
+- Figure 8 is the most important figure in the paper and deserves more text discussion.
+
+- The conclusion largely repeats the abstract — tighten it to focus on practical screening implications.
+
+ 
+
+Jolanta's feedback (see attached email)
+
+ 
+
+Jolanta raised three areas: assay noise and how near-media-baseline measurements are handled as features; raw concentration versus consumption/secretion as model inputs; and longitudinal feature construction relative to media exchange.
+
+ 
+
+On the dilution correction: the concentrations in the presentation were shown pre-adjustment — we'll send you the corrected values reflecting actual well concentrations.
+
+ 
+
+On the remaining two points: note that raw concentration vs. consumption/secretion is directly related to the hold request above and will be resolved in that conversation. On the broader framing, a short statement early in the manuscript clarifying that the modeling is predictive rather than mechanistic — and that normalization is a feature engineering choice rather than a validity requirement — will address the spirit of her concerns while preserving the paper's framing.
+
+ 
+
+The core work is strong, and Stevens and I are both genuinely enthusiastic about where this is heading. The main things to fix are about coordination between the two papers, and the sequencing above should help us get there cleanly.  I realize this is a lot of feedback - I look forward to working through it!
+
+ 
+

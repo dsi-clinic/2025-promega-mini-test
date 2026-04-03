@@ -56,7 +56,7 @@ All dependencies are managed via the conda environment at `/net/projects2/promeg
 
 ### 2. Splits are organoid-level, not record-level
 
-Organoids span multiple days (Dy03–Dy30). The **same organoid must stay in the same split** (train/val/test) across all days to prevent data leakage. The split assignment lives in `data/organoid_splits.csv` and keys on `organoid_id` (e.g. `BA1 96_1 A1` — no day component).
+Organoids span multiple days (Dy03–Dy30). The **same organoid must stay in the same split** (train/val/test) across all days to prevent data leakage. The split assignment lives in `data/2026_winter_student_splits.csv` and keys on `organoid_id` (e.g. `BA1 96_1 A1` — no day component).
 
 ### 3. all_data.json is the single source of truth
 
@@ -83,7 +83,7 @@ Dy20 and Dy21 in the raw data represent the same biological timepoint. Canonical
 
 | What | Where | Git tracked? |
 |------|-------|--------------|
-| Split CSV | `data/organoid_splits.csv` | Yes |
+| Split CSV | `data/2026_winter_student_splits.csv` | Yes |
 | Analysis code | `analysis/` | Yes |
 | Generated figures | `analysis/outputs/figures/` | No (gitignored) |
 | Model checkpoints, embeddings | `$ANALYSIS_OUTPUT_DIR` (default: `$DATA_DIR/analysis_outputs/`) | No |
