@@ -15,6 +15,7 @@
 
 # -------- Configuration --------
 DATA_DIR           ?= /net/projects2/promega/data_reorg/data
+ANALYSIS_OUTPUT_DIR ?= /net/projects2/promega/analysis_output
 PYTHON             ?= conda run --no-capture-output -p /net/projects2/promega python3
 PYTHON_MMCV        ?= conda run --no-capture-output -p /net/scratch2/ntebaldi/conda_envs/mmcv_env python
 PYTHONPATH         := $(shell pwd)
@@ -89,13 +90,20 @@ DETERMINISTIC      ?= 1
 SEED               ?= 1
 
 # -------- Phony Targets --------
-.PHONY: help clean \
+.PHONY: help clean run \
         step1 step2 step3 step4 step5 step6 step7 step8 step9 step10 \
         step11 step12 step13 step14 step15 step16 step17 step18 \
         pipeline-identifiers pipeline-mappers pipeline-preprocessing \
         pipeline-segmentation pipeline-quality pipeline-series \
         pipeline-merge pipeline-all train-all \
         validate-inputs
+
+# -------- Generic Python runner --------
+# Usage: make run ARGS="-m analysis.generate_splits --dry-run"
+#        make run ARGS="scripts/my_script.py --flag value"
+ARGS ?=
+run:
+	PYTHONPATH=$(PYTHONPATH) ANALYSIS_OUTPUT_DIR=$(ANALYSIS_OUTPUT_DIR) $(PYTHON) $(ARGS)
 
 .PHONY: seg-train-early seg-train-late
 
@@ -162,7 +170,11 @@ help:
 	@echo "  OVERWRITE=$(OVERWRITE)"
 	@echo "  TARGET_WIDTH=$(TARGET_WIDTH), TARGET_HEIGHT=$(TARGET_HEIGHT)"
 	@echo ""
+	@echo "GENERAL:"
+	@echo "  make run ARGS='...'             - Run any Python command in conda env"
+	@echo ""
 	@echo "EXAMPLES:"
+	@echo "  make run ARGS='-m analysis.generate_splits --dry-run'"
 	@echo "  make step1 DATA_DIR=/path/to/data"
 	@echo "  make step6 OVERWRITE=1"
 	@echo "  make pipeline-all OVERWRITE=1"
