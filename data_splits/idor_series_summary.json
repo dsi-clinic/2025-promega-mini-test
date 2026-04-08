@@ -1,0 +1,48 @@
+{
+  "random_seed": 42,
+  "filter_csv": "/net/projects2/promega/project_data/amanda_test/identifiers/idor_organoids.csv",
+  "filter_wells_count": 266,
+  "expected_days": [
+    3.0,
+    6.0,
+    8.0,
+    10.0,
+    13.0,
+    15.0,
+    17.0,
+    20.5,
+    24.0,
+    28.0,
+    30.0
+  ],
+  "label_day": 30.0,
+  "total_records_loaded": 5168,
+  "complete_series": 253,
+  "incomplete_dropped": 13,
+  "no_label_dropped": 61,
+  "total_labeled": 192,
+  "train": {
+    "organoids": 137,
+    "wells": 137,
+    "label_counts": {
+      "Acceptable": 115,
+      "Not Acceptable": 22
+    }
+  },
+  "val": {
+    "organoids": 16,
+    "wells": 16,
+    "label_counts": {
+      "Acceptable": 13,
+      "Not Acceptable": 3
+    }
+  },
+  "test": {
+    "organoids": 39,
+    "wells": 39,
+    "label_counts": {
+      "Acceptable": 33,
+      "Not Acceptable": 6
+    }
+  }
+}

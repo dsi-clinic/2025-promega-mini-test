@@ -120,9 +120,9 @@ def main():
     print("LOADING DATA")
     print("="*70)
     
-    train_ids, train_meta = load_split_from_json('data_splits/series_train.json')
-    val_ids,   val_meta   = load_split_from_json('data_splits/series_val.json')
-    test_ids,  test_meta  = load_split_from_json('data_splits/series_test.json')
+    train_ids, train_meta = load_split_from_json('data_splits/train_idor_series.json')
+    val_ids,   val_meta   = load_split_from_json('data_splits/val_idor_series.json')
+    test_ids,  test_meta  = load_split_from_json('data_splits/test_idor_series.json')
 
     # Create datasets
     print(f"Using image type: {args.image_type}")
