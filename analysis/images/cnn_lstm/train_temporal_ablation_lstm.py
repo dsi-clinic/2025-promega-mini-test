@@ -7,6 +7,8 @@ import sys, json, math, argparse
 import os, random
 from pathlib import Path
 from sklearn.metrics import confusion_matrix
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -233,7 +235,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     # class balance from train IDs (sequence-level)
     train_labels = []
     for org_id in train_ids:
-        s = str(series_metadata[org_id].get("label","")).strip().lower()
+        s = str(train_meta[org_id].get("label","")).strip().lower()
         lab = 1 if s in ("good","acceptable","accepted") else 0
         train_labels.append(lab)
 
@@ -282,6 +284,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     best_val_acc = -1.0
     best_state = None
     bad_epochs = 0
+    history = []  # per-epoch metrics for plotting
 
     for epoch in range(1, MAX_EPOCHS + 1):
         # unfreeze last blocks after warmup
@@ -340,6 +343,14 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
             f"(P {val_prec:.3f} R {val_rec:.3f} F1 {val_f1:.3f} AUC {val_auc:.3f} AP {val_ap:.3f})"
         )
 
+        history.append({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_acc': train_acc,
+            'val_loss': val_loss,
+            'val_acc': val_acc,
+        })
+
         if val_acc > best_val_acc + 1e-4:
             best_val_acc = val_acc
             best_state = {k: v.cpu() for k, v in model.state_dict().items()}
@@ -393,7 +404,32 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     plt.title(f'Confusion Matrix - Days 3-{max_day}')
     plt.savefig(model_dir / f'confusion_matrix_days_3-{max_day}.png', dpi=150, bbox_inches='tight')
     plt.close()
+    print(f"  Confusion matrix saved → {model_dir / f'confusion_matrix_days_3-{max_day}.png'}")
 
+    # --- Training curves ---
+    if history:
+        epochs = [h['epoch'] for h in history]
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+        ax1.plot(epochs, [h['train_acc'] for h in history], label='Train Acc')
+        ax1.plot(epochs, [h['val_acc'] for h in history], label='Val Acc')
+        ax1.axvline(x=WARMUP_EPOCHS + 1, color='gray', linestyle='--', alpha=0.6, label='CNN unfreeze')
+        ax1.set(xlabel='Epoch', ylabel='Accuracy', title=f'Accuracy – Days 3–{max_day}')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        ax2.plot(epochs, [h['train_loss'] for h in history], label='Train Loss')
+        ax2.plot(epochs, [h['val_loss'] for h in history], label='Val Loss')
+        ax2.axvline(x=WARMUP_EPOCHS + 1, color='gray', linestyle='--', alpha=0.6, label='CNN unfreeze')
+        ax2.set(xlabel='Epoch', ylabel='Loss', title=f'Loss – Days 3–{max_day}')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plot_path = model_dir / f'training_curves_days_3-{max_day}.png'
+        plt.savefig(plot_path, dpi=150)
+        plt.close(fig)
+        print(f"  Training curves saved → {plot_path}")
 
     model_path = model_dir / f"model_days_3-{max_day}.pth"
     torch.save({"state_dict": best_state, "max_day": max_day, "best_val_acc": best_val_acc}, model_path)

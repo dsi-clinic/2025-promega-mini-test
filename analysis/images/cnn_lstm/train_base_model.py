@@ -9,6 +9,9 @@ Run: python train_baseline_effnet.py
 import sys, json, random, argparse
 import os
 from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 # ----- Repo root on sys.path -----
 ROOT = Path(__file__).resolve().parents[3]
@@ -277,7 +280,8 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     best_val_acc = -1.0
     best_state = None
     bad_epochs = 0
-    
+    history = []  # track per-epoch metrics for plotting
+
     # Training loop
     for epoch in range(1, MAX_EPOCHS + 1):
         # Unfreeze backbone after 3 epochs
@@ -318,7 +322,15 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
             f"Epoch {epoch:02d} | Train {train_acc:.3f}/{train_loss:.4f} | "
             f"Val {val_acc:.3f}/{val_loss:.4f} (P {val_prec:.3f} R {val_rec:.3f} F1 {val_f1:.3f})"
         )
-        
+
+        history.append({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_acc': train_acc,
+            'val_loss': val_loss,
+            'val_acc': val_acc,
+        })
+
         if val_acc > best_val_acc + 1e-4:
             best_val_acc = val_acc
             best_state = {k: v.cpu() for k, v in model.state_dict().items()}
@@ -372,7 +384,50 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
         print(f"              Good   Bad")
         print(f"Actual Good   {cm[1,1]:<6} {cm[1,0]:<6}")
         print(f"Actual Bad    {cm[0,1]:<6} {cm[0,0]:<6}")
-    
+
+        # --- Save confusion matrix image ---
+        fig, ax = plt.subplots(figsize=(5, 4))
+        im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+        plt.colorbar(im, ax=ax)
+        classes = ['Bad/Neg', 'Good/Pos']
+        ax.set(xticks=[0, 1], yticks=[0, 1],
+               xticklabels=classes, yticklabels=classes,
+               xlabel='Predicted', ylabel='Actual',
+               title=f'Confusion Matrix – Day {target_day} (Test)')
+        thresh = cm.max() / 2.0
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, str(cm[i, j]), ha='center', va='center',
+                        color='white' if cm[i, j] > thresh else 'black')
+        plt.tight_layout()
+        cm_path = model_dir / f'confusion_matrix_day_{target_day}.png'
+        plt.savefig(cm_path, dpi=150)
+        plt.close(fig)
+        print(f"  Confusion matrix saved → {cm_path}")
+
+    # --- Save accuracy & loss plot ---
+    if history:
+        epochs = [h['epoch'] for h in history]
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+        ax1.plot(epochs, [h['train_acc'] for h in history], label='Train Acc')
+        ax1.plot(epochs, [h['val_acc'] for h in history], label='Val Acc')
+        ax1.set(xlabel='Epoch', ylabel='Accuracy', title=f'Accuracy – Day {target_day}')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        ax2.plot(epochs, [h['train_loss'] for h in history], label='Train Loss')
+        ax2.plot(epochs, [h['val_loss'] for h in history], label='Val Loss')
+        ax2.set(xlabel='Epoch', ylabel='Loss', title=f'Loss – Day {target_day}')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plot_path = model_dir / f'training_curves_day_{target_day}.png'
+        plt.savefig(plot_path, dpi=150)
+        plt.close(fig)
+        print(f"  Training curves saved → {plot_path}")
+
     del model, train_loader, val_loader, test_loader
     torch.cuda.empty_cache()
     

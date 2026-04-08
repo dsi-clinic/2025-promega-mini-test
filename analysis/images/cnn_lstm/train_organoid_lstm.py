@@ -4,6 +4,9 @@ RUN FROM PROJECT ROOT: python analysis/images/cnn_lstm/train_organoid_lstm.py
 """
 import sys
 from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 # Add project root to path so imports work
 ROOT = Path(__file__).resolve().parents[3]  # Go up 3 levels to root
@@ -333,7 +336,56 @@ def main():
     print(f"              Bad    Good")
     print(f"Actual Bad   {cm[0,0]:4d}   {cm[0,1]:4d}")
     print(f"       Good  {cm[1,0]:4d}   {cm[1,1]:4d}")
-    
+
+    # --- Save confusion matrix image ---
+    fig, ax = plt.subplots(figsize=(5, 4))
+    im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.colorbar(im, ax=ax)
+    classes = ['Bad/Neg', 'Good/Pos']
+    ax.set(xticks=[0, 1], yticks=[0, 1],
+           xticklabels=classes, yticklabels=classes,
+           xlabel='Predicted', ylabel='Actual',
+           title='Confusion Matrix (Test Set)')
+    thresh = cm.max() / 2.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, str(cm[i, j]), ha='center', va='center',
+                    color='white' if cm[i, j] > thresh else 'black')
+    plt.tight_layout()
+    cm_path = output_dir / 'confusion_matrix.png'
+    plt.savefig(cm_path, dpi=150)
+    plt.close(fig)
+    print(f"Confusion matrix saved → {cm_path}")
+
+    # --- Save accuracy & loss plots from train_history ---
+    if train_history:
+        epochs = [h['epoch'] for h in train_history]
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+        ax1.plot(epochs, [h['train_acc'] for h in train_history], label='Train Acc')
+        ax1.plot(epochs, [h['val_acc'] for h in train_history], label='Val Acc')
+        # Mark phase boundary
+        phase2_start = next((h['epoch'] for h in train_history if h.get('phase') == 2), None)
+        if phase2_start:
+            ax1.axvline(x=phase2_start, color='gray', linestyle='--', alpha=0.6, label='Phase 2 start')
+        ax1.set(xlabel='Epoch', ylabel='Accuracy', title='Accuracy over Training')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        ax2.plot(epochs, [h['train_loss'] for h in train_history], label='Train Loss')
+        ax2.plot(epochs, [h['val_loss'] for h in train_history], label='Val Loss')
+        if phase2_start:
+            ax2.axvline(x=phase2_start, color='gray', linestyle='--', alpha=0.6, label='Phase 2 start')
+        ax2.set(xlabel='Epoch', ylabel='Loss', title='Loss over Training')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plot_path = output_dir / 'training_curves.png'
+        plt.savefig(plot_path, dpi=150)
+        plt.close(fig)
+        print(f"Training curves saved → {plot_path}")
+
     # Save results
     results = {
         'args': vars(args),
