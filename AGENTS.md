@@ -24,10 +24,10 @@ make run ARGS="-m analysis.generate_splits --dry-run"
 make run ARGS="scripts/my_script.py --flag value"
 
 # Interactive shell (when needed)
-conda activate /net/projects2/promega
+conda activate core_env
 
 # Direct invocation (avoid when make run works)
-conda run --no-capture-output -p /net/projects2/promega python3 <script.py>
+conda run --no-capture-output -n core_env python3 <script.py>
 ```
 
 **`make run`** handles conda env, `PYTHONPATH`, and all configuration. Use it for all Python execution. Named Makefile targets (e.g. `make step16`) are preferred when they exist.
@@ -46,13 +46,13 @@ export PYTHONPATH=$(pwd)
 
 ### Data directory
 
-Remote data lives at `/net/projects2/promega/data_reorg/data` (the `DATA_DIR` in the Makefile). Code should never hard-code this path — use environment variables or Makefile variables.
+Remote data lives at `/net/projects2/promega/2026_04_data` (the `DATA_DIR` in the Makefile). Code should never hard-code this path — use environment variables or Makefile variables.
 
 ## Project Rules
 
 ### 1. No pip install in system Python
 
-All dependencies are managed via the conda environment at `/net/projects2/promega`. If a package is missing, add it to `core_env.yaml` and rebuild the environment. Never run `pip install <pkg>` outside the conda env.
+All dependencies are managed via the `core_env` conda environment (defined by `core_env.yaml` in the repo). If a package is missing, add it to `core_env.yaml` and rebuild the environment. Never run `pip install <pkg>` outside the conda env.
 
 ### 2. Splits are organoid-level, not record-level
 

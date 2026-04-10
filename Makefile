@@ -9,15 +9,15 @@
 #   make train-all         - Train both classifiers (Steps 17-18)
 #
 # Environment Variables:
-#   DATA_DIR              - Base data directory (default: /net/projects2/promega/data_reorg/data)
-#   PYTHON                - Python executable (default: conda run -p /net/projects2/promega python3)
+#   DATA_DIR              - Base data directory (default: /net/projects2/promega/2026_04_data)
+#   PYTHON                - Python executable (default: conda run -n core_env python3)
 #   PYTHON_MMCV           - Python with mmcv env (default: conda run -n mmcv_env python)
 
 # -------- Configuration --------
-DATA_DIR           ?= /net/projects2/promega/data_reorg/data
-ANALYSIS_OUTPUT_DIR ?= /net/projects2/promega/analysis_output
-PYTHON             ?= conda run --no-capture-output -p /net/projects2/promega python3
-PYTHON_MMCV        ?= conda run --no-capture-output -p /net/scratch2/ntebaldi/conda_envs/mmcv_env python
+DATA_DIR           ?= /net/projects2/promega/2026_04_data
+ANALYSIS_OUTPUT_DIR ?= /net/projects2/promega/2026_04_data/analysis_output
+PYTHON             ?= conda run --no-capture-output -p $(HOME)/miniconda3/envs/core_env python3
+PYTHON_MMCV        ?= conda run --no-capture-output -p $(HOME)/miniconda3/envs/mmcv_env python
 PYTHONPATH         := $(shell pwd)
 
 # Input directories
@@ -52,7 +52,7 @@ IMAGE_MAP_MEANFILL     := $(IMAGES_DIR)/image_map_resized_512x384_predicted_over
 # + meanfill (for step16 merge_all_data; has predicted_mask_path and full pipeline fields)
 # Produced by step15 from IMAGE_MAP_MEANFILL (stem + "_meanfill.json")
 IMAGE_MAP_MERGE        := $(IMAGES_DIR)/image_map_resized_512x384_predicted_overlay_ar_meanfill.json
-ALL_DATA_JSON          := $(IDENTIFIERS_DIR)/all_data.json
+ALL_DATA_JSON          := data/all_data.json
 IMAGE_CLASSIFIER_JSON  := $(IDENTIFIERS_DIR)/image_classifier.json
 SURVEY_CLASSIFIER_JSON := $(IDENTIFIERS_DIR)/survey_classifier.json
 
@@ -421,13 +421,14 @@ step15: step14
 # ====================================
 step16: $(METABOLITE_MAP) $(SURVEY_MAP) $(IMAGE_MAP_MERGE)
 	@echo "===> STEP 16: Generating all_data.json"
-	@mkdir -p $(IDENTIFIERS_DIR)
+	@mkdir -p data
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m file_utils.merge.merge_all_data \
 		--data-dir $(DATA_DIR) \
 		--image-mapping-json $(IMAGE_MAP_MERGE) \
 		--min-survey-votes $(MIN_SURVEY_VOTES) \
 		--target-width $(TARGET_WIDTH) \
-		--target-height $(TARGET_HEIGHT)
+		--target-height $(TARGET_HEIGHT) \
+		--out-file $(ALL_DATA_JSON)
 	@echo "===> Output: $(ALL_DATA_JSON)"
 
 # ====================================

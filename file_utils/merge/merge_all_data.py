@@ -58,11 +58,15 @@ class Config:
     no_validate: bool = dataclasses.field(default=False, metadata={
         "help": "Validate schema of generated all_data.json file"
     })
+    out_file: Path = dataclasses.field(default=None, metadata={
+        "help": "Output path for all_data.json (default: data/all_data.json in repo)"
+    })
+    summary_file: Path = dataclasses.field(default=None, metadata={
+        "help": "Output path for summary.json (default: data/summary.json in repo)"
+    })
 
     # Directory structure constants (relative to data_dir)
     IDENTIFIERS_DIR: typing.ClassVar[str] = "identifiers"
-    ALL_DATA_JSON: typing.ClassVar[str] = f"{IDENTIFIERS_DIR}/all_data.json"
-    SUMMARY_JSON: typing.ClassVar[str] = f"{IDENTIFIERS_DIR}/summary.json"
 
     MASKS_DIR: typing.ClassVar[str] = f"masks"
     MANUAL_THRESHOLD_MAPPING_JSON: typing.ClassVar[str] = f"{MASKS_DIR}/image_mapping_thresholded_and_manual.json"
@@ -79,6 +83,10 @@ class Config:
         # Set up
         if self.identifiers_map_json is None:
             self.identifiers_map_json = self.data_dir / self.IDENTIFIERS_DIR / "record_identifiers.json"
+        if self.out_file is None:
+            self.out_file = Path("data/all_data.json")
+        if self.summary_file is None:
+            self.summary_file = Path("data/summary.json")
 
 class DataSources(typing.NamedTuple):
     identifiers_map: dict
@@ -354,10 +362,8 @@ def build_normalized_records(cfg, combined, image_meta: dict):
         stats_clean.update(stats_validation)
 
     # Write the records and stats to JSON files
-    out_file = cfg.data_dir.joinpath(cfg.ALL_DATA_JSON)
-    write_json(out_file, records_clean)
-    out_file = cfg.data_dir.joinpath(cfg.SUMMARY_JSON)
-    write_json(out_file, stats_clean)
+    write_json(cfg.out_file, records_clean)
+    write_json(cfg.summary_file, stats_clean)
 
     return records, stats_clean
 
@@ -552,7 +558,7 @@ def main():
     _, stats = build_normalized_records(cfg, combined, sources.image_meta)
 
     # ----------  print top-level data stats ----------
-    print_stats(stats, cfg.ALL_DATA_JSON, cfg.no_validate)
+    print_stats(stats, cfg.out_file, cfg.no_validate)
 
 if __name__ == "__main__":
     main()
