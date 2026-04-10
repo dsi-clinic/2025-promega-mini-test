@@ -1,0 +1,27 @@
+Comparing all our organoids to the IDOR list:
+
+All organoids in IDOR's list are covered by our dataset.
+
+For IDOR's list:
+- 17 organoids from Batch 2 are missing
+- All of Batch 3 and Batch 4 are not included, as they are used only for image analysis
+
+The 17 missing organoids from Batch 2 are:
+
+BA2_96_1_A1
+BA2_96_1_C1
+BA2_96_1_D10
+BA2_96_1_E1
+BA2_96_1_E7
+BA2_96_1_E8
+BA2_96_1_H12
+BA2_96_2_A1
+BA2_96_2_B3
+BA2_96_2_B5
+BA2_96_2_B8
+BA2_96_2_C8
+BA2_96_2_D12
+BA2_96_2_D5
+BA2_96_2_D7
+BA2_96_2_E3
+BA2_96_2_H12
