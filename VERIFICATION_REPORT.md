@@ -279,7 +279,7 @@ But neither has been re-run to completion, so these figures cannot currently be 
 ## Priority Actions for the Team
 
 1. **Organoid count** — Align on correct filter (265 / 248 / 220) before any re-runs.
-2. **Dilution correction** — Await corrected metabolite concentrations from Promega; recompute Table 1 (Malate std dev) and Table 3 aggregates.
+2. **Dilution correction** — Await corrected metabolite concentrations; recompute Table 1 (Malate std dev) and Table 3 aggregates.
 3. **Table 2 reproducibility** — Extend image classifier training scripts to save TNR and balanced accuracy for all three backbones. Requires GPU.
-4. **Fig 7 reproducibility** — Configure CNN-LSTM scripts to run per-cutoff-day sweep. Requires GPU.
+4. **Fig 7 reproducibility** — Configure CNN-LSTM scripts to run per-cutoff-day sweep.
 5. **Fig 8 / Combined model** — Resolve BCAA/malate feature decision, then run `train_multimodal.py` and `three_model_plot.py`. Requires GPU.
