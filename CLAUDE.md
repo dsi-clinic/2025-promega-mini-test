@@ -38,8 +38,7 @@ Metabolites   metabolite_mapper.py     & Merge      Structure
 
 ### 3. Configuration System
 
-- **`paths.py`**: Central path configuration with environment variable support
-- **`config.py`**: Alternative/duplicate configuration system (redundancy issue)
+- **`config.py`**: Central configuration (paths, environment variables)
 
 
 ### 🟢 **CURRENT SYSTEM STATUS (UPDATED)**
@@ -53,8 +52,10 @@ Metabolites   metabolite_mapper.py     & Merge      Structure
 - Centralized regex patterns eliminate code duplication
 
 **Environment**: ✅ **DOCUMENTED** - Conda environment setup properly documented
-- `conda activate /net/projects2/promega` required before running
-- All file paths updated in README.md and CLAUDE.md
+- `conda activate core_env` required before running (defined by `core_env.yaml` in repo)
+- `mmcv_env` separate environment for segmentation steps 8-9
+- Data lives at `/net/projects2/promega/2026_04_data/`
+- Legacy/archive data at `/net/projects2/promega/2026_04_non_env/`
 - Proper PYTHONPATH configuration for imports
 
 ### Logic Issues (Lower Priority)
@@ -154,29 +155,34 @@ Metabolites   metabolite_mapper.py     & Merge      Structure
 
 ## Environment Setup Notes
 
+### Directory Layout
+
+```
+Code:    ~/2025-promega-mini-test/          (this repo)
+Data:    /net/projects2/promega/2026_04_data/
+           ├── identifiers/   images/   lstm/
+           ├── masks/   metabolite/   survey/
+           └── analysis_output/
+Archive: /net/projects2/promega/2026_04_non_env/  (legacy student outputs)
+```
+
 ### Conda Environment
-Before running any scripts, activate the required conda environment:
+The environment is defined by `core_env.yaml` in this repo:
 ```bash
-conda activate /net/projects2/promega
+conda activate core_env
 ```
 
-### Environment Variables
-The system expects these key environment variables:
-- `BASE_PATH`: Root directory for data files
-- `OUTPUT_FOLDER`: Location for processed outputs
-- `SURVEY_RESULTS`: Directory containing Excel survey files
-- `METABOLITE_DATA_DIR`: Directory for metabolite Excel files
+For segmentation (steps 8-9), use the separate `mmcv_env`.
 
-Ensure `.env` file is properly configured before running scripts.
-
-### Running Data Generation
+### Running the Pipeline
 ```bash
-# Activate environment first
-conda activate /net/projects2/promega
-
-# Generate all_data.json
-python file_utils/merge/merge_all_data.py
+conda activate core_env
+make pipeline-all    # runs steps 1-16
+make train-all       # steps 17-18
 ```
+
+All paths are configured via Makefile variables (`DATA_DIR`, `ANALYSIS_OUTPUT_DIR`).
+Override with: `make step1 DATA_DIR=/path/to/data`
 
 ## Testing Recommendations
 

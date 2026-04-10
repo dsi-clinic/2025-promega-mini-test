@@ -184,29 +184,27 @@ For local development with full code access:
 
 2. **Set up Python environment**:
    ```bash
-   # On cluster, use the shared conda environment:
-   # /net/projects2/promega
-
-   # For local development, create a conda environment:
-   micromamba create -n promega -f core_env.yaml
+   # Create the conda environment from the repo's spec:
+   conda env create -f core_env.yaml
+   # Or with micromamba:
+   micromamba create -n core_env -f core_env.yaml
    ```
 
 ## Run Promega Code
 
 ### 1. Activate Environment
 
-**On Cluster**:
 ```bash
-# The conda environment is located at:
-/net/projects2/promega
-
-# You don't need to activate it as the SLURM script already includes the full path to the executable.
+conda activate core_env
 ```
 
-**Local Development**:
+For segmentation steps (8-9), use the separate `mmcv_env` environment.
+
+### Data Directory
+
+Pipeline data lives at `/net/projects2/promega/2026_04_data/`. Override with:
 ```bash
-# Activate your local conda environment
-micromamba activate promega  # or your environment name
+make step1 DATA_DIR=/path/to/your/data
 ```
 
 ### 2. Run Data Processing Pipeline *Analysis*

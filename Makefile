@@ -9,15 +9,15 @@
 #   make train-all         - Train both classifiers (Steps 17-18)
 #
 # Environment Variables:
-#   DATA_DIR              - Base data directory (default: /net/projects2/promega/data_reorg/data)
-#   PYTHON                - Python executable (default: conda run -p /net/projects2/promega python3)
+#   DATA_DIR              - Base data directory (default: /net/projects2/promega/2026_04_data)
+#   PYTHON                - Python executable (default: conda run -n core_env python3)
 #   PYTHON_MMCV           - Python with mmcv env (default: conda run -n mmcv_env python)
 
 # -------- Configuration --------
-DATA_DIR           ?= /net/projects2/promega/data_reorg/data
-ANALYSIS_OUTPUT_DIR ?= /net/projects2/promega/analysis_output
-PYTHON             ?= conda run --no-capture-output -p /net/projects2/promega python3
-PYTHON_MMCV        ?= conda run --no-capture-output -p /net/scratch2/ntebaldi/conda_envs/mmcv_env python
+DATA_DIR           ?= /net/projects2/promega/2026_04_data
+ANALYSIS_OUTPUT_DIR ?= /net/projects2/promega/2026_04_data/analysis_output
+PYTHON             ?= conda run --no-capture-output -p $(HOME)/miniconda3/envs/core_env python3
+PYTHON_MMCV        ?= conda run --no-capture-output -p $(HOME)/miniconda3/envs/mmcv_env python
 PYTHONPATH         := $(shell pwd)
 
 # Input directories
