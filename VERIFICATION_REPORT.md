@@ -256,12 +256,6 @@ But neither has been re-run to completion, so these figures cannot currently be 
 
 | Item | Match? | Action needed? |
 |------|--------|---------------|
-| Table 1 — Metabolite means | ✓ All match | No |
-| Table 1 — Malate std dev | ⚠ Off by 0.036 | Yes — recheck after dilution correction |
-| Table 2 — Backbone comparison values | ✓ Image matches paper | Yes — make reproducible from code |
-| Table 2 — Stored metrics | ✗ TNR/bal-acc not saved | Yes — extend training scripts |
-| Table 3 — LightGBM Day 30 bal acc | ✓ 0.9444 exact match | No |
-| Table 3 — Aggregate rows | ⚠ Expected to differ (220 vs 265 organoids) | Yes — resolve organoid count |
 | Fig 1 — Organoid strip | ✓ | No |
 | Fig 2 — Stitched + red bar | ✓ | No |
 | Fig 3 — Split event | ✓ | No |
