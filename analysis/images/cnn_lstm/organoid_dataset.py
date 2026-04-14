@@ -200,6 +200,9 @@ class OrganoidTimeSeriesDataset(Dataset):
             overlay_path = lp.get("overlay_path", "")
             mask_path = lp.get("mask_path", "")
 
+            if not img_path or not Path(img_path).exists():
+                continue
+
             if (
                 self.image_key == "overlay_path"
                 and overlay_path
