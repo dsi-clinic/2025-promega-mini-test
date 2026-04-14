@@ -25,6 +25,7 @@ nvidia-smi || true
 
 cd "${PROJ_ROOT}"
 export PYTHONPATH="${PROJ_ROOT}"
+export DATA_DIR=/net/projects2/promega/2026_04_data
 
 echo "=== Fig7 deep ensemble per-day classifier ==="
 "${PYTHON}" -u analysis/images/classifier/train_model_deep_ensemble.py \

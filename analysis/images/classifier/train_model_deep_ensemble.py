@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 
-import json, argparse, re
+import json, argparse, re, os
 from pathlib import Path
+
+_DATA_DIR = Path(os.environ.get("DATA_DIR", "/net/projects2/promega/2026_04_data"))
+_IMG_DIR = _DATA_DIR / "lstm" / "lstm_ready" / "images"
+
+
+def _remap_img_path(img_path: str) -> str:
+    """Remap stale img_path to lstm_ready using filename only."""
+    fname = Path(img_path).name
+    candidate = _IMG_DIR / fname
+    return str(candidate) if candidate.exists() else img_path
 from collections import defaultdict
 
 import numpy as np
@@ -219,7 +229,7 @@ def run_training_for_day(
         print(f"⚠ Skipping {day_json_path.name} — missing 'label' field")
         return None
 
-    imgs = np.array([r["img_path"] for r in records])
+    imgs = np.array([_remap_img_path(r["img_path"]) for r in records])
 
     # ---- Split: first cut TEST (test_frac), then VAL to reach overall val_frac
     X_tmp, X_test, y_tmp, y_test = train_test_split(
