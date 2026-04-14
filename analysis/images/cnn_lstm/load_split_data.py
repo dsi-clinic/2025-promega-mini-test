@@ -25,8 +25,13 @@ Training scripts expect:
 """
 
 import json
+import os
 import re
 from pathlib import Path
+
+_DATA_DIR = Path(os.environ.get("DATA_DIR", "/net/projects2/promega/2026_04_data"))
+_IMG_DIR = _DATA_DIR / "lstm" / "lstm_ready" / "images"
+_MASK_DIR = _DATA_DIR / "lstm" / "lstm_ready" / "masks"
 
 
 def _derive_overlay_path(mask_path):
@@ -147,9 +152,11 @@ def load_split_data(train_split_path, val_split_path, test_split_path):
             day_float = day_str_to_float(day_str)
             days.append(day_float)
 
-            # Build data entry
-            img_path = tp_data.get("img_path", "")
-            mask_path = tp_data.get("mask_path", "")
+            # Build data entry — resolve paths from DATA_DIR/lstm/lstm_ready/
+            _img_file = _IMG_DIR / f"{entry_key}.png"
+            _mask_file = _MASK_DIR / f"{entry_key}.png"
+            img_path = str(_img_file) if _img_file.exists() else tp_data.get("img_path", "")
+            mask_path = str(_mask_file) if _mask_file.exists() else tp_data.get("mask_path", "")
             overlay_path = tp_data.get("overlay_path") or _derive_overlay_path(
                 mask_path
             )

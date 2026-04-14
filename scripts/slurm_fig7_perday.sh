@@ -27,6 +27,7 @@ nvidia-smi || true
 cd "${PROJ_ROOT}"
 export PYTHONPATH="${PROJ_ROOT}"
 export ANALYSIS_OUTPUT_DIR=/net/projects2/promega/2026_04_data/analysis_output
+export DATA_DIR=/net/projects2/promega/2026_04_data
 
 DAYS=(6 8 10 13 15 17 20.5 24 26 28 30)
 DAY=${DAYS[$SLURM_ARRAY_TASK_ID]}
