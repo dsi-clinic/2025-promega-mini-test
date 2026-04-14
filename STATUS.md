@@ -26,7 +26,7 @@
 | Metric | Paper | Ours | Note |
 |--------|-------|------|------|
 | LightGBM Dy30 Balanced Acc | 0.9444 | 0.9444 | Exact match |
-| LightGBM Avg Balanced Acc | — | 65.7% | Different test set (220 vs 265 organoids) |
+| LightGBM Avg Balanced Acc | — | 65.7% | Uses 220 organoids (≥4/5 vote consensus filter) |
 | Image Dy28 Balanced Acc | ~0.68 | 0.89 | Small test set variance |
 | Image Avg Balanced Acc | — | 60.6% | Early days near-chance as expected |
 
@@ -50,7 +50,7 @@ Two sources: `paper/notes.txt` (Nick/Stevens + Jolanta from Promega), `paper/Oth
 - Discuss single iPSC line as limitation
 - Figure 8 needs more text discussion
 - Soften per-day vs time-series claim (threshold-dependent)
-- Organoid count should be 248 (expert-labeled), not 265
+- Organoid count: decided to use 220 (BA1+BA2, ≥4/5 vote consensus at Day 30) — paper's 265 and reviewer's 248 come from older data/looser criteria
 
 ### New Analyses Needed
 
@@ -81,9 +81,9 @@ Two sources: `paper/notes.txt` (Nick/Stevens + Jolanta from Promega), `paper/Oth
 
 ## Known Discrepancies
 
-### Organoid Count (265 vs 248 vs 220)
+### Organoid Count (resolved: 220)
 
-Paper uses 265, feedback says should be 248, we use 220. **Neither 265 nor 248 can be reproduced from current `all_data.json`:**
+**Decision:** Use 220 organoids (BA1+BA2, ≥4/5 vote consensus at Day 30). The paper's 265 and reviewer suggestion of 248 both come from older dataset versions or looser criteria that cannot be reproduced from the current `all_data.json`. Filtering breakdown:
 
 | Filter | Count |
 |--------|-------|
@@ -95,7 +95,7 @@ Paper uses 265, feedback says should be 248, we use 220. **Neither 265 nor 248 c
 | BA1+BA2 with >=4 vote consensus at Dy30 | **220** (our number) |
 | All batches with >=4 consensus at Dy30 | 293 |
 
-The 54 organoids lost (274→220) are ambiguous 3-2 vote splits that fail the >=4 consensus threshold. 265 and 248 likely come from an older dataset version or different counting methodology. **Needs clarification.**
+The 54 organoids lost (274→220) are 3-2 vote splits that fail the ≥4 consensus threshold.
 
 ### Missing Metabolites (BCAA + Malate)
 

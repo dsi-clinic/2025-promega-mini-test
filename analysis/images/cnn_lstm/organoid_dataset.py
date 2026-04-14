@@ -7,8 +7,6 @@ import sys
 from pathlib import Path
 
 # Add project root to path
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT))
 
 import json
 import torch
@@ -16,71 +14,98 @@ from torch.utils.data import Dataset
 from skimage.io import imread
 import numpy as np
 import cv2
+from analysis.images.preprocessing.stitched_preprocessing import preprocess_stitched
 
 
 def compute_global_mean(series_metadata, data):
     """Compute mean RGB across entire dataset"""
     print("Computing global dataset mean...")
     all_means = []
-    
+
     for org_id in series_metadata.keys():
-        entry_keys = series_metadata[org_id]['entry_keys']
+        entry_keys = series_metadata[org_id]["entry_keys"]
         for key in entry_keys:
-            img_path = data[key]['lstm_processed']['image_path']
+            img_path = data[key]["lstm_processed"]["image_path"]
             img = imread(img_path)
             if img.ndim == 2:
                 img = np.stack([img] * 3, axis=-1)
-            
+
             # Get mean of foreground pixels only (use mask if available)
-            mask_path = data[key]['lstm_processed'].get('mask_path')
+            mask_path = data[key]["lstm_processed"].get("mask_path")
             if mask_path and Path(mask_path).exists():
                 mask = imread(mask_path)
                 if mask.ndim == 3:
                     mask = mask[:, :, 0]
                 mask = (mask > 127).astype(bool)  # Binary mask
-                
+
                 # Mean of only foreground pixels
                 foreground = img[mask]
                 if len(foreground) > 0:
                     all_means.append(foreground.mean(axis=0))
-    
+
     global_mean = np.mean(all_means, axis=0)
     print(f"Global mean RGB: {global_mean}")
     return global_mean
+
 
 def compute_global_mean_from_ids(organoid_ids, series_metadata, data):
     """Compute mean RGB across all pixels in training images (simple!)"""
     print(f"Computing global mean from {len(organoid_ids)} organoids...")
     all_means = []
-    
+
     for org_id in organoid_ids:
-        entry_keys = series_metadata[org_id]['entry_keys']
+        entry_keys = series_metadata[org_id]["entry_keys"]
         for key in entry_keys:
-            img_path = data[key]['lstm_processed']['image_path']
+            img_path = data[key]["lstm_processed"]["image_path"]
             img = imread(img_path)
-            
+
             if img.ndim == 2:
                 img = np.stack([img] * 3, axis=-1)
-            
+
             # Just get mean of ENTIRE image (all pixels)
             img_mean = img.reshape(-1, 3).mean(axis=0)
             all_means.append(img_mean)
-    
+
     # Average across all images
     global_mean = np.mean(all_means, axis=0) / 255.0  # Normalize to [0,1]
     print(f"Global mean RGB: {global_mean}")
     return global_mean
 
 
+def _draw_outline_overlay_bgr(img_bgr, mask_bin, color=(0, 255, 0), thickness=2):
+    """Draw mask contour on image (BGR)."""
+    contours, _ = cv2.findContours(mask_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    out = img_bgr.copy()
+    if contours:
+        cv2.drawContours(
+            out,
+            contours,
+            contourIdx=-1,
+            color=color,
+            thickness=thickness,
+            lineType=cv2.LINE_AA,
+        )
+    return out
+
+
 class OrganoidTimeSeriesDataset(Dataset):
     """
-    Loads organoid image sequences WITH MEAN-FILL MASK for CNN-LSTM training.
+    Loads organoid image sequences. image_key: 'image_path'|'overlay_path'.
+    input_rgb_mask: if True, each frame is 4-channel (RGB + mask).
     """
 
-    def __init__(self, organoid_ids, series_metadata, data, 
-                 transform=None, use_clipping_mask=False, 
-                 global_mean=None,
-                 max_day=None):
+    def __init__(
+        self,
+        organoid_ids,
+        series_metadata,
+        data,
+        transform=None,
+        use_clipping_mask=False,
+        global_mean=None,
+        max_day=None,
+        image_key="image_path",
+        input_rgb_mask=False,
+    ):
         self.organoid_ids = organoid_ids
         self.series_metadata = series_metadata
         self.data = data
@@ -88,22 +113,24 @@ class OrganoidTimeSeriesDataset(Dataset):
         self.use_clipping_mask = use_clipping_mask
         self.global_mean = global_mean
         self.max_day = max_day
-        
+        self.image_key = image_key
+        self.input_rgb_mask = input_rgb_mask
+
     def __len__(self):
         return len(self.organoid_ids)
 
     def get_label_from_survey(self, entry):
         """Extract binary label using majority vote from evaluators."""
-        if 'survey' not in entry or not entry['survey']:
+        if "survey" not in entry or not entry["survey"]:
             return None
 
-        survey = entry['survey']
-        if 'evaluations' not in survey or not survey['evaluations']:
+        survey = entry["survey"]
+        if "evaluations" not in survey or not survey["evaluations"]:
             return None
 
-        votes = [ev.get('evaluation') for ev in survey['evaluations']]
-        acceptable = votes.count('Acceptable')
-        not_acceptable = votes.count('Not Acceptable')
+        votes = [ev.get("evaluation") for ev in survey["evaluations"]]
+        acceptable = votes.count("Acceptable")
+        not_acceptable = votes.count("Not Acceptable")
 
         if acceptable > not_acceptable:
             return 1
@@ -112,11 +139,10 @@ class OrganoidTimeSeriesDataset(Dataset):
         else:
             return None  # Tie
 
-
     def apply_mean_fill(self, img, mask, blur_kernel=(15, 15), dilate_iterations=5):
         """
         Applies mean-fill masking with dilation and feathering for more lenient masking
-        
+
         Args:
             img: Input image
             mask: Binary mask (0-255)
@@ -124,38 +150,38 @@ class OrganoidTimeSeriesDataset(Dataset):
             dilate_iterations: Number of dilation iterations to expand mask
         """
         import cv2
-        
+
         # STEP 1: Dilate mask to expand it slightly
         # This gives us a safety margin around the organoid
         if dilate_iterations > 0:
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
             mask = cv2.dilate(mask, kernel, iterations=dilate_iterations)
-        
+
         # STEP 2: Gaussian blur for soft feathering
         # This creates a gradual transition at edges instead of hard cutoff
         if blur_kernel is not None:
             mask = cv2.GaussianBlur(mask, blur_kernel, 0)
-        
+
         # Normalize mask to [0, 1]
         mask = mask.astype(np.float32) / 255.0
-        
+
         # STEP 3: Apply mean-fill
         # Use global mean if provided, otherwise per-image mean
         if self.global_mean is not None:
             mean_rgb = (self.global_mean * 255.0)[None, None, :]
         else:
             mean_rgb = img.reshape(-1, 3).mean(axis=0)[None, None, :]
-        
+
         # Blend: mask region keeps original pixels, background gets mean
         return img * mask[:, :, None] + mean_rgb * (1.0 - mask[:, :, None])
 
     def __getitem__(self, idx):
         organoid_id = self.organoid_ids[idx]
-        entry_keys = self.series_metadata[organoid_id]['entry_keys']
-        days = self.series_metadata[organoid_id]['days']
+        entry_keys = self.series_metadata[organoid_id]["entry_keys"]
+        days = self.series_metadata[organoid_id]["days"]
         # --- build frames + keep matched days ---
         images = []
-        days_used = []   # <— track the days that produced frames
+        days_used = []  # <— track the days that produced frames
 
         for i, key in enumerate(entry_keys):
             # stop at max_day if set
@@ -163,41 +189,100 @@ class OrganoidTimeSeriesDataset(Dataset):
                 break
 
             entry = self.data[key]
-            img_path = entry['lstm_processed'].get('clipped_image_path',
-                                       entry['lstm_processed']['image_path'])
+            lp = entry["lstm_processed"]
+            img_path = lp.get("clipped_image_path", lp["image_path"])
+            overlay_path = lp.get("overlay_path", "")
+            mask_path = lp.get("mask_path", "")
 
-            img = imread(img_path)
+            if (
+                self.image_key == "overlay_path"
+                and overlay_path
+                and Path(overlay_path).exists()
+            ):
+                img = imread(overlay_path)
+            elif (
+                self.image_key == "overlay_path"
+                and mask_path
+                and Path(mask_path).exists()
+            ):
+                img = imread(img_path)
+                if img.ndim == 2:
+                    img = np.stack([img] * 3, axis=-1)
+                img = preprocess_stitched(img, img_path)
+                mask = imread(mask_path)
+                if mask.ndim == 3:
+                    mask = mask[:, :, 0]
+                mask_bin = (mask > 127).astype(np.uint8)
+                img = _draw_outline_overlay_bgr(img.astype(np.uint8), mask_bin)
+                img = img.astype(np.float32) / 255.0
+            else:
+                img = imread(img_path)
 
             if img.ndim == 2:
                 img = np.stack([img] * 3, axis=-1)
-            img = img.astype(np.float32)
+            img = preprocess_stitched(img, img_path)
+            img = img.astype(np.float32) / 255.0
 
-            if self.use_clipping_mask:
-                mask_path = entry['lstm_processed'].get('mask_path')
+            if self.use_clipping_mask and not self.input_rgb_mask:
                 if mask_path and Path(mask_path).exists():
                     mask = imread(mask_path)
-                    if mask.ndim == 3: mask = mask[:, :, 0]
+                    if mask.ndim == 3:
+                        mask = mask[:, :, 0]
                     img = self.apply_mean_fill(img, mask)
 
-            #img = np.clip(img / 255.0, 0, 1)
+            if self.input_rgb_mask and mask_path and Path(mask_path).exists():
+                mask = imread(mask_path)
+                if mask.ndim == 3:
+                    mask = mask[:, :, 0]
+                mask_bin = (mask > 127).astype(np.float32)
+                mask_bin = np.expand_dims(mask_bin, axis=-1)
+                img = np.concatenate([img, mask_bin], axis=-1)
 
             if self.transform:
                 from PIL import Image
-                img_pil = Image.fromarray((img * 255).astype(np.uint8))
+
+                ch3 = img[:, :, :3] if img.shape[-1] == 4 else img
+                img_pil = Image.fromarray(
+                    (ch3 * 255).astype(np.uint8)
+                    if ch3.max() <= 1
+                    else ch3.astype(np.uint8)
+                )
                 img_pil = self.transform(img_pil)
-                img = np.array(img_pil).astype(np.float32) / 255.0
+                ch3 = np.array(img_pil).astype(np.float32) / 255.0
+                if self.input_rgb_mask and img.shape[-1] == 4:
+                    from scipy.ndimage import zoom
+
+                    m = img[:, :, 3:4]
+                    m = zoom(
+                        m,
+                        (ch3.shape[0] / m.shape[0], ch3.shape[1] / m.shape[1], 1),
+                        order=0,
+                    )
+                    img = np.concatenate([ch3, m], axis=-1)
+                else:
+                    img = ch3
 
             images.append(img)
-            days_used.append(days[i])  # <— keep exactly the day for this frame
+            days_used.append(days[i])
 
-        # stack to tensor (T,C,H,W)
         sequence = np.stack(images)
         sequence = np.transpose(sequence, (0, 3, 1, 2))
         seq = torch.from_numpy(sequence).float()
-
-        # ImageNet normalize per frame
-        imagenet_mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(1,3,1,1)
-        imagenet_std  = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).view(1,3,1,1)
+        C = seq.shape[1]
+        if C == 3:
+            imagenet_mean = torch.tensor(
+                [0.485, 0.456, 0.406], dtype=torch.float32
+            ).view(1, 3, 1, 1)
+            imagenet_std = torch.tensor(
+                [0.229, 0.224, 0.225], dtype=torch.float32
+            ).view(1, 3, 1, 1)
+        else:
+            imagenet_mean = torch.tensor(
+                [0.485, 0.456, 0.406, 0.5], dtype=torch.float32
+            ).view(1, 4, 1, 1)
+            imagenet_std = torch.tensor(
+                [0.229, 0.224, 0.225, 0.5], dtype=torch.float32
+            ).view(1, 4, 1, 1)
         seq = (seq - imagenet_mean) / imagenet_std
 
         # label from metadata
@@ -205,52 +290,54 @@ class OrganoidTimeSeriesDataset(Dataset):
         s = str(meta_entry.get("label", "")).strip().lower()
         label = 1 if s in ("good", "acceptable", "accepted") else 0
 
-        # per-sequence day normalization
+        # absolute day normalization (fixed scale; max day is 30)
         days_arr = np.array(days_used, dtype=np.float32)
-        dmin = days_arr.min()
-        drng = max(days_arr.max() - dmin, 1e-8)
-        days_norm = (days_arr - dmin) / drng
-        days_norm = torch.from_numpy(days_norm).float()   # (T,)
+        days_norm = days_arr / 30.0
+        days_norm = torch.from_numpy(days_norm).float()  # (T,)
 
         # ----- agreement-based weight (0.6/0.8/1.0 as example) -----
-        n_good  = meta_entry.get("n_votes_good", None)
+        n_good = meta_entry.get("n_votes_good", None)
         n_total = meta_entry.get("n_votes_total", None)
         if n_good is not None and n_total and n_total > 0:
             frac = n_good / n_total
             if frac >= 0.9 or frac <= 0.1:
-                weight = 1.0       # unanimous
+                weight = 1.0  # unanimous
             elif frac >= 0.7 or frac <= 0.3:
-                weight = 0.8       # strong majority
+                weight = 0.8  # strong majority
             else:
-                weight = 0.6       # weak majority / tie
+                weight = 0.6  # weak majority / tie
         else:
             weight = 1.0
 
         return (
-            seq, 
-            days_norm, 
-            torch.tensor(label, dtype=torch.float32), 
-            torch.tensor(weight, dtype=torch.float32), 
-            organoid_id,   # keep the raw string id for FP/FN logs
+            seq,
+            days_norm,
+            torch.tensor(label, dtype=torch.float32),
+            torch.tensor(weight, dtype=torch.float32),
+            organoid_id,  # keep the raw string id for FP/FN logs
         )
-
-
 
 
 from collections import defaultdict
 import numpy as np
 import json
 
-def load_data_and_create_splits(series_metadata_path, data_path,
-                                train_ratio=0.7, val_ratio=0.15, test_ratio=0.15,
-                                random_seed=42,
-                                min_good_votes=4,   # keep only confident labels
-                                min_total_votes=5):
+
+def load_data_and_create_splits(
+    series_metadata_path,
+    data_path,
+    train_ratio=0.7,
+    val_ratio=0.15,
+    test_ratio=0.15,
+    random_seed=42,
+    min_good_votes=4,  # keep only confident labels
+    min_total_votes=5,
+):
     with open(series_metadata_path) as f:
         series_metadata = json.load(f)
     with open(data_path) as f:
         data = json.load(f)
-        
+
     # ---- filter to only nosplit organoids ----
     nosplit_series_metadata = {}
     for oid, meta in series_metadata.items():
@@ -259,27 +346,32 @@ def load_data_and_create_splits(series_metadata_path, data_path,
         if sg == "nosplit" or sg == "" or sg == "none":
             nosplit_series_metadata[oid] = meta
 
-    print(f"Filtered to {len(nosplit_series_metadata)} nosplit organoids out of {len(series_metadata)} total")
+    print(
+        f"Filtered to {len(nosplit_series_metadata)} nosplit organoids out of {len(series_metadata)} total"
+    )
     series_metadata = nosplit_series_metadata
-
 
     # ---- 1) keep only confidently labeled organoids (optional but recommended) ----
     def hard_label(oid):
         meta = series_metadata[oid]
-        s = str(meta.get("label","")).strip().lower()
+        s = str(meta.get("label", "")).strip().lower()
         # prefer vote counts if present
         ng = int(meta.get("n_votes_good", -1))
         nt = int(meta.get("n_votes_total", -1))
         if nt >= min_total_votes and ng >= 0:
-            if ng >= min_good_votes: return 1
-            if (nt - ng) >= min_good_votes: return 0
+            if ng >= min_good_votes:
+                return 1
+            if (nt - ng) >= min_good_votes:
+                return 0
         # fallback to coarse label
-        if s in ("good","acceptable","accepted"): return 1
-        if s in ("bad","not acceptable","rejected","not_good"): return 0
+        if s in ("good", "acceptable", "accepted"):
+            return 1
+        if s in ("bad", "not acceptable", "rejected", "not_good"):
+            return 0
         return None
 
     labeled = []
-    labels  = {}
+    labels = {}
     for oid in series_metadata.keys():
         y = hard_label(oid)
         if y is not None:
@@ -314,22 +406,23 @@ def load_data_and_create_splits(series_metadata_path, data_path,
     # stratify by label: shuffle positives and negatives separately, then interleave
     pos_idx = idx[np.array(group_labels) == 1]
     neg_idx = idx[np.array(group_labels) == 0]
-    rng.shuffle(pos_idx); rng.shuffle(neg_idx)
+    rng.shuffle(pos_idx)
+    rng.shuffle(neg_idx)
     mixed = np.concatenate([pos_idx, neg_idx])
     # simple shuffle that approximately preserves class balance
     rng.shuffle(mixed)
 
     n = len(mixed)
     n_train = int(n * train_ratio)
-    n_val   = int(n * val_ratio)
+    n_val = int(n * val_ratio)
     train_g = [group_ids[i] for i in mixed[:n_train]]
-    val_g   = [group_ids[i] for i in mixed[n_train:n_train+n_val]]
-    test_g  = [group_ids[i] for i in mixed[n_train+n_val:]]
+    val_g = [group_ids[i] for i in mixed[n_train : n_train + n_val]]
+    test_g = [group_ids[i] for i in mixed[n_train + n_val :]]
 
     # ---- 5) expand group → organoid ids for each split ----
     train_ids = [oid for g in train_g for oid in groups[g]]
-    val_ids   = [oid for g in val_g   for oid in groups[g]]
-    test_ids  = [oid for g in test_g  for oid in groups[g]]
+    val_ids = [oid for g in val_g for oid in groups[g]]
+    test_ids = [oid for g in test_g for oid in groups[g]]
 
     # sanity: no leakage
     assert set(train_ids).isdisjoint(val_ids)
@@ -339,12 +432,16 @@ def load_data_and_create_splits(series_metadata_path, data_path,
     # quick stats
     def split_stats(ids):
         ys = [labels[i] for i in ids if i in labels]
-        if len(ys)==0: return (0,0,0.0)
-        return (sum(ys), len(ys)-sum(ys), sum(ys)/len(ys))
+        if len(ys) == 0:
+            return (0, 0, 0.0)
+        return (sum(ys), len(ys) - sum(ys), sum(ys) / len(ys))
+
     gtr, btr, prtr = split_stats(train_ids)
     gva, bva, prva = split_stats(val_ids)
     gte, bte, prte = split_stats(test_ids)
-    print(f"Groups: {len(group_ids)}  | Train groups {len(train_g)}, Val {len(val_g)}, Test {len(test_g)}")
+    print(
+        f"Groups: {len(group_ids)}  | Train groups {len(train_g)}, Val {len(val_g)}, Test {len(test_g)}"
+    )
     print(f"Train: {len(train_ids)} ids (good {gtr}, bad {btr}, pos {prtr:.2f})")
     print(f"Val:   {len(val_ids)} ids (good {gva}, bad {bva}, pos {prva:.2f})")
     print(f"Test:  {len(test_ids)} ids (good {gte}, bad {bte}, pos {prte:.2f})")

@@ -3,12 +3,10 @@ Temporal ablation with EfficientNet features + Temporal Attention (BCE)
 Run: python analysis/images/cnn_lstm/train_temporal_ablation_attn.py
 """
 
-import sys, json, math
+import os, sys, json
 from pathlib import Path
 
 # ----- Repo root on sys.path -----
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT))
 
 import numpy as np
 from tqdm import tqdm
@@ -17,39 +15,43 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torchvision import models, transforms
+from torchvision import transforms
 from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
-from sklearn.metrics import precision_recall_fscore_support
 
-from config import OUTPUT_FOLDER
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
     load_data_and_create_splits,
 )
 
 # ---------------- Config ----------------
-DAY_RANGES = [
-    8, 10, 13, 15, 17, 20.5, 24, 30
-]
+DAY_RANGES = [8, 10, 13, 15, 17, 20.5, 24, 30]
 BATCH_SIZE = 16
 NUM_WORKERS = 0
 MAX_EPOCHS = 100
-WARMUP_EPOCHS = 3
-LR_HEAD = 5e-4           # higher: new layers adapt quickly
-LR_CNN_UNFREEZE = 1e-4   # lower: slow fine-tuning of pretrained CNN
+WARMUP_EPOCHS = 1
+LR_HEAD = 5e-4  # higher: new layers adapt quickly
+LR_CNN_UNFREEZE = 1e-4  # lower: slow fine-tuning of pretrained CNN
 GRAD_CLIP = 1.0
-PATIENCE = 15            # faster convergence / less wasted epochs
-ATTN_DROPOUT = 0.4       # same as your best-performing LSTM run
+PATIENCE = 15  # faster convergence / less wasted epochs
+ATTN_DROPOUT = 0.4  # same as your best-performing LSTM run
 SEED = 42
+
 
 # -------------- Repro --------------
 def set_seed(seed=SEED):
     import random
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"  # deterministic cuBLAS
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
+
 
 # -------------- Model --------------
 class TemporalAttentionPool(nn.Module):
@@ -61,31 +63,57 @@ class TemporalAttentionPool(nn.Module):
             nn.Tanh(),
             nn.Linear(d // 2, 1),
         )
-    def forward(self, feats):  # feats: (B, T, D)
-        # weights over time
-        w = self.attn(feats).squeeze(-1)         # (B, T)
+
+    def forward(self, feats, mask=None):  # feats: (B, T, D), mask: (B,T) True=real
+        w = self.attn(feats).squeeze(-1)  # (B, T)
+        if mask is not None:
+            w = w.masked_fill(~mask, float("-inf"))
         a = torch.softmax(w, dim=1).unsqueeze(-1)  # (B, T, 1)
-        pooled = (a * feats).sum(dim=1)          # (B, D)
-        return pooled, a.squeeze(-1)             # (B, D), (B, T)
+        pooled = (a * feats).sum(dim=1)  # (B, D)
+        return pooled, a.squeeze(-1)  # (B, D), (B, T)
+
+
+def _patch_effnet_first_conv_4ch(backbone):
+    """Replace first conv 3->32 with 4->32; copy pretrained for first 3 ch, zero-init 4th."""
+    first_conv = backbone.features[0][0]
+    if first_conv.in_channels == 4:
+        return
+    assert first_conv.in_channels == 3
+    new_conv = nn.Conv2d(
+        4,
+        first_conv.out_channels,
+        kernel_size=first_conv.kernel_size,
+        stride=first_conv.stride,
+        padding=first_conv.padding,
+        bias=first_conv.bias is not None,
+    )
+    with torch.no_grad():
+        new_conv.weight[:, :3] = first_conv.weight
+        new_conv.weight[:, 3] = 0.0
+        if first_conv.bias is not None:
+            new_conv.bias.copy_(first_conv.bias)
+    backbone.features[0][0] = new_conv
+
 
 class OrganoidCNN_TAtt(nn.Module):
-    def __init__(self, d_cnn=1280, attn_dropout=0.4):
+    def __init__(self, d_cnn=1280, attn_dropout=0.4, in_channels=3):
         super().__init__()
         eff = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
         eff.classifier = nn.Identity()
+        if in_channels == 4:
+            _patch_effnet_first_conv_4ch(eff)
         self.cnn = eff
-        
-        # start frozen
+
         for p in self.cnn.parameters():
             p.requires_grad = False
 
         # map scalar day → feature shift
         self.time_proj = nn.Sequential(
-        nn.Linear(1, d_cnn // 2),
-        nn.ReLU(),
-        nn.Dropout(0.25),
-        nn.Linear(d_cnn // 2, d_cnn),
-        nn.LayerNorm(d_cnn)
+            nn.Linear(1, d_cnn // 2),
+            nn.ReLU(),
+            nn.Dropout(0.25),
+            nn.Linear(d_cnn // 2, d_cnn),
+            nn.LayerNorm(d_cnn),
         )
 
         self.temporal = TemporalAttentionPool(d_cnn)
@@ -94,7 +122,7 @@ class OrganoidCNN_TAtt(nn.Module):
             nn.Linear(d_cnn, 128),
             nn.ReLU(),
             nn.Dropout(attn_dropout),
-            nn.Linear(128, 1)  # logits for BCEWithLogits
+            nn.Linear(128, 1),  # logits for BCEWithLogits
         )
 
     def unfreeze_last_blocks(self):
@@ -106,14 +134,15 @@ class OrganoidCNN_TAtt(nn.Module):
         B, T, C, H, W = x.shape
         feats = []
         for t in range(T):
-            f = self.cnn(x[:, t])                    # (B, d_cnn)
+            f = self.cnn(x[:, t])  # (B, d_cnn)
             dt = days_norm[:, t].unsqueeze(1)
-            dt = dt.to(f.device)                     # ensure same device   
-            f = f + self.time_proj(dt)            # inject absolute time
+            dt = dt.to(f.device)  # ensure same device
+            f = f + self.time_proj(dt)  # inject absolute time
             feats.append(f)
-        feats = torch.stack(feats, dim=1)            # (B, T, d_cnn)
-        pooled, attn = self.temporal(feats)
-        logit = self.head(pooled).squeeze(1)         # (B,)
+        feats = torch.stack(feats, dim=1)  # (B, T, d_cnn)
+        mask = (days_norm > 0).to(feats.device)
+        pooled, attn = self.temporal(feats, mask=mask)
+        logit = self.head(pooled).squeeze(1)  # (B,)
         return logit, attn
 
 
@@ -125,13 +154,13 @@ def evaluate_binary(model, loader, criterion, device):
     false_pos, false_neg = [], []
 
     for seqs, days, labels, weights, ids in loader:
-        seqs   = seqs.to(device)
-        days   = days.to(device).float()
+        seqs = seqs.to(device)
+        days = days.to(device).float()
         labels = labels.float().to(device)
 
         logits, _ = model(seqs, days)
         # criterion has reduction='none' → average for reporting
-        loss_raw = criterion(logits, labels)   # (B,)
+        loss_raw = criterion(logits, labels)  # (B,)
         losses.append(loss_raw.mean().item())
 
         probs = torch.sigmoid(logits)
@@ -151,9 +180,9 @@ def evaluate_binary(model, loader, criterion, device):
     if len(all_probs) == 0:
         return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false_pos, false_neg
 
-    probs  = torch.cat(all_probs)
+    probs = torch.cat(all_probs)
     labels = torch.cat(all_labels)
-    preds  = (probs > 0.5).int()
+    preds = (probs > 0.5).int()
 
     acc = (preds == labels.int()).float().mean().item()
 
@@ -189,72 +218,123 @@ def evaluate_binary(model, loader, criterion, device):
         false_neg,
     )
 
+
 # -------------- Training (one day range) --------------
-def train_for_day_range(max_day, train_ids, val_ids, test_ids,
-                        series_metadata, data, global_mean, device, output_dir):
-    print(f"\n{'='*70}\nTRAINING WITH DAYS 3–{max_day}\n{'='*70}")
+def train_for_day_range(
+    max_day,
+    train_ids,
+    val_ids,
+    test_ids,
+    series_metadata,
+    data,
+    global_mean,
+    device,
+    output_dir,
+):
+    print(f"\n{'=' * 70}\nTRAINING WITH DAYS 3–{max_day}\n{'=' * 70}")
 
     # ---- ADD/REPLACE THIS SECTION ----
     from torchvision.transforms import InterpolationMode
+
     BILINEAR = InterpolationMode.BILINEAR
 
-    train_tf = transforms.Compose([
-        transforms.Resize((384, 384), interpolation=BILINEAR),
-        transforms.RandomRotation(degrees=15, fill=128),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.5),
-        transforms.RandomResizedCrop(384, scale=(0.9, 1.0)),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0, hue=0),
-    ])
+    train_tf = transforms.Compose(
+        [
+            transforms.Resize((384, 384), interpolation=BILINEAR),
+            transforms.RandomRotation(degrees=15, fill=128),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomVerticalFlip(p=0.5),
+            transforms.RandomResizedCrop(384, scale=(0.9, 1.0)),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0, hue=0),
+        ]
+    )
 
-    eval_tf = transforms.Compose([
-        transforms.Resize((384, 384), interpolation=BILINEAR),
-    ])
+    eval_tf = transforms.Compose(
+        [
+            transforms.Resize((384, 384), interpolation=BILINEAR),
+        ]
+    )
 
     train_dataset = OrganoidTimeSeriesDataset(
-        train_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=train_tf
+        train_ids,
+        series_metadata,
+        data,
+        global_mean=global_mean,
+        max_day=max_day,
+        transform=train_tf,
     )
     val_dataset = OrganoidTimeSeriesDataset(
-        val_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=eval_tf
+        val_ids,
+        series_metadata,
+        data,
+        global_mean=global_mean,
+        max_day=max_day,
+        transform=eval_tf,
     )
     test_dataset = OrganoidTimeSeriesDataset(
-        test_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=eval_tf
+        test_ids,
+        series_metadata,
+        data,
+        global_mean=global_mean,
+        max_day=max_day,
+        transform=eval_tf,
     )
 
-    pin = (device.type == "cuda")
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
-                              num_workers=NUM_WORKERS, pin_memory=pin)
-    val_loader   = DataLoader(val_dataset,   batch_size=BATCH_SIZE, shuffle=False,
-                              num_workers=NUM_WORKERS, pin_memory=pin)
-    test_loader  = DataLoader(test_dataset,  batch_size=BATCH_SIZE, shuffle=False,
-                              num_workers=NUM_WORKERS, pin_memory=pin)
+    pin = device.type == "cuda"
+    g = torch.Generator().manual_seed(SEED)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        num_workers=NUM_WORKERS,
+        pin_memory=pin,
+        generator=g,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=NUM_WORKERS,
+        pin_memory=pin,
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=NUM_WORKERS,
+        pin_memory=pin,
+    )
     # ---- END OF INSERT ----
 
     # class balance from train IDs (sequence-level)
     train_labels = []
     for org_id in train_ids:
-        s = str(series_metadata[org_id].get("label","")).strip().lower()
-        lab = 1 if s in ("good","acceptable","accepted") else 0
+        s = str(series_metadata[org_id].get("label", "")).strip().lower()
+        lab = 1 if s in ("good", "acceptable", "accepted") else 0
         train_labels.append(lab)
 
     n_good = int(np.sum(train_labels))
-    n_bad  = int(len(train_labels) - n_good)
+    n_bad = int(len(train_labels) - n_good)
     # avoid div-by-zero
-    if n_good == 0: n_good = 1
-    if n_bad  == 0: n_bad  = 1
+    if n_good == 0:
+        n_good = 1
+    if n_bad == 0:
+        n_bad = 1
     pos_weight = torch.tensor([n_bad / n_good], device=device, dtype=torch.float32)
-    print(f"class balance (train): good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}")
+    print(
+        f"class balance (train): good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}"
+    )
 
     model = OrganoidCNN_TAtt(attn_dropout=ATTN_DROPOUT).to(device)
 
     # two phase optimizer setup (we'll swap LR when unfreezing)
     def make_optimizer(lr_cnn, lr_head):
-        params_cnn = [p for n,p in model.cnn.named_parameters() if p.requires_grad]
-        params_head = [p for n,p in model.named_parameters()
-                       if not n.startswith("cnn.") and p.requires_grad]
+        params_cnn = [p for n, p in model.cnn.named_parameters() if p.requires_grad]
+        params_head = [
+            p
+            for n, p in model.named_parameters()
+            if not n.startswith("cnn.") and p.requires_grad
+        ]
         groups = []
         if len(params_cnn) > 0:
             groups.append({"params": params_cnn, "lr": lr_cnn})
@@ -265,13 +345,15 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     # warmup: CNN frozen → only head gets LR
     optimizer = make_optimizer(lr_cnn=0.0, lr_head=LR_HEAD)
     # replace your criterion with reduction='none' and no pos_weight
-    criterion = nn.BCEWithLogitsLoss(reduction='none')
+    criterion = nn.BCEWithLogitsLoss(reduction="none")
 
     # before training loop (you already computed these counts)
-    w_pos = n_bad / n_good       # ~0.87
-    w_neg = n_good / n_bad       # ~1.15  <-- upweight negatives slightly
-    
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
+    w_pos = n_bad / n_good  # ~0.87
+    w_neg = n_good / n_bad  # ~1.15  <-- upweight negatives slightly
+
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.5, patience=5
+    )
 
     best_val_acc = -1.0
     best_state = None
@@ -282,14 +364,18 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         if epoch == WARMUP_EPOCHS + 1:
             model.unfreeze_last_blocks()
             optimizer = make_optimizer(lr_cnn=LR_CNN_UNFREEZE, lr_head=LR_HEAD)
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer, mode="min", factor=0.5, patience=5
+            )
             print("→ Unfroze last CNN blocks; using small LR for CNN.")
 
         model.train()
         running_loss, correct, total = 0.0, 0, 0
-        for seqs, days, labels, weights, ids in tqdm(train_loader, desc=f"Epoch {epoch:02d}", leave=False):
-            seqs   = seqs.to(device)
-            days   = days.to(device).float()
+        for seqs, days, labels, weights, ids in tqdm(
+            train_loader, desc=f"Epoch {epoch:02d}", leave=False
+        ):
+            seqs = seqs.to(device)
+            days = days.to(device).float()
             labels = labels.float().to(device)
             weights = weights.to(device).float()
 
@@ -310,13 +396,20 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
             correct += (preds == labels.long()).sum().item()
             total += labels.size(0)
 
-
         train_loss = running_loss / max(1, total)
         train_acc = correct / max(1, total)
 
-        val_loss, val_acc, val_prec, val_rec, val_f1, val_auc, val_ap, val_fp, val_fn = evaluate_binary(
-            model, val_loader, criterion, device
-        )
+        (
+            val_loss,
+            val_acc,
+            val_prec,
+            val_rec,
+            val_f1,
+            val_auc,
+            val_ap,
+            val_fp,
+            val_fn,
+        ) = evaluate_binary(model, val_loader, criterion, device)
 
         scheduler.step(val_loss)
 
@@ -343,14 +436,25 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     # test with best
     model.load_state_dict(best_state, strict=True)
 
-    test_loss, test_acc, test_prec, test_rec, test_f1, test_auc, test_ap, test_fp, test_fn = evaluate_binary(
-        model, test_loader, criterion, device
-    )
+    (
+        test_loss,
+        test_acc,
+        test_prec,
+        test_rec,
+        test_f1,
+        test_auc,
+        test_ap,
+        test_fp,
+        test_fn,
+    ) = evaluate_binary(model, test_loader, criterion, device)
 
     model_dir = output_dir
     model_dir.mkdir(parents=True, exist_ok=True)
     model_path = model_dir / f"model_days_3-{max_day}.pth"
-    torch.save({"state_dict": best_state, "max_day": max_day, "best_val_acc": best_val_acc}, model_path)
+    torch.save(
+        {"state_dict": best_state, "max_day": max_day, "best_val_acc": best_val_acc},
+        model_path,
+    )
 
     print("\nFinal (best-val checkpoint) on TEST")
     print(
@@ -359,7 +463,15 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     )
     print(f"Saved → {model_path}")
 
-    del model, train_loader, val_loader, test_loader, train_dataset, val_dataset, test_dataset
+    del (
+        model,
+        train_loader,
+        val_loader,
+        test_loader,
+        train_dataset,
+        val_dataset,
+        test_dataset,
+    )
     torch.cuda.empty_cache()
 
     return {
@@ -389,9 +501,9 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving outputs to: {out_dir}")
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("LOADING DATA")
-    print("="*70)
+    print("=" * 70)
 
     series_metadata_path = OUTPUT_FOLDER / "complete_series_metadata_no_blanks.json"
     data_path = OUTPUT_FOLDER / "complete_series_data_no_blanks.json"
@@ -409,16 +521,22 @@ def main():
     global_mean = np.load(global_mean_path)
     print(f"Loaded global mean: {global_mean}")
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("STARTING TEMPORAL ABLATION (ATTENTION POOL)")
-    print("="*70)
+    print("=" * 70)
 
     results = []
     for max_day in DAY_RANGES:
         res = train_for_day_range(
-            max_day, train_ids, val_ids, test_ids,
-            series_metadata, data, global_mean, device,
-            out_dir / f"days_3-{max_day}"
+            max_day,
+            train_ids,
+            val_ids,
+            test_ids,
+            series_metadata,
+            data,
+            global_mean,
+            device,
+            out_dir / f"days_3-{max_day}",
         )
         results.append(res)
 
@@ -426,17 +544,20 @@ def main():
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEMPORAL ABLATION SUMMARY")
-    print("="*70)
+    print("=" * 70)
     print(f"{'Day Range':<15} {'Val Acc':<12} {'Test Acc':<12} {'Test F1':<12}")
-    print("-"*70)
+    print("-" * 70)
     for r in results:
-        print(f"3–{str(r['max_day']):<12} {r['best_val_acc']:<12.3f} {r['test_acc']:<12.3f} {r['test_f1']:<12.3f}")
+        print(
+            f"3–{str(r['max_day']):<12} {r['best_val_acc']:<12.3f} {r['test_acc']:<12.3f} {r['test_f1']:<12.3f}"
+        )
 
     best = max(results, key=lambda x: x["test_acc"])
     print("\nBest on test:", best)
     print(f"Results saved → {results_path}")
+
 
 if __name__ == "__main__":
     main()

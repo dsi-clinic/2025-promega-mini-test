@@ -118,7 +118,7 @@ The data pipeline has been reorganized to use a normalized records structure:
 - **Label Propagation**: Survey labels from Day 28/30 are now propagated to all earlier time points (Day 3-24) for each organoid
 - **Consensus Threshold**: Requires 4+ votes (80% agreement) for label determination
 - **Conflict Resolution**: Organoids with inconsistent labels across days or splits are filtered out
-- **Results**: 265 unique organoids with propagated labels, 100% label consistency across all time points
+- **Results**: 220 unique organoids with propagated labels, 100% label consistency across all time points
 
 ---
 
@@ -972,7 +972,7 @@ Merge all mapped data sources into unified `all_data.json` file.
 **Inputs/Outputs**:
 - **In**: `record_identifiers.json`, `metabolite_map.json`, `survey_map.json`, final `image_map_*.json` (typically `image_map_resized_512x384.json`)
 - **Out**:
-  - `all_data.json` (5,168 total records, 265 unique organoids with labels)
+  - `all_data.json` (5,168 total records, 220 unique organoids with labels after filtering)
   - `image_classifier.json` (2,931 labeled records across 11 days)
   - `survey_classifier.json` (269 Day 30 records with survey labels)
   - `summary.json` (statistics and metadata)
@@ -1018,8 +1018,8 @@ python3 -m file_utils.merge.merge_all_data \
 - `survey_classifier.json` - 269 Day 30 records with survey labels
 
 **Label Statistics**:
-- 265 unique organoids with propagated labels
-- 2,931 total labeled records (11 days × ~265 organoids)
+- 220 unique organoids with propagated labels (BA1+BA2, ≥4/5 vote consensus at Day 30)
+- 2,931 total labeled records (11 days × ~220 organoids)
 - 100% label consistency across time points
 - Distribution: 72.5% Acceptable, 27.5% Not Acceptable
 - 13 organoids filtered due to conflicting labels
@@ -1336,7 +1336,7 @@ python simple_classifier.py \
 - Data reorganization with normalized records structure
 - Label propagation system from Day 28/30 to all earlier days
 - Working data generation producing 5,168 total records
-  - 2,931 labeled records (265 unique organoids across 11 days)
+  - 2,931 labeled records (220 unique organoids across 11 days)
   - 269 Day 30 records for survey classifier
 - Multimodal data integration (images, metabolites, surveys) operational
 - View-specific JSON outputs for optimized classifier training
