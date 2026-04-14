@@ -112,7 +112,6 @@ class OrganoidTimeSeriesDataset(Dataset):
         image_key="image_path",
         input_rgb_mask=False,
     ):
-        self.organoid_ids = organoid_ids
         self.series_metadata = series_metadata
         self.data = data
         self.transform = transform
@@ -121,6 +120,24 @@ class OrganoidTimeSeriesDataset(Dataset):
         self.max_day = max_day
         self.image_key = image_key
         self.input_rgb_mask = input_rgb_mask
+
+        # Filter out organoids with no valid image files for any timepoint
+        valid_ids = []
+        for org_id in organoid_ids:
+            keys = series_metadata[org_id]["entry_keys"]
+            days = series_metadata[org_id]["days"]
+            has_valid = any(
+                Path(data[k]["lstm_processed"]["image_path"]).exists()
+                for k, d in zip(keys, days)
+                if (max_day is None or d <= max_day)
+                and data[k]["lstm_processed"].get("image_path")
+            )
+            if has_valid:
+                valid_ids.append(org_id)
+        n_dropped = len(organoid_ids) - len(valid_ids)
+        if n_dropped:
+            print(f"  [dataset] dropped {n_dropped} organoids with no valid images")
+        self.organoid_ids = valid_ids
 
     def __len__(self):
         return len(self.organoid_ids)
