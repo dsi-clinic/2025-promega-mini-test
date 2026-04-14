@@ -45,24 +45,28 @@ def load_bal_acc(model_type):
     return results
 
 
-def load_ensemble_acc():
-    """Load test accuracy from train_model_deep_ensemble final_test_summary.json."""
-    summary_file = STUDY_DIR / "efficientnet_ensemble" / "final_test_summary.json"
-    if not summary_file.exists():
-        return {}
-    with open(summary_file) as f:
-        summary = json.load(f)
-    per_day_acc = summary.get("per_day_test_accuracy", {})
+def load_ensemble_bal_acc():
+    """Load test balanced_accuracy from train_model_deep_ensemble per-day metrics_test.json."""
+    ensemble_dir = STUDY_DIR / "efficientnet_ensemble" / "efficientnet"
     results = {}
     for day in DAYS:
         key = DAY_STR_MAP.get(day)
-        if key and key in per_day_acc:
-            results[day] = per_day_acc[key]
+        if not key:
+            continue
+        metrics_file = ensemble_dir / key / "metrics_test.json"
+        if metrics_file.exists():
+            with open(metrics_file) as f:
+                m = json.load(f)
+            bal_acc = m.get("balanced_accuracy")
+            if bal_acc is not None:
+                results[day] = bal_acc
     return results
 
 
 def main():
-    per_day = load_bal_acc("per_day")
+    per_day = load_ensemble_bal_acc()
+    if not per_day:
+        per_day = load_bal_acc("per_day")
     per_day_label = "Per-Day"
     effnet_ts = load_bal_acc("effnet_ts")
 

@@ -26,7 +26,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
 
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, balanced_accuracy_score
 import timm
 from torchvision import transforms as T
 
@@ -198,8 +198,9 @@ def evaluate_on_loader(model, loader):
     trues = np.array(trues)
     probs = np.array(probs)
     acc = accuracy_score(trues, preds_bin)
+    bal_acc = balanced_accuracy_score(trues, preds_bin)
     f1 = f1_score(trues, preds_bin)
-    return preds_bin, trues, float(acc), float(f1), probs
+    return preds_bin, trues, float(acc), float(f1), probs, float(bal_acc)
 
 
 def run_training_for_day(
@@ -324,7 +325,7 @@ def run_training_for_day(
     model.load_state_dict(torch.load(model_path, map_location=DEVICE))
 
     # Val metrics (record only; NOT used for final reporting)
-    _, _, val_acc, val_f1, _ = evaluate_on_loader(model, val_loader)
+    _, _, val_acc, val_f1, _, val_bal_acc = evaluate_on_loader(model, val_loader)
     val_metrics = {
         "day": day_json_path.stem,
         "split": "val",
@@ -337,7 +338,7 @@ def run_training_for_day(
         json.dump(val_metrics, f, indent=2)
 
     # Test metrics（final reporting）
-    preds_bin, trues, test_acc, test_f1, _ = evaluate_on_loader(model, test_loader)
+    preds_bin, trues, test_acc, test_f1, _, test_bal_acc = evaluate_on_loader(model, test_loader)
     day_no = day_to_int(day_json_path.stem)
     num_in_sample = int(len(trues))
     actual_good = int(trues.sum())
@@ -348,6 +349,7 @@ def run_training_for_day(
         "day_no": day_no,
         "split": "test",
         "accuracy": float(test_acc),
+        "balanced_accuracy": float(test_bal_acc),
         "f1": float(test_f1),
         "val_accuracy_for_selection": float(best_acc),
         "val_n": int(len(y_val)),
