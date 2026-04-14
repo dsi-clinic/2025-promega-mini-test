@@ -32,15 +32,11 @@ from torchvision import transforms as T
 
 # -------- Config (defaults; can be overridden by CLI) --------
 BACKBONES = {
-    "vit": "vit_base_patch16_224",  # we will set img_size=(384,512) at create_model
-    "resnet": "resnet50",
     "efficientnet": "efficientnet_b0",
 }
 
 DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/majority/")
-OUT_ROOT = Path(
-    "image_classifier/training/outputs_512x384_Regular_image_without_train_augment"
-)
+OUT_ROOT = Path("analysis/images/classifier/per_day_study/efficientnet_ensemble")
 BATCH_SIZE = 16
 # IMPORTANT: torchvision Resize expects (H, W). We want 512x384 images => (H=384, W=512)
 TARGET_SIZE = (384, 512)
