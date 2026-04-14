@@ -153,10 +153,25 @@ def load_split_data(train_split_path, val_split_path, test_split_path):
             days.append(day_float)
 
             # Build data entry — resolve paths from DATA_DIR/lstm/lstm_ready/
-            _img_file = _IMG_DIR / f"{entry_key}.png"
-            _mask_file = _MASK_DIR / f"{entry_key}.png"
-            img_path = str(_img_file) if _img_file.exists() else tp_data.get("img_path", "")
-            mask_path = str(_mask_file) if _mask_file.exists() else tp_data.get("mask_path", "")
+            # Try entry_key filename first, then fall back to filename from stored path
+            _json_img_path = tp_data.get("img_path", "")
+            _json_mask_path = tp_data.get("mask_path", "")
+            _img_by_key = _IMG_DIR / f"{entry_key}.png"
+            _img_by_name = _IMG_DIR / Path(_json_img_path).name if _json_img_path else None
+            _mask_by_key = _MASK_DIR / f"{entry_key}.png"
+            _mask_by_name = _MASK_DIR / Path(_json_mask_path).name if _json_mask_path else None
+            if _img_by_key.exists():
+                img_path = str(_img_by_key)
+            elif _img_by_name and _img_by_name.exists():
+                img_path = str(_img_by_name)
+            else:
+                img_path = _json_img_path
+            if _mask_by_key.exists():
+                mask_path = str(_mask_by_key)
+            elif _mask_by_name and _mask_by_name.exists():
+                mask_path = str(_mask_by_name)
+            else:
+                mask_path = _json_mask_path
             overlay_path = tp_data.get("overlay_path") or _derive_overlay_path(
                 mask_path
             )
