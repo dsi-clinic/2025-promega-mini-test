@@ -62,12 +62,8 @@ def load_ensemble_acc():
 
 
 def main():
-    # Prefer ensemble (train_model_deep_ensemble) for per-day; fall back to run_per_day_study
-    ensemble = load_ensemble_acc()
-    per_day_study = load_bal_acc("per_day")
-    per_day = ensemble if ensemble else per_day_study
-    per_day_label = "Per-Day (accuracy)" if ensemble else "Per-Day (balanced acc)"
-
+    per_day = load_bal_acc("per_day")
+    per_day_label = "Per-Day"
     effnet_ts = load_bal_acc("effnet_ts")
 
     days_common = sorted(set(per_day) & set(effnet_ts))
@@ -90,7 +86,7 @@ def main():
     ax.plot(days_common, pd_vals, "o-", color="steelblue", linewidth=2,
             markersize=6, label=per_day_label)
     ax.plot(days_common, ts_vals, "s--", color="firebrick", linewidth=2,
-            markersize=6, label="Time Series (balanced acc)")
+            markersize=6, label="Time Series")
 
     for d, p, t, diff in zip(days_common, pd_vals, ts_vals, diffs):
         ax.annotate(f"{p:.2f}", (d, p), textcoords="offset points",
@@ -103,7 +99,7 @@ def main():
 
     ax.axhline(0.5, color="gray", linestyle=":", linewidth=1, label="Chance (0.50)")
     ax.set_xlabel("Day", fontsize=12)
-    ax.set_ylabel("Accuracy", fontsize=12)
+    ax.set_ylabel("Balanced Accuracy (threshold = 0.5)", fontsize=12)
     ax.set_title("Per-Day vs. Time Series", fontsize=14, fontweight="bold")
     ax.set_xticks(days_common)
     ax.set_xticklabels([str(d) for d in days_common])
