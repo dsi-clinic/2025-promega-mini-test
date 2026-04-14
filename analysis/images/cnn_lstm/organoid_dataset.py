@@ -53,10 +53,14 @@ def compute_global_mean_from_ids(organoid_ids, series_metadata, data):
     print(f"Computing global mean from {len(organoid_ids)} organoids...")
     all_means = []
 
+    skipped = 0
     for org_id in organoid_ids:
         entry_keys = series_metadata[org_id]["entry_keys"]
         for key in entry_keys:
             img_path = data[key]["lstm_processed"]["image_path"]
+            if not img_path or not Path(img_path).exists():
+                skipped += 1
+                continue
             img = imread(img_path)
 
             if img.ndim == 2:
@@ -65,6 +69,8 @@ def compute_global_mean_from_ids(organoid_ids, series_metadata, data):
             # Just get mean of ENTIRE image (all pixels)
             img_mean = img.reshape(-1, 3).mean(axis=0)
             all_means.append(img_mean)
+    if skipped:
+        print(f"  (skipped {skipped} missing images)")
 
     # Average across all images
     global_mean = np.mean(all_means, axis=0) / 255.0  # Normalize to [0,1]
