@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
 # Env and path setup
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 env_file = REPO_ROOT / ".env"
 if env_file.exists():
     with open(env_file) as f:
