@@ -25,7 +25,7 @@ sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure'
 # ============================================================
 # CONFIGURATION
 # ============================================================
-ALL_DATA_JSON = 'all_data.json'
+ALL_DATA_JSON = 'data/all_data.json' 
 RANDOM_SEED = 42  # Fixed seed for reproducibility
 TEST_SIZE = 0.2  # 20% test set (held out)
 VAL_SIZE = 0.1   # 10% validation set (within the 80% training set)
