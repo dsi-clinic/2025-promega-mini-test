@@ -2,7 +2,7 @@
 #SBATCH --job-name=fig7_ensemble
 #SBATCH --output=logs/fig7_ensemble_%j.out
 #SBATCH --error=logs/fig7_ensemble_%j.err
-#SBATCH --time=24:00:00
+#SBATCH --time=12:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
