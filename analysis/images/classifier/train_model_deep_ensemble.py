@@ -220,12 +220,22 @@ def run_training_for_day(
     # labels
     label_map = {"Accepted": 1, "Not Accepted": 0}
     try:
-        labels = np.array([label_map[r["label"]] for r in records], dtype=int)
-    except KeyError:
+        records = [r for r in records if r.get("label") in label_map]
+    except Exception:
         print(f"⚠ Skipping {day_json_path.name} — missing 'label' field")
         return None
 
-    imgs = np.array([_remap_img_path(r["img_path"]) for r in records])
+    # Remap paths and filter out missing files
+    remapped = [_remap_img_path(r["img_path"]) for r in records]
+    valid = [(img, r) for img, r in zip(remapped, records) if Path(img).exists()]
+    if not valid:
+        print(f"⚠ Skipping {day_json_path.name} — no valid images found")
+        return None
+    n_dropped = len(records) - len(valid)
+    if n_dropped:
+        print(f"  [{day_json_path.stem}] dropped {n_dropped} records with missing images")
+    imgs = np.array([img for img, _ in valid])
+    labels = np.array([label_map[r["label"]] for _, r in valid], dtype=int)
 
     # ---- Split: first cut TEST (test_frac), then VAL to reach overall val_frac
     X_tmp, X_test, y_tmp, y_test = train_test_split(
@@ -425,6 +435,26 @@ def main():
         data_dir.glob("Dy*.json"), key=lambda p: day_to_int(p.stem)
     ):
         day = json_file.stem
+        # Skip if already completed
+        done_marker = out_dir / "efficientnet" / day / "metrics_test.json"
+        if done_marker.exists():
+            print(f"⏭ Skipping {day} — already completed")
+            import json as _json
+            with open(done_marker) as _f:
+                _m = _json.load(_f)
+            per_day_best[day] = {
+                "day": day,
+                "day_no": day_to_int(day),
+                "backbone_key": "efficientnet",
+                "val_accuracy": _m.get("val_accuracy_for_selection", 0),
+                "test_accuracy": _m.get("accuracy", 0),
+                "test_f1": _m.get("f1", 0),
+                "val_num": _m.get("val_n", 0),
+                "test_num": _m.get("test_n", 0),
+                "test_actual_good": _m.get("actual_good", 0),
+                "test_pred_good": _m.get("predicted_good", 0),
+            }
+            continue
         best = None
         for backbone_key, backbone_name in BACKBONES.items():
             res = run_training_for_day(
