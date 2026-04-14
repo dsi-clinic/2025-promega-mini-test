@@ -186,7 +186,13 @@ def fmt(x):
     return "N/A" if x is None else f"{x:.3f}"
 
 def main():
-    base_dir = Path('/net/projects2/promega/data-analysis/output/cnn_lstm/models')
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--base-dir", type=Path,
+                        default=Path("/net/projects2/promega/2026_04_non_env/data-analysis/output/cnn_lstm/models"),
+                        help="Directory containing results_*.json files")
+    args = parser.parse_args()
+    base_dir = args.base_dir
     paths = {
         "All-White": base_dir / 'results_allwhite.json',
         "Blur Only": base_dir / 'results_blur.json',

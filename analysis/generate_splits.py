@@ -11,7 +11,7 @@ Output is a minimal CSV with just (organoid_id, split).  Everything else —
 labels, features, filtering — is derived at runtime by data_loader.py.
 
 Requires the project conda environment (see AGENTS.md):
-    conda run --no-capture-output -p /net/projects2/promega \\
+    conda run --no-capture-output -n core_env \\
         python -m analysis.generate_splits
 
 Usage:
