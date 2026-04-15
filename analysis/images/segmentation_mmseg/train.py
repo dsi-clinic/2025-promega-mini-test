@@ -207,10 +207,28 @@ def main():
     cfg.val_dataloader.dataset.json_mapping_path = str(val_map)
     cfg.test_dataloader.dataset.json_mapping_path = str(test_map)
 
-    # Avoid overwriting early vs late runs in same directory
-    split_work_dir = args.work_dir / args.split
-    split_work_dir.mkdir(parents=True, exist_ok=True)
-    cfg.work_dir = str(split_work_dir)
+    # Each training run lives in its own timestamped subdir so checkpoints,
+    # logs, and config are co-located and reruns don't clobber prior weights.
+    # On --resume, reuse the latest existing run dir (where last_checkpoint lives).
+    if args.resume:
+        existing = sorted(
+            (p for p in args.work_dir.glob("[0-9]" * 8 + "_" + "[0-9]" * 6) if p.is_dir()),
+            key=lambda p: p.name,
+        )
+        resumable = [p for p in existing if (p / "last_checkpoint").exists()]
+        if not resumable:
+            raise FileNotFoundError(
+                f"--resume set but no run dir with last_checkpoint under {args.work_dir}"
+            )
+        run_dir = resumable[-1]
+        logging.info("Resuming into existing run dir: %s", run_dir)
+    else:
+        run_dir = args.work_dir / start_time.strftime("%Y%m%d_%H%M%S")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    cfg.work_dir = str(run_dir)
+    # Snapshot the merged config alongside the checkpoints for reproducibility
+    # and so step 9 can pick it up without diving into mmengine's inner log dir.
+    cfg.dump(str(run_dir / "config.py"))
 
     # AMP
     if args.amp is True:

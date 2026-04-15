@@ -12,13 +12,19 @@
 #   DATA_DIR              - Base data directory (default: /net/projects2/promega/2026_04_data)
 #   PYTHON                - Python executable (default: conda run -n core_env python3)
 #   PYTHON_MMCV           - Python with mmcv env (default: conda run -n mmcv_env python)
+#   MMCV_ENV_PATH         - Path to mmcv conda env (default: $(HOME)/miniconda3/envs/mmcv_env)
 
 # -------- Configuration --------
 DATA_DIR           ?= /net/projects2/promega/2026_04_data
 ANALYSIS_OUTPUT_DIR ?= /net/projects2/promega/2026_04_data/analysis_output
 PYTHON             ?= conda run --no-capture-output -p $(HOME)/miniconda3/envs/core_env python3
-PYTHON_MMCV        ?= conda run --no-capture-output -p $(HOME)/miniconda3/envs/mmcv_env python
+MMCV_ENV_PATH      ?= $(HOME)/miniconda3/envs/mmcv_env
+PYTHON_MMCV        ?= conda run --no-capture-output -p $(MMCV_ENV_PATH) python
 PYTHONPATH         := $(shell pwd)
+
+# CUDA env for mmcv steps — use the conda env's bundled CUDA 11.3 (cudatoolkit-dev=11.3.1)
+# so mmcv's build/runtime finds the matching CUDA toolchain instead of system CUDA 12.x.
+MMCV_ENV_PREFIX    := CUDA_HOME=$(MMCV_ENV_PATH) LD_LIBRARY_PATH=$(MMCV_ENV_PATH)/lib:$$LD_LIBRARY_PATH PATH=$(MMCV_ENV_PATH)/bin:$$PATH
 
 # Input directories
 IMAGE_VERIFICATION_CSV := $(DATA_DIR)/images/image_verification.csv
@@ -72,14 +78,14 @@ GPU              ?=
 RESUME           ?=
 
 # Segmentation models (outputs from step8)
-# Config: latest timestamped run dir (e.g. .../late/late/20260209_103224/vis_data/config.py)
-# Checkpoint: in phase dir, not run dir (mmseg saves .../late/late/iter_1000.pth)
-EARLY_RUN_DIR    = $(shell ls -t $(SEG_WORK_ROOT)/early/early/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
-LATE_RUN_DIR     = $(shell ls -t $(SEG_WORK_ROOT)/late/late/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
-EARLY_CONFIG     ?= $(SEG_WORK_ROOT)/early/early/$(EARLY_RUN_DIR)/vis_data/config.py
-EARLY_CHECKPOINT ?= $(SEG_WORK_ROOT)/early/early/iter_1000.pth
-LATE_CONFIG      ?= $(SEG_WORK_ROOT)/late/late/$(LATE_RUN_DIR)/vis_data/config.py
-LATE_CHECKPOINT  ?= $(SEG_WORK_ROOT)/late/late/iter_1000.pth
+# Each training run writes into its own timestamped dir that contains both the
+# config snapshot and the checkpoints: $(SEG_WORK_ROOT)/<phase>/YYYYMMDD_HHMMSS/
+EARLY_RUN_DIR    = $(shell ls -t $(SEG_WORK_ROOT)/early/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
+LATE_RUN_DIR     = $(shell ls -t $(SEG_WORK_ROOT)/late/ 2>/dev/null | grep -E '^[0-9]{8}_[0-9]{6}$$' | head -1)
+EARLY_CONFIG     ?= $(SEG_WORK_ROOT)/early/$(EARLY_RUN_DIR)/config.py
+EARLY_CHECKPOINT ?= $(SEG_WORK_ROOT)/early/$(EARLY_RUN_DIR)/iter_1000.pth
+LATE_CONFIG      ?= $(SEG_WORK_ROOT)/late/$(LATE_RUN_DIR)/config.py
+LATE_CHECKPOINT  ?= $(SEG_WORK_ROOT)/late/$(LATE_RUN_DIR)/iter_1000.pth
 
 
 # Classifier training options
@@ -107,8 +113,8 @@ run:
 
 .PHONY: seg-train-early seg-train-late
 
-seg-train-early:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON_MMCV) $(SEG_TRAIN_SCRIPT) \
+seg-train-early: validate-mmcv-env
+	PYTHONPATH=$(PYTHONPATH) $(MMCV_ENV_PREFIX) $(PYTHON_MMCV) $(SEG_TRAIN_SCRIPT) \
 		--config $(SEG_CONFIG) \
 		--splits-dir $(SPLITS_DIR) \
 		--split early \
@@ -116,8 +122,8 @@ seg-train-early:
 		$(if $(RESUME),--resume) \
 		$(if $(GPU),--cfg-options launcher=pytorch gpu_ids=$(GPU))
 
-seg-train-late:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON_MMCV) $(SEG_TRAIN_SCRIPT) \
+seg-train-late: validate-mmcv-env
+	PYTHONPATH=$(PYTHONPATH) $(MMCV_ENV_PREFIX) $(PYTHON_MMCV) $(SEG_TRAIN_SCRIPT) \
 		--config $(SEG_CONFIG) \
 		--splits-dir $(SPLITS_DIR) \
 		--split late \
@@ -307,14 +313,14 @@ endif
 # Which mapping JSON to run inference on (defaults to resized)
 PRED_INPUT_JSON ?= $(IMAGE_MAP_RESIZED)
 
-step9:
+step9: validate-mmcv-env
 	@echo "===> STEP 9: Predicting segmentation masks (PHASE=$(PHASE))"
 	@mkdir -p $(MASKS_DIR)/predicted
 	@if [ ! -f "$(CHECKPOINT)" ]; then \
 		echo "ERROR: Checkpoint not found: $(CHECKPOINT)"; \
 		exit 1; \
 	fi
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON_MMCV) -m analysis.images.segmentation_mmseg.predict_masks \
+	PYTHONPATH=$(PYTHONPATH) $(MMCV_ENV_PREFIX) $(PYTHON_MMCV) -m analysis.images.segmentation_mmseg.predict_masks \
 		--image-mapping-json $(PRED_INPUT_JSON) \
 		--out-dir $(MASKS_DIR)/predicted \
 		--model-type $(PHASE) \
@@ -331,6 +337,10 @@ step9-early:
 step9-late:
 	$(MAKE) step9 PHASE=late OVERWRITE=$(OVERWRITE) DAYS=Dy13,Dy15,Dy17,Dy20,Dy21,Dy24,Dy28,Dy30 \
 	  PRED_INPUT_JSON=$(IMAGE_MAP_RESIZED:.json=_predicted.json)
+	@# predict_masks.py hardcodes output to <input_stem>_predicted.json, so
+	@# feeding it the early-output JSON produces _predicted_predicted.json.
+	@# Collapse that back to the canonical _predicted.json for step10.
+	@mv $(IMAGE_MAP_RESIZED:.json=_predicted_predicted.json) $(IMAGE_MAP_PREDICTED)
 
 
 # ====================================
@@ -359,11 +369,11 @@ step11: step10
 # ====================================
 # STEP 12: Filter Complete Series
 # ====================================
-step12: $(IMAGE_MAP_RESIZED)
+step12: $(IMAGE_MAP_PREDICTED)
 	@echo "===> STEP 12: Filtering complete series"
 	@mkdir -p $(IMAGES_DIR)/filter_complete_series
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.images.series.filter_complete_series \
-		--image-mapping-json $(IMAGE_MAP_RESIZED) \
+		--image-mapping-json $(IMAGE_MAP_PREDICTED) \
 		--out-dir $(IMAGES_DIR)/filter_complete_series \
 		--show-examples
 	@echo "===> Output: $(IMAGES_DIR)/filter_complete_series/"
@@ -477,7 +487,14 @@ pipeline-mappers: step2 step3 step4
 
 pipeline-preprocessing: step5 step6 step7
 
-pipeline-segmentation: step8 step9
+# Trains both early and late segmentation models, then runs prediction with each
+# on its respective days (early model on Dy03-10, late model on Dy13-30).
+# step9-late reads step9-early's output JSON, so order matters.
+pipeline-segmentation:
+	$(MAKE) step8 PHASE=early
+	$(MAKE) step8 PHASE=late
+	$(MAKE) step9-early
+	$(MAKE) step9-late
 
 pipeline-quality: step10 step11
 
@@ -538,6 +555,15 @@ validate-inputs:
 		exit 1; \
 	fi
 	@echo "===> All input files validated successfully!"
+
+validate-mmcv-env:
+	@if [ ! -x "$(MMCV_ENV_PATH)/bin/nvcc" ]; then \
+		echo "ERROR: mmcv_env not found or incomplete at $(MMCV_ENV_PATH)"; \
+		echo "  Expected nvcc at $(MMCV_ENV_PATH)/bin/nvcc (provided by cudatoolkit-dev=11.3.1)."; \
+		echo "  Create the env with:"; \
+		echo "    conda env create -f analysis/images/segmentation_mmseg/mmcv_env.yaml"; \
+		exit 1; \
+	fi
 
 clean:
 	@echo "Cleaning generated files..."
