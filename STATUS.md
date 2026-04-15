@@ -1,0 +1,117 @@
+# Analysis Pipeline Status
+
+**Date**: 2026-04-02
+**Branch**: `nross/pulling-in-student-work` (ahead of main, merged latest main)
+
+## Configuration
+
+- **Source of truth**: `data/all_data.json`
+- **Splits**: `data/2026_winter_student_splits.csv` (220 organoids: 158 train / 18 val / 44 test, seed=42)
+- **Split modes**: `OrganoidDataset` accepts either `splits_csv=` (load from file) or `split_ratios=` + `split_seed=` (generate at runtime)
+- **Output directory**: `/net/projects2/promega/analysis_output/` (set via `ANALYSIS_OUTPUT_DIR` env var)
+- **Execution**: `make run ARGS="..."` exports `ANALYSIS_OUTPUT_DIR` automatically
+
+## Completed Analysis
+
+| Task | Script | Output | Key Result |
+|------|--------|--------|------------|
+| Descriptive stats / Table 1 | `analysis.descriptive_stats` | `figures/metabolite_summary_table.csv` | All 5 metabolite means match paper |
+| Metabolite boxplot (Fig 5) | `analysis.metabolite_boxplot` | `figures/metabolite_concentration_boxplot.png` | Done |
+| LightGBM + LR per-day (Table 3) | `analysis.metabolites.train` | `metabolites/results.json`, `figures/LightGBM_vs_Logistic_Regression.png` | LightGBM Dy30 bal_acc = **0.9444** (exact match) |
+| Feature importance (Fig 10) | `analysis.metabolites.feature_importance` | `figures/Feature Importance Graph.png` | Done |
+| Per-day EfficientNet | `analysis.images.classifier.run_study` | `images/perday_results.json`, `figures/perday_image_balanced_accuracy.png` | Dy28=0.89, Dy30=0.71, Avg=60.6% |
+
+### Key Metrics
+
+| Metric | Paper | Ours | Note |
+|--------|-------|------|------|
+| LightGBM Dy30 Balanced Acc | 0.9444 | 0.9444 | Exact match |
+| LightGBM Avg Balanced Acc | — | 65.7% | Different test set (220 vs 265 organoids) |
+| Image Dy28 Balanced Acc | ~0.68 | 0.89 | Small test set variance |
+| Image Avg Balanced Acc | — | 60.6% | Early days near-chance as expected |
+
+## Paper Feedback Summary
+
+Two sources: `paper/notes.txt` (Nick/Stevens + Jolanta from Promega), `paper/OtherDocs/AmandanNotes.md` (Amanda).
+
+### Blocking / Hold Items
+
+- **Reconcile with Goto-Silva et al.**: Papers reach opposite conclusions on multimodal fusion from same dataset. Must explicitly discuss. Frame as "methodological companion."
+- **BCAA + malate reincorporation**: ON HOLD pending alignment on raw concentration vs consumption/secretion. Affects fusion results and normalization.
+- **Dilution correction**: Promega sending corrected metabolite concentrations.
+
+### Paper Structure Changes Requested
+
+- Rewrite intro: specify brain organoids, frame real research question, emphasize non-destructive QC
+- Separate methods from results (currently interleaved)
+- Add biological interpretation (metabolite temporal shift, lactate→malate, why fusion doesn't help)
+- Add a real Discussion section (doesn't exist)
+- Tighten conclusion (currently repeats abstract)
+- Discuss single iPSC line as limitation
+- Figure 8 needs more text discussion
+- Soften per-day vs time-series claim (threshold-dependent)
+- Organoid count should be 248 (expert-labeled), not 265
+
+### New Analyses Needed
+
+| Analysis | Status | Notes |
+|----------|--------|-------|
+| Fleiss' kappa on 5-rater survey data | Not started | |
+| Vote split distribution (5-0 through 3-2) with examples | Not started | |
+| Error overlap: do image + metabolite models misclassify same organoids? | Not started | Key input for combined model decision |
+| Performance stratified by vote confidence (unanimous vs borderline) | Not started | |
+| Day 17 investigation (media change? imaging issue?) | Not started | Processing changes may affect Dy17 results; revisit after rerun |
+| Confirm Day 26 exists in data or is phantom | Not started | |
+| Label propagation justification writeup | Not started | |
+
+### Open Decisions (Need Human Input)
+
+1. **Combined model**: Keep as full result, compress to paragraph, or drop? Depends on error overlap analysis.
+2. **Time-series**: Try better temporal architecture or accept negative result?
+3. **Target journal**: Cell Systems suggested.
+
+## Not Yet Started (Pipeline)
+
+| Task | Script | Depends On |
+|------|--------|------------|
+| Three-model comparison (Fig 11) | `analysis.three_model_plot` | Image results (done) + combined model |
+| Combined model | Not yet written | ON HOLD per feedback |
+| Table 2 (3-backbone comparison) | Not yet written | GPU |
+| Qualitative figures (Figs 1-4, 6) | Not yet written | — |
+
+## Known Discrepancies
+
+### Organoid Count (265 vs 248 vs 220)
+
+Paper uses 265, feedback says should be 248, we use 220. **Neither 265 nor 248 can be reproduced from current `all_data.json`:**
+
+| Filter | Count |
+|--------|-------|
+| Total unique organoids in all_data.json | 503 |
+| BA1 / BA2 / BA3 / BA4 | 96 / 213 / 96 / 98 |
+| BA1+BA2 only | 309 |
+| BA1+BA2 with Dy30 record | 283 |
+| BA1+BA2 with survey at Dy30 | 274 |
+| BA1+BA2 with >=4 vote consensus at Dy30 | **220** (our number) |
+| All batches with >=4 consensus at Dy30 | 293 |
+
+The 54 organoids lost (274→220) are ambiguous 3-2 vote splits that fail the >=4 consensus threshold. 265 and 248 likely come from an older dataset version or different counting methodology. **Needs clarification.**
+
+### Missing Metabolites (BCAA + Malate)
+
+Both BCAAGlo and MalateGlo data **exist in all_data.json for ALL days** (Dy03-Dy30, ~377-379 non-null records per day). They are excluded purely by code in `data_loader.py`:
+- `BCAAGlo` → hard-excluded in `EXCLUDED_METABOLITES`
+- `MalateGlo` before Dy13 → excluded by `CONDITIONAL_METABOLITES` lambda (`day_num > 10`)
+
+Feedback requests reincorporation but says **hold until alignment conversation** on whether they enter as raw concentrations or consumption/secretion values. This is a feature engineering decision that affects fusion results.
+
+### Other
+
+- **Malate Std Dev**: Off by 0.036 from paper — likely rounding or minor filter difference.
+- **Image early/mid-day performance**: Near-chance (0.48-0.58) due to small val set (18 organoids) biasing model selection toward majority class.
+
+## SLURM History
+
+- **795019**: Never ran (queued then empty output)
+- **795020**: Failed in 1s — `set -euo pipefail` + unset `BASH_SOURCE` under SLURM
+- **795024**: Completed successfully with fixed script
