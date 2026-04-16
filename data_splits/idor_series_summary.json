@@ -1,6 +1,6 @@
 {
   "random_seed": 42,
-  "filter_csv": "/net/projects2/promega/project_data/amanda_test/identifiers/idor_organoids.csv",
+  "filter_csv": "/net/projects2/promega/2026_04_non_env/project_data/amanda_test/identifiers/idor_organoids.csv",
   "filter_wells_count": 266,
   "expected_days": [
     3.0,
@@ -20,29 +20,32 @@
   "complete_series": 253,
   "incomplete_dropped": 13,
   "no_label_dropped": 61,
-  "total_labeled": 192,
+  "total_labeled": 135,
+  "total_labeled_before_extra_filters": 192,
+  "extra_qc_dropped": 57,
+  "total_labeled_after_extra_filters": 135,
   "train": {
-    "organoids": 137,
-    "wells": 137,
+    "organoids": 97,
+    "wells": 97,
     "label_counts": {
-      "Acceptable": 115,
-      "Not Acceptable": 22
+      "Acceptable": 79,
+      "Not Acceptable": 18
     }
   },
   "val": {
-    "organoids": 16,
-    "wells": 16,
+    "organoids": 11,
+    "wells": 11,
     "label_counts": {
-      "Acceptable": 13,
-      "Not Acceptable": 3
+      "Acceptable": 9,
+      "Not Acceptable": 2
     }
   },
   "test": {
-    "organoids": 39,
-    "wells": 39,
+    "organoids": 27,
+    "wells": 27,
     "label_counts": {
-      "Acceptable": 33,
-      "Not Acceptable": 6
+      "Acceptable": 22,
+      "Not Acceptable": 5
     }
   }
 }
