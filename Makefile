@@ -14,7 +14,7 @@
 #   PYTHON_MMCV           - Python with mmcv env (default: conda run -n mmcv_env python)
 
 # -------- Configuration --------
-DATA_DIR           ?= /net/projects2/promega/project_data/amanda_test
+DATA_DIR           ?= /net/projects2/promega/2026_04_non_env/project_data/amanda_test
 PYTHON             ?= conda run --no-capture-output -p /net/projects2/promega python3
 PYTHON_MMCV        ?= conda run --no-capture-output -p /net/scratch2/ntebaldi/conda_envs/mmcv_env python
 PYTHONPATH         := $(shell pwd)

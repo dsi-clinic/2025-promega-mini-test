@@ -41,7 +41,7 @@ sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure'
 # CONFIGURATION
 # ============================================================
 ALL_DATA_JSON  = 'data/all_data.json'
-FILTER_CSV     = '/net/projects2/promega/project_data/amanda_test/identifiers/idor_organoids.csv'
+FILTER_CSV     = '/net/projects2/promega/2026_04_non_env/project_data/amanda_test/identifiers/idor_organoids.csv'
 OUTPUT_DIR     = Path('data_splits')
 RANDOM_SEED    = 42
 TEST_SIZE      = 0.2   # 20% test (held out)
@@ -56,6 +56,76 @@ LABEL_DAY = 30.0  # Survey labels come from Dy30
 # ============================================================
 # idor CSV FILTER
 # ============================================================
+ 
+def has_complete_metabolites(series):
+    required = ['GlucoseGlo', 'GlutamateGlo', 'MalateGlo', 'BCAAGlo', 'LactateGlo', 'PyruvateGlo']
+    for item in series['items']:
+        metab = item['value'].get('metabolite', {})
+        for name in required:
+            if name not in metab:
+                return False
+            if metab[name].get('concentration_uM') is None:
+                return False
+    return True
+
+def check_edge_fraction(series, max_edge_fraction=0.05):
+    vals = []
+    missing_days = []
+
+    for item in series['items']:
+        ef = item['value'].get('images', {}).get('edge_fraction', None)
+        day = item['mdl_day']
+
+        if ef is None:
+            missing_days.append(day)
+        else:
+            vals.append((day, float(ef)))
+
+    bad_days = [day for day, ef in vals if ef > max_edge_fraction]
+
+    return {
+        'has_missing_edge_fraction': len(missing_days) > 0,
+        'missing_edge_days': missing_days,
+        'fails_edge_fraction': len(bad_days) > 0,
+        'bad_edge_days': bad_days,
+        'max_edge_fraction': max([ef for _, ef in vals], default=None),
+    }
+    
+
+def apply_extra_filters(series_list, args):
+    kept = []
+    excluded = []
+
+    for s in series_list:
+        reasons = []
+        edge_info = None
+
+        if args.require_metabolite_complete and not has_complete_metabolites(s):
+            reasons.append('missing_metabolite')
+
+        if args.max_edge_fraction is not None:
+            edge_info = check_edge_fraction(s, args.max_edge_fraction)
+
+            if edge_info['fails_edge_fraction']:
+                reasons.append('edge_fraction_any_day')
+
+            if args.require_edge_fraction_complete and edge_info['has_missing_edge_fraction']:
+                reasons.append('missing_edge_fraction')
+
+        if reasons:
+            excluded.append({
+                'base_well': s['base_well'],
+                'organoid_id': s['organoid_id'],
+                'label': s['label'],
+                'reasons': ';'.join(reasons),
+                'bad_edge_days': edge_info['bad_edge_days'] if edge_info else [],
+                'missing_edge_days': edge_info['missing_edge_days'] if edge_info else [],
+                'max_edge_fraction': edge_info['max_edge_fraction'] if edge_info else None,
+            })
+        else:
+            kept.append(s)
+
+    return kept, excluded
  
 def _classified_id_to_base_well(s: str) -> str | None:
     """
@@ -377,6 +447,7 @@ def attach_labels(complete_series: list) -> tuple[list, int]:
         labeled.append(series)
  
     return labeled, dropped
+
  
 # ============================================================
 # STEP 4: SPLIT BY BASE WELL
@@ -505,6 +576,10 @@ def main():
                         help=f'Random seed (default: {RANDOM_SEED})')
     parser.add_argument('--no-filter',  action='store_true',
                         help='Skip the CSV filter and use all organoids (original behaviour)')
+    parser.add_argument('--require-complete-series', action='store_true')
+    parser.add_argument('--require-metabolite-complete', action='store_true')
+    parser.add_argument('--max-edge-fraction', type=float, default=None)
+    parser.add_argument('--require-edge-fraction-complete', action='store_true')
     args = parser.parse_args()
  
     print(f"\nLoading {args.all_data}...")
@@ -532,21 +607,37 @@ def main():
     genealogy = build_genealogy(all_data, filter_wells=filter_wells)
  
     # Step 2: complete series
-    print("\n[2/5] Filtering to complete series (all 11 timepoints)...")
+    print("\n[2/5] Building series...")
     complete, incomplete = build_complete_series(genealogy)
     print(f"  Complete series: {len(complete)}")
-    print(f"  Incomplete series (dropped): {len(incomplete)}")
- 
+    print(f"  Incomplete series: {len(incomplete)}")
+
+    candidate_series = complete
+    # later, if you want to support non-complete series, this is where you'd change it
+
     # Step 3: labels
     print("\n[3/5] Attaching Dy30 survey labels...")
-    labeled, dropped = attach_labels(complete)
-    print(f"  Labeled series: {len(labeled)}")
+    labeled, dropped = attach_labels(candidate_series)
+    print(f"  Labeled series before extra filters: {len(labeled)}")
     print(f"  Dropped (no/ambiguous label): {dropped}")
+
     label_counts = defaultdict(int)
     for s in labeled:
         label_counts[s['label']] += 1
     for lbl, cnt in label_counts.items():
         print(f"    {lbl}: {cnt}")
+
+    # Step 3b: optional extra filters
+    labeled_before_extra = labeled.copy()
+    labeled, excluded_qc = apply_extra_filters(labeled, args)
+
+    print(f"\n[3b/5] After extra filters: {len(labeled)}")
+    print(f"  Acceptable: {sum(s['label'] == 'Acceptable' for s in labeled)}")
+    print(f"  Not Acceptable: {sum(s['label'] == 'Not Acceptable' for s in labeled)}")
+    print(f"  Excluded by extra filters: {len(excluded_qc)}")
+
+    for row in excluded_qc[:20]:
+        print(row)
  
     # Step 4: split
     print("\n[4/5] Splitting by base well (preserving genealogy integrity)...")
@@ -578,6 +669,9 @@ def main():
         'incomplete_dropped': len(incomplete),
         'no_label_dropped': dropped,
         'total_labeled': len(labeled),
+        'total_labeled_before_extra_filters': len(labeled_before_extra),
+        'extra_qc_dropped': len(excluded_qc),
+        'total_labeled_after_extra_filters': len(labeled),
         'train': {
             'organoids': len(train),
             'wells': len({s['base_well'] for s in train}),
