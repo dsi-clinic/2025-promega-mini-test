@@ -25,7 +25,7 @@ sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure'
 # ============================================================
 # CONFIGURATION
 # ============================================================
-ALL_DATA_JSON = 'all_data.json'
+ALL_DATA_JSON = 'data/all_data.json' 
 RANDOM_SEED = 42  # Fixed seed for reproducibility
 TEST_SIZE = 0.2  # 20% test set (held out)
 VAL_SIZE = 0.1   # 10% validation set (within the 80% training set)
@@ -37,13 +37,14 @@ VAL_SIZE = 0.1   # 10% validation set (within the 80% training set)
 # - GlutamateGlo ✓
 # - LactateGlo ✓
 # - PyruvateGlo ✓
+# - BCAAGlo ✓
 #
 # Conditionally included:
 # - MalateGlo: included for days >10, excluded for days ≤10 (inclusive)
 #
 # Excluded metabolites:
-# - BCAAGlo: completely excluded (do not use at all)
-REQUIRED_METABOLITES = ['GlucoseGlo', 'GlutamateGlo', 'LactateGlo', 'PyruvateGlo']
+# (none in this configuration)
+REQUIRED_METABOLITES = ['GlucoseGlo', 'GlutamateGlo', 'LactateGlo', 'PyruvateGlo', 'BCAAGlo']
 MALATE_EXCLUSION_THRESHOLD_DAY = 10  # Don't use MalateGlo for days ≤10
 
 # Target day for survey labels (labels come from Dy30)

@@ -43,9 +43,9 @@ FIGURE_DIR = ANALYSIS_OUTPUT_DIR / "figures"
 # Constants matching the paper
 # ---------------------------------------------------------------------------
 
-REQUIRED_METABOLITES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo"]
+REQUIRED_METABOLITES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "BCAAGlo"]
 CONDITIONAL_METABOLITES = {"MalateGlo": lambda day_num: day_num > 10}
-EXCLUDED_METABOLITES = {"BCAAGlo"}
+EXCLUDED_METABOLITES = set()
 
 LABEL_DAY = "Dy30"
 HIGH_QUALITY_BATCHES = ("BA1", "BA2")
