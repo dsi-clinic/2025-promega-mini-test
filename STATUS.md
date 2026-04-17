@@ -15,11 +15,11 @@
 
 | Task | Script | Output | Key Result |
 |------|--------|--------|------------|
-| Descriptive stats / Table 1 | `analysis.descriptive_stats` | `figures/metabolite_summary_table.csv` | All 5 metabolite means match paper |
-| Metabolite boxplot (Fig 5) | `analysis.metabolite_boxplot` | `figures/metabolite_concentration_boxplot.png` | Done |
-| LightGBM + LR per-day (Table 3) | `analysis.metabolites.train` | `metabolites/results.json`, `figures/LightGBM_vs_Logistic_Regression.png` | LightGBM Dy30 bal_acc = **0.9444** (exact match) |
-| Feature importance (Fig 10) | `analysis.metabolites.feature_importance` | `figures/Feature Importance Graph.png` | Done |
-| Per-day EfficientNet | `analysis.images.classifier.run_study` | `images/perday_results.json`, `figures/perday_image_balanced_accuracy.png` | Dy28=0.89, Dy30=0.71, Avg=60.6% |
+| Descriptive stats / Table 1 | `analysis.paper_2026_04.descriptive_stats` | `figures/metabolite_summary_table.csv` | All 5 metabolite means match paper |
+| Metabolite boxplot (Fig 5) | `analysis.paper_2026_04.metabolite_boxplot` | `figures/metabolite_concentration_boxplot.png` | Done |
+| LightGBM + LR per-day (Table 3) | `analysis.paper_2026_04.metabolites_train` | `metabolites/results.json`, `figures/LightGBM_vs_Logistic_Regression.png` | LightGBM Dy30 bal_acc = **0.9444** (exact match) |
+| Feature importance (Fig 10) | `analysis.paper_2026_04.feature_importance` | `figures/Feature Importance Graph.png` | Done |
+| Per-day EfficientNet | `analysis.paper_2026_04.perday_image_study` | `images/perday_results.json`, `figures/perday_image_balanced_accuracy.png` | Dy28=0.89, Dy30=0.71, Avg=60.6% |
 
 ### Key Metrics
 

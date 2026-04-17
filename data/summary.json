@@ -32,10 +32,10 @@
   "image_mapping_meta": {
     "aspect_ratio": {
       "directory_meta": {
-        "_source_mapping": "/net/projects2/promega/2026_04_data/images/image_map_resized_512x384_predicted_overlay.json",
-        "_raw_base_folder": "/net/projects2/promega/2026_04_data/images/raw_images",
-        "_ar_images_base_folder": "/net/projects2/promega/2026_04_data/images/resized_575_square",
-        "_ar_masks_base_folder": "/net/projects2/promega/2026_04_data/masks/resized_575_square"
+        "_source_mapping": "/net/projects2/promega/2026_04_15_data/intermediate/indexes/image_map_resized_512x384_predicted_overlay.json",
+        "_raw_base_folder": "/net/projects2/promega/2026_04_15_data/raw/images/raw_images",
+        "_ar_images_base_folder": "/net/projects2/promega/2026_04_15_data/intermediate/resized_575_square",
+        "_ar_masks_base_folder": "/net/projects2/promega/2026_04_15_data/intermediate/resized_575_square_masks"
       },
       "params": {
         "target_um_per_px": 9.0,
@@ -53,17 +53,17 @@
     },
     "clipped_meanfill": {
       "directory_meta": {
-        "_source_mapping": "/net/projects2/promega/2026_04_data/images/image_map_resized_512x384_predicted_overlay_ar.json",
-        "_processed_base_folder": "/net/projects2/promega/2026_04_data/images/resized_512x384",
+        "_source_mapping": "/net/projects2/promega/2026_04_15_data/intermediate/indexes/image_map_resized_512x384_predicted_overlay_ar.json",
+        "_processed_base_folder": "/net/projects2/promega/2026_04_15_data/intermediate/resized_512x384",
         "_ar_images_base_folder": null,
-        "_clipped_meanfill_images_base_folder": "/net/projects2/promega/2026_04_data/images/mean_fill_clip"
+        "_clipped_meanfill_images_base_folder": "/net/projects2/promega/2026_04_15_data/intermediate/mean_fill_clip"
       },
       "params": {
         "mean_source": "computed:background",
         "global_mean_rgb01": [
-          0.7007767558097839,
-          0.7006872296333313,
-          0.7003905177116394
+          0.7005664110183716,
+          0.700476348400116,
+          0.700180172920227
         ],
         "computed_mean": true,
         "computed_mean_region": "background",
@@ -88,8 +88,8 @@
       },
       "stats": {
         "seen": 5168,
-        "processed": 0,
-        "skipped_exists": 5168,
+        "processed": 5168,
+        "skipped_exists": 0,
         "skipped_no_mask": 0,
         "skipped_missing_files": 0,
         "failed": 0

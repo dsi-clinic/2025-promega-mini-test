@@ -102,7 +102,7 @@ all_data.json
 ### Data Reorganization
 The data pipeline has been reorganized to use a normalized records structure:
 
-- **Normalized Records System**: Introduced `file_utils/merge/normalized_records.py` with `OrganoidRecord`, `OrganoidRecordBuilder`, and `RecordMetrics` to canonicalize organoid data
+- **Normalized Records System**: Introduced `pipeline/merge/normalized_records.py` with `OrganoidRecord`, `OrganoidRecordBuilder`, and `RecordMetrics` to canonicalize organoid data
 - **Unified Data Structure**: `all_data.json` now uses a `records` map with standardized organoid IDs plus a `summary.json` file containing metadata (totals, vote counts, metabolite outliers, skipped items)
 - **View-Specific Outputs**: The merge process generates a main data file from which specialized views can be created by the image and survey classifiers:
   - `all_data.json` - Complete unified dataset with all organoid records
@@ -132,8 +132,8 @@ flowchart TD
     A3([Survey Excels])
 
     %% ========= FILE_UTILS PROCESSING ========= %%
-    subgraph B[file_utils - Data Mapping &<br/>Integration]
-        B1[image_mapper_main.py<br/>Image metadata → JSON]
+    subgraph B[pipeline - Data Mapping &<br/>Integration]
+        B1[image_mapper.py<br/>Image metadata → JSON]
         B1b[organoid_patterns.py<br/>Pattern normalization helpers]
         B2[metabolite_mapper.py<br/>Metabolite Excel → JSON]
         B3[surveys_mapper.py<br/>Survey Excel → JSON]
@@ -142,16 +142,16 @@ flowchart TD
 
     %% ========= ANALYSIS PIPELINE ========= %%
     subgraph C[analysis - Downstream Analysis & ML]
-        subgraph C1[analysis/images]
-            C10[classifier<br/>Image classifiers – ViT / CNN]
+        subgraph C1[imagequality_classification]
+            C10[Image quality classifiers – ViT / ResNet / CNN]
         end
 
-        subgraph C2[analysis/metabolites]
-            C20[classifier<br/>Metabolite-based classifiers]
+        subgraph C2[metabolites]
+            C20[Metabolite-based classifiers]
         end
 
-        subgraph C3[analysis/surveys]
-            C30[classifier<br/>Survey-based classifiers]
+        subgraph C3[image_survey_classification]
+            C30[Survey-based image classifier]
         end
     end
 
@@ -247,14 +247,12 @@ Replace:
 - `/path/to/all_data.json` with the path to the main data JSON file (Image classifier only)
 
 Locations:
-1. **`analysis/images/classifier/run_accuracy.s`**
-   - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
-   - Line 15: `DATA_DIR=/path/to/data/images`
-   - Line 16: `ALL_DATA_JSON=/path/to/all_data.json`
+1. **`analysis/imagequality_classification/run_study.s`**
+   - Line 12: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
 
-2. **`analysis/surveys/classifier/run_survey_classifier.s`**
+2. **`analysis/image_survey_classification/run_survey_classifier.s`**
    - Line 13: `PROJ_ROOT=/home/YOUR_GITHUB_NAME/YOUR_MINITEST_DIRECTORY`
-   - Line 15: `DATA_DIR=/path/to/data/surveys`
+   - Line 15: `DATA_DIR=/path/to/data`
 
 Example:
 ```bash
@@ -266,10 +264,10 @@ Example:
 #### 2b. Image Classifier
 ```bash
 # Navigate to classifier directory
-cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/images/classifier
+cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/imagequality_classification
 
 # Submit the training job to SLURM
-sbatch run_accuracy.s
+sbatch run_study.s
 
 # Monitor job status
 squeue -u $USER
@@ -284,7 +282,7 @@ Results are saved in `DATA_DIR` which is defined in `run_accuracy.s`
 #### 2c. Survey Classifier
 ```bash
 # Navigate to survey classifier directory
-cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/surveys/classifier
+cd /home/YOUR_GITHUB_NAME/MINITEST_DIRECTORY/analysis/image_survey_classification
 
 # Submit the survey classifier job
 sbatch run_survey_classifier.s
@@ -391,7 +389,7 @@ Extract and normalize main identifiers from the image verification CSV file.
 
 **Command**:
 ```bash
-python3 -m file_utils.identifiers.retrieve_main_identifiers \
+python3 -m pipeline.identifiers.retrieve_main_identifiers \
     --csv-file <path/to/image_verification.csv> \
     --out-file <path/to/record_identifiers.json>
 ```
@@ -421,7 +419,7 @@ Process metabolite Excel files and map them to main identifiers.
 
 **Command**:
 ```bash
-python -m file_utils.metabolites.metabolite_mapper \
+python -m pipeline.metabolites.metabolite_mapper \
     --in-file <path/to/metabolite_data.xlsx> \
     --identifiers <path/to/record_identifiers.json> \
     --out-file <path/to/metabolite_map.json>
@@ -454,7 +452,7 @@ Process survey Excel files and map evaluations to identifiers.
 
 **Command**:
 ```bash
-python -m file_utils.surveys.surveys_mapper \
+python -m pipeline.surveys.surveys_mapper \
     --in-dir <path/to/survey/excel/files> \
     --out-file <path/to/survey_map.json> \
     --identifiers <path/to/record_identifiers.json>
@@ -488,7 +486,7 @@ Map raw image files to metadata and create image mapping JSON.
 
 **Command**:
 ```bash
-python3 -m file_utils.images.image_mapper \
+python3 -m pipeline.images.image_mapper \
     --base-dir <path/to/raw_images> \
     --verify-csv <path/to/image_verification.csv> \
     --meta-xlsx <path/to/Sample-Tracing.xlsx> \
@@ -529,7 +527,7 @@ Map manual segmentation masks to image entries.
 
 **Command**:
 ```bash
-python3 -m analysis.images.segmentation_mmseg.preprocessing.manual_masks_mapping \
+python3 -m pipeline.images.segmentation_mmseg.preprocessing.manual_masks_mapping \
     --image-json <path/to/image_map.json> \
     --masks-dir <path/to/masks/manual> \
     --output-file <path/to/image_mapping_thresholded_and_manual.json>
@@ -564,7 +562,7 @@ Resize images and masks to target resolution and remap paths.
 
 **Command**:
 ```bash
-python3 -m analysis.images.resize.resize_remap_images \
+python3 -m pipeline.images.resize.resize_remap_images \
     --image-mapping-json <path/to/image_map.json> \
     --mask-mapping-json <path/to/image_mapping_thresholded_and_manual.json> \
     --out-dir <path/to/output/resized_512x384> \
@@ -602,7 +600,7 @@ Create train/validation/test splits for model training.
 
 **Command**:
 ```bash
-python3 -m analysis.images.segmentation_mmseg.preprocessing.test_split \
+python3 -m pipeline.images.segmentation_mmseg.preprocessing.test_split \
     --resized-json <path/to/image_map_resized_512x384.json> \
     --splits-dir <path/to/output/splits> \
     --split-days
@@ -649,7 +647,7 @@ Each model trains from the corresponding split JSONs and writes its own checkpoi
 
 **Command**:
 ```bash
-python -m analysis.images.segmentation_mmseg.train \
+python -m pipeline.images.segmentation_mmseg.train \
     --splits-dir <path/to/splits> \
     --work-dir <path/to/trained_models>
 ```
@@ -685,7 +683,7 @@ Mask prediction is run twice (once per model) and outputs are written to `masks/
 **Command**:
 ```bash
 # Early model
-python -m analysis.images.segmentation_mmseg.predict_masks \
+python -m pipeline.images.segmentation_mmseg.predict_masks \
   --image-mapping-json <...> \
   --model-type early \
   --config <early_config.py> \
@@ -693,7 +691,7 @@ python -m analysis.images.segmentation_mmseg.predict_masks \
   --out-dir <predicted_masks_dir>
 
 # Late model
-python -m analysis.images.segmentation_mmseg.predict_masks \
+python -m pipeline.images.segmentation_mmseg.predict_masks \
   --image-mapping-json <...> \
   --model-type late \
   --config <late_config.py> \
@@ -733,7 +731,7 @@ Create overlay visualizations of images with masks.
 
 **Command**:
 ```bash
-python3 -m analysis.images.quality.image_mask_overlay \
+python3 -m pipeline.images.quality.image_mask_overlay \
     --image-mapping-json <path/to/image_map_resized_512x384.json> \
     --overlay-dir <path/to/overlays> \
     --overwrite
@@ -767,7 +765,7 @@ Calculate fraction of mask touching image edges.
 
 **Command**:
 ```bash
-python3 -m analysis.images.quality.mask_edge_fraction \
+python3 -m pipeline.images.quality.mask_edge_fraction \
     --image-mapping-json <path/to/image_map_resized_512x384.json>
 ```
 
@@ -800,7 +798,7 @@ Filter organoids with complete time series data across all 11 days.
 
 **Command**:
 ```bash
-python3 -m analysis.images.series.filter_complete_series \
+python3 -m pipeline.images.series.filter_complete_series \
     --image-mapping-json <path/to/image_map_resized_512x384.json> \
     --out-dir <path/to/filter_complete_series> \
     --show-examples
@@ -843,7 +841,7 @@ Prepare images for LSTM time series analysis with consistent physical scale.
 
 **Command**:
 ```bash
-python3 -m analysis.images.series.preprocess_for_lstm \
+python3 -m pipeline.images.series.preprocess_for_lstm \
     --complete-series <path/to/complete_series_data_no_blanks.json> \
     --raw-image-dir <path/to/raw_images> \
     --out-dir <path/to/lstm>
@@ -889,7 +887,7 @@ Resize images maintaining aspect ratio for additional analysis.
 
 **Command**:
 ```bash
-python3 -m analysis.images.resize.resize_aspect_ratio \
+python3 -m pipeline.images.resize.resize_aspect_ratio \
     --image-mapping-json <path/to/image_map_resized_512x384.json> \
     --raw-images-dir <path/to/raw_images> \
     --out-images-dir <path/to/resized_575_square> \
@@ -928,7 +926,7 @@ Apply mean-fill background replacement to standardize image backgrounds.
 
 **Command**:
 ```bash
-python3 -m analysis.images.postprocess.meanfill_clip \
+python3 -m pipeline.images.postprocess.meanfill_clip \
     --image-mapping-json <path/to/image_map_..._ar.json> \
     --compute-mean \
     --save-computed-mean \
@@ -979,7 +977,7 @@ Merge all mapped data sources into unified `all_data.json` file.
 
 **Command**:
 ```bash
-python3 -m file_utils.merge.merge_all_data \
+python3 -m pipeline.merge.merge_all_data \
     --data-dir <path/to/data/directory> \
     --image-mapping-json <path/to/final/image_mapping.json>
 ```
@@ -1039,13 +1037,13 @@ Train image classification models for each day.
 
 **On Cluster (SLURM)**:
 ```bash
-cd analysis/images/classifier
-sbatch run_accuracy.s
+cd analysis/imagequality_classification
+sbatch run_study.s
 ```
 
 **Local Development**:
 ```bash
-python3 -m analysis.images.classifier.train_model_accuracy \
+python3 -m analysis.imagequality_classification.train_model_accuracy \
     --epoch1 <num_epochs_phase1> \
     --epoch2 <num_epochs_phase2> \
     --val-frac <validation_fraction> \
@@ -1091,13 +1089,13 @@ Train survey-based classification model on Day 30 organoids.
 
 **On Cluster (SLURM)**:
 ```bash
-cd analysis/surveys/classifier
+cd analysis/image_survey_classification
 sbatch run_survey_classifier.s
 ```
 
 **Local Development**:
 ```bash
-python3 -m analysis.surveys.classifier.simple_classifier \
+python3 -m analysis.image_survey_classification.simple_classifier \
     --epoch1 <num_epochs_phase1> \
     --epoch2 <num_epochs_phase2> \
     --deterministic \

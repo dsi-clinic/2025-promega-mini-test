@@ -38,7 +38,7 @@ conda run --no-capture-output -n core_env python3 <script.py>
 
 ### PYTHONPATH
 
-The repo root must be on `PYTHONPATH` for imports like `from file_utils.common.organoid_patterns import ...` and `from analysis.data_loader import ...`. The Makefile sets this automatically. In interactive use:
+The repo root must be on `PYTHONPATH` for imports like `from pipeline.common.organoid_patterns import ...` and `from pipeline.data_loader import ...`. The Makefile sets this automatically. In interactive use:
 
 ```bash
 export PYTHONPATH=$(pwd)

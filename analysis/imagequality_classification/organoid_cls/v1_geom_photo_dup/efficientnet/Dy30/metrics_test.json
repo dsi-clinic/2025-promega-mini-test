@@ -1,0 +1,15 @@
+{
+  "day": "Dy30",
+  "day_no": 30,
+  "split": "test",
+  "accuracy": 0.5862068965517241,
+  "f1": 0.6666666666666666,
+  "val_accuracy_for_selection": 0.7241379310344828,
+  "val_n": 29,
+  "test_n": 29,
+  "actual_good": 21,
+  "predicted_good": 15,
+  "batch_size_train": 16,
+  "batch_size_valtest": 16,
+  "backbone_key": "efficientnet"
+}
