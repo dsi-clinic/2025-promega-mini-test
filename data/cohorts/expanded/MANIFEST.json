@@ -1,0 +1,112 @@
+{
+  "created_at_utc": "2026-04-22T16:17:50+00:00",
+  "config_path": "scripts/splits/configs/expanded.json",
+  "config": {
+    "name": "expanded",
+    "description": "IDOR cohort PLUS all BA4 wells added back in. BA4 records get the same Stage 1 filter as IDOR (edge_fraction <= 0.05, no Split/SplitStitched wells), which is exactly the filter IDOR used on the other batches.",
+    "all_data": "data/all_data.json",
+    "cohort": {
+      "identifiers_csv": "data/idor_organoids.csv",
+      "add_batches": [
+        "BA4"
+      ]
+    },
+    "stage1": {
+      "max_edge_fraction": 0.05,
+      "exclude_classifications": [
+        "Split",
+        "SplitStitched"
+      ]
+    },
+    "split": {
+      "seed": 42,
+      "test_size": 0.2,
+      "val_size": 0.1
+    },
+    "output_dir": "data/cohorts/expanded"
+  },
+  "git_sha": "c231c91027d7cc405d1fd9d263b9efc0f6ee61c7",
+  "all_data_sha256": "df6d7a74bf3401a6104bf35d41701ebea453fdeeece989b06f41e838164f5989",
+  "identifiers_csv_sha256": "3175aee038411b483d2f84697e79b1a67d719f8d68f18491df23f84627054bf1",
+  "seed": 42,
+  "expected_days": [
+    3.0,
+    6.0,
+    8.0,
+    10.0,
+    13.0,
+    15.0,
+    17.0,
+    20.5,
+    24.0,
+    28.0,
+    30.0
+  ],
+  "label_day": 30.0,
+  "cohort_stats": {
+    "identifiers_csv_wells": 266,
+    "added_batches": [
+      "BA4"
+    ],
+    "added_batch_wells": 96,
+    "cohort_total_wells": 362
+  },
+  "skipped_counts": {
+    "stage1:edge_fraction>0.05": 120,
+    "blank": 63,
+    "not_in_cohort": 1193,
+    "stage1:classification=Split": 10
+  },
+  "full_summary": {
+    "counts_by_partition": {
+      "train": 158,
+      "val": 18,
+      "test": 45
+    },
+    "wells_by_partition": {
+      "train": 158,
+      "val": 18,
+      "test": 45
+    },
+    "label_counts_by_partition": {
+      "train": {
+        "Acceptable": 107,
+        "Not Acceptable": 51
+      },
+      "val": {
+        "Acceptable": 12,
+        "Not Acceptable": 6
+      },
+      "test": {
+        "Acceptable": 31,
+        "Not Acceptable": 14
+      }
+    }
+  },
+  "series_summary": {
+    "counts_by_partition": {
+      "train": 147,
+      "val": 15,
+      "test": 43
+    },
+    "wells_by_partition": {
+      "train": 147,
+      "val": 15,
+      "test": 43
+    },
+    "label_counts_by_partition": {
+      "train": {
+        "Acceptable": 101,
+        "Not Acceptable": 46
+      },
+      "val": {
+        "Acceptable": 9,
+        "Not Acceptable": 6
+      },
+      "test": {
+        "Acceptable": 29,
+        "Not Acceptable": 14
+      }
+    }
+  }
+}
