@@ -528,7 +528,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
     
     opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-3)
     # ENHANCED: Add learning rate scheduler (from survey classifier improvements)
-    scheduler = ReduceLROnPlateau(opt, mode='max', factor=0.5, patience=10, min_lr=1e-7, verbose=True)
+    scheduler = ReduceLROnPlateau(opt, mode='max', factor=0.5, patience=10, min_lr=1e-7)
     es = EarlyStopping(patience=20)
     history = defaultdict(list)
     best_acc = -np.inf
@@ -554,7 +554,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
     model.unfreeze_backbone()
     opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
     # ENHANCED: Add learning rate scheduler for phase 2
-    scheduler = ReduceLROnPlateau(opt, mode='max', factor=0.5, patience=10, min_lr=1e-7, verbose=True)
+    scheduler = ReduceLROnPlateau(opt, mode='max', factor=0.5, patience=10, min_lr=1e-7)
     es = EarlyStopping(patience=30)
     for epoch in range(300):
         tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=use_mask, focal_loss_fn=focal_loss_fn)
