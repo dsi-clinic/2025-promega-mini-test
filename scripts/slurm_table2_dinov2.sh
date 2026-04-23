@@ -31,6 +31,9 @@ echo "=== Table 2: DINOv2 + ResNet + EfficientNet per-day classifiers ==="
 echo "Image dir: ${DATA_DIR}/intermediate/resized_512x384"
 echo "Split dir: ${DATA_DIR}/intermediate/data_splits"
 
-"${PYTHON}" -u analysis/images/classifier/train_model_accuracy_tony_dinov2.py
+"${PYTHON}" -u analysis/images/classifier/train_model_accuracy_tony_dinov2.py \
+    --train-split data_splits/both_train_base.json \
+    --val-split data_splits/both_val_base.json \
+    --test-split data_splits/both_test_base.json
 
 echo "Done at $(date)"
