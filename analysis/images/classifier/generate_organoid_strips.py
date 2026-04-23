@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-DAYS = ["Dy3", "Dy6", "Dy8", "Dy10", "Dy13", "Dy15", "Dy17", "Dy20.5", "Dy24", "Dy26", "Dy28", "Dy30"]
+DAYS = ["Dy3", "Dy6", "Dy8", "Dy10", "Dy13", "Dy15", "Dy17", "Dy20.5", "Dy24", "Dy28", "Dy30"]
 
 # Overlay filename uses zero-padded two-digit days for single-digit values
 DAY_FILENAME_MAP = {
@@ -35,7 +35,6 @@ DAY_FILENAME_MAP = {
     "Dy17":   "Dy17",
     "Dy20.5": "Dy20.5",
     "Dy24":   "Dy24",
-    "Dy26":   "Dy26",
     "Dy28":   "Dy28",
     "Dy30":   "Dy30",
 }
@@ -47,16 +46,31 @@ def organoid_id_to_filename_base(organoid_id: str) -> str:
 
 
 def find_overlay(overlay_dir: Path, base: str, day_str: str) -> Path | None:
+    """
+    Handles two naming patterns:
+      regular:  BA1_96_1_A10        -> BA1_96_1_Dy03_A10_overlay.png
+      split:    BA2_96_1_C1_split_1 -> BA2_96_1_Dy03_C1_split_1_overlay.png
+    """
     day_file = DAY_FILENAME_MAP[day_str]
-    # e.g. BA1_96_1_Dy03_A10_overlay.png
-    # base = 'BA1_96_1_A10'  =>  insert day before well
-    # Pattern: {batch}_{day}_{well}_overlay.png
-    # base has format BA1_96_1_A10 -> split on last _ to get well
-    parts = base.rsplit("_", 1)
-    if len(parts) != 2:
-        return None
-    batch_part, well = parts
-    candidate = overlay_dir / f"{batch_part}_{day_file}_{well}_overlay.png"
+
+    # Detect split organoid: base ends with _split_1 or _split_2
+    split_match = re.search(r"^(.+?)_(split_\d+)$", base)
+    if split_match:
+        # e.g. BA2_96_1_C1_split_1 -> batch=BA2_96_1, well=C1, suffix=split_1
+        prefix, split_suffix = split_match.group(1), split_match.group(2)
+        # prefix is like BA2_96_1_C1 -> split on last _ to get well
+        parts = prefix.rsplit("_", 1)
+        if len(parts) != 2:
+            return None
+        batch_part, well = parts
+        candidate = overlay_dir / f"{batch_part}_{day_file}_{well}_{split_suffix}_overlay.png"
+    else:
+        parts = base.rsplit("_", 1)
+        if len(parts) != 2:
+            return None
+        batch_part, well = parts
+        candidate = overlay_dir / f"{batch_part}_{day_file}_{well}_overlay.png"
+
     return candidate if candidate.exists() else None
 
 
