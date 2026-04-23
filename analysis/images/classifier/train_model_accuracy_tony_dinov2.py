@@ -10,6 +10,21 @@ import os, json, argparse, re, csv
 from pathlib import Path
 from collections import defaultdict
 
+# -------- Path remapping --------
+_DATA_DIR = Path(os.environ.get("DATA_DIR", "/net/projects2/promega/2026_04_15_data"))
+_IMG_DIR = _DATA_DIR / "intermediate" / "resized_512x384"
+_SPLIT_DIR = _DATA_DIR / "intermediate" / "data_splits"
+
+_SUFFIX_RE = re.compile(r"_(nosplit|presplit)_(nostitch|stitch)$")
+
+def _remap_img_path(img_path: str) -> str:
+    """Remap stale img_path to 2026_04_15_data resized_512x384 flat directory."""
+    stem = Path(img_path).stem
+    # Strip _nosplit_nostitch / _nosplit_stitch / _presplit_nostitch etc.
+    stem = _SUFFIX_RE.sub("", stem)
+    candidate = _IMG_DIR / f"{stem}.png"
+    return str(candidate) if candidate.exists() else img_path
+
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -22,7 +37,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score, balanced_accuracy_score
 import timm
 from torchvision import transforms as T
 from transformers import AutoModel
@@ -33,7 +48,9 @@ BACKBONES = {
     "resnet": "resnet50",
     "efficientnet": "efficientnet_b0",
 }
-SPLIT_DATA_DIR = Path("data_splits")
+# Prefer split files from the data directory if present, fall back to repo copy
+_CLUSTER_SPLIT_DIR = _DATA_DIR / "intermediate" / "data_splits"
+SPLIT_DATA_DIR = _CLUSTER_SPLIT_DIR if _CLUSTER_SPLIT_DIR.exists() else Path("data_splits")
 TRAIN_SPLIT_FILE = SPLIT_DATA_DIR / "both_train_base.json"
 VAL_SPLIT_FILE = SPLIT_DATA_DIR / "both_val_base.json"
 TEST_SPLIT_FILE = SPLIT_DATA_DIR / "both_test_base.json"
@@ -385,11 +402,10 @@ def extract_samples_by_day(split_data, day_str, input_key='img_path', use_mask=F
             continue
         
         tp_data = timepoints[day_str]
-        img_path = tp_data.get(input_key)
+        img_path = _remap_img_path(tp_data.get(input_key, ""))
         if not img_path:
             continue
-        
-        # Check file exists
+
         if not Path(img_path).exists():
             continue
         
@@ -414,7 +430,26 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
                          train_bs: int, val_bs: int,
                          out_root: Path, input_key: str, use_mask: bool):
     """Train + validate using fixed splits; select by VAL acc, report on TEST."""
-    
+    model_dir = out_root / backbone_key / day_str
+    if (model_dir / "metrics_test.json").exists():
+        print(f"Skipping {day_str}/{backbone_key}: metrics_test.json already exists")
+        with open(model_dir / "metrics_test.json") as f:
+            m = json.load(f)
+        return {
+            "day": day_str,
+            "day_no": m.get("day_no", -1),
+            "backbone_key": backbone_key,
+            "val_accuracy": m.get("val_accuracy_for_selection", 0.0),
+            "test_accuracy": m.get("accuracy", 0.0),
+            "test_f1": m.get("f1", 0.0),
+            "val_roc_auc": m.get("val_roc_auc"),
+            "test_roc_auc": m.get("roc_auc"),
+            "val_num": m.get("val_n", 0),
+            "test_num": m.get("test_n", 0),
+            "test_actual_good": m.get("actual_good", 0),
+            "test_pred_good": m.get("predicted_good", 0),
+        }
+
     # Extract samples for this day from all splits
     train_imgs, train_labels, train_masks = extract_samples_by_day(
         train_data, day_str, input_key, use_mask
@@ -588,6 +623,7 @@ def run_training_for_day(day_str: str, backbone_key: str, backbone_name: str,
         "day_no": day_no,
         "split": "test",
         "accuracy": float(test_acc),
+        "balanced_accuracy": float(balanced_accuracy_score(trues, preds_bin)),
         "f1": float(test_f1),
         "roc_auc": test_roc_auc,
         "pr_auc": test_pr_auc,
