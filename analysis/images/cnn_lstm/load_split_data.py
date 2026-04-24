@@ -29,9 +29,9 @@ import os
 import re
 from pathlib import Path
 
-_DATA_DIR = Path(os.environ.get("DATA_DIR", "/net/projects2/promega/2026_04_data"))
-_IMG_DIR = _DATA_DIR / "lstm" / "lstm_ready" / "images"
-_MASK_DIR = _DATA_DIR / "lstm" / "lstm_ready" / "masks"
+_DATA_DIR = Path(os.environ.get("DATA_DIR", "/net/projects2/promega/2026_04_15_data"))
+_IMG_DIR = _DATA_DIR / "intermediate" / "lstm_ready" / "lstm_ready" / "images"
+_MASK_DIR = _DATA_DIR / "intermediate" / "lstm_ready" / "lstm_ready" / "masks"
 
 
 def _derive_overlay_path(mask_path):
