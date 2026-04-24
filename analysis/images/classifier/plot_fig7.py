@@ -46,7 +46,7 @@ def load_bal_acc(model_type):
 
 
 def load_ensemble_bal_acc():
-    """Load test balanced_accuracy from train_model_deep_ensemble per-day metrics_test.json."""
+    """Load test balanced_accuracy (or accuracy if not available) from ensemble metrics_test.json."""
     ensemble_dir = STUDY_DIR / "efficientnet_ensemble" / "efficientnet"
     results = {}
     for day in DAYS:
@@ -57,9 +57,10 @@ def load_ensemble_bal_acc():
         if metrics_file.exists():
             with open(metrics_file) as f:
                 m = json.load(f)
-            bal_acc = m.get("balanced_accuracy")
-            if bal_acc is not None:
-                results[day] = bal_acc
+            # Prefer balanced_accuracy if available, fall back to accuracy
+            val = m.get("balanced_accuracy") or m.get("accuracy")
+            if val is not None:
+                results[day] = val
     return results
 
 

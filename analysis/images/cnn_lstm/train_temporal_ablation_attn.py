@@ -27,12 +27,12 @@ from analysis.images.cnn_lstm.organoid_dataset import (
 DAY_RANGES = [8, 10, 13, 15, 17, 20.5, 24, 30]
 BATCH_SIZE = 16
 NUM_WORKERS = 0
-MAX_EPOCHS = 100
-WARMUP_EPOCHS = 1
+MAX_EPOCHS = 150
+WARMUP_EPOCHS = 5
 LR_HEAD = 5e-4  # higher: new layers adapt quickly
 LR_CNN_UNFREEZE = 1e-4  # lower: slow fine-tuning of pretrained CNN
 GRAD_CLIP = 1.0
-PATIENCE = 15  # faster convergence / less wasted epochs
+PATIENCE = 30
 ATTN_DROPOUT = 0.4  # same as your best-performing LSTM run
 SEED = 42
 

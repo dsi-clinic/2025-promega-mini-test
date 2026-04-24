@@ -145,7 +145,9 @@ def load_split_data(train_split_path, val_split_path, test_split_path):
             tp_data = timepoints[day_str]
 
             # Construct entry_key
-            entry_key = construct_entry_key(organoid_id, day_str)
+            # Normalize day string for filename: Dy20.5 → Dy20 on disk
+            day_str_file = "Dy20" if day_str == "Dy20.5" else day_str
+            entry_key = construct_entry_key(organoid_id, day_str_file)
             entry_keys.append(entry_key)
 
             # Convert day string to float
