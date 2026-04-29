@@ -38,7 +38,7 @@ DISPLAY_NAMES = {
 
 
 def extract_organoid_id(key: str) -> str:
-    m = re.match(r"^(.*)\s+Dy\d+\s+(.*)$", key)
+    m = re.match(r"^(.*)\s+Dy\d+(?:\.\d+)?\s+(.*)$", key)
     return f"{m.group(1)} {m.group(2)}" if m else key
 
 
@@ -55,7 +55,7 @@ def main():
     print(f"Unique organoids (all batches): {len(org_ids)}")
 
     # Days
-    days = sorted(set(v.get("dayID", "") for v in all_data.values()))
+    days = sorted(set(v.get("day", {}).get("id", "") for v in all_data.values()))
     print(f"Days: {days}")
 
     # Records with labels (Dy28/Dy30 with survey)
@@ -64,9 +64,9 @@ def main():
     for k, v in all_data.items():
         if "survey" in v and v["survey"].get("evaluations"):
             labeled_records += 1
-            labeled_days.add(v.get("dayID"))
+            labeled_days.add(v.get("day", {}).get("id"))
     print(f"Records with survey evaluations: {labeled_records}")
-    print(f"Survey days: {sorted(labeled_days)}")
+    print(f"Survey days: {sorted(d for d in labeled_days if d)}")
 
     # --- Load splits dataset for label distribution ---
     from pipeline.data_loader import OrganoidDataset
@@ -96,13 +96,13 @@ def main():
 
     met_values = {m: [] for m in METABOLITE_NAMES}
 
-    from pipeline.data_loader import CONDITIONAL_METABOLITES, _get_day_number
+    from pipeline.data_loader import CONDITIONAL_METABOLITES, get_day_int_floor
 
     for org_id in ds.organoid_ids:
         info = ds._organoids[org_id]
         for day, rec in info["records"].items():
-            day_num = _get_day_number(day)
-            mets = rec.get("metabolites", {})
+            day_num = get_day_int_floor(day)
+            mets = rec.get("metabolite", {})
             for m in METABOLITE_NAMES:
                 # Apply conditional metabolite filtering (e.g. MalateGlo only for days > 10)
                 if m in CONDITIONAL_METABOLITES:

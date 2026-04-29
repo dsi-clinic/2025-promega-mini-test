@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from pipeline.data_loader import CONDITIONAL_METABOLITES, FIGURE_DIR, OrganoidDataset, _get_day_number
+from pipeline.data_loader import CONDITIONAL_METABOLITES, FIGURE_DIR, OrganoidDataset, get_day_int_floor
 
 ALL_DATA_PATH = "data/all_data.json"
 SPLITS_CSV = "data/2026_winter_student_splits.csv"
@@ -42,8 +42,8 @@ def main():
     for org_id in ds.organoid_ids:
         info = ds._organoids[org_id]
         for day, rec in info["records"].items():
-            day_num = _get_day_number(day)
-            mets = rec.get("metabolites", {})
+            day_num = get_day_int_floor(day)
+            mets = rec.get("metabolite", {})
             for m in METABOLITE_NAMES:
                 # Apply conditional metabolite filtering (e.g. MalateGlo only days > 10)
                 if m in CONDITIONAL_METABOLITES:

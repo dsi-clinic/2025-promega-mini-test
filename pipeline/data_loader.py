@@ -45,7 +45,6 @@ FIGURE_DIR = ANALYSIS_OUTPUT_DIR / "figures"
 
 REQUIRED_METABOLITES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "BCAAGlo"]
 CONDITIONAL_METABOLITES = {"MalateGlo": lambda day_num: day_num > 10}
-EXCLUDED_METABOLITES = set()
 
 LABEL_DAY = "Dy30"
 HIGH_QUALITY_BATCHES = ("BA1", "BA2")
@@ -57,40 +56,93 @@ DAY_ORDER = [
     "Dy15", "Dy17", "Dy20_5", "Dy24", "Dy28", "Dy30",
 ]
 
-# Map raw day IDs to canonical day IDs (Dy20/Dy21 → Dy20_5)
-DAY_ALIAS = {"Dy20": "Dy20_5", "Dy21": "Dy20_5"}
+# Map raw day IDs (as emitted by the normalized schema) to canonical day IDs
+# used internally by analysis. The normalized schema emits unpadded forms
+# ('Dy3') and decimal notation ('Dy20.5'); the loader and paper scripts use
+# zero-padded + underscore forms ('Dy03', 'Dy20_5').
+#
+# Use ``raw_day_id(record)`` to read what was on disk (preserves Dy20 vs Dy21
+# vs Dy20.5). Use ``canonical_day_id(raw)`` to map to the analysis-internal
+# form (loses the Dy20/Dy21 distinction — both become Dy20_5).
+DAY_ALIAS = {
+    "Dy3": "Dy03", "Dy6": "Dy06", "Dy8": "Dy08",
+    "Dy20": "Dy20_5", "Dy21": "Dy20_5", "Dy20.5": "Dy20_5",
+}
+
+# Image-mode → image_path-key mapping. Single source of truth for translating
+# user-facing mode names ('img', 'mask', 'overlay') to record keys
+# ('img_path', 'mask_path', 'overlay_path').
+IMAGE_MODE_TO_PATH_KEY = {
+    "img": "img_path",
+    "mask": "mask_path",
+    "overlay": "overlay_path",
+}
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers (public — used by analysis scripts)
 # ---------------------------------------------------------------------------
 
-def _extract_organoid_id(record_key: str) -> str:
+def extract_organoid_id(record_key: str) -> str:
     """Strip the day component to get the organoid identity.
 
     'BA1 96_1 Dy30 A1' → 'BA1 96_1 A1'
+    'BA1 96_1 Dy20.5 A1' → 'BA1 96_1 A1'
     """
-    m = re.match(r"^(.*)\s+Dy\d+\s+(.*)$", record_key)
+    m = re.match(r"^(.*)\s+Dy\d+(?:\.\d+)?\s+(.*)$", record_key)
     return f"{m.group(1)} {m.group(2)}" if m else record_key
 
 
-def _get_batch(record: dict) -> Optional[str]:
-    """Extract top-level batch prefix (e.g. 'BA1') from a record."""
-    ba = record.get("BA", "")
-    return ba.split()[0] if ba else None
+def get_batch(record: dict) -> Optional[str]:
+    """Extract top-level batch prefix (e.g. 'BA1') from a record.
+
+    The normalized schema stores the full plate identifier in
+    ``record['plate']['batch']`` (e.g. 'BA1 96_1'); we return the first token.
+    """
+    batch = record.get("plate", {}).get("batch", "")
+    return batch.split()[0] if batch else None
 
 
-def _get_day_number(day_id: str) -> Optional[int]:
-    """'Dy13' → 13, 'Dy20_5' → 20."""
+def raw_day_id(record: dict) -> str:
+    """Return the day identifier as emitted by the normalized schema.
+
+    Preserves distinctions like Dy20 vs Dy21 vs Dy20.5. Use
+    ``canonical_day_id`` to fold these together for analysis.
+    """
+    return record.get("day", {}).get("id", "")
+
+
+def canonical_day_id(day_id: str) -> str:
+    """Map a raw day id to its canonical analysis-internal form via DAY_ALIAS."""
+    return DAY_ALIAS.get(day_id, day_id)
+
+
+def get_day_int_floor(day_id: str) -> Optional[int]:
+    """Return the integer-floor of a day id (LOSSY for half-days).
+
+    'Dy13' → 13, 'Dy20_5' → 20, 'Dy20.5' → 20.
+
+    Use this for filters like ``day > 10`` where the half-day distinction
+    doesn't matter. For exact day arithmetic use ``get_day_float``.
+    """
     m = re.match(r"Dy(\d+)", day_id or "")
     return int(m.group(1)) if m else None
 
 
-def _canonicalize_day(day_id: str) -> str:
-    return DAY_ALIAS.get(day_id, day_id)
+def get_day_float(day_id: str) -> Optional[float]:
+    """Return the day id as a float, preserving half-days.
+
+    'Dy13' → 13.0, 'Dy20_5' → 20.5, 'Dy20.5' → 20.5.
+    """
+    m = re.match(r"Dy(\d+)(?:[_.](\d+))?", day_id or "")
+    if not m:
+        return None
+    whole = int(m.group(1))
+    frac = m.group(2)
+    return float(f"{whole}.{frac}") if frac else float(whole)
 
 
-def _compute_majority_label(
+def compute_majority_label(
     evaluations: list, min_votes: int = MIN_VOTES
 ) -> Optional[str]:
     """Return consensus label if ≥ min_votes agree, else None."""
@@ -119,7 +171,7 @@ def require_batches(*batches: str) -> Callable:
     def f(org_id: str, records: dict) -> bool:
         # Use the first available record to get batch
         for rec in records.values():
-            return _get_batch(rec) in batch_set
+            return get_batch(rec) in batch_set
         return False
 
     f.__doc__ = f"require_batches({', '.join(batches)})"
@@ -141,7 +193,7 @@ def require_complete_metabolites(
     def f(org_id: str, records: dict) -> bool:
         has_any_met_day = False
         for day_id, rec in records.items():
-            mets = rec.get("metabolites")
+            mets = rec.get("metabolite")
             if not mets:
                 continue  # day has no metabolite data at all — skip
             has_any_met_day = True
@@ -158,12 +210,12 @@ def require_complete_metabolites(
 
 
 def require_valid_images() -> Callable:
-    """Keep organoids where every day has processed img_path and mask_path."""
+    """Keep organoids where every day has an ``img_path`` and ``mask_path``."""
 
     def f(org_id: str, records: dict) -> bool:
         for rec in records.values():
-            proc = rec.get("processed")
-            if not proc or "img_path" not in proc or "mask_path" not in proc:
+            imgs = rec.get("images") or {}
+            if not imgs.get("img_path") or not imgs.get("mask_path"):
                 return False
         return True
 
@@ -184,8 +236,9 @@ def exclude_classification(*types: str) -> Callable:
 
     def f(org_id: str, records: dict) -> bool:
         for rec in records.values():
-            mid = (rec.get("main_id") or "").lower()
-            img_path = (rec.get("processed", {}).get("img_path") or "").lower()
+            imgs = rec.get("images") or {}
+            mid = (imgs.get("main_id") or "").lower()
+            img_path = (imgs.get("img_path") or "").lower()
             combined = mid + " " + img_path
             if exclude_stitched and "stitched" in combined and "nostitch" not in combined:
                 return False
@@ -218,7 +271,7 @@ def paper_label_fn(
     if not survey:
         return None
     evaluations = survey.get("evaluations", [])
-    return _compute_majority_label(evaluations, min_votes=min_votes)
+    return compute_majority_label(evaluations, min_votes=min_votes)
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +285,60 @@ def default_filters() -> List[Callable]:
         require_complete_metabolites(),
         require_valid_images(),
     ]
+
+
+ALL_BATCHES = ("BA1", "BA2", "BA3", "BA4")
+VALID_MODES = ("base", "switch1", "switch2", "switch3")
+VALID_MODALITIES = ("both", "image", "metabolite")
+
+
+def filters_for_mode(mode: str, modality: str = "both") -> List[Callable]:
+    """Return filters for a named split mode + modality.
+
+    Modes replace the former `scripts/split_data_reproducible.py` presets:
+
+    - **base**: BA1+BA2, complete metabolites, valid images. Paper default.
+      Both image and metabolite models see the exact same organoids.
+    - **switch1**: Image model gets BA1+BA2 with valid images (metabolite
+      data optional); metabolite model gets BA1+BA2 with complete metabolites
+      (images optional). Gives the image model extra training data.
+    - **switch2**: All 4 batches, intersection of image + metabolite.
+      BA3+BA4 flagged as lower-quality by IDOR/Promega; use with caution.
+    - **switch3**: Image model gets all 4 batches with valid images;
+      metabolite model stays on the BA1+BA2 intersection.
+
+    For **switch1** and **switch3** the two modalities see *different*
+    organoid sets, so pass `modality="image"` or `"metabolite"` to select.
+    For **base** and **switch2** the three modalities are equivalent.
+    """
+    if mode not in VALID_MODES:
+        raise ValueError(f"mode must be one of {VALID_MODES}, got {mode!r}")
+    if modality not in VALID_MODALITIES:
+        raise ValueError(f"modality must be one of {VALID_MODALITIES}, got {modality!r}")
+
+    if mode == "base":
+        return default_filters()
+
+    if mode == "switch1":
+        if modality == "image":
+            return [require_batches(*HIGH_QUALITY_BATCHES), require_valid_images()]
+        if modality == "metabolite":
+            return [require_batches(*HIGH_QUALITY_BATCHES), require_complete_metabolites()]
+        return default_filters()  # both: intersection == base
+
+    if mode == "switch2":
+        return [
+            require_batches(*ALL_BATCHES),
+            require_complete_metabolites(),
+            require_valid_images(),
+        ]
+
+    # switch3
+    if modality == "image":
+        return [require_batches(*ALL_BATCHES), require_valid_images()]
+    if modality == "metabolite":
+        return [require_batches(*HIGH_QUALITY_BATCHES), require_complete_metabolites()]
+    return default_filters()  # both: intersection == base
 
 
 # ---------------------------------------------------------------------------
@@ -326,9 +433,9 @@ class OrganoidDataset:
         # Step 1: group records by organoid_id
         grouped: Dict[str, Dict[str, dict]] = {}
         for key, rec in self.all_data.items():
-            org_id = _extract_organoid_id(key)
-            day_raw = rec.get("dayID", "")
-            day = _canonicalize_day(day_raw)
+            org_id = extract_organoid_id(key)
+            day_raw = rec.get("day", {}).get("id", "")
+            day = canonical_day_id(day_raw)
             grouped.setdefault(org_id, {})[day] = rec
 
         if self.splits_csv is not None:
@@ -447,7 +554,7 @@ class OrganoidDataset:
             feature_names: list of feature column names
             organoid_ids: list of organoid IDs corresponding to rows
         """
-        day_num = _get_day_number(day)
+        day_num = get_day_int_floor(day)
         subset = self.get_split(split, day=day)
 
         # Determine which metabolites to include for this day
@@ -471,7 +578,7 @@ class OrganoidDataset:
             rec = info["records"].get(day)
             if rec is None:
                 continue
-            mets = rec.get("metabolites", {})
+            mets = rec.get("metabolite", {})
 
             row = []
             skip = False
@@ -535,7 +642,7 @@ class OrganoidDataset:
             return X, feat_names, org_ids
 
         prev_day = DAY_ORDER[day_idx - 1]
-        prev_day_num = _get_day_number(prev_day)
+        prev_day_num = get_day_int_floor(prev_day)
 
         # Determine previous-day active metabolites
         prev_mets = list(REQUIRED_METABOLITES)
@@ -557,11 +664,11 @@ class OrganoidDataset:
             if prev_rec is None:
                 continue
 
-            prev_mets_data = prev_rec.get("metabolites", {})
+            prev_mets_data = prev_rec.get("metabolite", {})
             growth_row = []
             skip = False
             for m in growth_mets:
-                curr_data = info["records"][day].get("metabolites", {}).get(m, {})
+                curr_data = info["records"][day].get("metabolite", {}).get(m, {})
                 prev_data = prev_mets_data.get(m, {})
                 curr_c = curr_data.get("concentration_uM")
                 prev_c = prev_data.get("concentration_uM")
@@ -594,8 +701,7 @@ class OrganoidDataset:
 
         Returns: list of (organoid_id, label, path)
         """
-        key_map = {"img": "img_path", "mask": "mask_path", "overlay": "overlay_path"}
-        path_key = key_map.get(mode, mode)
+        path_key = IMAGE_MODE_TO_PATH_KEY.get(mode, mode)
 
         subset = self.get_split(split, day=day)
         result = []
@@ -603,8 +709,8 @@ class OrganoidDataset:
             rec = info["records"].get(day)
             if rec is None:
                 continue
-            proc = rec.get("processed", {})
-            path = proc.get(path_key)
+            imgs = rec.get("images", {})
+            path = imgs.get(path_key)
             if path:
                 result.append((org_id, info["label"], path))
         return result
@@ -628,7 +734,7 @@ class OrganoidDataset:
         lines.append(f"  Days: {', '.join(self.days)}")
         lines.append("")
 
-        for split in ["train", "val", "test"]:
+        for split in self.splits:
             subset = self.get_split(split)
             if not subset:
                 continue

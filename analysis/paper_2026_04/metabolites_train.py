@@ -89,11 +89,11 @@ def _get_growth_features(
     from pipeline.data_loader import (
         CONDITIONAL_METABOLITES,
         REQUIRED_METABOLITES,
-        _get_day_number,
+        get_day_int_floor,
     )
 
-    day_num = _get_day_number(day)
-    prev_day_num = _get_day_number(prev_day)
+    day_num = get_day_int_floor(day)
+    prev_day_num = get_day_int_floor(prev_day)
 
     active_mets = list(REQUIRED_METABOLITES)
     for met, cond_fn in CONDITIONAL_METABOLITES.items():
@@ -116,8 +116,8 @@ def _get_growth_features(
         prev_rec = info["records"].get(prev_day)
         if curr_rec is None or prev_rec is None:
             continue
-        curr_mets = curr_rec.get("metabolites", {})
-        prev_mets_data = prev_rec.get("metabolites", {})
+        curr_mets = curr_rec.get("metabolite", {})
+        prev_mets_data = prev_rec.get("metabolite", {})
 
         row = []
         skip = False

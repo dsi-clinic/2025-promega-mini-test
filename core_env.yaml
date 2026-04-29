@@ -13,6 +13,7 @@ dependencies:
     - timm==1.0.*
     - numpy==2.2.*        # <-- if stability issues, change to "numpy<2"
     - scikit-learn==1.7.*
+    - lightgbm==4.6.*
     - pandas==2.3.*
     - scipy==1.16.*
     - pillow==11.3.*

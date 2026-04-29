@@ -25,8 +25,8 @@ BACKBONES = {
     "resnet": "resnet50",
     "efficientnet": "efficientnet_b0"
 }
-DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/majority/")
-OUT_ROOT = Path("analysis/images/classifier/outputs_512x384_Regular_image_without_train_augment")
+DATA_DIR = None  # required: pass via --data-dir
+OUT_ROOT = None  # required: pass via --outdir
 BATCH_SIZE = 16
 # IMPORTANT: torchvision Resize expects (H, W). We want 512x384 images => (H=384, W=512)
 TARGET_SIZE = (384, 512)

@@ -212,3 +212,10 @@ training_*.png
 
 # Test files
 test_gpu.py
+
+# Deprecated materialized splits — use pipeline.data_loader.OrganoidDataset instead
+data_splits/
+data/data_splits/
+
+# Claude Code harness state
+.claude/

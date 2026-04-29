@@ -1,244 +1,106 @@
 #!/usr/bin/env python3
 """
-Centralized regex patterns for organoid key normalization.
+Centralized regex patterns and helpers for parsing organoid identifiers.
 
-This module provides consistent patterns and utilities for parsing and normalizing
-organoid identifiers across the codebase, eliminating duplicate regex patterns.
+This module exposes only patterns and helpers that have external callers in the
+current codebase. Older variants (full key parsers, validators, batch/well
+extractors) were removed in 2026-04 — recover them from git history if
+re-needed.
 """
 
 import re
-from typing import NamedTuple, Optional
+from typing import Optional
 
 
 class OrganoidPatterns:
-    """Centralized regex patterns for organoid key normalization"""
+    """Regex patterns for organoid identifier parsing.
 
-    # Batch patterns
-    BATCH_STRICT = re.compile(r'^BA(\d+)$', re.IGNORECASE)
-    BATCH_FLEXIBLE = re.compile(r'\b(?:BA|Batch)\s*(\d+)\b', re.IGNORECASE)
-    BATCH_TOKEN = re.compile(r'^BA\d+$', re.IGNORECASE)
+    Used externally:
+        DUPLICATE_IMAGE, PARTIAL_IMAGE, PLATE_PATTERN, PLATE_REMOVE,
+        REMOVE_PARENS, STITCHED, WELL_STRICT
+    Used internally by OrganoidNormalizer:
+        DAY_EXTRACT, Z_LEVEL, REMOVE_BRACKETS, KEEP_ALPHANUMERIC,
+        NORMALIZE_SPACES, SPLIT_TOKEN, SPLIT_PAREN, SPLIT_HYPHEN
+    """
 
     # Day patterns
-    DAY_STRICT = re.compile(r'^DY(\d+)$', re.IGNORECASE)
-    DAY_FLEXIBLE = re.compile(r'\b(?:Dy|Day)\s*(\d+)\b', re.IGNORECASE)
-    DAY_EXTRACT = re.compile(r'[Dd][Yy]?(\d+)', re.IGNORECASE)
-    DAY_EXTRACT_WORD_BOUNDARY = re.compile(r'\bDy(\d{1,2})\b', re.IGNORECASE)
-    DAY_TOKEN = re.compile(r'^DY\d+$', re.IGNORECASE)
+    DAY_EXTRACT = re.compile(r"[Dd][Yy]?(\d+)", re.IGNORECASE)
 
     # Plate patterns
-    PLATE_PATTERN = re.compile(r'\b(96_[12]|PT1)\b', re.IGNORECASE)
-    PLATE_REMOVE = re.compile(r'96_[12]', re.IGNORECASE)
-    PLATE_TOKEN = re.compile(r'^(96_[12]|PT1)$', re.IGNORECASE)
+    PLATE_PATTERN = re.compile(r"\b(96_[12]|PT1)\b", re.IGNORECASE)
+    PLATE_REMOVE = re.compile(r"96_[12]", re.IGNORECASE)
 
-    # Well ID patterns
-    WELL_STRICT = re.compile(r'(?<!BA)\b([A-H])(\d{1,2})\b', re.IGNORECASE)
-    WELL_FLEXIBLE = re.compile(r'^([A-Ha-h])\s*([1-9]|1[0-2])$')
+    # Well ID
+    WELL_STRICT = re.compile(r"(?<!BA)\b([A-H])(\d{1,2})\b", re.IGNORECASE)
 
-    # Cleaning patterns
-    REMOVE_BRACKETS = re.compile(r'\[.*?\]')
-    REMOVE_PARENS = re.compile(r'\(.*?\)')
-    KEEP_ALPHANUMERIC = re.compile(r'[^A-Za-z0-9\s_]')
-    NORMALIZE_SPACES = re.compile(r'\s+')
-    NORMALIZE_SEPARATORS = re.compile(r'[_\-]+')
+    # Cleaning
+    REMOVE_BRACKETS = re.compile(r"\[.*?\]")
+    REMOVE_PARENS = re.compile(r"\(.*?\)")
+    KEEP_ALPHANUMERIC = re.compile(r"[^A-Za-z0-9\s_]")
+    NORMALIZE_SPACES = re.compile(r"\s+")
 
-    # File/path patterns
-    RESOLUTION_EXTRACT = re.compile(r'infer_resized_(\d+x\d+)', re.IGNORECASE)
-    BATCH_DAY_PATH = re.compile(r'/batch(\d+)/day(\d+)/', re.IGNORECASE)
-    Z_LEVEL = re.compile(r' Z(\d+)', re.IGNORECASE)
+    # File markers
+    Z_LEVEL = re.compile(r" Z(\d+)", re.IGNORECASE)
+    PARTIAL_IMAGE = re.compile(r"\(\d+\s+of\s+\d+\)")
+    DUPLICATE_IMAGE = re.compile(r"\((\d+)\)")
+    STITCHED = re.compile(r"\(stitched\)", re.IGNORECASE)
 
-    # Image file patterns
-    PARTIAL_IMAGE = re.compile(r'\(\d+\s+of\s+\d+\)')
-    DUPLICATE_IMAGE = re.compile(r'\((\d+)\)')
-    HASH_PERCENT = re.compile(r'\(#\)%')
+    # Split markers (after the split day)
+    SPLIT_PAREN = re.compile(r"\(\s*(\d{1,2})\s*\)\s*%?", re.IGNORECASE)  # "(2)%", "(12)"
+    SPLIT_HYPHEN = re.compile(r"[-_ ](\d{1,2})\s*[-_ ]?%(?=\b|[^0-9])", re.IGNORECASE)  # "-2-%", "_12_%"
+    SPLIT_TOKEN = re.compile(r"\bsplit[_-]?(\d{1,2})\b", re.IGNORECASE)
 
-    # Path matching patterns
-    BA_SUBSTITUTE = re.compile(r'\bBA3\b', re.IGNORECASE)
-
-    STITCHED      = re.compile(r"\(stitched\)", re.IGNORECASE)
-
-    # split markers AFTER the split day
-    # ex: "C1(1)% Z0.tif", "C1(2) Z0.tif", "C1 (12)% Z0.tif"
-    SPLIT_PAREN  = re.compile(r"\(\s*(\d{1,2})\s*\)\s*%?", re.IGNORECASE)
-
-    # ex: "D12-2-% …", "D12_2_% …", "D12 2 % …", "D12-12-% …"
-    SPLIT_HYPHEN = re.compile(r"[-_ ](\d{1,2})\s*[-_ ]?%(?=\b|[^0-9])", re.IGNORECASE)
-
-    # explicit token (appears in some keys/csv): "… split_2 …", "… split-12 …"
-    SPLIT_TOKEN  = re.compile(r"\bsplit[_-]?(\d{1,2})\b", re.IGNORECASE)
-
-class OrganoidKey(NamedTuple):
-    """Structured representation of an organoid key"""
-    batch: str
-    plate: Optional[str]
-    day: str
-    well: str
 
 class OrganoidNormalizer:
-    """Handles organoid key normalization using centralized patterns"""
+    """Stateless helpers used across the pipeline mappers.
+
+    Kept as a class for namespacing only — all methods are pure functions over
+    their inputs.
+    """
 
     @staticmethod
     def clean_string(text: str) -> str:
-        """Standard string cleaning for organoid IDs"""
+        """Strip brackets/parens, drop non-alphanumeric/space/underscore, collapse whitespace."""
         text = OrganoidPatterns.REMOVE_BRACKETS.sub("", text)
         text = OrganoidPatterns.REMOVE_PARENS.sub("", text)
         text = OrganoidPatterns.KEEP_ALPHANUMERIC.sub(" ", text)
-        text = OrganoidPatterns.NORMALIZE_SPACES.sub(" ", text).strip()
-        return text
-
-    @staticmethod
-    def normalize_separators(text: str) -> str:
-        """Convert underscores and dashes to spaces"""
-        return OrganoidPatterns.NORMALIZE_SEPARATORS.sub(' ', text).strip()
-
-    @staticmethod
-    def extract_batch(text: str) -> Optional[str]:
-        """Extract batch identifier (BA1, BA2, etc.)"""
-        match = OrganoidPatterns.BATCH_FLEXIBLE.search(text)
-        return f"BA{match.group(1)}" if match else None
-
-    @staticmethod
-    def extract_day(text: str) -> Optional[str]:
-        """Extract day identifier (Dy03, Dy30, etc.)"""
-        match = OrganoidPatterns.DAY_EXTRACT.search(text)
-        return f"Dy{int(match.group(1)):02d}" if match else None
+        return OrganoidPatterns.NORMALIZE_SPACES.sub(" ", text).strip()
 
     @staticmethod
     def extract_day_number(text: str) -> Optional[int]:
-        """Extract day number as integer"""
+        """Extract day number as integer ('Dy03' → 3, 'Day 12' → 12). Lossy for half-days."""
         match = OrganoidPatterns.DAY_EXTRACT.search(text)
         return int(match.group(1)) if match else None
 
     @staticmethod
-    def extract_well(text: str) -> Optional[str]:
-        """Extract well identifier (A1, H12, etc.)"""
-        match = OrganoidPatterns.WELL_STRICT.search(text)
-        return f"{match.group(1).upper()}{match.group(2)}" if match else None
-
-    @staticmethod
-    def extract_plate(text: str) -> Optional[str]:
-        """Extract plate identifier (96_1, 96_2, PT1)"""
-        match = OrganoidPatterns.PLATE_PATTERN.search(text)
-        return match.group(1) if match else None
-
-    @staticmethod
-    def extract_resolution(text: str) -> Optional[str]:
-        """Extract resolution from path (e.g., '256x192')"""
-        match = OrganoidPatterns.RESOLUTION_EXTRACT.search(text)
-        return match.group(1) if match else None
-
-    @staticmethod
     def extract_z_level(text: str) -> int:
-        """Extract Z level from filename, returns -1 if not found"""
+        """Extract Z level from filename (' Z2.tif' → 2). Returns -1 if absent."""
         match = OrganoidPatterns.Z_LEVEL.search(text)
         return int(match.group(1)) if match else -1
 
     @staticmethod
-    def parse_organoid_key(text: str) -> OrganoidKey:
-        """Parse text into structured organoid key components"""
-        cleaned = OrganoidNormalizer.clean_string(text)
-
-        batch = OrganoidNormalizer.extract_batch(cleaned)
-        day = OrganoidNormalizer.extract_day(cleaned)
-        well = OrganoidNormalizer.extract_well(cleaned)
-        plate = OrganoidNormalizer.extract_plate(cleaned)
-
-        if not all([batch, day, well]):
-            raise ValueError(f"Could not extract required components (batch={batch}, day={day}, well={well}) from: {text}")
-
-        return OrganoidKey(batch=batch, plate=plate, day=day, well=well)
-
-    @staticmethod
-    def normalize_key(text: str) -> str:
-        """Convert raw text to normalized organoid key format (BA1 96_1 Dy30 A1)"""
-        key = OrganoidNormalizer.parse_organoid_key(text)
-
-        # Build normalized key
-        ba_part = f"{key.batch} {key.plate}" if key.plate else key.batch
-        return f"{ba_part} {key.day} {key.well}"
-
-    @staticmethod
     def extract_split_info(raw_name: str) -> dict:
+        """Parse split / stitched / partial markers from a raw filename or key.
+
+        Returns a dict with keys: is_split, split_index, stitched, partial.
+        """
         s = raw_name.lower()
-        info = {
-            "is_split": False,
-            "pre_split": False,   # kept for backward compatibility
-            "split_index": None,
-            "stitched": False,
-            "partial": False
-        }
+        info = {"is_split": False, "split_index": None, "stitched": False, "partial": False}
 
-        # explicit "split_2" / "split-2"
-        m = OrganoidPatterns.SPLIT_TOKEN.search(s)
-        if not m:
-            # "(2)" or "(2 of 2)" with optional trailing "%"
-            m = OrganoidPatterns.SPLIT_PAREN.search(s)
-        if not m:
-            # "-2-%" / "_12_%" / " 2 %"
-            m = OrganoidPatterns.SPLIT_HYPHEN.search(s)
-
-        if m:
-            info["is_split"] = True
-            info["split_index"] = int(m.group(1))
+        for pat in (OrganoidPatterns.SPLIT_TOKEN, OrganoidPatterns.SPLIT_PAREN, OrganoidPatterns.SPLIT_HYPHEN):
+            m = pat.search(s)
+            if m:
+                info["is_split"] = True
+                info["split_index"] = int(m.group(1))
+                break
 
         if OrganoidPatterns.STITCHED.search(s):
             info["stitched"] = True
         if OrganoidPatterns.PARTIAL_IMAGE.search(s):
             info["partial"] = True
-
         return info
 
-    @staticmethod
-    def normalize_key_with_suffix(raw_name: str) -> str:
-        """Return normalized key with split/stitch suffixes (e.g., BA1 96_1 Dy30 A1 split_1)"""
-        base = OrganoidNormalizer.normalize_key(raw_name)
-        split_info = OrganoidNormalizer.extract_split_info(raw_name)
-
-        suffixes = []
-        if split_info["is_split"] and split_info["split_index"] is not None:
-            suffixes.append(f"split_{split_info['split_index']}")
-        if split_info["stitched"]:
-            suffixes.append("stitched")
-        if split_info["partial"]:
-            suffixes.append("partial")
-
-        return f"{base} {' '.join(suffixes)}" if suffixes else base
-
-class OrganoidValidation:
-    """Validation utilities for organoid keys and components"""
-
-    @staticmethod
-    def is_valid_batch_token(text: str) -> bool:
-        """Check if text is a valid batch token (BA1, BA2, etc.)"""
-        return bool(OrganoidPatterns.BATCH_TOKEN.match(text))
-
-    @staticmethod
-    def is_valid_day_token(text: str) -> bool:
-        """Check if text is a valid day token (DY01, DY30, etc.)"""
-        return bool(OrganoidPatterns.DAY_TOKEN.match(text))
-
-    @staticmethod
-    def is_valid_plate_token(text: str) -> bool:
-        """Check if text is a valid plate token (96_1, 96_2, PT1)"""
-        return bool(OrganoidPatterns.PLATE_TOKEN.match(text))
-
-    @staticmethod
-    def is_valid_organoid_key(key: str) -> bool:
-        """Validate complete organoid key format"""
-        try:
-            OrganoidNormalizer.parse_organoid_key(key)
-            return True
-        except ValueError:
-            return False
-
-# Convenience functions for backward compatibility
-def norm_key(text: str) -> str:
-    """Normalize organoid key - convenience function for existing code"""
-    return OrganoidNormalizer.normalize_key(text)
-
-def day_from_key(key: str) -> Optional[int]:
-    """Extract day number from key - convenience function for existing code"""
-    return OrganoidNormalizer.extract_day_number(key)
 
 def clean_id_for_json(text: str) -> str:
-    """Clean ID for JSON - convenience function for existing code"""
+    """Module-level alias for OrganoidNormalizer.clean_string (used by mappers)."""
     return OrganoidNormalizer.clean_string(text)

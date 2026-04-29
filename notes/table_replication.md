@@ -2,9 +2,11 @@
 
 Comparison of paper tables against current code outputs.
 
-**Date:** 2026-04-09  
-**Code version:** `main` @ `d2fb0af`  
-**Data:** `data/all_data.json` (5,168 records), `2026_winter_student_splits.csv` (220 organoids: train=158, val=18, test=44)
+**Date:** 2026-04-24
+**Code version:** `nross/separation-of-concerns`
+**Data:** `data/all_data.json` (5,168 records, regenerated 2026-04-17), `2026_winter_student_splits.csv` (organoid-level)
+
+**Note:** This file is a historical comparison snapshot. After the 2026-04 schema refactor, paper scripts moved under `analysis/paper_2026_04/` and the trainer is `train_model_accuracy.py` (the legacy `run_study.py` and `data_reorg/identifiers/all_data.json` paths referenced below no longer exist).
 
 ---
 
@@ -14,14 +16,14 @@ Comparison of paper tables against current code outputs.
 |-------|---------------|-------------|--------|
 | Table 1 | 3.2 | `analysis_output/figures/metabolite_summary_table.csv` | Minor differences |
 | Table 2 | 4.1.2 | `analysis_output/images/perday_results.json` | EfficientNet roughly matches; ViT/ResNet not comparable (different data & split) |
-| Table 3 | 4.2.3 | `analysis_output/metabolites/results.json` | Mismatch; Best Bal. Acc. only match |
+| Table 3 | 4.2.3 | `analysis_output/metabolites/results.json` | Mismatch — see below; Best Bal. Acc. (LightGBM) was 0.9444 in April snapshot, now **0.7849** on 2026-04-24 rerun against fresh `all_data.json` |
 
 ---
 
 ## Table 1: Metabolite Summary Statistics
 
 - **Paper location:** Section 3.2
-- **Code:** `analysis.descriptive_stats` → `analysis_output/figures/metabolite_summary_table.csv`
+- **Code:** `analysis.paper_2026_04.descriptive_stats` → `analysis_output/figures/metabolite_summary_table.csv`
 - **Status:** Partial match
 - **Differences:**
   1. `N` column exists in code output but not in paper
@@ -70,7 +72,7 @@ To produce a valid Table 2, all three models need to run from one script with th
 ## Table 3: LightGBM vs Logistic Regression (Metabolite Classifiers)
 
 - **Paper location:** Section 4.2.3
-- **Code:** `analysis.metabolites.train` → `analysis_output/metabolites/results.json`
+- **Code:** `analysis.paper_2026_04.metabolites_train` → `analysis_output/metabolites/results.json`
 - **Status:** Mismatch; only Best Bal. Acc. (LightGBM) matches
 - **Label convention:** Consistent — both models use the same encoding within one script
 - **Split:** Winter split (train=158, val=18, test=44)

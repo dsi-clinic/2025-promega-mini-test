@@ -13,6 +13,7 @@ import typing
 import pandas as pd
 
 from pipeline.common.organoid_patterns import OrganoidNormalizer, clean_id_for_json
+from pipeline.data_loader import MIN_VOTES
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -311,7 +312,7 @@ def parse_image_id(image_id):
         return {}
 
 
-def compute_survey_majority(evaluations: list[dict], min_survey_votes: int = 4) -> dict:
+def compute_survey_majority(evaluations: list[dict], min_survey_votes: int = MIN_VOTES) -> dict:
     """Compute the majority vote label for a list of evaluations.
 
     Args:
@@ -358,7 +359,7 @@ def compute_survey_majority(evaluations: list[dict], min_survey_votes: int = 4) 
     }
 
 
-def process_organoid_files(directory, identifiers_file: pathlib.Path, min_survey_votes: int = 4) -> dict:
+def process_organoid_files(directory, identifiers_file: pathlib.Path, min_survey_votes: int = MIN_VOTES) -> dict:
     """Process the organoid files.
 
     Args:

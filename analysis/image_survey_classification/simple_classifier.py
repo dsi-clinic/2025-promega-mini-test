@@ -30,6 +30,7 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropou
 # Application
 from pipeline.common.json_views import BaseViewEmitter
 from pipeline.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer
+from pipeline.data_loader import compute_majority_label, MIN_VOTES
 from pipeline.merge.normalized_records import OrganoidRecord
 
 # --- Constants ---
@@ -94,7 +95,7 @@ class SurveyClassifierEmitter(BaseViewEmitter):
 
     name = "survey_classifier"
 
-    def __init__(self, survey_day: int = 30, min_votes: int = 4):
+    def __init__(self, survey_day: int = 30, min_votes: int = MIN_VOTES):
         self.survey_day = f"Dy{survey_day:02d}"
         self.min_votes = min_votes
         self._records_by_day: Dict[str, List[SCHEMA_DICT]] = defaultdict(list)
@@ -200,28 +201,8 @@ def extract_day_data(all_data, target_day):
 
     return imgs, labels, masks
 
-# --- Helper function to compute majority label from evaluations ---
-def compute_majority_label(evaluations, min_votes=4):
-    """Compute majority label from survey evaluations."""
-    if not evaluations or len(evaluations) != 5:
-        return None
-
-    votes = {}
-    for eval_data in evaluations:
-        evaluation = eval_data.get('evaluation', '')
-        if evaluation:
-            votes[evaluation] = votes.get(evaluation, 0) + 1
-
-    acceptable = votes.get('Acceptable', 0)
-    not_acceptable = votes.get('Not Acceptable', 0)
-
-    # Use majority threshold (at least 4 out of 5)
-    if acceptable >= min_votes:
-        return 'Acceptable'
-    elif not_acceptable >= min_votes:
-        return 'Not Acceptable'
-    else:
-        return None  # Skip ambiguous cases
+# compute_majority_label and MIN_VOTES are imported from pipeline.data_loader
+# at the top of this file (single source of truth for the survey-consensus rule).
 
 def print_class_distribution(indexed_labels):
     """Calculate and print class distribution."""

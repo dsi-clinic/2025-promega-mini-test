@@ -16,10 +16,14 @@ What this does:
 
 Example:
     python train_soft_labels.py \
-        --data_dir analysis/images/classifier/data/preprocessed/512x384/raw_votes \
-        --outdir   analysis/images/classifier/outputs_512x384_softlabels \
+        --data_dir <path/to/raw_votes_per_day_jsons> \
+        --outdir   <path/to/outdir> \
         --batch-size 16 --val-batch-size 16 --min-votes 1 --weight-by-votes \
         --th-method max_f1
+
+Note: this script consumes per-day vote JSONs that the current pipeline no
+longer emits. If you need this analysis, generate the per-day JSONs first
+(see find_misclassified_images.py for the historical format).
 """
 
 import os, json, argparse, re, math, csv
@@ -51,8 +55,8 @@ BACKBONES = {
     "resnet": "resnet50",
      "efficientnet": "efficientnet_b0"
 }
-DATA_DIR = Path("analysis/images/classifier/data/preprocessed/512x384/raw_votes/")
-OUT_ROOT = Path("analysis/images/classifier/outputs_512x384_softlabels_with_train_augment")
+DATA_DIR = None  # required: pass via --data-dir
+OUT_ROOT = None  # required: pass via --outdir
 BATCH_SIZE = 16
 # IMPORTANT: torchvision Resize expects (H, W). We want 512x384 images => (H=384, W=512)
 TARGET_SIZE = (384, 512)

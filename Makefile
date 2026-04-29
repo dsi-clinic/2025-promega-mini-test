@@ -67,6 +67,7 @@ IMAGE_MAP_OVERLAY      := $(INDEXES_DIR)/image_map_resized_512x384_predicted_ove
 IMAGE_MAP_MEANFILL     := $(INDEXES_DIR)/image_map_resized_512x384_predicted_overlay_ar.json
 IMAGE_MAP_MERGE        := $(INDEXES_DIR)/image_map_resized_512x384_predicted_overlay_ar_meanfill.json
 ALL_DATA_JSON          := data/all_data.json
+SPLITS_CSV             := data/2026_winter_student_splits.csv
 IMAGE_CLASSIFIER_JSON  := $(IMGQUAL_DIR)/image_classifier.json
 SURVEY_CLASSIFIER_JSON := $(IMGSURVEY_DIR)/survey_classifier.json
 
@@ -78,6 +79,10 @@ TARGET_HEIGHT      ?= 384
 MIN_SURVEY_VOTES   ?= 4
 TRAIN_FRAC         ?= 0.8
 VAL_FRAC           ?= 0.1
+
+# Step 17 sweep toggles (replaces former analysis/imagequality_classification/run_*mask*.s scripts)
+INPUT_KEY          ?= img_path     # img_path | overlay_path
+USE_MASK           ?=              # set to anything truthy to enable --use-mask
 
 # Segmentation training (early vs late datasets)
 SEG_TRAIN_SCRIPT ?= pipeline/images/segmentation_mmseg/train.py
@@ -181,6 +186,11 @@ help:
 	@echo "  make step17                - Train image quality classifier (alias: imagequality-classification)"
 	@echo "  make step18                - Train image survey classifier (alias: image-survey-classification)"
 	@echo ""
+	@echo "ANALYSIS RUNNERS (non-canonical experiments / paper repro):"
+	@echo "  make analysis-train-dinov2          - Train DINOv2 image classifier (fixed splits)"
+	@echo "  make analysis-multimodal            - Multimodal classifier (single config; set BACKBONE/FUSION/INPUT_MODE)"
+	@echo "  make analysis-paper-perday         - Per-day image study (paper Fig 7-9)"
+	@echo ""
 	@echo "CONFIGURATION:"
 	@echo "  DATA_ROOT=$(DATA_ROOT)"
 	@echo "  RAW_DIR=$(RAW_DIR)"
@@ -193,7 +203,7 @@ help:
 	@echo "  make run ARGS='...'             - Run any Python command in conda env"
 	@echo ""
 	@echo "EXAMPLES:"
-	@echo "  make run ARGS='-m analysis.generate_splits --dry-run'"
+	@echo "  make run ARGS='-m analysis.paper_2026_04.generate_splits --dry-run'"
 	@echo "  make step1 DATA_ROOT=/path/to/data"
 	@echo "  make step6 OVERWRITE=        # incremental: skip outputs that already exist"
 	@echo "  make pipeline-all OVERWRITE= # incremental whole pipeline"
@@ -458,7 +468,7 @@ step16: $(METABOLITE_MAP) $(SURVEY_MAP) $(IMAGE_MAP_MERGE)
 # STEP 17: Image Quality Classification
 # ====================================
 step17 imagequality-classification: step16
-	@echo "===> STEP 17: Training image quality classifier"
+	@echo "===> STEP 17: Training image quality classifier (input=$(INPUT_KEY), use_mask=$(if $(USE_MASK),yes,no))"
 	@mkdir -p $(IMGQUAL_DIR)
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.imagequality_classification.train_model_accuracy \
 		--data-dir $(DATA_ROOT) \
@@ -469,6 +479,8 @@ step17 imagequality-classification: step16
 		--batch-size $(BATCH_SIZE) \
 		--test-frac 0.1 \
 		--val-frac 0.1 \
+		--input-path-key $(INPUT_KEY) \
+		$(if $(USE_MASK),--use-mask) \
 		$(if $(DETERMINISTIC),--deterministic) \
 		--seed $(SEED)
 	@echo "===> Output: $(IMGQUAL_DIR)/"
@@ -489,6 +501,49 @@ step18 image-survey-classification: step16
 		$(if $(DETERMINISTIC),--deterministic) \
 		--seed $(SEED)
 	@echo "===> Output: $(IMGSURVEY_DIR)/"
+
+# ====================================
+# ANALYSIS RUNNERS (non-canonical experiments and paper replication)
+# ====================================
+# Reserved naming: stepN = canonical pipeline (1-18). Analysis runners use the
+# `analysis-` prefix and live outside the numbered sequence.
+
+# DINOv2 image-quality classifier (fixed-splits experiment).
+analysis-train-dinov2:
+	@echo "===> Training DINOv2 image classifier (fixed splits)"
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.imagequality_classification.train_model_dinov2 \
+		--all-data $(ALL_DATA_JSON) \
+		--splits-csv $(SPLITS_CSV) \
+		--mode base \
+		--batch-size 16 \
+		--val-batch-size 16 \
+		--input-path-key img_path \
+		--outdir $(MODELS_DIR)/imagequality_classification/dinov2_fixed_splits
+
+# Multimodal classifier — single configuration.
+# Override BACKBONE / FUSION / INPUT_MODE per call (defaults match the array sweep below).
+BACKBONE   ?= resnet
+FUSION     ?= concat
+INPUT_MODE ?= rgb
+analysis-multimodal:
+	@echo "===> Multimodal training: backbone=$(BACKBONE) fusion=$(FUSION) input=$(INPUT_MODE)"
+	@mkdir -p analysis/multimodal/outputs_multimodal/$(BACKBONE)_$(INPUT_MODE)_$(FUSION)
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) analysis/multimodal/train_multimodal.py \
+		--backbone $(BACKBONE) \
+		--input-mode $(INPUT_MODE) \
+		--fusion-strategy $(FUSION) \
+		--use-metabolites \
+		--use-augmentation \
+		--batch-size 16 \
+		--learning-rate 1e-3 \
+		--num-epochs-phase1 50 \
+		--early-stopping-patience 20 \
+		--output-dir analysis/multimodal/outputs_multimodal/$(BACKBONE)_$(INPUT_MODE)_$(FUSION)
+
+# Per-day image study (paper Fig 7-9 replication). Pass extra args via ARGS=.
+analysis-paper-perday:
+	@echo "===> Per-day image study"
+	PYTHONPATH=$(PYTHONPATH) ANALYSIS_OUTPUT_DIR=$(ANALYSIS_OUTPUT_DIR) $(PYTHON) -m analysis.paper_2026_04.perday_image_study $(ARGS)
 
 # ====================================
 # Pipeline Convenience Targets
