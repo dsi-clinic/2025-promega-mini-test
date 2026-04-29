@@ -98,22 +98,31 @@ def epoch_loop(model, loader, optimizer, class_weights, train=True, use_mask=Fal
 
 
 def run_phases(model, model_path, backbone_key, backbone_name, day,
-               train_loader, val_loader, class_weights, cfg):
-    """Phase 1 (frozen backbone) → Phase 2 (partial unfreeze). Save best by val acc."""
-    opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-3)
-    es = EarlyStopping(patience=20)
+               train_loader, val_loader, class_weights, cfg,
+               *, loss_fn=None, scheduler_factory=None):
+    """Phase 1 (frozen backbone) → Phase 2 (partial unfreeze). Save best by val acc.
+
+    loss_fn: optional override for epoch_loop's loss (None → BCE).
+    scheduler_factory: optional callable (opt) → torch.optim scheduler.
+        If given, scheduler.step(vacc) is called after each epoch.
+    """
+    phases = [(cfg.epoch1, 1e-3, 20), (cfg.epoch2, 1e-4, 30)]
     history = defaultdict(list)
     best_acc = -np.inf
 
-    for phase, (n_epochs, lr, patience) in enumerate([(cfg.epoch1, 1e-3, 20), (cfg.epoch2, 1e-4, 30)], start=1):
+    opt = None
+    for phase, (n_epochs, lr, patience) in enumerate(phases, start=1):
         if phase == 2:
             model.unfreeze_backbone()
-            opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
-            es = EarlyStopping(patience=patience)
+        opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
+        scheduler = scheduler_factory(opt) if scheduler_factory else None
+        es = EarlyStopping(patience=patience)
 
         for epoch in range(n_epochs):
-            tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights, train=True, use_mask=cfg.use_mask)
-            vl, vacc, _, _ = epoch_loop(model, val_loader, opt, class_weights, train=False, use_mask=cfg.use_mask)
+            tl, tacc, _, _ = epoch_loop(model, train_loader, opt, class_weights,
+                                        train=True, use_mask=cfg.use_mask, loss_fn=loss_fn)
+            vl, vacc, _, _ = epoch_loop(model, val_loader, opt, class_weights,
+                                        train=False, use_mask=cfg.use_mask, loss_fn=loss_fn)
             history["train_loss"].append(tl)
             history["val_loss"].append(vl)
             history["train_acc"].append(tacc)
@@ -123,6 +132,8 @@ def run_phases(model, model_path, backbone_key, backbone_name, day,
             if vacc > best_acc:
                 best_acc = vacc
                 torch.save(model.state_dict(), model_path)
+            if scheduler is not None:
+                scheduler.step(vacc)
             if es.step(vacc):
                 break
 

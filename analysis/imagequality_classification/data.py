@@ -17,7 +17,10 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 
 from pipeline.common.json_views import BaseViewEmitter
+from pipeline.data_loader import IMAGE_MODE_TO_PATH_KEY, LABEL_TO_INT
 from pipeline.merge.normalized_records import OrganoidRecord
+
+PATH_KEY_TO_IMAGE_MODE = {v: k for k, v in IMAGE_MODE_TO_PATH_KEY.items()}
 
 SCHEMA_DICT = Dict[str, Any]
 
@@ -159,6 +162,83 @@ def _write_missing_csv(day, cfg, backbone_key, missing_records):
         writer.writeheader()
         writer.writerows(rows)
     print(f"⚠ {day}: skipped {len(missing_records)} entries due to missing files (details → {missing_csv})")
+
+
+def extract_samples_by_day(source, day, *, split=None,
+                           input_key="img_path", use_mask=False):
+    """Pull (img_paths, labels, mask_paths) for one day from any source.
+
+    ``source`` may be either:
+      - an ``OrganoidDataset`` (uses ``ds.get_image_paths(split, day, mode=...)``;
+        ``split`` is required), or
+      - a views dict with shape ``{records: {day: {label, img_path, ...}}}``
+        (matches ``load_image_classifier_views`` / accuracy trainer flow;
+        ``split`` is ignored).
+
+    Files that don't exist on disk are silently dropped. Labels are mapped to
+    ``int`` via ``LABEL_TO_INT`` — entries with unknown labels are skipped.
+    Returns ``(img_paths, labels, mask_paths_or_None)`` as numpy arrays.
+    """
+    img_paths: List[str] = []
+    labels_int: List[int] = []
+    mask_paths: List[str] | None = [] if use_mask else None
+
+    if isinstance(source, dict) and "records" in source:
+        # views-dict path. Labels in this format are already ints (0/1)
+        # because the emitter stores ``acceptance_flag``; we accept either ints
+        # or strings here so the helper stays robust to schema drift.
+        records = source["records"].get(day, {})
+        imgs = records.get(input_key, [])
+        labs = records.get("label", [])
+        masks = records.get("mask_path", [])
+        for i, img_path in enumerate(imgs):
+            raw_label = labs[i] if i < len(labs) else None
+            if isinstance(raw_label, str):
+                if raw_label not in LABEL_TO_INT:
+                    continue
+                label_int = LABEL_TO_INT[raw_label]
+            elif raw_label in (0, 1):
+                label_int = int(raw_label)
+            else:
+                continue
+            if not img_path or not Path(str(img_path)).exists():
+                continue
+            if use_mask:
+                mpath = masks[i] if i < len(masks) else None
+                if not mpath or not Path(str(mpath)).exists():
+                    continue
+                mask_paths.append(str(mpath))
+            img_paths.append(str(img_path))
+            labels_int.append(label_int)
+    else:
+        # OrganoidDataset path
+        if split is None:
+            raise ValueError("split is required when source is an OrganoidDataset")
+        img_mode = PATH_KEY_TO_IMAGE_MODE.get(input_key, input_key)
+        triples = source.get_image_paths(split, day, mode=img_mode)
+        mask_lookup = (
+            {oid: p for oid, _, p in source.get_image_paths(split, day, mode="mask")}
+            if use_mask else None
+        )
+        for org_id, label_str, img_path in triples:
+            if label_str not in LABEL_TO_INT:
+                continue
+            if not img_path or not Path(str(img_path)).exists():
+                continue
+            if use_mask:
+                mpath = mask_lookup.get(org_id)
+                if not mpath or not Path(str(mpath)).exists():
+                    continue
+                mask_paths.append(str(mpath))
+            img_paths.append(str(img_path))
+            labels_int.append(LABEL_TO_INT[label_str])
+
+    import numpy as np
+    return (
+        np.array(img_paths),
+        np.array(labels_int, dtype=int),
+        np.array(mask_paths) if use_mask else None,
+    )
 
 
 def make_loader(imgs, labels, augment, batch_size, cfg, mask_paths=None):

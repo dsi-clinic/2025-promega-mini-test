@@ -129,8 +129,13 @@ def build_results_table(per_day_best, cfg: Config):
     return rows
 
 
-def create_summary(per_model_results, rows, cfg: Config) -> None:
-    """Per-model JSON summary + 3 metric plots + stdout table."""
+def create_summary(per_model_results, rows, cfg: Config, **extra_metadata) -> None:
+    """Per-model JSON summary + 3 metric plots + stdout table.
+
+    ``extra_metadata`` keys are merged into the top-level summary dict so
+    callers (e.g. the dinov2 trainer) can record fixed-splits / mode markers
+    without subclassing this function.
+    """
     day_numbers = {
         day: res["day_no"]
         for day_res in per_model_results.values()
@@ -174,6 +179,7 @@ def create_summary(per_model_results, rows, cfg: Config) -> None:
             "val": float(cfg.val_frac),
             "test": float(cfg.test_frac),
         },
+        **extra_metadata,
     }
     summary_path = cfg.out_dir / "final_test_summary.json"
     with summary_path.open("w") as f:
