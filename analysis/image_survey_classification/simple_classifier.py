@@ -30,7 +30,7 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropou
 # Application
 from pipeline.common.json_views import BaseViewEmitter
 from pipeline.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer
-from pipeline.data_loader import compute_majority_label, MIN_VOTES
+from pipeline.data_loader import MIN_VOTES
 from pipeline.merge.normalized_records import OrganoidRecord
 
 # --- Constants ---
@@ -200,9 +200,6 @@ def extract_day_data(all_data, target_day):
     print(f"⚠ Skipped {all_data.get('metadata', '').get('total_skipped')} records without processed image paths, evalutations, or labels")
 
     return imgs, labels, masks
-
-# compute_majority_label and MIN_VOTES are imported from pipeline.data_loader
-# at the top of this file (single source of truth for the survey-consensus rule).
 
 def print_class_distribution(indexed_labels):
     """Calculate and print class distribution."""

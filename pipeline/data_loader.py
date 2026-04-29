@@ -142,21 +142,6 @@ def get_day_float(day_id: str) -> Optional[float]:
     return float(f"{whole}.{frac}") if frac else float(whole)
 
 
-def compute_majority_label(
-    evaluations: list, min_votes: int = MIN_VOTES
-) -> Optional[str]:
-    """Return consensus label if ≥ min_votes agree, else None."""
-    if not evaluations or len(evaluations) != 5:
-        return None
-    votes: Dict[str, int] = {}
-    for e in evaluations:
-        v = e.get("evaluation", "")
-        if v:
-            votes[v] = votes.get(v, 0) + 1
-    for label in ("Acceptable", "Not Acceptable"):
-        if votes.get(label, 0) >= min_votes:
-            return label
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -257,21 +242,21 @@ def exclude_classification(*types: str) -> Callable:
 def paper_label_fn(
     org_id: str,
     records: dict,
-    min_votes: int = MIN_VOTES,
     label_day: str = LABEL_DAY,
+    **_,
 ) -> Optional[str]:
-    """Derive label from survey consensus at label_day.
+    """Read the merge-step label at label_day.
 
-    Returns 'Acceptable', 'Not Acceptable', or None (excluded).
+    The merge step (`pipeline.surveys.surveys_mapper.compute_survey_majority`)
+    has already done INV/regular-image vote aggregation and stored the result
+    in `record["label"]["value"]`. Single source of truth: don't recompute.
+
+    Returns 'Acceptable', 'Not Acceptable', or None (no consensus / excluded).
     """
     rec = records.get(label_day)
     if rec is None:
         return None
-    survey = rec.get("survey")
-    if not survey:
-        return None
-    evaluations = survey.get("evaluations", [])
-    return compute_majority_label(evaluations, min_votes=min_votes)
+    return rec.get("label", {}).get("value")
 
 
 # ---------------------------------------------------------------------------
