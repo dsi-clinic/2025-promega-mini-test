@@ -33,7 +33,12 @@ from sklearn.utils.class_weight import compute_class_weight
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from pipeline.data_loader import IMAGE_MODE_TO_PATH_KEY, OrganoidDataset, filters_for_mode
+from pipeline.data_loader import (
+    IMAGE_MODE_TO_PATH_KEY,
+    LABEL_TO_INT,
+    OrganoidDataset,
+    filters_for_mode,
+)
 
 from .cli import day_to_int
 from .data import ImagePathDataset
@@ -50,7 +55,6 @@ BATCH_SIZE = 16
 NUM_WORKERS = 0
 SEED = 1
 
-LABEL_MAP = {"Acceptable": 1, "Not Acceptable": 0}
 PATH_KEY_TO_IMAGE_MODE = {v: k for k, v in IMAGE_MODE_TO_PATH_KEY.items()}
 
 
@@ -73,7 +77,7 @@ def extract_samples_by_day(ds: OrganoidDataset, split: str, day_str: str,
 
     img_paths, labels, mask_paths = [], [], ([] if use_mask else None)
     for org_id, label_str, img_path in img_triples:
-        if label_str not in LABEL_MAP:
+        if label_str not in LABEL_TO_INT:
             continue
         if not img_path or not Path(img_path).exists():
             continue
@@ -83,7 +87,7 @@ def extract_samples_by_day(ds: OrganoidDataset, split: str, day_str: str,
                 continue
             mask_paths.append(mpath)
         img_paths.append(img_path)
-        labels.append(LABEL_MAP[label_str])
+        labels.append(LABEL_TO_INT[label_str])
 
     return (
         np.array(img_paths),

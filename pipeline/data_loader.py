@@ -50,6 +50,15 @@ LABEL_DAY = "Dy30"
 HIGH_QUALITY_BATCHES = ("BA1", "BA2")
 MIN_VOTES = 4
 
+# Canonical label encoding. Use this everywhere downstream code converts the
+# string label to a 0/1 target — keeps positive class consistent across scripts
+# (1 = Acceptable, 0 = Not Acceptable). Note: the metabolite trainer in
+# legacy_paper_2026_04 uses the inverse (1 = Not Acceptable) because that
+# matches the paper's reporting; new code should prefer this map and invert
+# locally when needed.
+LABEL_TO_INT = {"Acceptable": 1, "Not Acceptable": 0}
+INT_TO_LABEL = {v: k for k, v in LABEL_TO_INT.items()}
+
 # Day ordering used throughout analysis
 DAY_ORDER = [
     "Dy03", "Dy06", "Dy08", "Dy10", "Dy13",
@@ -706,6 +715,20 @@ class OrganoidDataset:
         if info is None:
             return None
         return info["records"].get(day)
+
+    def iter_organoids(self):
+        """Yield (org_id, info) for every organoid in the (filtered) dataset."""
+        return iter(self._organoids.items())
+
+    def organoid_label(self, org_id: str) -> Optional[str]:
+        """Return the label string ('Acceptable' / 'Not Acceptable') or None."""
+        info = self._organoids.get(org_id)
+        return None if info is None else info["label"]
+
+    def organoid_records(self, org_id: str) -> Dict[str, dict]:
+        """Return {day: record} for one organoid, or {} if unknown."""
+        info = self._organoids.get(org_id)
+        return {} if info is None else info["records"]
 
     # -- summary -------------------------------------------------------------
 

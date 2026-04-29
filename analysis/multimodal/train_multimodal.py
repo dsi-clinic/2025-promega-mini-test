@@ -26,6 +26,7 @@ from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader, Dataset
 
 from pipeline.data_loader import (
+    LABEL_TO_INT,
     OrganoidDataset as PipelineOrganoidDataset,
     filters_for_mode,
     get_day_int_floor,
@@ -71,7 +72,7 @@ class MultimodalRowDataset(Dataset):
         self.df = df.reset_index(drop=True)
         self.config = config
         self.transform = transform
-        self.label_map = {'Acceptable': 1, 'Not Acceptable': 0}
+        self.label_map = LABEL_TO_INT
         self.img_key = 'overlay_path' if 'overlay' in config['input_mode'] else 'img_path'
         self.use_mask = 'mask' in config['input_mode']
         self.use_metabolites = config['use_metabolites']

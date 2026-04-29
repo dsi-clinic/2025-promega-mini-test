@@ -30,7 +30,7 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropou
 # Application
 from pipeline.common.json_views import BaseViewEmitter
 from pipeline.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer
-from pipeline.data_loader import MIN_VOTES
+from pipeline.data_loader import LABEL_TO_INT, MIN_VOTES
 from pipeline.merge.normalized_records import OrganoidRecord
 
 # --- Constants ---
@@ -204,11 +204,10 @@ def extract_day_data(all_data, target_day):
 def print_class_distribution(indexed_labels):
     """Calculate and print class distribution."""
     print("\n--- Class Distribution (Before Split) ---")
-    label_to_index = {"Not Acceptable": 0, "Acceptable": 1}  # Explicitly map to 0 and 1
+    int_to_label = {v: k for k, v in LABEL_TO_INT.items()}
     class_counts = Counter(indexed_labels)
     for class_idx, count in sorted(class_counts.items()):
-        label_name = [name for name, idx in label_to_index.items() if idx == class_idx][0]
-        print(f"Class {class_idx} ('{label_name}'): {count} samples")
+        print(f"Class {class_idx} ('{int_to_label[class_idx]}'): {count} samples")
     print("------------------------------------------")
 
 def create_dataset(img_paths, mask_paths, labels, batch_size, target_size, augment=False, shuffle=True, seed=None):

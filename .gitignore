@@ -217,5 +217,8 @@ test_gpu.py
 data_splits/
 data/data_splits/
 
+# Generated analysis outputs (figures, CSVs, results.json) — regenerable
+analysis_output/
+
 # Claude Code harness state
 .claude/

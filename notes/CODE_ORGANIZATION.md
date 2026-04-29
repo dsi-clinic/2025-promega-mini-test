@@ -32,11 +32,10 @@ Rule: if it reads from `$RAW_DIR` or writes to `$INTERMEDIATE_DIR` / `$MODELS_DI
 
 - **`analysis/imagequality_classification/`** — step 17 (PyTorch ViT/ResNet/CNN image quality classifier)
 - **`analysis/image_survey_classification/`** — step 18 (TensorFlow ResNet50V2 survey classifier)
-- **`analysis/cnn_lstm/`** — CNN-LSTM temporal models
-- **`analysis/metabolites/`** — LightGBM/LR metabolite classifiers (non-paper experiments)
 - **`analysis/multimodal/`** — combined image + metabolite models
 - **`analysis/paper_2026_04/`** — exact scripts needed to reproduce the 2026-04 paper (Tables 1-3, Figures 5-11). Keep self-contained: one subdir = one paper's worth of replication.
 - **`analysis/outputs/`** — generated figures and CSVs (gitignored)
+- **`analysis/cnn_lstm_legacy/`**, **`analysis/metabolites_legacy/`** — frozen pre-2026-04 trainers; not Makefile-wired. Reference only.
 
 Rule: if the input is `data/all_data.json` or something derived at runtime from it, it belongs in `analysis/`. Paper-specific scripts go under `analysis/<paper-tag>/` so they stay reproducible even as the core analysis evolves.
 

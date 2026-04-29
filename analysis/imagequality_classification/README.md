@@ -34,8 +34,6 @@ The SLURM script auto-detects the repo root and dispatches to the same Makefile 
 |---|---|
 | `train_model_accuracy.py` | Primary trainer. ViT / ResNet / EfficientNet / custom CNN. Phase 1 (frozen backbone) → Phase 2 (full fine-tune). Optional mask branch. |
 | `train_model_dinov2.py` | DINOv2-based variant using `OrganoidDataset` + `filters_for_mode` from `pipeline.data_loader`. |
-| `train_model_soft_labels.py` | Soft-label trainer (BCE on vote fractions, threshold sweep). |
-| `find_misclassified_images.py` | Post-training diagnostic — exports per-day misclassification CSVs. |
 
 ## Outputs
 
