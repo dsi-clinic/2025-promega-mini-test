@@ -528,7 +528,7 @@ INPUT_MODE ?= rgb
 analysis-multimodal:
 	@echo "===> Multimodal training: backbone=$(BACKBONE) fusion=$(FUSION) input=$(INPUT_MODE)"
 	@mkdir -p analysis/multimodal/outputs_multimodal/$(BACKBONE)_$(INPUT_MODE)_$(FUSION)
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) analysis/multimodal/train_multimodal.py \
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.multimodal.train_multimodal \
 		--backbone $(BACKBONE) \
 		--input-mode $(INPUT_MODE) \
 		--fusion-strategy $(FUSION) \
