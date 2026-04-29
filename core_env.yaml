@@ -13,6 +13,7 @@ dependencies:
     - timm==1.0.*
     - numpy==2.2.*        # <-- if stability issues, change to "numpy<2"
     - scikit-learn==1.7.*
+    - lightgbm==4.6.*
     - pandas==2.3.*
     - scipy==1.16.*
     - pillow==11.3.*
@@ -21,15 +22,16 @@ dependencies:
     - tqdm==4.67.*
     - scikit-image==0.25.*
     - opencv-python==4.12.*
-    - imagecodecs
-    - openpyxl
-    - pyyaml
-    - python-dotenv
-    - tifffile
-    - fsspec
-    - safetensors
-    - ipykernel
-    - ipython
-    - jupyter_client
-    - jupyter_core
-    - rich
+    - imagecodecs==2026.3.*
+    - openpyxl==3.1.*
+    - pyyaml==6.0.*
+    - python-dotenv==1.2.*
+    - tifffile==2026.3.*
+    - fsspec==2026.3.*
+    - safetensors==0.7.*
+    - tensorflow==2.21.*
+    - ipykernel==7.2.*
+    - ipython==9.10.*
+    - jupyter_client==8.8.*
+    - jupyter_core==5.9.*
+    - rich==14.3.*

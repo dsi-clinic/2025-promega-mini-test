@@ -1,0 +1,123 @@
+{
+  "num_records": 5168,
+  "num_img_paths": 5168,
+  "num_img_split": 90,
+  "num_img_stitched": 40,
+  "num_img_no_label": 0,
+  "num_manual_masks": 2153,
+  "num_mask_paths": 5168,
+  "num_overlay_paths": 5168,
+  "num_no_metabolite": 1014,
+  "num_metabolites": 4154,
+  "num_metabolite_outliers": 195,
+  "metabolite_outlier_counts": {
+    "GlutamateGlo": 23,
+    "GlucoseGlo": 27,
+    "BCAAGlo": 23,
+    "MalateGlo": 38,
+    "LactateGlo": 61,
+    "PyruvateGlo": 23
+  },
+  "num_survey": 393,
+  "num_no_survey": 4775,
+  "num_acceptable_votes": 1337,
+  "num_not_acceptable_votes": 728,
+  "num_majority": 294,
+  "num_no_majority": 99,
+  "total_votes": 2065,
+  "num_label_skipped": 7,
+  "num_labels": 3873,
+  "num_no_labels": 1295,
+  "num_organoids": 475,
+  "image_mapping_meta": {
+    "aspect_ratio": {
+      "directory_meta": {
+        "_source_mapping": "/net/projects2/promega/2026_04_15_data/intermediate/indexes/image_map_resized_512x384_predicted_overlay.json",
+        "_raw_base_folder": "/net/projects2/promega/2026_04_15_data/raw/images/raw_images",
+        "_ar_images_base_folder": "/net/projects2/promega/2026_04_15_data/intermediate/resized_575_square",
+        "_ar_masks_base_folder": "/net/projects2/promega/2026_04_15_data/intermediate/resized_575_square_masks"
+      },
+      "params": {
+        "target_um_per_px": 9.0,
+        "target_size": 575,
+        "image_interpolation": "INTER_LINEAR",
+        "mask_interpolation": "INTER_NEAREST",
+        "source_pixels": "raw_tif_pixels"
+      },
+      "stats": {
+        "seen": 5168,
+        "processed": 0,
+        "skipped_no_mask": 0,
+        "failed": 0
+      }
+    },
+    "clipped_meanfill": {
+      "directory_meta": {
+        "_source_mapping": "/net/projects2/promega/2026_04_15_data/intermediate/indexes/image_map_resized_512x384_predicted_overlay_ar.json",
+        "_processed_base_folder": "/net/projects2/promega/2026_04_15_data/intermediate/resized_512x384",
+        "_ar_images_base_folder": null,
+        "_clipped_meanfill_images_base_folder": "/net/projects2/promega/2026_04_15_data/intermediate/mean_fill_clip"
+      },
+      "params": {
+        "mean_source": "computed:background",
+        "global_mean_rgb01": [
+          0.7005664110183716,
+          0.700476348400116,
+          0.700180172920227
+        ],
+        "computed_mean": true,
+        "computed_mean_region": "background",
+        "computed_mean_sample": 0,
+        "computed_mean_used_images": 5168,
+        "save_computed_mean": true,
+        "loaded_mean_scale": null,
+        "blur_kernel": [
+          5,
+          5
+        ],
+        "dilate_kernel": [
+          5,
+          5
+        ],
+        "dilate_iterations": 1,
+        "mask_foreground": "white",
+        "require_mask": true,
+        "image_field_override": "",
+        "mask_field_override": "",
+        "source": "auto"
+      },
+      "stats": {
+        "seen": 5168,
+        "processed": 5168,
+        "skipped_exists": 0,
+        "skipped_no_mask": 0,
+        "skipped_missing_files": 0,
+        "failed": 0
+      }
+    }
+  },
+  "total_records": 5168,
+  "records_with_required_fields": 5168,
+  "records_with_images": 5168,
+  "records_with_metabolites": 4154,
+  "records_with_survey": 393,
+  "day_distribution": {
+    "Dy3": 475,
+    "Dy6": 475,
+    "Dy8": 473,
+    "Dy10": 470,
+    "Dy13": 467,
+    "Dy15": 462,
+    "Dy17": 461,
+    "Dy20.5": 466,
+    "Dy24": 475,
+    "Dy28": 474,
+    "Dy30": 470
+  },
+  "classification_verification_distribution": {
+    "NoSplitNoStitched": 5039,
+    "SplitNoStitched": 89,
+    "NoSplitStitched": 39,
+    "SplitStitched": 1
+  }
+}

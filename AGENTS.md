@@ -38,7 +38,7 @@ conda run --no-capture-output -n core_env python3 <script.py>
 
 ### PYTHONPATH
 
-The repo root must be on `PYTHONPATH` for imports like `from file_utils.common.organoid_patterns import ...` and `from analysis.data_loader import ...`. The Makefile sets this automatically. In interactive use:
+The repo root must be on `PYTHONPATH` for imports like `from pipeline.common.organoid_patterns import ...` and `from pipeline.data_loader import ...`. The Makefile sets this automatically. In interactive use:
 
 ```bash
 export PYTHONPATH=$(pwd)
@@ -46,7 +46,7 @@ export PYTHONPATH=$(pwd)
 
 ### Data directory
 
-Remote data lives at `/net/projects2/promega/2026_04_data` (the `DATA_DIR` in the Makefile). Code should never hard-code this path — use environment variables or Makefile variables.
+Remote data lives at `/net/projects2/promega/2026_04_15_data` (the `DATA_ROOT` in the Makefile), organized as `raw/` (inputs — never written to), `intermediate/` (regenerable pipeline outputs), `models/` (checkpoints), and `analysis_output/` (manual figures). Code should never hard-code these paths — use environment variables or Makefile variables.
 
 ## Project Rules
 
@@ -60,15 +60,15 @@ Organoids span multiple days (Dy03–Dy30). The **same organoid must stay in the
 
 ### 3. all_data.json is the single source of truth
 
-Labels, features, filtering — everything is derived at runtime from `data/all_data.json`. The splits CSV contains **only** `organoid_id` and `split`. Do not materialize filtered/transformed data into separate JSON files for downstream models; use `analysis/data_loader.py` instead.
+Labels, features, filtering — everything is derived at runtime from `data/all_data.json`. The splits CSV contains **only** `organoid_id` and `split`. Do not materialize filtered/transformed data into separate JSON files for downstream models; use `pipeline/data_loader.py` instead.
 
 ### 4. Paper filter defaults
 
 When reproducing paper results, apply these filters (already the defaults in `data_loader.py`):
 - **Batches**: BA1 + BA2 only
 - **Labels**: 4/5 vote consensus at Dy30
-- **Metabolites**: All 4 required metabolites present (GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo)
-- **Conditional metabolites**: MalateGlo included only for days > 10; BCAAGlo excluded entirely
+- **Metabolites**: All 5 required metabolites present (GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, BCAAGlo)
+- **Conditional metabolites**: MalateGlo included only for days > 10 (early-day values not assayed); BCAAGlo required all days
 - **Images**: Valid processed `img_path` + `mask_path` on every day
 
 ### 5. Seed = 42 everywhere
@@ -85,14 +85,14 @@ Dy20 and Dy21 in the raw data represent the same biological timepoint. Canonical
 |------|-------|--------------|
 | Split CSV | `data/2026_winter_student_splits.csv` | Yes |
 | Analysis code | `analysis/` | Yes |
-| Generated figures | `analysis/outputs/figures/` | No (gitignored) |
-| Model checkpoints, embeddings | `$ANALYSIS_OUTPUT_DIR` (default: `$DATA_DIR/analysis_outputs/`) | No |
+| Generated figures | `$ANALYSIS_OUTPUT_DIR/figures/` (default: `$DATA_ROOT/analysis_output/figures/`) | No |
+| Model checkpoints | `$DATA_ROOT/models/` | No |
 
 ### 8. Running analysis scripts
 
 ```bash
 # Generate splits (one-time, already checked in)
-make run ARGS="-m analysis.generate_splits"
+make run ARGS="-m analysis.paper_2026_04.generate_splits"
 
 # Run any analysis module
 make run ARGS="-m analysis.<module_name> --flag value"
