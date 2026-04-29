@@ -36,6 +36,7 @@ Rule: if it reads from `$RAW_DIR` or writes to `$INTERMEDIATE_DIR` / `$MODELS_DI
 - **`analysis/paper_2026_04/`** — exact scripts needed to reproduce the 2026-04 paper (Tables 1-3, Figures 5-11). Built against `pipeline.data_loader` (public API only).
 - **`analysis/outputs/`** — generated figures and CSVs (gitignored)
 - **`analysis/cnn_lstm_legacy/`**, **`analysis/metabolites_legacy/`**, **`analysis/legacy_paper_2026_04/`** — frozen reference implementations from before the 2026-04 data-loader rewrite. Not Makefile-wired.
+- **`analysis/image_notebooks/`**, **`analysis/survey_notebooks/`** — exploratory Jupyter notebooks + survey-aggregation JSONs. Not imported as modules; kept for reference.
 
 Rule: if the input is `data/all_data.json` or something derived at runtime from it, it belongs in `analysis/`. Paper-specific scripts go under `analysis/<paper-tag>/` so they stay reproducible even as the core analysis evolves.
 
