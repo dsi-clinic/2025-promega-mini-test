@@ -1,5 +1,3 @@
-# analysis/images/mask_edge_fraction.py
-# from __future__ import annotations
 import argparse
 import json
 import logging

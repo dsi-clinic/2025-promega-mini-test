@@ -1,4 +1,3 @@
-# analysis/images/series/filter_complete_series.py
 from __future__ import annotations
 import argparse
 import json
