@@ -1,31 +1,30 @@
 #!/usr/bin/env python3
-"""Reproduce Figure 5: Metabolite concentration boxplots.
+"""
+Reproduce Figure 5: Metabolite concentration boxplots.
 
 Outputs:
-  - $ANALYSIS_OUTPUT_DIR/figures/metabolite_concentration_boxplot.png
+  - analysis/outputs/figures/metabolite_concentration_boxplot.png
 
 Usage:
-    make run ARGS="-m analysis.paper_2026_04.metabolite_boxplot"
+    make run ARGS="-m analysis.metabolite_boxplot"
 """
 
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from pipeline.data_loader import (
-    CONDITIONAL_METABOLITES,
-    FIGURE_DIR,
-    OrganoidDataset,
-    get_day_int_floor,
-)
+from pipeline.data_loader import CONDITIONAL_METABOLITES, FIGURE_DIR, OrganoidDataset, get_day_int_floor
 
 ALL_DATA_PATH = "data/all_data.json"
 SPLITS_CSV = "data/2026_winter_student_splits.csv"
 OUTPUT_DIR = FIGURE_DIR
 
-METABOLITE_NAMES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "MalateGlo"]
+METABOLITE_NAMES = [
+    "GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "MalateGlo"
+]
 DISPLAY_NAMES = {
     "GlucoseGlo": "Glucose",
     "GlutamateGlo": "Glutamate",
@@ -35,33 +34,39 @@ DISPLAY_NAMES = {
 }
 
 
-def _collect_rows(ds: OrganoidDataset) -> list:
+def main():
+    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
+
+    # Collect all concentration values across all organoids and days
     rows = []
-    for _, info in ds.iter_organoids():
+    for org_id in ds.organoid_ids:
+        info = ds._organoids[org_id]
         for day, rec in info["records"].items():
             day_num = get_day_int_floor(day)
             mets = rec.get("metabolite", {})
             for m in METABOLITE_NAMES:
+                # Apply conditional metabolite filtering (e.g. MalateGlo only days > 10)
                 if m in CONDITIONAL_METABOLITES:
                     if day_num is None or not CONDITIONAL_METABOLITES[m](day_num):
                         continue
                 if m in mets:
                     conc = mets[m].get("concentration_uM")
                     if conc is not None:
-                        rows.append({"Metabolite": DISPLAY_NAMES[m], "Concentration (μM)": conc})
-    return rows
+                        rows.append({
+                            "Metabolite": DISPLAY_NAMES[m],
+                            "Concentration (μM)": conc,
+                        })
 
+    df = pd.DataFrame(rows)
 
-def main():
-    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
-    df = pd.DataFrame(_collect_rows(ds))
-
+    # Create boxplot
     fig, ax = plt.subplots(figsize=(10, 6))
+    order = [DISPLAY_NAMES[m] for m in METABOLITE_NAMES]
     sns.boxplot(
         data=df,
         x="Metabolite",
         y="Concentration (μM)",
-        order=[DISPLAY_NAMES[m] for m in METABOLITE_NAMES],
+        order=order,
         ax=ax,
         palette="Set2",
         fliersize=2,

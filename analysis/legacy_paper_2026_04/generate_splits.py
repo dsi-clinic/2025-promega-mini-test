@@ -45,7 +45,7 @@ def collect_labeled_organoids(all_data_path: Path) -> Dict[str, str]:
         split_ratios={"_unused": 1.0},  # no real splits needed
         split_seed=0,
     )
-    return {org_id: info["label"] for org_id, info in ds.iter_organoids()}
+    return {org_id: info["label"] for org_id, info in ds._organoids.items()}
 
 
 def stratified_split(
