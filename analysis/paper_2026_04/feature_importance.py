@@ -2,14 +2,15 @@
 """
 Reproduce Figure 10: Feature importance from LightGBM across selected days.
 
-Reads saved results from analysis/outputs/metabolites/results.json
-(produced by analysis.metabolites.train) and creates the feature importance plot.
+Reads saved results from $ANALYSIS_OUTPUT_DIR/metabolites/results.json
+(produced by analysis.paper_2026_04.metabolites_train) and creates the
+feature importance plot.
 
 Outputs:
-  - analysis/outputs/figures/Feature Importance Graph.png
+  - $ANALYSIS_OUTPUT_DIR/figures/Feature Importance Graph.png
 
 Usage:
-    make run ARGS="-m analysis.metabolites.feature_importance"
+    make run ARGS="-m analysis.paper_2026_04.feature_importance"
 """
 
 import json
