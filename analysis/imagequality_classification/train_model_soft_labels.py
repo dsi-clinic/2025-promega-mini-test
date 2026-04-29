@@ -26,19 +26,23 @@ longer emits. If you need this analysis, generate the per-day JSONs first
 (see find_misclassified_images.py for the historical format).
 """
 
-import os, json, argparse, re, math, csv
-from pathlib import Path
+import argparse
+import csv
+import json
+import math
+import os
 from collections import defaultdict
+from pathlib import Path
 
-import numpy as np
-from PIL import Image
 import matplotlib.pyplot as plt
-
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset
 
+from pipeline.data_loader import get_day_float
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     accuracy_score, f1_score, roc_auc_score, average_precision_score,
@@ -75,18 +79,9 @@ def set_seed(seed=SEED):
         torch.cuda.manual_seed_all(seed)
 
 def day_to_int(day_str: str) -> int:
-    """
-    Parse day tokens like "Dy28" or "Dy20_5" -> scaled int for sorting.
-    Example: "Dy20_5" -> 2050 (represents 20.5).
-    """
-    m = re.search(r"[Dd][Yy](\d+(_\d+)?)", day_str)
-    if not m:
-        return -1
-    token = m.group(1).replace("_", ".")
-    try:
-        return int(round(float(token) * 100))
-    except Exception:
-        return -1
+    """Day → int×100 for sorting (preserves half-days). 'Dy20_5' → 2050."""
+    f = get_day_float(day_str)
+    return -1 if f is None else int(round(f * 100))
 
 class EarlyStoppingMin:
     """Early stop on a metric to be minimized (e.g., val Brier)."""

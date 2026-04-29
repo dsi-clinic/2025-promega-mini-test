@@ -11,15 +11,19 @@ Usage:
 """
 
 import json
-import re
-import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from pipeline.data_loader import FIGURE_DIR
+from pipeline.data_loader import (
+    CONDITIONAL_METABOLITES,
+    FIGURE_DIR,
+    OrganoidDataset,
+    extract_organoid_id,
+    get_day_int_floor,
+)
 
 ALL_DATA_PATH = Path("data/all_data.json")
 SPLITS_CSV = Path("data/2026_winter_student_splits.csv")
@@ -37,39 +41,31 @@ DISPLAY_NAMES = {
 }
 
 
-def extract_organoid_id(key: str) -> str:
-    m = re.match(r"^(.*)\s+Dy\d+(?:\.\d+)?\s+(.*)$", key)
-    return f"{m.group(1)} {m.group(2)}" if m else key
-
-
 def main():
+    # Raw counts (incl. unlabeled records) require direct JSON access.
+    # OrganoidDataset always drops organoids with no label, so it can't
+    # answer "how many total records exist in all_data.json".
     with open(ALL_DATA_PATH) as f:
-        all_data = json.load(f)
+        all_records = json.load(f)
 
-    print(f"Total records in all_data.json: {len(all_data)}")
+    print(f"Total records in all_data.json: {len(all_records)}")
 
-    # Unique organoids
-    org_ids = set()
-    for key in all_data:
-        org_ids.add(extract_organoid_id(key))
+    org_ids = {extract_organoid_id(k) for k in all_records}
     print(f"Unique organoids (all batches): {len(org_ids)}")
 
-    # Days
-    days = sorted(set(v.get("day", {}).get("id", "") for v in all_data.values()))
+    days = sorted({v.get("day", {}).get("id", "") for v in all_records.values()})
     print(f"Days: {days}")
 
-    # Records with labels (Dy28/Dy30 with survey)
-    labeled_records = 0
     labeled_days = set()
-    for k, v in all_data.items():
-        if "survey" in v and v["survey"].get("evaluations"):
+    labeled_records = 0
+    for v in all_records.values():
+        if v.get("survey", {}).get("evaluations"):
             labeled_records += 1
             labeled_days.add(v.get("day", {}).get("id"))
     print(f"Records with survey evaluations: {labeled_records}")
     print(f"Survey days: {sorted(d for d in labeled_days if d)}")
 
-    # --- Load splits dataset for label distribution ---
-    from pipeline.data_loader import OrganoidDataset
+    # --- Filtered dataset (paper config) ---
     ds = OrganoidDataset(str(ALL_DATA_PATH), splits_csv=str(SPLITS_CSV))
     print(f"\n--- Filtered dataset (paper config) ---")
     print(ds.summary())
@@ -95,8 +91,6 @@ def main():
     print(f"\n--- Metabolite Summary Statistics (Table 1) ---")
 
     met_values = {m: [] for m in METABOLITE_NAMES}
-
-    from pipeline.data_loader import CONDITIONAL_METABOLITES, get_day_int_floor
 
     for org_id in ds.organoid_ids:
         info = ds._organoids[org_id]

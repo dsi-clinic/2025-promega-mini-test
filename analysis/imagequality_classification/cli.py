@@ -5,8 +5,9 @@ import argparse
 import csv
 import dataclasses
 import json
-import re
 from pathlib import Path
+
+from pipeline.data_loader import get_day_int_floor
 
 from .plots import plot_metric
 
@@ -101,9 +102,9 @@ def print_config_stats(cfg: Config) -> None:
 
 
 def day_to_int(day_str: str) -> int:
-    """Best-effort 'Dy28' → 28 extraction; -1 fallback. Lossy for 'Dy20_5' (returns 20)."""
-    m = re.search(r"[Dd][Yy](\d+)", day_str)
-    return int(m.group(1)) if m else -1
+    """Day → int for sorting/CSV display. Wraps pipeline.data_loader.get_day_int_floor with a -1 fallback."""
+    n = get_day_int_floor(day_str)
+    return -1 if n is None else n
 
 
 def build_results_table(per_day_best, cfg: Config):

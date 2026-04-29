@@ -41,9 +41,12 @@ from sklearn.preprocessing import StandardScaler
 
 from pipeline.data_loader import (
     ANALYSIS_OUTPUT_DIR,
+    CONDITIONAL_METABOLITES,
     DAY_ORDER,
     FIGURE_DIR,
     OrganoidDataset,
+    REQUIRED_METABOLITES,
+    get_day_int_floor,
 )
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -85,12 +88,6 @@ def _get_growth_features(
         return None, [], org_ids
 
     prev_day = DAY_ORDER[day_idx - 1]
-
-    from pipeline.data_loader import (
-        CONDITIONAL_METABOLITES,
-        REQUIRED_METABOLITES,
-        get_day_int_floor,
-    )
 
     day_num = get_day_int_floor(day)
     prev_day_num = get_day_int_floor(prev_day)
@@ -420,7 +417,8 @@ def plot_lgbm_vs_lr(results: dict, output_path: Path):
     # Shade late-stage region (Day 24+)
     late_start = None
     for i, d in enumerate(days):
-        if d in ("Dy24", "Dy28", "Dy30") and late_start is None:
+        n = get_day_int_floor(d)
+        if n is not None and n >= 24 and late_start is None:
             late_start = i
     if late_start is not None:
         ax.axvspan(late_start - 0.5, len(days) - 0.5, alpha=0.1, color="gray")

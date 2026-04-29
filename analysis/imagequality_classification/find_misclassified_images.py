@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
-import os, json, argparse, re, csv
-from pathlib import Path
+import argparse
+import csv
+import json
+import os
 from collections import defaultdict
+from pathlib import Path
 
-import numpy as np
-from PIL import Image
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
-
+import timm
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
-
-from sklearn.metrics import accuracy_score, f1_score
-import timm
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
+
+from pipeline.data_loader import get_day_int_floor
 
 # -------- Config (defaults; can be overridden by CLI) --------
 BACKBONES = {
@@ -45,9 +48,9 @@ def set_seed(seed=SEED):
         torch.cuda.manual_seed_all(seed)
 
 def day_to_int(day_str: str) -> int:
-    # "Dy28" -> 28, fallback -1
-    m = re.search(r"[Dd][Yy](\d+)", day_str)
-    return int(m.group(1)) if m else -1
+    """Day → int for sorting; -1 fallback. Wraps pipeline.data_loader.get_day_int_floor."""
+    n = get_day_int_floor(day_str)
+    return -1 if n is None else n
 
 class EarlyStopping:
     def __init__(self, patience=20, min_delta=1e-4):

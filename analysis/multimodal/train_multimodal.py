@@ -4,29 +4,32 @@ Multimodal Organoid Quality Classification
 Combines image and metabolite data for prediction using configurable fusion strategies.
 """
 
-import os
-import json
-import re
 import argparse
-from pathlib import Path
+import os
 from collections import defaultdict
+from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from PIL import Image
-
+import timm
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as T
-import timm
-
+from PIL import Image
+from sklearn.metrics import (accuracy_score, average_precision_score,
+                             confusion_matrix, f1_score, precision_score,
+                             recall_score, roc_auc_score, roc_curve)
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_class_weight
-from sklearn.metrics import (accuracy_score, f1_score, roc_auc_score, average_precision_score, 
-                             roc_curve, confusion_matrix, recall_score, precision_score)
+from torch.utils.data import DataLoader, Dataset
+
+from pipeline.data_loader import (
+    OrganoidDataset as PipelineOrganoidDataset,
+    filters_for_mode,
+    get_day_int_floor,
+)
 
 SEED = 1
 
@@ -53,17 +56,22 @@ def set_seed(seed=SEED):
         torch.cuda.manual_seed_all(seed)
 
 def day_to_int(day_str):
-    m = re.search(r'[Dd][Yy](\d+)', day_str)
-    return int(m.group(1)) if m else -1
+    n = get_day_int_floor(day_str)
+    return -1 if n is None else n
 
-class OrganoidDataset(Dataset):
-    """Dataset with images and metabolites."""
+
+class MultimodalRowDataset(Dataset):
+    """Torch Dataset wrapping a DataFrame of (organoid, day) rows.
+
+    Renamed from OrganoidDataset to avoid clashing with
+    pipeline.data_loader.OrganoidDataset (a different concept).
+    """
     
     def __init__(self, df, config, transform=None, scaler=None, fit_scaler=False):
         self.df = df.reset_index(drop=True)
         self.config = config
         self.transform = transform
-        self.label_map = {'Accepted': 1, 'Acceptable': 1, 'Not Accepted': 0, 'Not Acceptable': 0}
+        self.label_map = {'Acceptable': 1, 'Not Acceptable': 0}
         self.img_key = 'overlay_path' if 'overlay' in config['input_mode'] else 'img_path'
         self.use_mask = 'mask' in config['input_mode']
         self.use_metabolites = config['use_metabolites']
@@ -325,38 +333,43 @@ def get_transforms(config, augment=False):
     return T.Compose(t)
 
 def load_and_prepare_data(config):
-    """Load split data and convert to DataFrames with metabolite features."""
-    def load_json(path):
-        with open(path) as f:
-            return json.load(f)
-    
-    def json_to_df(data):
+    """Build train/val/test DataFrames from all_data.json via OrganoidDataset.
+
+    One row per (organoid, day). Reads the normalized schema directly:
+    images.* paths, metabolite.<name>.concentration_uM, label.value.
+    """
+    ds = PipelineOrganoidDataset(
+        config["all_data_path"],
+        splits_csv=config["splits_csv"],
+        filters=filters_for_mode(config.get("mode", "base"), modality="both"),
+    )
+
+    metabolite_cols = BASE_MET_FEATURES + [MALATE_FEATURE]
+    metabolite_keys = [c.replace("_concentration_uM", "") for c in metabolite_cols]
+
+    def split_to_df(split: str) -> pd.DataFrame:
         rows = []
-        for org_id, info in data.items():
-            for day, tp in info.get('timepoints', {}).items():
+        for org_id, info in ds.get_split(split).items():
+            label_str = info["label"]
+            for day, rec in info["records"].items():
+                imgs = rec.get("images", {}) or {}
+                mets = rec.get("metabolite", {}) or {}
                 row = {
-                    'org_id': org_id,
-                    'label': info.get('label'),
-                    'day': day,
-                    'day_num': day_to_int(day),
-                    'img_path': tp.get('img_path'),
-                    'mask_path': tp.get('mask_path'),
-                    'overlay_path': tp.get('overlay_path')
+                    "org_id": org_id,
+                    "label": label_str,
+                    "day": day,
+                    "day_num": day_to_int(day),
+                    "img_path": imgs.get("img_path"),
+                    "mask_path": imgs.get("mask_path"),
+                    "overlay_path": imgs.get("overlay_path"),
                 }
-                # Add metabolite features - only concentration, NO initial_concentration
-                metabolites = tp.get('metabolites', {})
-                for met_name in BASE_MET_FEATURES:
-                    row[met_name] = metabolites.get(met_name, np.nan)
-                # Add Malate separately (will be included based on day in dataset)
-                row[MALATE_FEATURE] = metabolites.get(MALATE_FEATURE, np.nan)
+                for col, key in zip(metabolite_cols, metabolite_keys):
+                    val = (mets.get(key) or {}).get("concentration_uM")
+                    row[col] = np.nan if val is None else float(val)
                 rows.append(row)
         return pd.DataFrame(rows)
-    
-    train_df = json_to_df(load_json(config['train_split_path']))
-    val_df = json_to_df(load_json(config['val_split_path']))
-    test_df = json_to_df(load_json(config['test_split_path']))
-    
-    return train_df, val_df, test_df
+
+    return split_to_df("train"), split_to_df("val"), split_to_df("test")
 
 def train_epoch(model, loader, opt, crit, weights, config):
     model.train()
@@ -593,9 +606,9 @@ def pretrain_shared_backbone(train_df, val_df, config):
     t_eval = get_transforms(config, augment=False) if config['use_images'] else None
     
     # Create datasets with all days combined
-    train_ds = OrganoidDataset(train_df, config, t_train, fit_scaler=True)
+    train_ds = MultimodalRowDataset(train_df, config, t_train, fit_scaler=True)
     scaler = train_ds.scaler
-    val_ds = OrganoidDataset(val_df, config, t_eval, scaler=scaler)
+    val_ds = MultimodalRowDataset(val_df, config, t_eval, scaler=scaler)
     
     print(f"Train: {len(train_ds)}, Val: {len(val_ds)}")
     
@@ -670,14 +683,14 @@ def train_for_day(day, train_df, val_df, test_df, config, output_dir,
     
     # Datasets - use global scaler if provided, otherwise fit on day-specific data
     if shared_scaler is not None:
-        train_ds = OrganoidDataset(train_day, config, t_train, scaler=shared_scaler)
+        train_ds = MultimodalRowDataset(train_day, config, t_train, scaler=shared_scaler)
         scaler = shared_scaler
     else:
-        train_ds = OrganoidDataset(train_day, config, t_train, fit_scaler=True)
+        train_ds = MultimodalRowDataset(train_day, config, t_train, fit_scaler=True)
         scaler = train_ds.scaler
     
-    val_ds = OrganoidDataset(val_day, config, t_eval, scaler=scaler)
-    test_ds = OrganoidDataset(test_day, config, t_eval, scaler=scaler)
+    val_ds = MultimodalRowDataset(val_day, config, t_eval, scaler=scaler)
+    test_ds = MultimodalRowDataset(test_day, config, t_eval, scaler=scaler)
     
     print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
     
@@ -843,9 +856,12 @@ def main():
     parser.add_argument('--days', nargs='*', default=None, help='Specific days to train (e.g., Dy03 Dy06)')
     
     # Paths
-    parser.add_argument('--train-split', default='data_splits/both_train_base.json')
-    parser.add_argument('--val-split', default='data_splits/both_val_base.json')
-    parser.add_argument('--test-split', default='data_splits/both_test_base.json')
+    parser.add_argument('--all-data', default='data/all_data.json',
+                        help='Path to all_data.json (single source of truth)')
+    parser.add_argument('--splits-csv', default='data/2026_winter_student_splits.csv',
+                        help='Organoid-level train/val/test split CSV')
+    parser.add_argument('--mode', default='base', choices=['base', 'switch1', 'switch2', 'switch3'],
+                        help='Filter preset (see pipeline.data_loader.filters_for_mode)')
     parser.add_argument('--output-dir', default='analysis/multimodal/outputs_multimodal')
     
     args = parser.parse_args()
@@ -873,9 +889,9 @@ def main():
         'early_stopping_patience': args.early_stopping_patience,
         'target_size': (384, 512),
         'use_augmentation': args.use_augmentation,
-        'train_split_path': args.train_split,
-        'val_split_path': args.val_split,
-        'test_split_path': args.test_split,
+        'all_data_path': args.all_data,
+        'splits_csv': args.splits_csv,
+        'mode': args.mode,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu'
     }
     
