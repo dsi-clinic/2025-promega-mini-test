@@ -151,6 +151,103 @@ def get_day_float(day_id: str) -> Optional[float]:
     return float(f"{whole}.{frac}") if frac else float(whole)
 
 
+# ---------------------------------------------------------------------------
+# Per-record accessors
+# ---------------------------------------------------------------------------
+
+def get_main_id(record: dict) -> Optional[str]:
+    """Return ``record["images"]["main_id"]`` (e.g. 'BA1_96_1_Dy30_A1_nosplit_nostitch')."""
+    return (record.get("images") or {}).get("main_id")
+
+
+def get_classification_verification(record: dict) -> Optional[str]:
+    """Return ``record["metadata"]["verification"]["classification_verification"]``.
+
+    Token values: 'NoSplitNoStitched', 'SplitNoStitched', 'NoSplitStitched',
+    'SplitStitched'.
+    """
+    return ((record.get("metadata") or {}).get("verification") or {}).get(
+        "classification_verification"
+    )
+
+
+def is_split_record(record: dict) -> bool:
+    """True if a record's classification_verification marks it as a split organoid."""
+    v = get_classification_verification(record) or ""
+    return "Split" in v and "NoSplit" not in v
+
+
+def is_stitched_record(record: dict) -> bool:
+    """True if a record's classification_verification marks it as stitched."""
+    v = get_classification_verification(record) or ""
+    return "Stitched" in v and "NoStitched" not in v
+
+
+def get_edge_fraction(record: dict) -> Optional[float]:
+    """Return ``record["images"]["edge_fraction"]`` (None until step 11 runs)."""
+    return (record.get("images") or {}).get("edge_fraction")
+
+
+def main_id_to_organoid_id(main_id: str) -> Optional[str]:
+    """Convert an underscore-separated main_id to canonical organoid_id form.
+
+    'BA1_96_1_Dy30_A1_nosplit_nostitch' → 'BA1 96_1 A1'
+
+    Returns None if the input doesn't match the expected pattern.
+    """
+    m = re.match(r"^(BA\d+)_(\d+)_(\d+)_Dy\d+(?:[_.]\d+)?_([A-Za-z]+\d+)", main_id or "")
+    if not m:
+        return None
+    return f"{m.group(1)} {m.group(2)}_{m.group(3)} {m.group(4)}"
+
+
+# ---------------------------------------------------------------------------
+# Unfiltered organoid iteration
+# ---------------------------------------------------------------------------
+
+def _group_records_by_organoid(
+    all_data: dict, batches: Optional[Tuple[str, ...]] = None
+) -> Dict[str, dict]:
+    """Group raw records by organoid id, optionally restricted to a batch set.
+
+    Returns ``{org_id: {"batch": str, "records_by_day": {canonical_day: rec}}}``.
+    """
+    organoids: Dict[str, dict] = {}
+    for record_key, rec in all_data.items():
+        batch = get_batch(rec)
+        if batches is not None and batch not in batches:
+            continue
+        org_id = extract_organoid_id(record_key)
+        if org_id not in organoids:
+            organoids[org_id] = {"batch": batch, "records_by_day": {}}
+        organoids[org_id]["records_by_day"][canonical_day_id(raw_day_id(rec))] = rec
+    return organoids
+
+
+def iter_organoid_records(
+    all_data_path,
+    batches: Optional[Sequence[str]] = None,
+):
+    """Yield ``(org_id, records_by_day, batch)`` for every organoid in all_data.
+
+    Unlike ``OrganoidDataset.iter_organoids()``, this does NOT apply filters,
+    require splits, or drop unlabeled organoids — useful for verification
+    scripts and modality-coverage stats that need the unfiltered pool.
+
+    Parameters
+    ----------
+    all_data_path : str | Path
+        Path to ``all_data.json``.
+    batches : sequence of str, optional
+        If given (e.g. ``("BA1", "BA2")``), restrict to those batch prefixes.
+    """
+    with open(all_data_path) as f:
+        all_data = json.load(f)
+    grouped = _group_records_by_organoid(
+        all_data, tuple(batches) if batches else None
+    )
+    for org_id, info in grouped.items():
+        yield org_id, info["records_by_day"], info["batch"]
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +312,222 @@ def require_valid_images() -> Callable:
 
     f.__doc__ = "require_valid_images"
     return f
+
+
+IDOR_CSV_PATH_DEFAULT = Path(
+    os.environ.get(
+        "IDOR_CSV_PATH",
+        "/net/projects2/promega/2026_04_15_data/raw/2026_04_Organoid_list_idor.csv",
+    )
+)
+
+
+def _load_idor_organoid_ids(csv_path: Optional[Path] = None):
+    """Load the IDOR partner curation list (column 1: 266 evaluated organoids).
+
+    Returns:
+        (col1_org_ids: set[str], col2_pairs: list[(org_id, main_id)])
+    """
+    import csv as _csv
+
+    path = Path(csv_path) if csv_path else IDOR_CSV_PATH_DEFAULT
+    with open(path) as f:
+        reader = _csv.reader(f)
+        next(reader)  # header
+        rows = list(reader)
+    col1 = [r[0] for r in rows if r and r[0]]
+    col2 = [r[1] for r in rows if len(r) > 1 and r[1]]
+
+    col1_org_ids: set = set()
+    for s in col1:
+        parts = s.split("_")
+        if len(parts) != 4:
+            raise ValueError(f"unexpected IDOR col1 row format: {s!r}")
+        col1_org_ids.add(f"{parts[0]} {parts[1]}_{parts[2]} {parts[3]}")
+
+    col2_pairs = []
+    for s in col2:
+        oid = main_id_to_organoid_id(s)
+        if oid is None:
+            raise ValueError(f"unparseable IDOR col2 main_id: {s!r}")
+        col2_pairs.append((oid, s))
+
+    return col1_org_ids, col2_pairs
+
+
+def idor_organoid_filter(csv_path: Optional[Path] = None) -> Callable:
+    """Keep organoids in the IDOR partner-supplied col1 list (the 266 evaluated).
+
+    The list is loaded once at filter construction; downstream calls are O(1).
+    Use ``verify_idor_list()`` separately to assert the CSV matches all_data.json.
+    """
+    col1_org_ids, _ = _load_idor_organoid_ids(csv_path)
+
+    def f(org_id: str, records: dict) -> bool:
+        return org_id in col1_org_ids
+
+    f.__doc__ = f"idor_organoid_filter({csv_path or IDOR_CSV_PATH_DEFAULT})"
+    return f
+
+
+def idor_ba1_ba2_filters(
+    csv_path: Optional[Path] = None,
+    *,
+    verify_against_all_data: Optional[str] = None,
+) -> List[Callable]:
+    """Filters for the IDOR partner curation: BA1+BA2 + the 266-organoid col1 list.
+
+    If ``verify_against_all_data`` is a path, runs ``verify_idor_list()`` first
+    and raises AssertionError on any mismatch. Recommended for paper-replication
+    scripts so the data contract is checked at filter-construction time.
+    """
+    if verify_against_all_data is not None:
+        verify_idor_list(csv_path=csv_path, all_data_path=verify_against_all_data)
+    return [
+        require_batches(*HIGH_QUALITY_BATCHES),
+        idor_organoid_filter(csv_path),
+    ]
+
+
+def verify_idor_list(
+    csv_path: Optional[Path] = None,
+    all_data_path: str = "data/all_data.json",
+    *,
+    verbose: bool = False,
+) -> dict:
+    """Assert the IDOR partner CSV matches the partner's stated semantics.
+
+    Verifies the claims documented at
+    ``analysis/verify_ba1_ba2_idor_list/verify.py``: 266 col1 organoids,
+    BA1+BA2 only, no splits in col1, col2 ⊆ col1, col2 main_ids match Dy30
+    record main_ids, col1\\col2 = (didn't reach Dy30) + 5 intro-survey.
+
+    Returns a summary dict (counts, the 5 intro-survey IDs).  Raises
+    AssertionError on any mismatch so the caller can gate downstream code.
+    """
+    INTRO_SURVEY_ORGANOIDS = 5
+    EXPECTED_COL1_COUNT = 266
+
+    col1_org_ids, col2_pairs = _load_idor_organoid_ids(csv_path)
+    col2_org_ids = {oid for oid, _ in col2_pairs}
+
+    organoids = {
+        oid: {"batch": batch, "records_by_day": records}
+        for oid, records, batch in iter_organoid_records(
+            all_data_path, batches=HIGH_QUALITY_BATCHES
+        )
+    }
+
+    def _ok(msg: str):
+        if verbose:
+            print(f"[OK] {msg}")
+
+    # 1. col1 count
+    assert len(col1_org_ids) == EXPECTED_COL1_COUNT, (
+        f"col1 has {len(col1_org_ids)} unique organoids, expected {EXPECTED_COL1_COUNT}"
+    )
+    _ok(f"col1 has {EXPECTED_COL1_COUNT} unique organoids")
+
+    # 2. col1 only BA1+BA2
+    csv_batches = {oid.split()[0] for oid in col1_org_ids}
+    assert csv_batches == {"BA1", "BA2"}, (
+        f"col1 has unexpected batches: {csv_batches}"
+    )
+    _ok("col1 batches are exactly {BA1, BA2}")
+
+    # 3. all col1 organoids present in all_data.json
+    missing = col1_org_ids - set(organoids.keys())
+    assert not missing, (
+        f"{len(missing)} col1 organoids not in all_data.json: {sorted(missing)[:5]}"
+    )
+    _ok("every col1 organoid is present in all_data.json")
+
+    # 4. no split organoid in col1
+    splits = [
+        (oid, day)
+        for oid in col1_org_ids
+        for day, rec in organoids[oid]["records_by_day"].items()
+        if is_split_record(rec)
+    ]
+    assert not splits, f"{len(splits)} col1 records are split-classified: {splits[:5]}"
+    _ok("no col1 organoid has any split-classified record")
+
+    # 5. col2 ⊆ col1
+    extra = col2_org_ids - col1_org_ids
+    assert not extra, f"col2 has {len(extra)} organoids not in col1: {sorted(extra)[:5]}"
+    _ok(f"col2 ({len(col2_org_ids)}) is a subset of col1 ({len(col1_org_ids)})")
+
+    # 6. every col2 organoid has a Dy30 record + survey evaluations
+    no_dy30 = [
+        oid for oid in col2_org_ids
+        if LABEL_DAY not in organoids[oid]["records_by_day"]
+    ]
+    assert not no_dy30, f"{len(no_dy30)} col2 organoids lack a Dy30 record: {no_dy30[:5]}"
+    no_evals = [
+        oid for oid in col2_org_ids
+        if not (
+            (organoids[oid]["records_by_day"][LABEL_DAY].get("survey") or {}).get(
+                "evaluations"
+            )
+        )
+    ]
+    assert not no_evals, (
+        f"{len(no_evals)} col2 organoids have a Dy30 record but no survey "
+        f"evaluations: {no_evals[:5]}"
+    )
+    no_consensus = sum(
+        1 for oid in col2_org_ids
+        if (organoids[oid]["records_by_day"][LABEL_DAY].get("label") or {}).get(
+            "value"
+        ) not in ("Acceptable", "Not Acceptable")
+    )
+    _ok(
+        f"every col2 organoid has a Dy30 record with survey evaluations "
+        f"({no_consensus}/{len(col2_org_ids)} reviewed-but-no-consensus, informational)"
+    )
+
+    # 7. col2 main_ids match the actual Dy30 record main_ids
+    mismatches = []
+    for oid, csv_main_id in col2_pairs:
+        actual = get_main_id(organoids[oid]["records_by_day"][LABEL_DAY])
+        if actual != csv_main_id:
+            mismatches.append((oid, csv_main_id, actual))
+    assert not mismatches, (
+        f"{len(mismatches)} col2 main_ids disagree with all_data.json: {mismatches[:3]}"
+    )
+    _ok("every col2 main_id matches the Dy30 record's main_id in all_data.json")
+
+    # 8. col1 \ col2 = (didn't reach Dy30) + 5 intro-survey
+    unclassified = col1_org_ids - col2_org_ids
+    no_dy30_in_extra = [
+        oid for oid in unclassified
+        if LABEL_DAY not in organoids[oid]["records_by_day"]
+    ]
+    intro_survey = [
+        oid for oid in unclassified
+        if LABEL_DAY in organoids[oid]["records_by_day"]
+    ]
+    assert len(intro_survey) == INTRO_SURVEY_ORGANOIDS, (
+        f"expected {INTRO_SURVEY_ORGANOIDS} intro-survey organoids "
+        f"(reached Dy30 but excluded from classification); found "
+        f"{len(intro_survey)}: {intro_survey}"
+    )
+    if verbose:
+        print(
+            f"\nCol1 \\ Col2 breakdown ({len(unclassified)} organoids):"
+            f"\n  - never reached Day 30: {len(no_dy30_in_extra)}"
+            f"\n  - reached Day 30 but excluded from classification: "
+            f"{len(intro_survey)} (partner said {INTRO_SURVEY_ORGANOIDS})"
+        )
+    _ok(f"{INTRO_SURVEY_ORGANOIDS} intro-survey organoids accounted for: {intro_survey}")
+
+    return {
+        "col1_count": len(col1_org_ids),
+        "col2_count": len(col2_org_ids),
+        "intro_survey_organoids": sorted(intro_survey),
+        "no_dy30_organoids": sorted(no_dy30_in_extra),
+        "no_consensus_count": no_consensus,
+    }
 
 
 def exclude_classification(*types: str) -> Callable:

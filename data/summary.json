@@ -22,8 +22,8 @@
   "num_no_survey": 4775,
   "num_acceptable_votes": 1337,
   "num_not_acceptable_votes": 728,
-  "num_majority": 294,
-  "num_no_majority": 99,
+  "num_majority": 302,
+  "num_no_majority": 91,
   "total_votes": 2065,
   "num_label_skipped": 7,
   "num_labels": 3873,
@@ -61,9 +61,9 @@
       "params": {
         "mean_source": "computed:background",
         "global_mean_rgb01": [
-          0.7005664110183716,
-          0.700476348400116,
-          0.700180172920227
+          0.7005825042724609,
+          0.7004932165145874,
+          0.7001966834068298
         ],
         "computed_mean": true,
         "computed_mean_region": "background",
