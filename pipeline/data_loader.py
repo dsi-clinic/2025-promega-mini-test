@@ -188,6 +188,41 @@ def get_edge_fraction(record: dict) -> Optional[float]:
     return (record.get("images") or {}).get("edge_fraction")
 
 
+def get_base_well(record: dict) -> str:
+    """Underscore-form well identifier: 'BA1_96_1_A1'.
+
+    Used as the grouping key for split assignment (so daughter organoids
+    from the same well land in the same partition).
+    """
+    plate = record.get("plate") or {}
+    batch = (plate.get("batch") or "").replace(" ", "_")
+    well = plate.get("well") or ""
+    return f"{batch}_{well}" if batch and well else ""
+
+
+def get_clipped_meanfill_image_path(record: dict) -> Optional[str]:
+    """Absolute path to the 575x575 mean-fill-masked image used by CNN-LSTM training."""
+    return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_image_abs")
+
+
+def get_clipped_meanfill_mask_path(record: dict) -> Optional[str]:
+    """Absolute path to the 575x575 source mask used to apply the mean-fill clip."""
+    return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_source_mask_abs")
+
+
+def get_survey_vote_counts(record: dict) -> Tuple[int, int]:
+    """Return (n_acceptable, n_total) survey votes from the Dy30 record's label dict.
+
+    Uses combined votes (regular + inverted) for parity with the merge-step
+    ``compute_survey_majority`` aggregation. Returns (0, 0) if no votes.
+    """
+    label = record.get("label") or {}
+    votes = label.get("votes") or {}
+    n_acceptable = int(votes.get("Acceptable", 0))
+    n_total = int(label.get("total_evaluations") or sum(votes.values()))
+    return n_acceptable, n_total
+
+
 def main_id_to_organoid_id(main_id: str) -> Optional[str]:
     """Convert an underscore-separated main_id to canonical organoid_id form.
 
@@ -530,6 +565,51 @@ def verify_idor_list(
     }
 
 
+def require_complete_series(
+    expected_days: Sequence[str] = tuple(DAY_ORDER),
+    *,
+    max_edge_fraction: float = 0.05,
+    require_clipped_meanfill: bool = True,
+    drop_split: bool = True,
+    drop_stitched: bool = True,
+    drop_blank: bool = True,
+) -> Callable:
+    """Keep organoids whose every expected day passes per-day quality.
+
+    Equivalent to Amanda's Stage 1 + Stage 2 in ``make_splits.py``: per-day
+    edge_fraction / classification gates AND series-completeness over the 11
+    canonical timepoints. Used by the ``series_idor`` filter preset.
+    """
+
+    expected = tuple(expected_days)
+
+    def f(org_id: str, records: dict) -> bool:
+        for day in expected:
+            rec = records.get(day)
+            if rec is None:
+                return False
+            if drop_blank and ((rec.get("metadata") or {}).get("verification") or {}).get(
+                "blank", False
+            ):
+                return False
+            ef = get_edge_fraction(rec)
+            if ef is None or ef > max_edge_fraction:
+                return False
+            if drop_split and is_split_record(rec):
+                return False
+            if drop_stitched and is_stitched_record(rec):
+                return False
+            if require_clipped_meanfill and not get_clipped_meanfill_image_path(rec):
+                return False
+        return True
+
+    f.__doc__ = (
+        f"require_complete_series(days={len(expected)}, "
+        f"edge<={max_edge_fraction})"
+    )
+    return f
+
+
 def exclude_classification(*types: str) -> Callable:
     """Drop organoids if ANY day has a classification_verification in *types*.
 
@@ -595,7 +675,7 @@ def default_filters() -> List[Callable]:
 
 
 ALL_BATCHES = ("BA1", "BA2", "BA3", "BA4")
-VALID_MODES = ("base", "switch1", "switch2", "switch3")
+VALID_MODES = ("base", "switch1", "switch2", "switch3", "series_idor")
 VALID_MODALITIES = ("both", "image", "metabolite")
 
 
@@ -613,6 +693,10 @@ def filters_for_mode(mode: str, modality: str = "both") -> List[Callable]:
       BA3+BA4 flagged as lower-quality by IDOR/Promega; use with caution.
     - **switch3**: Image model gets all 4 batches with valid images;
       metabolite model stays on the BA1+BA2 intersection.
+    - **series_idor**: IDOR cohort (266 partner-curated organoids) with
+      complete 11-day series, per-day edge_fraction <= 0.05, no Split/
+      SplitStitched/blank, clipped_meanfill image present. The runtime
+      equivalent of Amanda's ``data/cohorts/idor/series/*.json``.
 
     For **switch1** and **switch3** the two modalities see *different*
     organoid sets, so pass `modality="image"` or `"metabolite"` to select.
@@ -638,6 +722,12 @@ def filters_for_mode(mode: str, modality: str = "both") -> List[Callable]:
             require_batches(*ALL_BATCHES),
             require_complete_metabolites(),
             require_valid_images(),
+        ]
+
+    if mode == "series_idor":
+        return [
+            *idor_ba1_ba2_filters(),
+            require_complete_series(),
         ]
 
     # switch3
@@ -1085,3 +1175,60 @@ class OrganoidDataset:
             f"OrganoidDataset({len(self._organoids)} organoids, "
             f"splits={self.splits}, days={len(self.days)})"
         )
+
+
+# ---------------------------------------------------------------------------
+# Deterministic train/val/test split (replaces materialized data_splits/*.json)
+# ---------------------------------------------------------------------------
+
+def split_organoids(
+    dataset: "OrganoidDataset",
+    *,
+    seed: int = 42,
+    test_size: float = 0.2,
+    val_size: float = 0.1,
+) -> Tuple[List[str], List[str], List[str]]:
+    """Base-well-grouped, label-stratified train/val/test partition.
+
+    Wells (not organoids) are the unit of split — daughter organoids from the
+    same well always co-locate, preventing genealogy leakage. Stratification
+    is by per-well majority label.
+
+    Logic ported from ``scripts/splits/make_splits.py::split_wells`` so the
+    output is byte-identical to Amanda's pre-materialized splits when given
+    the same input set + seed.
+
+    Returns ``(train_ids, val_ids, test_ids)``.
+    """
+    from sklearn.model_selection import train_test_split
+
+    well_to_orgs: Dict[str, List[str]] = {}
+    well_to_labels: Dict[str, List[str]] = {}
+    for org_id, info in dataset.iter_organoids():
+        any_rec = next(iter(info["records"].values()))
+        well = get_base_well(any_rec)
+        well_to_orgs.setdefault(well, []).append(org_id)
+        well_to_labels.setdefault(well, []).append(info["label"])
+
+    wells = list(well_to_orgs.keys())
+    majority = [max(set(lbls), key=lbls.count) for lbls in (well_to_labels[w] for w in wells)]
+
+    train_wells, test_wells, train_maj, _ = train_test_split(
+        wells, majority,
+        test_size=test_size, stratify=majority, random_state=seed,
+    )
+    train_final, val_wells = train_test_split(
+        train_wells,
+        test_size=val_size, stratify=train_maj, random_state=seed,
+    )
+
+    train_ids: List[str] = []
+    val_ids: List[str] = []
+    test_ids: List[str] = []
+    for w in train_final:
+        train_ids.extend(well_to_orgs[w])
+    for w in val_wells:
+        val_ids.extend(well_to_orgs[w])
+    for w in test_wells:
+        test_ids.extend(well_to_orgs[w])
+    return train_ids, val_ids, test_ids
