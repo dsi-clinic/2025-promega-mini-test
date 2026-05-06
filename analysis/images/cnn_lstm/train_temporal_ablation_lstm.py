@@ -29,7 +29,7 @@ from sklearn.metrics import precision_recall_fscore_support
 
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
-    load_split_from_json,
+    make_idor_series_splits,
 )
 
 
@@ -198,7 +198,7 @@ def evaluate_binary(model, loader, criterion, device):
 
 # -------------- Training (one day range) --------------
 def train_for_day_range(max_day, train_ids, val_ids, test_ids,
-                        train_meta, val_meta, test_meta, device, output_dir, image_type='clipped'):
+                        dataset, device, output_dir, image_type='clipped'):
     print(f"\n{'='*70}\nTRAINING WITH DAYS 3–{max_day}\n{'='*70}")
 
     # ---- ADD/REPLACE THIS SECTION ----
@@ -219,9 +219,9 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         transforms.Resize((384, 384), interpolation=BILINEAR),
     ])
 
-    train_dataset = OrganoidTimeSeriesDataset(train_ids, train_meta, max_day=max_day, transform=train_tf, image_type=image_type)
-    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   val_meta,   max_day=max_day, transform=eval_tf, image_type=image_type)
-    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  test_meta,  max_day=max_day, transform=eval_tf, image_type=image_type)
+    train_dataset = OrganoidTimeSeriesDataset(train_ids, dataset, max_day=max_day, transform=train_tf, image_type=image_type)
+    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   dataset, max_day=max_day, transform=eval_tf, image_type=image_type)
+    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  dataset, max_day=max_day, transform=eval_tf, image_type=image_type)
 
     pin = (device.type == "cuda")
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
@@ -233,11 +233,10 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     # ---- END OF INSERT ----
 
     # class balance from train IDs (sequence-level)
-    train_labels = []
-    for org_id in train_ids:
-        s = str(train_meta[org_id].get("label","")).strip().lower()
-        lab = 1 if s in ("good","acceptable","accepted") else 0
-        train_labels.append(lab)
+    train_labels = [
+        1 if dataset.organoid_label(oid) == "Acceptable" else 0
+        for oid in train_ids
+    ]
 
     n_good = int(np.sum(train_labels))
     n_bad  = int(len(train_labels) - n_good)
@@ -479,9 +478,7 @@ def main():
     print("LOADING DATA")
     print("="*70)
 
-    train_ids, train_meta = load_split_from_json('data_splits/train_idor_series.json')
-    val_ids,   val_meta   = load_split_from_json('data_splits/val_idor_series.json')
-    test_ids,  test_meta  = load_split_from_json('data_splits/test_idor_series.json')
+    ds, train_ids, val_ids, test_ids = make_idor_series_splits()
     print(f"Using image type: {args.image_type}")
 
     print("\n" + "="*70)
@@ -492,7 +489,7 @@ def main():
     for max_day in DAY_RANGES:
         res = train_for_day_range(
             max_day, train_ids, val_ids, test_ids,
-            train_meta, val_meta, test_meta, device,
+            ds, device,
             out_dir / f"days_3-{max_day}",
             image_type=args.image_type
         )

@@ -23,7 +23,7 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support, con
 
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
-    load_split_from_json,
+    make_idor_series_splits,
 )
 from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 
@@ -120,15 +120,13 @@ def main():
     print("LOADING DATA")
     print("="*70)
     
-    train_ids, train_meta = load_split_from_json('data_splits/train_idor_series.json')
-    val_ids,   val_meta   = load_split_from_json('data_splits/val_idor_series.json')
-    test_ids,  test_meta  = load_split_from_json('data_splits/test_idor_series.json')
+    ds, train_ids, val_ids, test_ids = make_idor_series_splits()
 
     # Create datasets
     print(f"Using image type: {args.image_type}")
-    train_dataset = OrganoidTimeSeriesDataset(train_ids, train_meta, image_type=args.image_type)
-    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   val_meta,   image_type=args.image_type)
-    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  test_meta,  image_type=args.image_type)
+    train_dataset = OrganoidTimeSeriesDataset(train_ids, ds, image_type=args.image_type)
+    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   ds, image_type=args.image_type)
+    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  ds, image_type=args.image_type)
 
     # Create dataloaders (no changes)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
@@ -136,7 +134,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     # Calculate class weights for imbalanced data
     train_labels = [
-        1 if train_meta[oid]['label'] == 'Acceptable' else 0
+        1 if ds.organoid_label(oid) == 'Acceptable' else 0
         for oid in train_ids
     ]
     

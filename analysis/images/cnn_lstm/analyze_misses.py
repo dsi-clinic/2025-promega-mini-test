@@ -1,15 +1,15 @@
 import torch
 import json
 from pathlib import Path
-from analysis.images.cnn_lstm.organoid_dataset import OrganoidTimeSeriesDataset, load_split_from_json
+from analysis.images.cnn_lstm.organoid_dataset import OrganoidTimeSeriesDataset, make_idor_series_splits
 from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 
 # Setup
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 output_dir = Path('outputs/cnn_lstm')
 
-# Load data splits
-test_ids, series_metadata = load_split_from_json('data_splits/series_test.json')
+# Load data splits — runtime-computed from data/all_data.json (no JSON files)
+ds, _train_ids, _val_ids, test_ids = make_idor_series_splits()
 
 # Load model
 model = OrganoidCNN_LSTM(num_classes=2, lstm_hidden=256, lstm_layers=2).to(device)
@@ -29,15 +29,15 @@ misclassified = {
 
 with torch.no_grad():
     for org_id in test_ids:
-        dataset = OrganoidTimeSeriesDataset([org_id], series_metadata)
-        images, label = dataset[0]
-        images = images.unsqueeze(0).to(device)
-        
+        dataset = OrganoidTimeSeriesDataset([org_id], ds)
+        seq, _days, label, _weight, _oid = dataset[0]
+        images = seq.unsqueeze(0).to(device)
+
         output = model(images)
         probs = torch.softmax(output, dim=1)[0]
         pred = torch.argmax(output, dim=1).item()
-        
-        true_label = label.item()
+
+        true_label = int(label.item())
         
         if pred != true_label:
             info = {
