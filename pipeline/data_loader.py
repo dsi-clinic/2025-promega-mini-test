@@ -350,10 +350,7 @@ def require_valid_images() -> Callable:
 
 
 IDOR_CSV_PATH_DEFAULT = Path(
-    os.environ.get(
-        "IDOR_CSV_PATH",
-        "/net/projects2/promega/2026_04_15_data/raw/2026_04_Organoid_list_idor.csv",
-    )
+    os.environ.get("IDOR_CSV_PATH", "data/idor_organoids.csv")
 )
 
 
