@@ -24,15 +24,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import models, transforms
-from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 from sklearn.metrics import precision_recall_fscore_support
 
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
     make_idor_series_splits,
 )
-
-
+from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 
 
 
@@ -58,69 +56,7 @@ LR_CNN_UNFREEZE = 1e-4   # lower: slow fine-tuning of pretrained CNN
 GRAD_CLIP = 1.0
 PATIENCE = 15            # faster convergence / less wasted epochs
 ATTN_DROPOUT = 0.4       # same as your best-performing LSTM run
-SEED = 1
-
-
-class OrganoidCNN_LSTM(nn.Module):
-    def __init__(self, d_cnn=1280, hidden_size=256, num_layers=1, bidirectional=False):
-        super().__init__()
-        eff = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
-        eff.classifier = nn.Identity()
-        self.cnn = eff
-        for p in self.cnn.parameters():
-            p.requires_grad = False
-
-        # these should be inside __init__, not unfreeze_last_blocks
-        self.time_proj = nn.Sequential(
-            nn.Linear(1, d_cnn // 2),
-            nn.ReLU(),
-            nn.Linear(d_cnn // 2, d_cnn),
-        )
-
-        self.lstm = nn.LSTM(
-            input_size=d_cnn,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            batch_first=True,
-            bidirectional=bidirectional
-        )
-
-        out_dim = hidden_size * (2 if bidirectional else 1)
-        self.head = nn.Sequential(
-            nn.BatchNorm1d(out_dim),
-            nn.Dropout(0.5),
-            nn.Linear(out_dim, 128),
-            nn.ReLU(),
-            nn.BatchNorm1d(128),
-            nn.Dropout(0.4),
-            nn.Linear(128, 1)
-        )
-
-
-    def unfreeze_last_blocks(self, n_blocks: int = 2):
-        """Unfreeze last EfficientNet feature blocks for fine-tuning."""
-        feats = getattr(self.cnn, "features", None)
-        if feats is None:
-            return
-        start = max(0, len(feats) - n_blocks)
-        for i in range(start, len(feats)):
-            for p in feats[i].parameters():
-                p.requires_grad = True
-
-    def forward(self, x, days_norm):  # x: (B,T,C,H,W)
-        B, T, C, H, W = x.shape
-        feats = []
-        for t in range(T):
-            f = self.cnn(x[:, t])
-            dt = days_norm[:, t].unsqueeze(1).to(f.device)
-            f = f + self.time_proj(dt)
-            feats.append(f)
-        feats = torch.stack(feats, dim=1)
-
-        lstm_out, _ = self.lstm(feats)
-        last_hidden = lstm_out[:, -1, :]
-        logit = self.head(last_hidden).squeeze(1)
-        return logit
+SEED = 42
 
 
 # -------------- Metrics --------------
@@ -232,22 +168,20 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
                               num_workers=NUM_WORKERS, pin_memory=pin)
     # ---- END OF INSERT ----
 
-    # class balance from train IDs (sequence-level)
+    # Class balance per rule #9: label 1 = Not Acceptable (minority).
     train_labels = [
-        1 if dataset.organoid_label(oid) == "Acceptable" else 0
+        1 if dataset.organoid_label(oid) == "Not Acceptable" else 0
         for oid in train_ids
     ]
 
-    n_good = int(np.sum(train_labels))
-    n_bad  = int(len(train_labels) - n_good)
-    # avoid div-by-zero
-    if n_good == 0: n_good = 1
-    if n_bad  == 0: n_bad  = 1
-    pos_weight = torch.tensor([n_bad / n_good], device=device, dtype=torch.float32)
-    print(f"class balance (train): good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}")
+    n_pos = int(np.sum(train_labels))
+    n_neg = int(len(train_labels) - n_pos)
+    if n_pos == 0: n_pos = 1
+    if n_neg == 0: n_neg = 1
+    pos_weight = torch.tensor([n_neg / n_pos], device=device, dtype=torch.float32)
+    print(f"class balance (train): NotAcceptable={n_pos}, Acceptable={n_neg}, pos_weight={pos_weight.item():.3f}")
 
     model = OrganoidCNN_LSTM().to(device)
-
 
     # two phase optimizer setup (we'll swap LR when unfreezing)
     def make_optimizer(lr_cnn, lr_head):
@@ -263,21 +197,11 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
     # warmup: CNN frozen → only head gets LR
     optimizer = make_optimizer(lr_cnn=0.0, lr_head=LR_HEAD)
-    # replace your criterion with reduction='none' and no pos_weight
 
+    # Per-sample weighting is applied in the train loop (cls_w * weights),
+    # so the criterion itself uses reduction='none' and no pos_weight here.
+    criterion = nn.BCEWithLogitsLoss(reduction="none")
 
-    criterion = nn.BCEWithLogitsLoss(
-    pos_weight = torch.tensor([max(1.0, n_bad / n_good)], device=device),
-
-    reduction="none"
-    )
-
-
-
-    # before training loop (you already computed these counts)
-    # w_pos = n_bad / n_good       # ~0.87
-    # w_neg = n_good / n_bad       # ~1.15  <-- upweight negatives slightly
-    
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
 
     best_val_acc = -1.0
@@ -304,14 +228,9 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
             optimizer.zero_grad()
             logits = model(seqs, days)
 
-
-            # If you want per-sample weighting, re-enable this:
-            # cls_w = labels * w_pos + (1 - labels) * w_neg
-            # loss = (loss_raw * weights * cls_w).mean()
-
-            # For now: no weighting, use scalar directly
+            # Per-sample weighting: upweight the minority (label=1=Not Acceptable).
             loss_raw = criterion(logits, labels)          # shape (B,)
-            cls_w = labels * (n_bad / n_good) + (1 - labels) * (n_good / n_bad)
+            cls_w = labels * (n_neg / n_pos) + (1 - labels) * (n_pos / n_neg)
             loss = (loss_raw * weights * cls_w).mean()
 
 
@@ -388,16 +307,16 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
     cm = confusion_matrix(all_labels, all_preds)
     print("\nConfusion Matrix (Test Set):")
-    print(f"              Predicted")
-    print(f"              Bad    Good")
-    print(f"Actual Bad    {cm[0,0]:<6} {cm[0,1]:<6}")
-    print(f"Actual Good   {cm[1,0]:<6} {cm[1,1]:<6}")
+    print(f"                       Predicted")
+    print(f"                Acceptable   Not Acceptable")
+    print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
+    print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 
     # Save visualization
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                xticklabels=['Bad (0)', 'Good (1)'],
-                yticklabels=['Bad (0)', 'Good (1)'])
+                xticklabels=['Acceptable (0)', 'Not Acceptable (1)'],
+                yticklabels=['Acceptable (0)', 'Not Acceptable (1)'])
     plt.ylabel('Actual')
     plt.xlabel('Predicted')
     plt.title(f'Confusion Matrix - Days 3-{max_day}')

@@ -52,7 +52,7 @@ MAX_EPOCHS = 100
 PATIENCE = 15
 LR = 5e-4
 GRAD_CLIP = 1.0
-SEED = 1
+SEED = 42
 TARGET_SIZE = (384, 512)  # (H, W) to match coworker's code
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -283,14 +283,14 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False,
                             num_workers=NUM_WORKERS, pin_memory=True)
     
-    # Class balance
+    # Class balance per rule #9: label 1 = Not Acceptable (minority).
     train_labels = [s["label"] for s in train_dataset.samples]
-    n_good = sum(train_labels)
-    n_bad = len(train_labels) - n_good
-    if n_good == 0: n_good = 1
-    if n_bad == 0: n_bad = 1
-    pos_weight = torch.tensor([n_bad / n_good], device=device)
-    print(f"  Class balance: good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}")
+    n_pos = sum(train_labels)
+    n_neg = len(train_labels) - n_pos
+    if n_pos == 0: n_pos = 1
+    if n_neg == 0: n_neg = 1
+    pos_weight = torch.tensor([n_neg / n_pos], device=device)
+    print(f"  Class balance: NotAcceptable={n_pos}, Acceptable={n_neg}, pos_weight={pos_weight.item():.3f}")
     
     # Model
     model = BaselineEfficientNet().to(device)
@@ -401,16 +401,16 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     if len(all_preds) > 0:
         cm = confusion_matrix(all_labels, all_preds)
         print("\nConfusion Matrix (Test Set):")
-        print(f"              Predicted")
-        print(f"              Good   Bad")
-        print(f"Actual Good   {cm[1,1]:<6} {cm[1,0]:<6}")
-        print(f"Actual Bad    {cm[0,1]:<6} {cm[0,0]:<6}")
+        print(f"                       Predicted")
+        print(f"                Acceptable   Not Acceptable")
+        print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
+        print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 
         # --- Save confusion matrix image ---
         fig, ax = plt.subplots(figsize=(5, 4))
         im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
         plt.colorbar(im, ax=ax)
-        classes = ['Bad/Neg', 'Good/Pos']
+        classes = ['Acceptable (0)', 'Not Acceptable (1)']
         ax.set(xticks=[0, 1], yticks=[0, 1],
                xticklabels=classes, yticklabels=classes,
                xlabel='Predicted', ylabel='Actual',

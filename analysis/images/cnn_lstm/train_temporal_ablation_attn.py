@@ -225,19 +225,18 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
                               num_workers=NUM_WORKERS, pin_memory=pin)
     # ---- END OF INSERT ----
 
-    # class balance from train IDs (sequence-level)
+    # Class balance per rule #9: label 1 = Not Acceptable (minority).
     train_labels = [
-        1 if dataset.organoid_label(oid) == "Acceptable" else 0
+        1 if dataset.organoid_label(oid) == "Not Acceptable" else 0
         for oid in train_ids
     ]
 
-    n_good = int(np.sum(train_labels))
-    n_bad  = int(len(train_labels) - n_good)
-    # avoid div-by-zero
-    if n_good == 0: n_good = 1
-    if n_bad  == 0: n_bad  = 1
-    pos_weight = torch.tensor([n_bad / n_good], device=device, dtype=torch.float32)
-    print(f"class balance (train): good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}")
+    n_pos = int(np.sum(train_labels))
+    n_neg = int(len(train_labels) - n_pos)
+    if n_pos == 0: n_pos = 1
+    if n_neg == 0: n_neg = 1
+    pos_weight = torch.tensor([n_neg / n_pos], device=device, dtype=torch.float32)
+    print(f"class balance (train): NotAcceptable={n_pos}, Acceptable={n_neg}, pos_weight={pos_weight.item():.3f}")
 
     model = OrganoidCNN_TAtt(attn_dropout=ATTN_DROPOUT).to(device)
 
@@ -255,12 +254,12 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
     # warmup: CNN frozen → only head gets LR
     optimizer = make_optimizer(lr_cnn=0.0, lr_head=LR_HEAD)
-    # replace your criterion with reduction='none' and no pos_weight
+    # Per-sample weighting in train loop, so reduction='none' with no pos_weight.
     criterion = nn.BCEWithLogitsLoss(reduction='none')
 
-    # before training loop (you already computed these counts)
-    w_pos = n_bad / n_good       # ~0.87
-    w_neg = n_good / n_bad       # ~1.15  <-- upweight negatives slightly
+    # Upweight the minority class (label=1=Not Acceptable).
+    w_pos = n_neg / n_pos
+    w_neg = n_pos / n_neg
     
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
 
@@ -374,15 +373,15 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     from sklearn.metrics import confusion_matrix as sk_cm
     cm = sk_cm(all_labels_cm, all_preds_cm)
     print("\nConfusion Matrix (Test Set):")
-    print(f"              Predicted")
-    print(f"              Bad    Good")
-    print(f"Actual Bad    {cm[0,0]:<6} {cm[0,1]:<6}")
-    print(f"Actual Good   {cm[1,0]:<6} {cm[1,1]:<6}")
+    print(f"                       Predicted")
+    print(f"                Acceptable   Not Acceptable")
+    print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
+    print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 
     fig, ax = plt.subplots(figsize=(5, 4))
     im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
     plt.colorbar(im, ax=ax)
-    classes = ['Bad/Neg', 'Good/Pos']
+    classes = ['Acceptable (0)', 'Not Acceptable (1)']
     ax.set(xticks=[0, 1], yticks=[0, 1],
            xticklabels=classes, yticklabels=classes,
            xlabel='Predicted', ylabel='Actual',

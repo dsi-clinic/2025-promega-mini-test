@@ -217,7 +217,7 @@ class OrganoidTimeSeriesDataset(Dataset):
         imagenet_std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).view(1, 3, 1, 1)
         seq = (seq - imagenet_mean) / imagenet_std
 
-        # Label (Acceptable=1, Not Acceptable=0; matches LABEL_TO_INT)
+        # Label per LABEL_TO_INT: 1 = Not Acceptable, 0 = Acceptable (rule #9).
         label_str = self.dataset.organoid_label(organoid_id) or ""
         label = LABEL_TO_INT.get(label_str, 0)
 

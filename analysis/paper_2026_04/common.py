@@ -24,9 +24,9 @@ from sklearn.metrics import (
 def compute_classification_metrics(y_true, y_pred, y_prob=None) -> dict:
     """Stable-key metrics dict for binary classification.
 
-    Convention: 1 = Acceptable, 0 = Not Acceptable (matches LABEL_TO_INT).
-    Per-class precision/recall/f1 are returned at index [0]=Not Acceptable,
-    [1]=Acceptable to match sklearn's labels=[0,1] ordering.
+    Convention: 1 = Not Acceptable, 0 = Acceptable (matches LABEL_TO_INT).
+    Per-class precision/recall/f1 are returned at index [0]=Acceptable,
+    [1]=Not Acceptable to match sklearn's labels=[0,1] ordering.
     """
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
