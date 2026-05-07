@@ -190,6 +190,8 @@ help:
 	@echo "  make analysis-train-dinov2          - Train DINOv2 image classifier (fixed splits)"
 	@echo "  make analysis-multimodal            - Multimodal classifier (single config; set BACKBONE/FUSION/INPUT_MODE)"
 	@echo "  make analysis-paper-perday         - Per-day image study (paper Fig 7-9)"
+	@echo "  make analysis-batch-summary        - BA1/BA2 dataset summary table (descriptive stats)"
+	@echo "  make analysis-verify-idor          - Verify partner IDOR organoid list against all_data.json"
 	@echo ""
 	@echo "CONFIGURATION:"
 	@echo "  DATA_ROOT=$(DATA_ROOT)"
@@ -544,6 +546,16 @@ analysis-multimodal:
 analysis-paper-perday:
 	@echo "===> Per-day image study"
 	PYTHONPATH=$(PYTHONPATH) ANALYSIS_OUTPUT_DIR=$(ANALYSIS_OUTPUT_DIR) $(PYTHON) -m analysis.paper_2026_04.perday_image_study $(ARGS)
+
+# BA1+BA2 dataset summary table (paper methods section).
+analysis-batch-summary:
+	@echo "===> BA1+BA2 descriptive statistics"
+	PYTHONPATH=$(PYTHONPATH) ANALYSIS_OUTPUT_DIR=$(ANALYSIS_OUTPUT_DIR) $(PYTHON) -m analysis.paper_2026_04.ba1_ba2_descriptive_stats $(ARGS)
+
+# Verify partner-supplied IDOR organoid list against all_data.json.
+analysis-verify-idor:
+	@echo "===> Verifying IDOR organoid list against all_data.json"
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.verify_ba1_ba2_idor_list.verify $(ARGS)
 
 # ====================================
 # Pipeline Convenience Targets
