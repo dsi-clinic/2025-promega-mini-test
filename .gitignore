@@ -213,9 +213,7 @@ training_*.png
 # Test files
 test_gpu.py
 
-# Deprecated materialized splits — use pipeline.data_loader.OrganoidDataset instead
-data_splits/
-data/data_splits/
+# data/data_splits/ was a legacy duplicate, now removed
 
 # Generated analysis outputs (figures, CSVs, results.json) — regenerable
 analysis_output/
