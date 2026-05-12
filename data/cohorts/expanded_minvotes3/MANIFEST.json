@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-05-12T21:04:40+00:00",
+  "created_at_utc": "2026-05-12T21:04:29+00:00",
   "config_path": "scripts/splits/configs/expanded.json",
   "config": {
     "name": "expanded",
@@ -43,7 +43,7 @@
     30.0
   ],
   "label_day": 30.0,
-  "min_majority_votes": 4,
+  "min_majority_votes": 3,
   "cohort_stats": {
     "identifiers_csv_wells": 266,
     "added_batches": [
@@ -60,53 +60,53 @@
   },
   "full_summary": {
     "counts_by_partition": {
-      "train": 195,
-      "val": 22,
-      "test": 55
+      "train": 244,
+      "val": 28,
+      "test": 68
     },
     "wells_by_partition": {
-      "train": 195,
-      "val": 22,
-      "test": 55
+      "train": 244,
+      "val": 28,
+      "test": 68
     },
     "label_counts_by_partition": {
       "train": {
-        "Not Acceptable": 56,
-        "Acceptable": 139
+        "Acceptable": 164,
+        "Not Acceptable": 80
       },
       "val": {
-        "Not Acceptable": 6,
-        "Acceptable": 16
+        "Acceptable": 19,
+        "Not Acceptable": 9
       },
       "test": {
-        "Not Acceptable": 16,
-        "Acceptable": 39
+        "Acceptable": 46,
+        "Not Acceptable": 22
       }
     }
   },
   "series_summary": {
     "counts_by_partition": {
-      "train": 153,
-      "val": 18,
-      "test": 43
+      "train": 196,
+      "val": 22,
+      "test": 53
     },
     "wells_by_partition": {
-      "train": 153,
-      "val": 18,
-      "test": 43
+      "train": 196,
+      "val": 22,
+      "test": 53
     },
     "label_counts_by_partition": {
       "train": {
-        "Not Acceptable": 52,
-        "Acceptable": 101
+        "Acceptable": 122,
+        "Not Acceptable": 74
       },
       "val": {
-        "Not Acceptable": 4,
-        "Acceptable": 14
+        "Acceptable": 13,
+        "Not Acceptable": 9
       },
       "test": {
-        "Not Acceptable": 15,
-        "Acceptable": 28
+        "Acceptable": 35,
+        "Not Acceptable": 18
       }
     }
   }

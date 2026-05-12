@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-04-22T16:33:53+00:00",
+  "created_at_utc": "2026-05-12T20:38:47+00:00",
   "config_path": "scripts/splits/configs/idor.json",
   "config": {
     "name": "idor",
@@ -23,9 +23,9 @@
     },
     "output_dir": "data/cohorts/idor"
   },
-  "git_sha": "c231c91027d7cc405d1fd9d263b9efc0f6ee61c7",
-  "all_data_sha256": "df6d7a74bf3401a6104bf35d41701ebea453fdeeece989b06f41e838164f5989",
-  "identifiers_csv_sha256": "3175aee038411b483d2f84697e79b1a67d719f8d68f18491df23f84627054bf1",
+  "git_sha": "f4432bcdb7020cfdd8d390bbba2cdf97f3ecfa71",
+  "all_data_sha256": "a5df6c82133e9cb097d0ef7e4b3f534e5e384910e9d51bf34640b4ce76775547",
+  "identifiers_csv_sha256": "bf07ea874bf9706665890226e2661ee3c26ff3757f90f32761de25ca21438fc5",
   "seed": 42,
   "expected_days": [
     3.0,
@@ -41,6 +41,7 @@
     30.0
   ],
   "label_day": 30.0,
+  "min_majority_votes": 4,
   "cohort_stats": {
     "identifiers_csv_wells": 266,
     "added_batches": [],
@@ -54,53 +55,53 @@
   },
   "full_summary": {
     "counts_by_partition": {
-      "train": 108,
-      "val": 12,
-      "test": 31
+      "train": 142,
+      "val": 16,
+      "test": 40
     },
     "wells_by_partition": {
-      "train": 108,
-      "val": 12,
-      "test": 31
+      "train": 142,
+      "val": 16,
+      "test": 40
     },
     "label_counts_by_partition": {
       "train": {
-        "Acceptable": 86,
-        "Not Acceptable": 22
+        "Not Acceptable": 24,
+        "Acceptable": 118
       },
       "val": {
-        "Acceptable": 10,
-        "Not Acceptable": 2
+        "Not Acceptable": 3,
+        "Acceptable": 13
       },
       "test": {
-        "Acceptable": 25,
-        "Not Acceptable": 6
+        "Not Acceptable": 7,
+        "Acceptable": 33
       }
     }
   },
   "series_summary": {
     "counts_by_partition": {
-      "train": 97,
-      "val": 11,
+      "train": 103,
+      "val": 10,
       "test": 27
     },
     "wells_by_partition": {
-      "train": 97,
-      "val": 11,
+      "train": 103,
+      "val": 10,
       "test": 27
     },
     "label_counts_by_partition": {
       "train": {
-        "Acceptable": 80,
-        "Not Acceptable": 17
+        "Not Acceptable": 19,
+        "Acceptable": 84
       },
       "val": {
-        "Acceptable": 9,
-        "Not Acceptable": 2
+        "Not Acceptable": 2,
+        "Acceptable": 8
       },
       "test": {
-        "Acceptable": 21,
-        "Not Acceptable": 6
+        "Not Acceptable": 6,
+        "Acceptable": 21
       }
     }
   }

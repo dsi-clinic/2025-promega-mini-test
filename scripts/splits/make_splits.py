@@ -363,21 +363,41 @@ def require_complete_series(series_list: list) -> list:
 # still label-valid — it just won't have a clean Dy30 image in its timepoints.
 # ============================================================
 
-def build_label_lookup(all_data: dict) -> dict:
-    """Build (base_well, split_type) -> label_obj map from all Dy30 records."""
+def build_label_lookup(all_data: dict, min_votes: int = 4) -> dict:
+    """
+    Build (base_well, split_type) -> label_obj map from all Dy30 records.
+
+    The label is RECOMPUTED here from `lab['votes']` using `min_votes` rather
+    than trusting the upstream `lab['value']` field, which is fixed at a 4/5
+    supermajority. With min_votes=4 the behavior matches the original; with
+    min_votes=3 borderline 3/2 and 2/3 organoids also receive labels.
+    """
     lookup: dict = {}
     for v in all_data.values():
         if v.get("day", {}).get("number") != LABEL_DAY:
             continue
         lab = v.get("label") or {}
-        if lab.get("value") is None:
-            continue
+        votes = lab.get("votes") or {}
+        accept = votes.get("Acceptable", 0)
+        reject = votes.get("Not Acceptable", 0)
+
+        if accept >= min_votes and accept > reject:
+            computed_value = "Acceptable"
+        elif reject >= min_votes and reject > accept:
+            computed_value = "Not Acceptable"
+        else:
+            continue  # not enough agreement either way (or a tie)
+
         bw = get_base_well(v)
         main_id = (
             v.get("images", {}).get("main_id")
             or v.get("metadata", {}).get("verification", {}).get("main_id", "")
         )
-        lookup[(bw, parse_split_type(main_id))] = lab
+        # Carry forward the original metadata but overwrite value with the
+        # threshold-aware label, so downstream code keeps working unchanged.
+        lab_out = dict(lab)
+        lab_out["value"] = computed_value
+        lookup[(bw, parse_split_type(main_id))] = lab_out
     return lookup
 
 
@@ -388,12 +408,17 @@ def _genealogy_to_split_type(gt: str) -> str:
     return "presplit"          # presplit_only → presplit
 
 
-def attach_labels(series_list: list, all_data: dict) -> tuple[list, int]:
+def attach_labels(
+    series_list: list, all_data: dict, min_votes: int = 4,
+) -> tuple[list, int]:
     """
     Attach Dy30 label to each series by looking up all_data directly. Drop
     series that have no Dy30 survey label (never evaluated / never reached Dy30).
+
+    `min_votes` controls how many evaluators on one side are required for a
+    well to receive a label. Default 4 = current behavior; 3 = relaxed.
     """
-    lookup = build_label_lookup(all_data)
+    lookup = build_label_lookup(all_data, min_votes=min_votes)
     labeled: list = []
     dropped = 0
     for s in series_list:
@@ -549,6 +574,7 @@ def write_manifest(
     skipped_counts: dict,
     full_summary: dict,
     series_summary: dict,
+    min_majority_votes: int = 4,
 ) -> Path:
     manifest = {
         "created_at_utc":   datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -560,6 +586,7 @@ def write_manifest(
         "seed":             cfg["split"]["seed"],
         "expected_days":    EXPECTED_DAYS,
         "label_day":        LABEL_DAY,
+        "min_majority_votes": min_majority_votes,
         "cohort_stats":     cohort_stats,
         "skipped_counts":   skipped_counts,
         "full_summary":     full_summary,
@@ -581,10 +608,27 @@ def main() -> int:
     )
     parser.add_argument("config", type=Path,
                         help="Path to cohort config JSON (e.g. configs/idor.json)")
+    parser.add_argument(
+        "--min-majority-votes", type=int, default=4,
+        help=("Minimum votes for one side to win the Dy30 label. Default 4 "
+              "(current behavior: requires 4/5 supermajority). Set to 3 to "
+              "include borderline 3/2 and 2/3 organoids."),
+    )
+    parser.add_argument(
+        "--output-suffix", type=str, default="",
+        help=("Suffix appended to the config's output_dir, so strict and "
+              "relaxed variants can coexist on disk. Example: with "
+              "output_dir='data/cohorts/idor' and --output-suffix='_minvotes3', "
+              "results land in 'data/cohorts/idor_minvotes3/'."),
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    out_dir = Path(cfg["output_dir"])
+    base_out_dir = Path(cfg["output_dir"])
+    if args.output_suffix:
+        out_dir = base_out_dir.with_name(base_out_dir.name + args.output_suffix)
+    else:
+        out_dir = base_out_dir
 
     print(f"[config]  {args.config}  (cohort: {cfg['name']})")
     print(f"[load]    {cfg['all_data']}")
@@ -611,7 +655,11 @@ def main() -> int:
     # Labels come from all_data directly (survey-based, independent of Dy30
     # image quality), so an organoid whose Dy30 image fails Stage 1 still keeps
     # its label — it just won't have a clean Dy30 in its timepoints.
-    labeled_full, dropped_full = attach_labels(all_series, all_data)
+    print(f"          min_majority_votes = {args.min_majority_votes} "
+          f"({'relaxed' if args.min_majority_votes < 4 else 'strict'})")
+    labeled_full, dropped_full = attach_labels(
+        all_series, all_data, min_votes=args.min_majority_votes,
+    )
     labeled_series = [s for s in labeled_full if not s["missing_days"]]
     print(f"          full labeled:   {len(labeled_full)} (dropped no-label: {dropped_full})")
     print(f"          series labeled: {len(labeled_series)}")
@@ -640,6 +688,7 @@ def main() -> int:
         skipped_counts=skipped,
         full_summary=full_summary,
         series_summary=series_summary,
+        min_majority_votes=args.min_majority_votes,
     )
     print(f"[done]    manifest: {manifest_path}")
     return 0
