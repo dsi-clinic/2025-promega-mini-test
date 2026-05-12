@@ -46,6 +46,13 @@ FIGURE_DIR = ANALYSIS_OUTPUT_DIR / "figures"
 REQUIRED_METABOLITES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "BCAAGlo"]
 CONDITIONAL_METABOLITES = {"MalateGlo": lambda day_num: day_num > 10}
 
+# Metabolite numeric fields available per assay block (see data/normalized/README.md).
+# "concentration_uM" / "initial_concentration" are raw assay-derived; "win" / "win_vol_norm"
+# are Promega-residualized (winsorized + per-metabolite scaled, MalateGlo behaves differently
+# because its raw reads sit at the noise floor).
+RAW_METABOLITE_FIELDS = ("concentration_uM", "initial_concentration")
+NORMALIZED_METABOLITE_FIELDS = ("win", "win_vol_norm")
+
 LABEL_DAY = "Dy30"
 HIGH_QUALITY_BATCHES = ("BA1", "BA2")
 MIN_VOTES = 4
@@ -937,8 +944,22 @@ class OrganoidDataset:
         day: str,
         include_growth: bool = False,
         include_initial: bool = True,
+        field: str = "concentration_uM",
     ) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
         """Extract metabolite feature matrix for split + day.
+
+        ``field`` selects which per-assay numeric to use as the primary column:
+        ``"concentration_uM"`` (default, raw uM), ``"win"`` or ``"win_vol_norm"``
+        (Promega-residualized — winsorized + per-metabolite scaled, see
+        ``data/normalized/README.md``). When ``include_initial`` is True the
+        secondary column is always raw ``initial_concentration`` regardless of
+        ``field``. Selecting a normalized ``field`` requires Step 2 to have been
+        run with ``--normalized-csv``.
+
+        Note: ``win`` is NOT on the same numeric scale as ``concentration_uM``
+        (the ratio is metabolite-specific, e.g. ~2.0 for Glucose, ~0.1 for
+        Glutamate/Pyruvate). Use it for within-metabolite analyses or as a
+        cleaner alternative to raw for modeling, not as a unit-equivalent.
 
         Returns: (X, y, feature_names, organoid_ids)
             X: (n_samples, n_features) float array
@@ -946,6 +967,12 @@ class OrganoidDataset:
             feature_names: list of feature column names
             organoid_ids: list of organoid IDs corresponding to rows
         """
+        if field not in RAW_METABOLITE_FIELDS + NORMALIZED_METABOLITE_FIELDS:
+            raise ValueError(
+                f"field={field!r} not recognized; valid: "
+                f"{RAW_METABOLITE_FIELDS + NORMALIZED_METABOLITE_FIELDS}"
+            )
+
         day_num = get_day_int_floor(day)
         subset = self.get_split(split, day=day)
 
@@ -958,7 +985,7 @@ class OrganoidDataset:
         # Build feature names
         feat_names = []
         for met in active_mets:
-            feat_names.append(f"{met}_concentration_uM")
+            feat_names.append(f"{met}_{field}")
             if include_initial:
                 feat_names.append(f"{met}_initial_concentration")
 
@@ -976,11 +1003,11 @@ class OrganoidDataset:
             skip = False
             for met in active_mets:
                 met_data = mets.get(met, {})
-                conc = met_data.get("concentration_uM")
-                if conc is None:
+                val = met_data.get(field)
+                if val is None:
                     skip = True
                     break
-                row.append(conc)
+                row.append(val)
                 if include_initial:
                     row.append(met_data.get("initial_concentration", np.nan))
             if skip:

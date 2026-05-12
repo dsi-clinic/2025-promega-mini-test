@@ -29,6 +29,8 @@ def get_args() -> argparse.Namespace:
     parser.add_argument('--in-file', type=pathlib.Path, help='The CSV file to retrieve main identifiers from')
     parser.add_argument('--identifiers', type=pathlib.Path, help='The file containing the identifiers to map to')
     parser.add_argument('--out-file', type=pathlib.Path, help='The file to save the metabolite data to')
+    parser.add_argument('--normalized-csv', type=pathlib.Path, default=None,
+                        help='Optional CONC normalized-metabolite CSV (adds win/win_vol_norm to each assay block)')
     args = parser.parse_args()
     return args
 
@@ -132,6 +134,45 @@ def get_missing_identifiers(metabolite_map: dict, main_identifiers: list[str]) -
     missing_metabolite_data_list.sort()
     return missing_metabolite_data_list
 
+def merge_normalized_fields(metabolite_map: dict, normalized_csv: pathlib.Path) -> None:
+    """Fold Promega-normalized win/win_vol_norm into each per-assay block of metabolite_map.
+
+    Only adds fields for assays already present in the record's metabolite_map entry — does
+    not introduce new assay keys. Logs matched / partial / unmatched counts. See
+    ``data/normalized/README.md`` for the scaling semantics of these fields.
+    """
+    from pipeline.metabolites.normalized_csv import build_normalized_lookup
+
+    logging.info("Merging normalized metabolite fields from %s", normalized_csv)
+    lookup = build_normalized_lookup(normalized_csv)
+
+    matched = 0
+    partial = 0
+    map_records_no_csv = 0
+    for record_id, assays in metabolite_map.items():
+        csv_entry = lookup.get(record_id)
+        if csv_entry is None:
+            map_records_no_csv += 1
+            continue
+        matched += 1
+        record_partial = False
+        for assay_name, assay_block in assays.items():
+            assay_norm = csv_entry.get(assay_name)
+            if assay_norm is None:
+                continue
+            assay_block["win"] = assay_norm["win"]
+            assay_block["win_vol_norm"] = assay_norm["win_vol_norm"]
+            if assay_norm["win"] is None or assay_norm["win_vol_norm"] is None:
+                record_partial = True
+        if record_partial:
+            partial += 1
+
+    csv_records_no_map = len(lookup) - matched
+    logging.info("Normalized merge: matched=%d, partial=%d", matched, partial)
+    logging.info("  metabolite_map records without CSV match: %d", map_records_no_csv)
+    logging.info("  CSV records without metabolite_map match: %d", csv_records_no_map)
+
+
 def main():
     args = get_args()
     for key, value in vars(args).items(): logging.info(f"  {key}: {value}")
@@ -160,6 +201,9 @@ def main():
 
         except Exception:
             logging.exception("Skipping row due to unknown error")
+
+    if args.normalized_csv is not None:
+        merge_normalized_fields(metabolite_map, args.normalized_csv)
 
     # Save the JSON
     args.out_file.parent.mkdir(parents=True, exist_ok=True)
