@@ -26,6 +26,7 @@ from pipeline.data_loader import (
     filters_for_mode,
     get_day_int_floor,
 )
+from pipeline.splits import Splits
 
 # Metabolite features — match the legacy multimodal trainer + paper.
 # NEVER read *_initial_concentration here.
@@ -151,7 +152,7 @@ def load_and_prepare_data(config: dict):
     """
     ds = PipelineOrganoidDataset(
         config["all_data_path"],
-        splits_csv=config["splits_csv"],
+        splits=Splits.from_csv(config["splits_csv"]),
         filters=filters_for_mode(config.get("mode", "base"), modality="both"),
     )
 

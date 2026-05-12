@@ -20,9 +20,9 @@ from pipeline.data_loader import (
     OrganoidDataset,
     get_day_int_floor,
 )
+from pipeline.splits import Splits
 
 ALL_DATA_PATH = "data/all_data.json"
-SPLITS_CSV = "data/2026_winter_student_splits.csv"
 OUTPUT_DIR = FIGURE_DIR
 
 METABOLITE_NAMES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "MalateGlo"]
@@ -53,7 +53,7 @@ def _collect_rows(ds: OrganoidDataset) -> list:
 
 
 def main():
-    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
+    ds = OrganoidDataset(ALL_DATA_PATH, splits=Splits.canonical())
     df = pd.DataFrame(_collect_rows(ds))
 
     fig, ax = plt.subplots(figsize=(10, 6))

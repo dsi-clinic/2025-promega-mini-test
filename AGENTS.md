@@ -56,11 +56,11 @@ All dependencies are managed via the `core_env` conda environment (defined by `c
 
 ### 2. Splits are organoid-level, not record-level
 
-Organoids span multiple days (Dy03–Dy30). The **same organoid must stay in the same split** (train/val/test) across all days to prevent data leakage. The split assignment lives in `data/2026_winter_student_splits.csv` and keys on `organoid_id` (e.g. `BA1 96_1 A1` — no day component).
+Organoids span multiple days (Dy03–Dy30). The **same organoid must stay in the same split** (train/val/test) across all days to prevent data leakage. The canonical split assignment lives in `data/splits/canonical_2026_winter.csv` and keys on `organoid_id` (e.g. `BA1 96_1 A1` — no day component). Code loads it via `Splits.canonical()` from `pipeline.splits`. Multiple named splits can coexist under `data/splits/` — see `data/splits/README.md`.
 
 ### 3. all_data.json is the single source of truth
 
-Labels, features, filtering — everything is derived at runtime from `data/all_data.json`. The splits CSV contains **only** `organoid_id` and `split`. Do not materialize filtered/transformed data into separate JSON files for downstream models; use `pipeline/data_loader.py` instead.
+Labels, features, filtering — everything is derived at runtime from `data/all_data.json`. Split CSVs under `data/splits/` contain only `organoid_id` and `split` (extra columns are ignored by `Splits.from_csv`). Do not materialize filtered/transformed data into separate JSON files for downstream models; use `pipeline/data_loader.py` + `pipeline/splits.py` instead.
 
 ### 4. Paper filter defaults
 
@@ -83,7 +83,7 @@ Dy20 and Dy21 in the raw data represent the same biological timepoint. Canonical
 
 | What | Where | Git tracked? |
 |------|-------|--------------|
-| Split CSV | `data/2026_winter_student_splits.csv` | Yes |
+| Split CSVs | `data/splits/*.csv` (canonical_2026_winter.csv + alternates) | Yes |
 | Analysis code | `analysis/` | Yes |
 | Generated figures | `$ANALYSIS_OUTPUT_DIR/figures/` (default: `$DATA_ROOT/analysis_output/figures/`) | No |
 | Model checkpoints | `$DATA_ROOT/models/` | No |
