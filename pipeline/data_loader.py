@@ -50,13 +50,11 @@ LABEL_DAY = "Dy30"
 HIGH_QUALITY_BATCHES = ("BA1", "BA2")
 MIN_VOTES = 4
 
-# Canonical label encoding. Use this everywhere downstream code converts the
-# string label to a 0/1 target — keeps positive class consistent across scripts
-# (1 = Acceptable, 0 = Not Acceptable). Note: the metabolite trainer in
-# legacy_paper_2026_04 uses the inverse (1 = Not Acceptable) because that
-# matches the paper's reporting; new code should prefer this map and invert
-# locally when needed.
-LABEL_TO_INT = {"Acceptable": 1, "Not Acceptable": 0}
+# Canonical label encoding. Per AGENTS.md rule #9, internal training uses
+# 1 = Not Acceptable (positive/minority class), 0 = Acceptable. This makes
+# pos_weight = n_neg/n_pos correctly upweight the minority class with
+# BCEWithLogitsLoss, and aligns with the paper's reporting axis.
+LABEL_TO_INT = {"Not Acceptable": 1, "Acceptable": 0}
 INT_TO_LABEL = {v: k for k, v in LABEL_TO_INT.items()}
 
 # Day ordering used throughout analysis

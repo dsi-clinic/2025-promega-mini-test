@@ -2,6 +2,8 @@
 Training script for organoid CNN-LSTM model
 RUN FROM PROJECT ROOT: python analysis/images/cnn_lstm/train_organoid_lstm.py
 """
+import os
+import random
 import sys
 from pathlib import Path
 import matplotlib
@@ -9,11 +11,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Add project root to path so imports work
-ROOT = Path(__file__).resolve().parents[3]  # Go up 3 levels to root
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 import argparse
 import json
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -27,75 +30,92 @@ from analysis.images.cnn_lstm.organoid_dataset import (
 )
 from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 
-# Rest of the file stays the same...
+SEED = 42
 
-def train_one_epoch(model, dataloader, criterion, optimizer, device):
-    """Train for one epoch"""
+
+def set_seed(seed: int = SEED):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def train_one_epoch(model, dataloader, criterion, optimizer, device, n_pos, n_neg):
+    """Train for one epoch with BCE + per-sample class weighting.
+
+    Labels follow rule #9: 1 = Not Acceptable (positive/minority), 0 = Acceptable.
+    n_pos/n_neg are used to upweight the minority class symmetrically.
+    """
     model.train()
-    total_loss = 0
+    total_loss = 0.0
+    total_n = 0
     all_preds = []
     all_labels = []
-    
-    for images, labels in tqdm(dataloader, desc="Training"):
-        # Move to device
-        images = images.to(device)
-        labels = labels.to(device)
-        
-        # Forward pass
+
+    for seqs, days, labels, weights, _ids in tqdm(dataloader, desc="Training"):
+        seqs = seqs.to(device)
+        days = days.to(device).float()
+        labels = labels.float().to(device)
+        weights = weights.to(device).float()
+
         optimizer.zero_grad()
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        
-        # Backward pass
+        logits = model(seqs, days)
+
+        loss_raw = criterion(logits, labels)
+        cls_w = labels * (n_neg / n_pos) + (1 - labels) * (n_pos / n_neg)
+        loss = (loss_raw * weights * cls_w).mean()
+
         loss.backward()
         optimizer.step()
-        
-        # Track metrics
-        total_loss += loss.item()
-        preds = torch.argmax(outputs, dim=1)
+
+        total_loss += loss.item() * labels.size(0)
+        total_n += labels.size(0)
+        preds = (torch.sigmoid(logits) > 0.5).long()
         all_preds.extend(preds.cpu().numpy())
-        all_labels.extend(labels.cpu().numpy())
-    
-    # Calculate metrics
-    avg_loss = total_loss / len(dataloader)
+        all_labels.extend(labels.long().cpu().numpy())
+
+    avg_loss = total_loss / max(1, total_n)
     accuracy = accuracy_score(all_labels, all_preds)
-    
     return avg_loss, accuracy
 
 
+@torch.no_grad()
 def evaluate(model, dataloader, criterion, device):
-    """Evaluate model"""
+    """Evaluate model. Mirrors train_one_epoch's BCE contract (no class weighting)."""
     model.eval()
-    total_loss = 0
+    total_loss = 0.0
+    total_n = 0
     all_preds = []
     all_labels = []
-    
-    with torch.no_grad():
-        for images, labels in tqdm(dataloader, desc="Evaluating"):
-            images = images.to(device)
-            labels = labels.to(device)
-            
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            
-            total_loss += loss.item()
-            preds = torch.argmax(outputs, dim=1)
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-    
-    # Calculate metrics
-    avg_loss = total_loss / len(dataloader)
+
+    for seqs, days, labels, _weights, _ids in tqdm(dataloader, desc="Evaluating"):
+        seqs = seqs.to(device)
+        days = days.to(device).float()
+        labels = labels.float().to(device)
+
+        logits = model(seqs, days)
+        loss_raw = criterion(logits, labels)
+        total_loss += loss_raw.mean().item() * labels.size(0)
+        total_n += labels.size(0)
+
+        preds = (torch.sigmoid(logits) > 0.5).long()
+        all_preds.extend(preds.cpu().numpy())
+        all_labels.extend(labels.long().cpu().numpy())
+
+    avg_loss = total_loss / max(1, total_n)
     accuracy = accuracy_score(all_labels, all_preds)
     precision, recall, f1, _ = precision_recall_fscore_support(
         all_labels, all_preds, average='binary', zero_division=0
     )
-    
     return avg_loss, accuracy, precision, recall, f1, all_preds, all_labels
 
 
 def main():
     parser = argparse.ArgumentParser(description='Train CNN-LSTM for organoid classification')
-    parser.add_argument('--epochs', type=int, default=20, help='Number of epochs')
+    parser.add_argument('--epochs', type=int, default=20, help='Max epochs per phase (phase1=50, phase2=100 by default)')
     parser.add_argument('--batch-size', type=int, default=8, help='Batch size')
     parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
     parser.add_argument('--lstm-hidden', type=int, default=256, help='LSTM hidden size')
@@ -105,105 +125,89 @@ def main():
                         help='Image variant to use: clipped (575x575 AR meanfill) or std (512x384)')
     args = parser.parse_args()
 
-    # Setup
+    set_seed(SEED)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
-    # Set output directory
     output_dir = Path(args.output_dir)
-    
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving outputs to: {output_dir}")
-    
-    # Load data
+
     print("\n" + "="*70)
     print("LOADING DATA")
     print("="*70)
-    
+
     ds, train_ids, val_ids, test_ids = make_idor_series_splits()
 
-    # Create datasets
     print(f"Using image type: {args.image_type}")
     train_dataset = OrganoidTimeSeriesDataset(train_ids, ds, image_type=args.image_type)
-    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   ds, image_type=args.image_type)
-    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  ds, image_type=args.image_type)
+    val_dataset = OrganoidTimeSeriesDataset(val_ids, ds, image_type=args.image_type)
+    test_dataset = OrganoidTimeSeriesDataset(test_ids, ds, image_type=args.image_type)
 
-    # Create dataloaders (no changes)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
-    # Calculate class weights for imbalanced data
+    pin = (device.type == "cuda")
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=pin)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=pin)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=pin)
+
+    # Class balance per rule #9 (1 = Not Acceptable / positive minority class).
     train_labels = [
-        1 if ds.organoid_label(oid) == 'Acceptable' else 0
+        1 if ds.organoid_label(oid) == 'Not Acceptable' else 0
         for oid in train_ids
     ]
-    
-    n_good = sum(train_labels)
-    n_bad = len(train_labels) - n_good
-    weight_for_0 = len(train_labels) / (2 * n_bad)
-    weight_for_1 = len(train_labels) / (2 * n_good)
-    class_weights = torch.FloatTensor([weight_for_0, weight_for_1]).to(device)
-    
-    print(f"\nClass weights: Bad={weight_for_0:.3f}, Good={weight_for_1:.3f}")
-    
-    # Create model
+    n_pos = max(1, int(np.sum(train_labels)))           # Not Acceptable
+    n_neg = max(1, int(len(train_labels) - n_pos))      # Acceptable
+    print(f"\nClass balance (train): Not Acceptable={n_pos}, Acceptable={n_neg}")
+
     print("\n" + "="*70)
     print("CREATING MODEL")
     print("="*70)
-    
+
     model = OrganoidCNN_LSTM(
-        num_classes=2,
-        lstm_hidden=args.lstm_hidden,
-        lstm_layers=args.lstm_layers
+        hidden_size=args.lstm_hidden,
+        num_layers=args.lstm_layers,
     ).to(device)
-    
-    # Count parameters
+
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total parameters: {total_params:,}")
     print(f"Trainable parameters: {trainable_params:,}")
-    
-    # Loss and optimizer
-    criterion = nn.CrossEntropyLoss(weight=class_weights)
 
-    # ========== TWO-PHASE TRAINING FUNCTION ==========
+    pos_weight = torch.tensor([n_neg / n_pos], device=device, dtype=torch.float32)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight, reduction='none')
+
     def train_two_phase(model, train_loader, val_loader, criterion, device, output_dir):
-        """Two-phase training with freeze/unfreeze"""
-        
-        # PHASE 1: Frozen CNN
+        """Two-phase training: phase 1 freezes CNN, phase 2 unfreezes for fine-tuning."""
+        # PHASE 1: frozen CNN
         print("\n" + "="*70)
         print("PHASE 1: Training LSTM Only (CNN Frozen)")
         print("="*70)
-        
         for param in model.cnn.parameters():
             param.requires_grad = False
-        
+
         optimizer_phase1 = optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),
-            lr=1e-3
+            lr=1e-3,
         )
         scheduler_phase1 = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer_phase1, mode='min', patience=5, factor=0.5
         )
-        
-        best_val_acc = 0
+
+        best_val_acc = 0.0
         best_val_loss = float('inf')
         patience_counter = 0
         phase1_history = []
-        
+
         for epoch in range(50):
             train_loss, train_acc = train_one_epoch(
-                model, train_loader, criterion, optimizer_phase1, device
+                model, train_loader, criterion, optimizer_phase1, device, n_pos, n_neg
             )
             val_loss, val_acc, val_prec, val_rec, val_f1, _, _ = evaluate(
                 model, val_loader, criterion, device
             )
-            
             scheduler_phase1.step(val_loss)
             current_lr = optimizer_phase1.param_groups[0]['lr']
-            
             print(f"[P1] Epoch {epoch+1:2d}: Train {train_acc:.3f} | Val {val_acc:.3f} | F1 {val_f1:.3f} | LR {current_lr:.6f}")
-            
+
             phase1_history.append({
                 'epoch': epoch + 1,
                 'phase': 1,
@@ -211,9 +215,9 @@ def main():
                 'train_acc': train_acc,
                 'val_loss': val_loss,
                 'val_acc': val_acc,
-                'val_f1': val_f1
+                'val_f1': val_f1,
             })
-            
+
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 best_val_loss = val_loss
@@ -232,43 +236,38 @@ def main():
                 if patience_counter >= 10:
                     print(f"  Early stopping Phase 1 at epoch {epoch+1}")
                     break
-        
-        # Load best phase 1
+
         print(f"\nLoading best Phase 1 model (Val Acc: {best_val_acc:.4f})")
         checkpoint = torch.load(output_dir / 'phase1_best.pth')
         model.load_state_dict(checkpoint['model_state_dict'])
-        
-        # PHASE 2: Unfreeze CNN
+
+        # PHASE 2: unfreeze CNN
         print("\n" + "="*70)
         print("PHASE 2: Fine-Tuning Entire Network (CNN Unfrozen)")
         print("="*70)
-        
-        for param in model.cnn.parameters():
-            param.requires_grad = True
-        
+        model.unfreeze_last_blocks(n_blocks=2)
+
         optimizer_phase2 = optim.Adam(model.parameters(), lr=1e-4)
         scheduler_phase2 = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer_phase2, mode='min', patience=7, factor=0.5
         )
-        
-        best_val_acc = 0
+
+        best_val_acc = 0.0
         best_val_loss = float('inf')
         patience_counter = 0
         phase2_history = []
-        
+
         for epoch in range(100):
             train_loss, train_acc = train_one_epoch(
-                model, train_loader, criterion, optimizer_phase2, device
+                model, train_loader, criterion, optimizer_phase2, device, n_pos, n_neg
             )
             val_loss, val_acc, val_prec, val_rec, val_f1, _, _ = evaluate(
                 model, val_loader, criterion, device
             )
-            
             scheduler_phase2.step(val_loss)
             current_lr = optimizer_phase2.param_groups[0]['lr']
-            
             print(f"[P2] Epoch {epoch+1:3d}: Train {train_acc:.3f} | Val {val_acc:.3f} | F1 {val_f1:.3f} | LR {current_lr:.6f}")
-            
+
             phase2_history.append({
                 'epoch': epoch + 1,
                 'phase': 2,
@@ -276,9 +275,9 @@ def main():
                 'train_acc': train_acc,
                 'val_loss': val_loss,
                 'val_acc': val_acc,
-                'val_f1': val_f1
+                'val_f1': val_f1,
             })
-            
+
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 best_val_loss = val_loss
@@ -297,49 +296,40 @@ def main():
                 if patience_counter >= 15:
                     print(f"  Early stopping Phase 2 at epoch {epoch+1}")
                     break
-        
-        print(f"\n✅ Training Complete! Final Best Val Acc: {best_val_acc:.4f}")
-        
+
+        print(f"\nTraining Complete. Final Best Val Acc: {best_val_acc:.4f}")
         return phase1_history + phase2_history, best_val_acc, best_val_loss
-    
-    # ========== CALL THE FUNCTION ==========
+
     train_history, best_val_acc, best_val_loss = train_two_phase(
         model, train_loader, val_loader, criterion, device, output_dir
     )
-    # =======================================
-    
-    # Final evaluation on test set
+
     print("\n" + "="*70)
     print("FINAL EVALUATION ON TEST SET")
     print("="*70)
-    
-    # Load best model
     checkpoint = torch.load(output_dir / 'best_model.pth')
     model.load_state_dict(checkpoint['model_state_dict'])
-    
+
     test_loss, test_acc, test_precision, test_recall, test_f1, test_preds, test_labels = evaluate(
         model, test_loader, criterion, device
     )
-    
     print(f"\nTest Loss: {test_loss:.4f}")
     print(f"Test Accuracy: {test_acc:.4f}")
-    print(f"Test Precision: {test_precision:.4f}")
-    print(f"Test Recall: {test_recall:.4f}")
-    print(f"Test F1: {test_f1:.4f}")
-    
-    # Confusion matrix
+    print(f"Test Precision (Not Acceptable): {test_precision:.4f}")
+    print(f"Test Recall (Not Acceptable): {test_recall:.4f}")
+    print(f"Test F1 (Not Acceptable): {test_f1:.4f}")
+
     cm = confusion_matrix(test_labels, test_preds)
     print(f"\nConfusion Matrix:")
-    print(f"                Predicted")
-    print(f"              Bad    Good")
-    print(f"Actual Bad   {cm[0,0]:4d}   {cm[0,1]:4d}")
-    print(f"       Good  {cm[1,0]:4d}   {cm[1,1]:4d}")
+    print(f"                       Predicted")
+    print(f"                Acceptable   Not Acceptable")
+    print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
+    print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 
-    # --- Save confusion matrix image ---
     fig, ax = plt.subplots(figsize=(5, 4))
     im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
     plt.colorbar(im, ax=ax)
-    classes = ['Bad/Neg', 'Good/Pos']
+    classes = ['Acceptable (0)', 'Not Acceptable (1)']
     ax.set(xticks=[0, 1], yticks=[0, 1],
            xticklabels=classes, yticklabels=classes,
            xlabel='Predicted', ylabel='Actual',
@@ -353,16 +343,14 @@ def main():
     cm_path = output_dir / 'confusion_matrix.png'
     plt.savefig(cm_path, dpi=150)
     plt.close(fig)
-    print(f"Confusion matrix saved → {cm_path}")
+    print(f"Confusion matrix saved -> {cm_path}")
 
-    # --- Save accuracy & loss plots from train_history ---
     if train_history:
         epochs = [h['epoch'] for h in train_history]
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
 
         ax1.plot(epochs, [h['train_acc'] for h in train_history], label='Train Acc')
         ax1.plot(epochs, [h['val_acc'] for h in train_history], label='Val Acc')
-        # Mark phase boundary
         phase2_start = next((h['epoch'] for h in train_history if h.get('phase') == 2), None)
         if phase2_start:
             ax1.axvline(x=phase2_start, color='gray', linestyle='--', alpha=0.6, label='Phase 2 start')
@@ -382,9 +370,8 @@ def main():
         plot_path = output_dir / 'training_curves.png'
         plt.savefig(plot_path, dpi=150)
         plt.close(fig)
-        print(f"Training curves saved → {plot_path}")
+        print(f"Training curves saved -> {plot_path}")
 
-    # Save results
     results = {
         'args': vars(args),
         'best_val_acc': best_val_acc,
@@ -394,12 +381,11 @@ def main():
         'test_recall': test_recall,
         'test_f1': test_f1,
         'confusion_matrix': cm.tolist(),
-        'train_history': train_history
+        'train_history': train_history,
     }
-    
     with open(output_dir / 'results.json', 'w') as f:
         json.dump(results, f, indent=2)
-    
+
     print(f"\nResults saved to {output_dir / 'results.json'}")
     print(f"Best model saved to {output_dir / 'best_model.pth'}")
 
