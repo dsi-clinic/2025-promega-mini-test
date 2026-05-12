@@ -1,6 +1,6 @@
 # Code Organization
 
-One-page reference for where code and data live after the `pipeline/` vs `analysis/` reorg. Pair with `CLAUDE.md` and `AGENTS.md`.
+One-page reference for where code and data live. Pair with `AGENTS.md` (rules + schema invariants) and `README.md` (entry point).
 
 ## Top-level layout
 

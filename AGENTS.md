@@ -91,12 +91,17 @@ Dy20 and Dy21 in the raw data represent the same biological timepoint. Canonical
 ### 8. Running analysis scripts
 
 ```bash
-# Generate splits (one-time, already checked in)
-make run ARGS="-m analysis.paper_2026_04.generate_splits"
+# Preview a fresh splits run against today's all_data.json (won't overwrite):
+make run ARGS="-m analysis.paper_2026_04.generate_splits --dry-run"
+
+# Write to a new file (use a descriptive name; canonical_2026_winter.csv is frozen):
+make run ARGS="-m analysis.paper_2026_04.generate_splits --output data/splits/regen_$(date +%Y%m).csv"
 
 # Run any analysis module
 make run ARGS="-m analysis.<module_name> --flag value"
 ```
+
+`generate_splits.py` refuses to overwrite `data/splits/canonical_2026_winter.csv` (which is treated as a frozen reference) unless `--overwrite` is passed. Use `--output <path>` to write a new named split instead — see `data/splits/README.md`.
 
 ### 9. Positive class convention
 
@@ -113,6 +118,23 @@ Per metabolite per day:
 - `{MetaboliteName}_growth` — delta from previous day (optional)
 
 Growth features require a previous timepoint and are unavailable at Dy03.
+
+## Schema Invariants
+
+These are properties of `data/all_data.json` and the pipeline that produces it; encoded in `pipeline/merge/normalized_records.py` and `pipeline/data_loader.py`. Treat them as load-bearing — code that depends on them lives across the repo.
+
+- The on-disk `all_data.json` uses the **normalized** schema (`plate.batch`, `day.id`, `images.*`, `metabolite` singular). The pre-normalization schema (`BA`, `dayID`, `processed`, `metabolites`) only exists in memory inside `merge_all_data.py`.
+- Day canonicalization: `Dy3 → Dy03`, `Dy20 / Dy20.5 / Dy21 → Dy20_5`. Centralized in `pipeline.data_loader`.
+- Organoid IDs strip the day component: `BA1 96_1 Dy03 A1` → `BA1 96_1 A1`.
+- Per-assay metabolite block carries 4 raw fields (`concentration_uM`, `initial_concentration`, `is_outlier`, `well_384`) plus 2 Promega-normalized fields (`win`, `win_vol_norm`) added by Step 2 from `data/normalized/CONC_*.csv`. See `data/normalized/README.md` for the scaling caveat.
+
+## Common Pitfalls
+
+- **Don't** import schema fields by name from old code without checking — many fields renamed in the 2026-04 normalized-records refactor.
+- **Don't** materialize filtered subsets to disk; always use `OrganoidDataset(filters=...)` with a `Splits` from `pipeline.splits`.
+- **Don't** hard-code data paths; use `$DATA_ROOT` / Makefile variables.
+- **Don't** `pip install` outside `core_env`; add to `core_env.yaml` and rebuild.
+- **Don't** overwrite `data/splits/canonical_2026_winter.csv` casually — `generate_splits.py` guards against this. Use `--output <new-path>` to add a labeled alternate.
 
 ## Landing the Plane (Session Completion)
 

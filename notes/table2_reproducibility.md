@@ -1,14 +1,87 @@
-# Refactored Table 2 — Reproducibility
+# Table 2 — Reproducibility
 
-- **Reference document:** `notes/refactored_table2.md`
 - **Code:** `analysis/imagequality_classification/train_model_dinov2.py`
+- This file folds together (a) the configuration sweep that selected the chosen training config, and (b) the variance analysis quantifying how reproducible that config is across runs.
+
+---
+
+## Paper reference
+
+- Label convention: Acceptable=1, Not Acceptable=0
+- TNR is the key metric (minority-class focus)
+
+| Metric | ViT (DINOv2) | ResNet50 | EfficientNet-B0 |
+|---|:-:|:-:|:-:|
+| Avg. TNR | 23.7% | 20.5% | 29.1% |
+| Early TNR (Dy3-10) | 4.2% | 0.0% | 12.5% |
+| Bal. Acc. | 58.0% | 57.2% | 59.0% |
+| Days TNR=0 | 4/11 | 5/11 | 2/11 |
+| F1 (NA) | 24.7% | 21.4% | 29.2% |
+
+---
+
+## Configuration sweep — selecting the training config
+
+Sweep grid: split source (J = legacy JSON / W = canonical winter CSV), model (DINOv2 / ResNet50 / EfficientNet-B0), normalization scope (DINOv2-only vs all-backbones-normalized via "norm-all"). "+ new" = refactored `train_model_dinov2.py` patches. The chosen config (bold) was closest to paper across the most metrics.
+
+### DINOv2 (ViT)
+
+| Metric | Paper | J + new | J + new + norm-all | W + new | W + new + norm-all |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Avg. TNR | 23.7% | **48.5%** | 45.7% | 56.1% | 59.1% |
+| Early TNR (Dy3-10) | 4.2% | 25.0% | **20.8%** | 50.0% | 45.8% |
+| Bal. Acc. | 58.0% | **62.4%** | 62.2% | 64.6% | 66.3% |
+| Days TNR=0 | 4/11 | **3/11** | 2/11 | 2/11 | 2/11 |
+| F1 (NA) | 24.7% | **35.8%** | 35.2% | 32.9% | 36.2% |
+
+### ResNet50
+
+| Metric | Paper | J + new | J + new + norm-all | W + new | W + new + norm-all |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Avg. TNR | 20.5% | **43.5%** | 46.8% | 51.5% | 50.0% |
+| Early TNR (Dy3-10) | 0.0% | 25.0% | **16.7%** | 62.5% | 33.3% |
+| Bal. Acc. | 57.2% | **61.5%** | 62.1% | 60.8% | 63.1% |
+| Days TNR=0 | 5/11 | **1/11** | **1/11** | 2/11 | 0/11 |
+| F1 (NA) | 21.4% | **33.6%** | 36.1% | 30.8% | 36.7% |
+
+### EfficientNet-B0
+
+| Metric | Paper | J + new | J + new + norm-all | W + new | W + new + norm-all |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Avg. TNR | 29.1% | **44.8%** | 49.6% | 54.5% | 47.0% |
+| Early TNR (Dy3-10) | 12.5% | **16.7%** | 29.2% | 25.0% | 45.8% |
+| Bal. Acc. | 59.0% | **65.3%** | 65.6% | 65.7% | 62.5% |
+| Days TNR=0 | 2/11 | **1/11** | **1/11** | 0/11 | 0/11 |
+| F1 (NA) | 29.2% | **38.3%** | 41.3% | 40.0% | 35.2% |
+
+### Test-set divergence sources
+
+| Day | Tony original n | new code n | Diff | Note |
+|---|:-:|:-:|:-:|---|
+| Dy03–Dy17 | 37 | 36 | −1 | Consistent across all 7 early/mid days |
+| Dy20.5 | 25 | 37 | +12 | new code includes 12 more samples |
+| Dy24 | 43 | 40 | −3 | |
+| Dy28 | 44 | 40 | −4 | |
+| Dy30 | 44 | 40 | −4 | |
+
+Pattern is identical across all three backbones → data-loading-stage difference, not model-specific.
+
+### Sweep summary
+
+| Quantity | DINOv2 (ViT) | ResNet50 | EfficientNet-B0 |
+|---|:-:|:-:|:-:|
+| Closest configuration | J + new | J + new | J + new |
+| Paper Avg. TNR | 23.7% | 20.5% | 29.1% |
+| Reproduced Avg. TNR | 48.5% | 43.5% | 44.8% |
+| Paper Days TNR=0 | 4/11 | 5/11 | 2/11 |
+| Reproduced Days TNR=0 | 3/11 | 1/11 | 1/11 |
 
 ---
 
 ## 1. Setup
 
 - Split is fixed: based on previous JSON split file (`data/splits.csv`)
-- In `notes/refactored_table2.md`, on the JSON split, the current version (DINOv2 only normalised) was compared with the variation (all backbones normalised); the current version was closer to the paper and was selected as the final model
+- Per the configuration sweep above, on the JSON split, DINOv2-only-normalised was compared with all-backbones-normalised; DINOv2-only was closer to the paper and was selected as the final model
 - Image data: `/net/projects2/promega/2026_04_15_data/intermediate/resized_512x384/`
 
 ---
