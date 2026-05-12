@@ -20,18 +20,7 @@ Inclusion criteria:
 | `both_train_base.json` | Training set, base filtering (no image-type exclusion) |
 | `both_val_base.json` | Validation set, base filtering |
 | `both_test_base.json` | Test set, base filtering |
-| `both_train_base_no_stitch.json` | Training set, stitched images excluded |
-| `both_val_base_no_stitch.json` | Validation set, stitched images excluded |
-| `both_test_base_no_stitch.json` | Test set, stitched images excluded |
-| `both_train_class_balanced.json` | Training set, class-balanced sampling |
-| `both_val_class_balanced.json` | Validation set, class-balanced sampling |
-| `both_test_class_balanced.json` | Test set, class-balanced sampling |
-| `both_train_class_unbalanced.json` | Training set, without balancing |
-| `both_val_class_unbalanced.json` | Validation set, without balancing |
-| `both_test_class_unbalanced.json` | Test set, without balancing |
-| `both_train_style.json` | Training set, style filtering |
-| `both_val_style.json` | Validation set, style filtering |
-| `both_test_style.json` | Test set, style filtering |
+| `splits.csv` | Simplified view: `organoid_id`, `split`, `label` columns only |
 
 ## Regeneration
 
