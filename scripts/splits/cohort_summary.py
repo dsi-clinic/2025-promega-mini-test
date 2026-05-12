@@ -219,8 +219,10 @@ def main() -> int:
              "full = per-day records. Default: series.",
     )
     p.add_argument(
-        "--output-dir", type=Path, default=Path("data/cohorts"),
-        help="Where to write cohort_summary.{txt,csv,png}. Default: data/cohorts/",
+        "--output-dir", type=Path,
+        default=Path("/net/projects2/promega/project_data/amanda_test/model_plots"),
+        help=("Where to write cohort_summary.{txt,csv,png}. "
+              "Default: /net/projects2/promega/project_data/amanda_test/model_plots/"),
     )
     args = p.parse_args()
 

@@ -35,11 +35,15 @@ python analysis/images/cnn_lstm/train_base_model.py \
     --image-type clipped
 
 echo "========================================"
-echo "2/4  CNN-LSTM"
+echo "2/4  CNN-LSTM  [SKIPPED]"
 echo "========================================"
-python analysis/images/cnn_lstm/train_organoid_lstm.py \
-    --output-dir "$OUT/cnn_lstm"  \
-    --image-type clipped
+echo "Skipping train_organoid_lstm.py — its calling code is stale relative to"
+echo "the current OrganoidCNN_LSTM class signature (defined inline in"
+echo "train_temporal_ablation_lstm.py). Re-enable once the model interface is"
+echo "reconciled. See conversation notes."
+# python analysis/images/cnn_lstm/train_organoid_lstm.py \
+#     --output-dir "$OUT/cnn_lstm"  \
+#     --image-type clipped
 
 echo "========================================"
 echo "3/4  TEMPORAL ABLATION (ATTENTION)"
