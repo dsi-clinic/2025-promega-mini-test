@@ -27,9 +27,9 @@ from pipeline.data_loader import (
     extract_organoid_id,
     get_day_int_floor,
 )
+from pipeline.splits import Splits
 
 ALL_DATA_PATH = Path("data/all_data.json")
-SPLITS_CSV = Path("data/2026_winter_student_splits.csv")
 OUTPUT_DIR = FIGURE_DIR
 
 METABOLITE_NAMES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "MalateGlo"]
@@ -136,7 +136,7 @@ def _compare_with_paper(df: pd.DataFrame) -> None:
 def main():
     _print_raw_counts(ALL_DATA_PATH)
 
-    ds = OrganoidDataset(str(ALL_DATA_PATH), splits_csv=str(SPLITS_CSV))
+    ds = OrganoidDataset(str(ALL_DATA_PATH), splits=Splits.canonical())
     _print_filtered_summary(ds)
 
     print("\n--- Metabolite Summary Statistics (Table 1) ---")

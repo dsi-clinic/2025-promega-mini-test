@@ -3,7 +3,7 @@
 
 Reads directly from data/all_data.json via pipeline.data_loader.OrganoidDataset
 (paper-default filter preset: BA1+BA2, complete metabolites, valid images,
-≥4/5 vote consensus at Dy30). Splits come from data/2026_winter_student_splits.csv.
+≥4/5 vote consensus at Dy30). Splits come from data/splits/canonical_2026_winter.csv via Splits.from_csv.
 
 Focal loss + ReduceLROnPlateau scheduler — both threaded through the shared
 ``train.run_phases`` via its ``loss_fn`` / ``scheduler_factory`` parameters.
@@ -28,6 +28,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 from pipeline.data_loader import OrganoidDataset, filters_for_mode
+from pipeline.splits import CANONICAL_PATH, Splits
 
 from .cli import build_results_table, create_summary, day_to_int
 from .data import ImagePathDataset, extract_samples_by_day
@@ -37,7 +38,7 @@ from .plots import plot_training_curve
 from .train import FocalLoss, run_phases, set_seed
 
 ALL_DATA_PATH = Path("data/all_data.json")
-SPLITS_CSV = Path("data/2026_winter_student_splits.csv")
+SPLITS_CSV = CANONICAL_PATH
 OUT_ROOT = Path("analysis/outputs/imagequality_classification/dinov2_fixed_splits")
 TARGET_SIZE = (384, 512)  # (H, W) — torchvision Resize convention
 BATCH_SIZE = 16
@@ -199,7 +200,7 @@ def main():
 
     ds = OrganoidDataset(
         str(all_data_path),
-        splits_csv=str(splits_csv),
+        splits=Splits.from_csv(splits_csv),
         filters=filters_for_mode(args.mode, modality="image"),
     )
     print(ds.summary())

@@ -31,7 +31,7 @@ from pipeline.data_loader import (
 )
 
 ALL_DATA_PATH = Path("data/all_data.json")
-SPLITS_CSV = Path("data/2026_winter_student_splits.csv")
+SPLITS_CSV = Path("data/splits/canonical_2026_winter.csv")
 OUTPUT_PATH = FIGURE_DIR / "ba1_ba2_descriptive_stats.csv"
 
 LABEL_DAY_CANONICAL = "Dy30"

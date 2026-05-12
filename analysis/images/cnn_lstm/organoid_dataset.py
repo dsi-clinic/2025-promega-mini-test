@@ -28,6 +28,7 @@ from pipeline.data_loader import (
     get_survey_vote_counts,
     split_organoids,
 )
+from pipeline.splits import Splits
 
 LABEL_DAY = "Dy30"
 
@@ -47,13 +48,17 @@ def make_idor_series_splits(
     """
     dataset = OrganoidDataset(
         all_data_path,
-        split_ratios={"train": 1.0},  # placeholder; split_organoids overrides
-        split_seed=seed,
         filters=filters_for_mode("series_idor"),
     )
     train_ids, val_ids, test_ids = split_organoids(
         dataset, seed=seed, test_size=test_size, val_size=val_size,
     )
+    splits = Splits.from_partition(
+        train=train_ids, val=val_ids, test=test_ids,
+        name=f"series_idor_seed{seed}",
+        provenance=f"split_organoids(seed={seed}, test_size={test_size}, val_size={val_size})",
+    )
+    dataset.apply_splits(splits)
     print(
         f"IDOR-series cohort: {len(dataset.organoid_ids)} organoids "
         f"-> train={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)}"

@@ -70,7 +70,7 @@ IMAGE_MAP_OVERLAY      := $(INDEXES_DIR)/image_map_resized_512x384_predicted_ove
 IMAGE_MAP_MEANFILL     := $(INDEXES_DIR)/image_map_resized_512x384_predicted_overlay_ar.json
 IMAGE_MAP_MERGE        := $(INDEXES_DIR)/image_map_resized_512x384_predicted_overlay_ar_meanfill.json
 ALL_DATA_JSON          := data/all_data.json
-SPLITS_CSV             := data/2026_winter_student_splits.csv
+SPLITS_CSV             := data/splits/canonical_2026_winter.csv
 IMAGE_CLASSIFIER_JSON  := $(IMGQUAL_DIR)/image_classifier.json
 SURVEY_CLASSIFIER_JSON := $(IMGSURVEY_DIR)/survey_classifier.json
 

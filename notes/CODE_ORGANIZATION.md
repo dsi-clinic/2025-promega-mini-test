@@ -49,7 +49,7 @@ Everything lives under `$DATA_ROOT` (default `/net/projects2/promega/2026_04_15_
 - **`models/`** — trained checkpoints: `mmseg/`, `imagequality_classification/`, `image_survey_classification/`.
 - **`analysis_output/`** — manual figures, reports, ad-hoc outputs.
 
-In-repo data: only `data/all_data.json` (the merged source of truth) and `data/2026_winter_student_splits.csv` (split assignments, organoid-keyed) are committed. Do **not** materialize filtered views into separate JSON files — consumers go through `pipeline.data_loader.OrganoidDataset`, which reads `all_data.json` + the splits CSV at runtime (AGENTS.md rule #3).
+In-repo data: only `data/all_data.json` (the merged source of truth) and the named split CSVs under `data/splits/` are committed. Splits are first-class `Splits` objects (`pipeline.splits.Splits`) — `Splits.canonical()` returns the repo default. Do **not** materialize filtered views into separate JSON files — consumers go through `pipeline.data_loader.OrganoidDataset`, which reads `all_data.json` and applies a `Splits` at runtime (AGENTS.md rule #3).
 
 ## Environments
 

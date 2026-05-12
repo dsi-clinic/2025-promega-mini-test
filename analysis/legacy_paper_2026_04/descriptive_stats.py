@@ -24,9 +24,9 @@ from pipeline.data_loader import (
     extract_organoid_id,
     get_day_int_floor,
 )
+from pipeline.splits import Splits
 
 ALL_DATA_PATH = Path("data/all_data.json")
-SPLITS_CSV = Path("data/2026_winter_student_splits.csv")
 OUTPUT_DIR = FIGURE_DIR
 
 METABOLITE_NAMES = [
@@ -66,7 +66,7 @@ def main():
     print(f"Survey days: {sorted(d for d in labeled_days if d)}")
 
     # --- Filtered dataset (paper config) ---
-    ds = OrganoidDataset(str(ALL_DATA_PATH), splits_csv=str(SPLITS_CSV))
+    ds = OrganoidDataset(str(ALL_DATA_PATH), splits=Splits.canonical())
     print(f"\n--- Filtered dataset (paper config) ---")
     print(ds.summary())
 

@@ -43,6 +43,7 @@ from pipeline.data_loader import (
     LABEL_TO_INT,
     OrganoidDataset,
 )
+from pipeline.splits import Splits
 
 from .common import compute_classification_metrics, plot_balanced_accuracy_by_day
 
@@ -51,7 +52,6 @@ os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
 SEED = 1
 ALL_DATA_PATH = "data/all_data.json"
-SPLITS_CSV = "data/2026_winter_student_splits.csv"
 OUTPUT_DIR = ANALYSIS_OUTPUT_DIR / "images"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -289,7 +289,7 @@ def main():
     args = parser.parse_args()
 
     set_seed(SEED)
-    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
+    ds = OrganoidDataset(ALL_DATA_PATH, splits=Splits.canonical())
     print(ds.summary())
     print(f"Device: {DEVICE}")
 

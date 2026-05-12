@@ -66,9 +66,9 @@ Override per command: `make step1 DATA_ROOT=/path/to/your/data`.
 
 In-repo data:
 - `data/all_data.json` — merged source of truth (5,168 records, ~22MB)
-- `data/2026_winter_student_splits.csv` — organoid-level train/val/test assignments
+- `data/splits/canonical_2026_winter.csv` — organoid-level train/val/test assignments (canonical; loaded via `Splits.canonical()`). Alternate named splits sit alongside under `data/splits/`.
 
-`pipeline.data_loader.OrganoidDataset` reads both at runtime and applies paper-default filters; downstream code should never materialize filtered subsets to disk.
+`pipeline.data_loader.OrganoidDataset` reads `all_data.json` and applies a `pipeline.splits.Splits` at runtime; downstream code should never materialize filtered subsets to disk.
 
 ### `all_data.json` Schema (sketch)
 
