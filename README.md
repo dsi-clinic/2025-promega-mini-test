@@ -66,9 +66,9 @@ Override per command: `make step1 DATA_ROOT=/path/to/your/data`.
 
 In-repo data:
 - `data/all_data.json` — merged source of truth (5,168 records, ~22MB)
-- `data/2026_winter_student_splits.csv` — organoid-level train/val/test assignments
+- `data/splits/canonical_2026_winter.csv` — organoid-level train/val/test assignments (canonical; loaded via `Splits.canonical()`). Alternate named splits sit alongside under `data/splits/`.
 
-`pipeline.data_loader.OrganoidDataset` reads both at runtime and applies paper-default filters; downstream code should never materialize filtered subsets to disk.
+`pipeline.data_loader.OrganoidDataset` reads `all_data.json` and applies a `pipeline.splits.Splits` at runtime; downstream code should never materialize filtered subsets to disk.
 
 ### `all_data.json` Schema (sketch)
 
@@ -91,7 +91,16 @@ The full schema lives in `pipeline/merge/normalized_records.py`. High-level stru
         "aspect_ratio": {...},        # 575×575 geometry-preserving variant
         "clipped_meanfill": {...}     # mean-filled background variants
       },
-      "metabolite": {"GlucoseGlo": {"concentration_uM": 9.83, "is_outlier": false}, ...},
+      "metabolite": {
+        "GlucoseGlo": {
+          "concentration_uM": 9.83,           # raw (assay)
+          "initial_concentration": 19654.49,  # raw (assay)
+          "is_outlier": false, "well_384": "B2",
+          "win": 18.09,                       # Promega-normalized (winsorized + scaled)
+          "win_vol_norm": 1.50e-06             # Promega-normalized + volume-normalized
+        },
+        ...
+      },
       "survey":     {"evaluations": [...], "quality_scores": [...]},
       "label":      {"value": "Acceptable", "votes": {...}, "source": "..."}
     },
@@ -152,14 +161,15 @@ Cluster jobs go through SLURM (see `analysis/imagequality_classification/run_*.s
 
 | File | What |
 |---|---|
-| `AGENTS.md` | Project conventions / rules (env, splits, schema invariants) |
-| `CLAUDE.md` | Notes for AI assistants on system design |
-| `notes/CODE_ORGANIZATION.md` | One-page rule for where to put new code |
-| `notes/table_replication.md` | Paper Table 1/2/3 reproduction status |
+| `AGENTS.md` | Project conventions / rules (env, splits, schema invariants); the canonical rule reference |
+| `CLAUDE.md` | One-line stub pointing at the docs that matter — kept so Claude Code finds it |
 | `STATUS.md` | Current analysis state, paper feedback, open decisions |
-| `REPLICATION_STATUS.md` | Per-figure / per-table paper-repro tracker |
+| `notes/CODE_ORGANIZATION.md` | One-page rule for where to put new code |
+| `notes/table_replication.md` | Master Tables 1/2/3 reproduction summary |
+| `notes/table2_reproducibility.md`, `notes/table3_reproducibility.md` | Deep findings + variance analyses for the per-table reproduction |
+| `data/splits/README.md`, `data/normalized/README.md` | Co-located docs for the splits and Promega-normalized metabolite directories |
 
 ---
 
-**Document Version**: 3.0
-**Last Updated**: 2026-04-24
+**Document Version**: 3.1
+**Last Updated**: 2026-05-12

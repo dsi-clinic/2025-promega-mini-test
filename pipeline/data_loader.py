@@ -1,27 +1,31 @@
 """
 Core runtime data loader for paper reproducibility.
 
-Loads all_data.json, applies composable filters, derives labels, and assigns
-splits. Splits can come from a CSV file or be generated at runtime.
+Loads all_data.json, applies composable filters, derives labels, and (optionally)
+assigns splits from a ``Splits`` object.
 
 Usage:
-    from pipeline.data_loader import OrganoidDataset, default_filters, paper_label_fn
+    from pipeline.data_loader import OrganoidDataset, filters_for_mode
+    from pipeline.splits import Splits
 
-    # From a CSV:
+    # Default canonical split:
     ds = OrganoidDataset("data/all_data.json",
-                         splits_csv="data/2026_winter_student_splits.csv")
+                         splits=Splits.canonical(),
+                         filters=filters_for_mode("base"))
 
-    # Random stratified split at runtime:
-    ds = OrganoidDataset("data/all_data.json",
-                         split_ratios={"train": 0.72, "val": 0.08, "test": 0.20},
-                         split_seed=42)
+    # Filter + label only (no split assignment yet):
+    ds = OrganoidDataset("data/all_data.json", filters=filters_for_mode("base"))
+    # ... then either:
+    splits = Splits.stratified_random(ds.organoid_labels(),
+                                       ratios={"train": 0.8, "test": 0.2},
+                                       seed=42, name="rand_80_20")
+    ds.apply_splits(splits)
 
     ds.summary()
     train = ds.get_split("train", day="Dy13")
     X, y, ids = ds.get_metabolite_features("train", day="Dy13")
 """
 
-import csv
 import json
 import os
 import re
@@ -31,6 +35,8 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
+
+from pipeline.splits import Splits
 
 # ---------------------------------------------------------------------------
 # Output directory (set ANALYSIS_OUTPUT_DIR env var before running scripts)
@@ -46,17 +52,22 @@ FIGURE_DIR = ANALYSIS_OUTPUT_DIR / "figures"
 REQUIRED_METABOLITES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "BCAAGlo"]
 CONDITIONAL_METABOLITES = {"MalateGlo": lambda day_num: day_num > 10}
 
+# Metabolite numeric fields available per assay block (see data/normalized/README.md).
+# "concentration_uM" / "initial_concentration" are raw assay-derived; "win" / "win_vol_norm"
+# are Promega-residualized (winsorized + per-metabolite scaled, MalateGlo behaves differently
+# because its raw reads sit at the noise floor).
+RAW_METABOLITE_FIELDS = ("concentration_uM", "initial_concentration")
+NORMALIZED_METABOLITE_FIELDS = ("win", "win_vol_norm")
+
 LABEL_DAY = "Dy30"
 HIGH_QUALITY_BATCHES = ("BA1", "BA2")
 MIN_VOTES = 4
 
-# Canonical label encoding. Use this everywhere downstream code converts the
-# string label to a 0/1 target — keeps positive class consistent across scripts
-# (1 = Acceptable, 0 = Not Acceptable). Note: the metabolite trainer in
-# legacy_paper_2026_04 uses the inverse (1 = Not Acceptable) because that
-# matches the paper's reporting; new code should prefer this map and invert
-# locally when needed.
-LABEL_TO_INT = {"Acceptable": 1, "Not Acceptable": 0}
+# Canonical label encoding. Per AGENTS.md rule #9, internal training uses
+# 1 = Not Acceptable (positive/minority class), 0 = Acceptable. This makes
+# pos_weight = n_neg/n_pos correctly upweight the minority class with
+# BCEWithLogitsLoss, and aligns with the paper's reporting axis.
+LABEL_TO_INT = {"Not Acceptable": 1, "Acceptable": 0}
 INT_TO_LABEL = {v: k for k, v in LABEL_TO_INT.items()}
 
 # Day ordering used throughout analysis
@@ -151,6 +162,138 @@ def get_day_float(day_id: str) -> Optional[float]:
     return float(f"{whole}.{frac}") if frac else float(whole)
 
 
+# ---------------------------------------------------------------------------
+# Per-record accessors
+# ---------------------------------------------------------------------------
+
+def get_main_id(record: dict) -> Optional[str]:
+    """Return ``record["images"]["main_id"]`` (e.g. 'BA1_96_1_Dy30_A1_nosplit_nostitch')."""
+    return (record.get("images") or {}).get("main_id")
+
+
+def get_classification_verification(record: dict) -> Optional[str]:
+    """Return ``record["metadata"]["verification"]["classification_verification"]``.
+
+    Token values: 'NoSplitNoStitched', 'SplitNoStitched', 'NoSplitStitched',
+    'SplitStitched'.
+    """
+    return ((record.get("metadata") or {}).get("verification") or {}).get(
+        "classification_verification"
+    )
+
+
+def is_split_record(record: dict) -> bool:
+    """True if a record's classification_verification marks it as a split organoid."""
+    v = get_classification_verification(record) or ""
+    return "Split" in v and "NoSplit" not in v
+
+
+def is_stitched_record(record: dict) -> bool:
+    """True if a record's classification_verification marks it as stitched."""
+    v = get_classification_verification(record) or ""
+    return "Stitched" in v and "NoStitched" not in v
+
+
+def get_edge_fraction(record: dict) -> Optional[float]:
+    """Return ``record["images"]["edge_fraction"]`` (None until step 11 runs)."""
+    return (record.get("images") or {}).get("edge_fraction")
+
+
+def get_base_well(record: dict) -> str:
+    """Underscore-form well identifier: 'BA1_96_1_A1'.
+
+    Used as the grouping key for split assignment (so daughter organoids
+    from the same well land in the same partition).
+    """
+    plate = record.get("plate") or {}
+    batch = (plate.get("batch") or "").replace(" ", "_")
+    well = plate.get("well") or ""
+    return f"{batch}_{well}" if batch and well else ""
+
+
+def get_clipped_meanfill_image_path(record: dict) -> Optional[str]:
+    """Absolute path to the 575x575 mean-fill-masked image used by CNN-LSTM training."""
+    return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_image_abs")
+
+
+def get_clipped_meanfill_mask_path(record: dict) -> Optional[str]:
+    """Absolute path to the 575x575 source mask used to apply the mean-fill clip."""
+    return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_source_mask_abs")
+
+
+def get_survey_vote_counts(record: dict) -> Tuple[int, int]:
+    """Return (n_acceptable, n_total) survey votes from the Dy30 record's label dict.
+
+    Uses combined votes (regular + inverted) for parity with the merge-step
+    ``compute_survey_majority`` aggregation. Returns (0, 0) if no votes.
+    """
+    label = record.get("label") or {}
+    votes = label.get("votes") or {}
+    n_acceptable = int(votes.get("Acceptable", 0))
+    n_total = int(label.get("total_evaluations") or sum(votes.values()))
+    return n_acceptable, n_total
+
+
+def main_id_to_organoid_id(main_id: str) -> Optional[str]:
+    """Convert an underscore-separated main_id to canonical organoid_id form.
+
+    'BA1_96_1_Dy30_A1_nosplit_nostitch' → 'BA1 96_1 A1'
+
+    Returns None if the input doesn't match the expected pattern.
+    """
+    m = re.match(r"^(BA\d+)_(\d+)_(\d+)_Dy\d+(?:[_.]\d+)?_([A-Za-z]+\d+)", main_id or "")
+    if not m:
+        return None
+    return f"{m.group(1)} {m.group(2)}_{m.group(3)} {m.group(4)}"
+
+
+# ---------------------------------------------------------------------------
+# Unfiltered organoid iteration
+# ---------------------------------------------------------------------------
+
+def _group_records_by_organoid(
+    all_data: dict, batches: Optional[Tuple[str, ...]] = None
+) -> Dict[str, dict]:
+    """Group raw records by organoid id, optionally restricted to a batch set.
+
+    Returns ``{org_id: {"batch": str, "records_by_day": {canonical_day: rec}}}``.
+    """
+    organoids: Dict[str, dict] = {}
+    for record_key, rec in all_data.items():
+        batch = get_batch(rec)
+        if batches is not None and batch not in batches:
+            continue
+        org_id = extract_organoid_id(record_key)
+        if org_id not in organoids:
+            organoids[org_id] = {"batch": batch, "records_by_day": {}}
+        organoids[org_id]["records_by_day"][canonical_day_id(raw_day_id(rec))] = rec
+    return organoids
+
+
+def iter_organoid_records(
+    all_data_path,
+    batches: Optional[Sequence[str]] = None,
+):
+    """Yield ``(org_id, records_by_day, batch)`` for every organoid in all_data.
+
+    Unlike ``OrganoidDataset.iter_organoids()``, this does NOT apply filters,
+    require splits, or drop unlabeled organoids — useful for verification
+    scripts and modality-coverage stats that need the unfiltered pool.
+
+    Parameters
+    ----------
+    all_data_path : str | Path
+        Path to ``all_data.json``.
+    batches : sequence of str, optional
+        If given (e.g. ``("BA1", "BA2")``), restrict to those batch prefixes.
+    """
+    with open(all_data_path) as f:
+        all_data = json.load(f)
+    grouped = _group_records_by_organoid(
+        all_data, tuple(batches) if batches else None
+    )
+    for org_id, info in grouped.items():
+        yield org_id, info["records_by_day"], info["batch"]
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +357,264 @@ def require_valid_images() -> Callable:
         return True
 
     f.__doc__ = "require_valid_images"
+    return f
+
+
+IDOR_CSV_PATH_DEFAULT = Path(
+    os.environ.get("IDOR_CSV_PATH", "data/idor_organoids.csv")
+)
+
+
+def _load_idor_organoid_ids(csv_path: Optional[Path] = None):
+    """Load the IDOR partner curation list (column 1: 266 evaluated organoids).
+
+    Returns:
+        (col1_org_ids: set[str], col2_pairs: list[(org_id, main_id)])
+    """
+    import csv as _csv
+
+    path = Path(csv_path) if csv_path else IDOR_CSV_PATH_DEFAULT
+    with open(path) as f:
+        reader = _csv.reader(f)
+        next(reader)  # header
+        rows = list(reader)
+    col1 = [r[0] for r in rows if r and r[0]]
+    col2 = [r[1] for r in rows if len(r) > 1 and r[1]]
+
+    col1_org_ids: set = set()
+    for s in col1:
+        parts = s.split("_")
+        if len(parts) != 4:
+            raise ValueError(f"unexpected IDOR col1 row format: {s!r}")
+        col1_org_ids.add(f"{parts[0]} {parts[1]}_{parts[2]} {parts[3]}")
+
+    col2_pairs = []
+    for s in col2:
+        oid = main_id_to_organoid_id(s)
+        if oid is None:
+            raise ValueError(f"unparseable IDOR col2 main_id: {s!r}")
+        col2_pairs.append((oid, s))
+
+    return col1_org_ids, col2_pairs
+
+
+def idor_organoid_filter(csv_path: Optional[Path] = None) -> Callable:
+    """Keep organoids in the IDOR partner-supplied col1 list (the 266 evaluated).
+
+    The list is loaded once at filter construction; downstream calls are O(1).
+    Use ``verify_idor_list()`` separately to assert the CSV matches all_data.json.
+    """
+    col1_org_ids, _ = _load_idor_organoid_ids(csv_path)
+
+    def f(org_id: str, records: dict) -> bool:
+        return org_id in col1_org_ids
+
+    f.__doc__ = f"idor_organoid_filter({csv_path or IDOR_CSV_PATH_DEFAULT})"
+    return f
+
+
+def idor_ba1_ba2_filters(
+    csv_path: Optional[Path] = None,
+    *,
+    verify_against_all_data: Optional[str] = None,
+) -> List[Callable]:
+    """Filters for the IDOR partner curation: BA1+BA2 + the 266-organoid col1 list.
+
+    If ``verify_against_all_data`` is a path, runs ``verify_idor_list()`` first
+    and raises AssertionError on any mismatch. Recommended for paper-replication
+    scripts so the data contract is checked at filter-construction time.
+    """
+    if verify_against_all_data is not None:
+        verify_idor_list(csv_path=csv_path, all_data_path=verify_against_all_data)
+    return [
+        require_batches(*HIGH_QUALITY_BATCHES),
+        idor_organoid_filter(csv_path),
+    ]
+
+
+def verify_idor_list(
+    csv_path: Optional[Path] = None,
+    all_data_path: str = "data/all_data.json",
+    *,
+    verbose: bool = False,
+) -> dict:
+    """Assert the IDOR partner CSV matches the partner's stated semantics.
+
+    Verifies the claims documented at
+    ``analysis/verify_ba1_ba2_idor_list/verify.py``: 266 col1 organoids,
+    BA1+BA2 only, no splits in col1, col2 ⊆ col1, col2 main_ids match Dy30
+    record main_ids, col1\\col2 = (didn't reach Dy30) + 5 intro-survey.
+
+    Returns a summary dict (counts, the 5 intro-survey IDs).  Raises
+    AssertionError on any mismatch so the caller can gate downstream code.
+    """
+    INTRO_SURVEY_ORGANOIDS = 5
+    EXPECTED_COL1_COUNT = 266
+
+    col1_org_ids, col2_pairs = _load_idor_organoid_ids(csv_path)
+    col2_org_ids = {oid for oid, _ in col2_pairs}
+
+    organoids = {
+        oid: {"batch": batch, "records_by_day": records}
+        for oid, records, batch in iter_organoid_records(
+            all_data_path, batches=HIGH_QUALITY_BATCHES
+        )
+    }
+
+    def _ok(msg: str):
+        if verbose:
+            print(f"[OK] {msg}")
+
+    # 1. col1 count
+    assert len(col1_org_ids) == EXPECTED_COL1_COUNT, (
+        f"col1 has {len(col1_org_ids)} unique organoids, expected {EXPECTED_COL1_COUNT}"
+    )
+    _ok(f"col1 has {EXPECTED_COL1_COUNT} unique organoids")
+
+    # 2. col1 only BA1+BA2
+    csv_batches = {oid.split()[0] for oid in col1_org_ids}
+    assert csv_batches == {"BA1", "BA2"}, (
+        f"col1 has unexpected batches: {csv_batches}"
+    )
+    _ok("col1 batches are exactly {BA1, BA2}")
+
+    # 3. all col1 organoids present in all_data.json
+    missing = col1_org_ids - set(organoids.keys())
+    assert not missing, (
+        f"{len(missing)} col1 organoids not in all_data.json: {sorted(missing)[:5]}"
+    )
+    _ok("every col1 organoid is present in all_data.json")
+
+    # 4. no split organoid in col1
+    splits = [
+        (oid, day)
+        for oid in col1_org_ids
+        for day, rec in organoids[oid]["records_by_day"].items()
+        if is_split_record(rec)
+    ]
+    assert not splits, f"{len(splits)} col1 records are split-classified: {splits[:5]}"
+    _ok("no col1 organoid has any split-classified record")
+
+    # 5. col2 ⊆ col1
+    extra = col2_org_ids - col1_org_ids
+    assert not extra, f"col2 has {len(extra)} organoids not in col1: {sorted(extra)[:5]}"
+    _ok(f"col2 ({len(col2_org_ids)}) is a subset of col1 ({len(col1_org_ids)})")
+
+    # 6. every col2 organoid has a Dy30 record + survey evaluations
+    no_dy30 = [
+        oid for oid in col2_org_ids
+        if LABEL_DAY not in organoids[oid]["records_by_day"]
+    ]
+    assert not no_dy30, f"{len(no_dy30)} col2 organoids lack a Dy30 record: {no_dy30[:5]}"
+    no_evals = [
+        oid for oid in col2_org_ids
+        if not (
+            (organoids[oid]["records_by_day"][LABEL_DAY].get("survey") or {}).get(
+                "evaluations"
+            )
+        )
+    ]
+    assert not no_evals, (
+        f"{len(no_evals)} col2 organoids have a Dy30 record but no survey "
+        f"evaluations: {no_evals[:5]}"
+    )
+    no_consensus = sum(
+        1 for oid in col2_org_ids
+        if (organoids[oid]["records_by_day"][LABEL_DAY].get("label") or {}).get(
+            "value"
+        ) not in ("Acceptable", "Not Acceptable")
+    )
+    _ok(
+        f"every col2 organoid has a Dy30 record with survey evaluations "
+        f"({no_consensus}/{len(col2_org_ids)} reviewed-but-no-consensus, informational)"
+    )
+
+    # 7. col2 main_ids match the actual Dy30 record main_ids
+    mismatches = []
+    for oid, csv_main_id in col2_pairs:
+        actual = get_main_id(organoids[oid]["records_by_day"][LABEL_DAY])
+        if actual != csv_main_id:
+            mismatches.append((oid, csv_main_id, actual))
+    assert not mismatches, (
+        f"{len(mismatches)} col2 main_ids disagree with all_data.json: {mismatches[:3]}"
+    )
+    _ok("every col2 main_id matches the Dy30 record's main_id in all_data.json")
+
+    # 8. col1 \ col2 = (didn't reach Dy30) + 5 intro-survey
+    unclassified = col1_org_ids - col2_org_ids
+    no_dy30_in_extra = [
+        oid for oid in unclassified
+        if LABEL_DAY not in organoids[oid]["records_by_day"]
+    ]
+    intro_survey = [
+        oid for oid in unclassified
+        if LABEL_DAY in organoids[oid]["records_by_day"]
+    ]
+    assert len(intro_survey) == INTRO_SURVEY_ORGANOIDS, (
+        f"expected {INTRO_SURVEY_ORGANOIDS} intro-survey organoids "
+        f"(reached Dy30 but excluded from classification); found "
+        f"{len(intro_survey)}: {intro_survey}"
+    )
+    if verbose:
+        print(
+            f"\nCol1 \\ Col2 breakdown ({len(unclassified)} organoids):"
+            f"\n  - never reached Day 30: {len(no_dy30_in_extra)}"
+            f"\n  - reached Day 30 but excluded from classification: "
+            f"{len(intro_survey)} (partner said {INTRO_SURVEY_ORGANOIDS})"
+        )
+    _ok(f"{INTRO_SURVEY_ORGANOIDS} intro-survey organoids accounted for: {intro_survey}")
+
+    return {
+        "col1_count": len(col1_org_ids),
+        "col2_count": len(col2_org_ids),
+        "intro_survey_organoids": sorted(intro_survey),
+        "no_dy30_organoids": sorted(no_dy30_in_extra),
+        "no_consensus_count": no_consensus,
+    }
+
+
+def require_complete_series(
+    expected_days: Sequence[str] = tuple(DAY_ORDER),
+    *,
+    max_edge_fraction: float = 0.05,
+    require_clipped_meanfill: bool = True,
+    drop_split: bool = True,
+    drop_stitched: bool = True,
+    drop_blank: bool = True,
+) -> Callable:
+    """Keep organoids whose every expected day passes per-day quality.
+
+    Equivalent to Amanda's Stage 1 + Stage 2 in ``make_splits.py``: per-day
+    edge_fraction / classification gates AND series-completeness over the 11
+    canonical timepoints. Used by the ``series_idor`` filter preset.
+    """
+
+    expected = tuple(expected_days)
+
+    def f(org_id: str, records: dict) -> bool:
+        for day in expected:
+            rec = records.get(day)
+            if rec is None:
+                return False
+            if drop_blank and ((rec.get("metadata") or {}).get("verification") or {}).get(
+                "blank", False
+            ):
+                return False
+            ef = get_edge_fraction(rec)
+            if ef is None or ef > max_edge_fraction:
+                return False
+            if drop_split and is_split_record(rec):
+                return False
+            if drop_stitched and is_stitched_record(rec):
+                return False
+            if require_clipped_meanfill and not get_clipped_meanfill_image_path(rec):
+                return False
+        return True
+
+    f.__doc__ = (
+        f"require_complete_series(days={len(expected)}, "
+        f"edge<={max_edge_fraction})"
+    )
     return f
 
 
@@ -282,7 +683,7 @@ def default_filters() -> List[Callable]:
 
 
 ALL_BATCHES = ("BA1", "BA2", "BA3", "BA4")
-VALID_MODES = ("base", "switch1", "switch2", "switch3")
+VALID_MODES = ("base", "switch1", "switch2", "switch3", "series_idor")
 VALID_MODALITIES = ("both", "image", "metabolite")
 
 
@@ -300,6 +701,10 @@ def filters_for_mode(mode: str, modality: str = "both") -> List[Callable]:
       BA3+BA4 flagged as lower-quality by IDOR/Promega; use with caution.
     - **switch3**: Image model gets all 4 batches with valid images;
       metabolite model stays on the BA1+BA2 intersection.
+    - **series_idor**: IDOR cohort (266 partner-curated organoids) with
+      complete 11-day series, per-day edge_fraction <= 0.05, no Split/
+      SplitStitched/blank, clipped_meanfill image present. The runtime
+      equivalent of Amanda's ``data/cohorts/idor/series/*.json``.
 
     For **switch1** and **switch3** the two modalities see *different*
     organoid sets, so pass `modality="image"` or `"metabolite"` to select.
@@ -327,6 +732,12 @@ def filters_for_mode(mode: str, modality: str = "both") -> List[Callable]:
             require_valid_images(),
         ]
 
+    if mode == "series_idor":
+        return [
+            *idor_ba1_ba2_filters(),
+            require_complete_series(),
+        ]
+
     # switch3
     if modality == "image":
         return [require_batches(*ALL_BATCHES), require_valid_images()]
@@ -345,86 +756,39 @@ class OrganoidDataset:
     Groups records by organoid, applies filters, derives labels, and provides
     accessors for metabolite features and image paths by split and day.
 
-    Split assignment can come from:
-      - A CSV file (splits_csv): only organoids in the CSV are included.
-      - Runtime generation (split_ratios + split_seed): stratified random split
-        over all organoids that pass filters and have a valid label.
+    Split assignment is optional. When ``splits`` is provided, every filtered
+    organoid must be in ``splits.mapping`` or a ``ValueError`` is raised. When
+    ``splits`` is None, the dataset is filter+label only; ``get_split()`` will
+    raise until ``apply_splits()`` is called.
     """
 
     def __init__(
         self,
         all_data_path: str,
-        splits_csv: Optional[str] = None,
-        split_ratios: Optional[Dict[str, float]] = None,
-        split_seed: int = 42,
+        splits: Optional[Splits] = None,
         filters: Optional[List[Callable]] = None,
         label_fn: Optional[Callable] = None,
+        strict_splits: bool = False,
     ):
-        if splits_csv is None and split_ratios is None:
-            raise ValueError("Provide either splits_csv or split_ratios")
-        if splits_csv is not None and split_ratios is not None:
-            raise ValueError("Provide splits_csv or split_ratios, not both")
-
         self.all_data_path = Path(all_data_path)
-        self.splits_csv = Path(splits_csv) if splits_csv else None
-        self.split_ratios = split_ratios
-        self.split_seed = split_seed
         self.filters = filters if filters is not None else default_filters()
         self.label_fn = label_fn or paper_label_fn
+        self._splits: Optional[Splits] = None
 
-        # Load sources
         with open(self.all_data_path) as f:
             self.all_data: dict = json.load(f)
 
-        # Build dataset
-        self._organoids: Dict[str, dict] = {}  # org_id → {label, split, records}
+        # org_id → {label, split (optional), records}
+        self._organoids: Dict[str, dict] = {}
         self._build()
+
+        if splits is not None:
+            self.apply_splits(splits, strict=strict_splits)
 
     # -- construction --------------------------------------------------------
 
-    @staticmethod
-    def _load_splits_csv(path: Path) -> Dict[str, str]:
-        """Load CSV → {organoid_id: split}."""
-        splits = {}
-        with open(path, newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                splits[row["organoid_id"]] = row["split"]
-        return splits
-
-    def _stratified_split(
-        self, org_labels: Dict[str, str]
-    ) -> Dict[str, str]:
-        """Assign organoids to splits via stratified random split."""
-        rng = np.random.RandomState(self.split_seed)
-        split_names = list(self.split_ratios.keys())
-        # Group by label for stratification
-        by_label: Dict[str, List[str]] = {}
-        for org_id, label in org_labels.items():
-            by_label.setdefault(label, []).append(org_id)
-
-        assignments: Dict[str, str] = {}
-        for label, ids in by_label.items():
-            shuffled = list(ids)
-            rng.shuffle(shuffled)
-            n = len(shuffled)
-            boundaries = []
-            cumulative = 0.0
-            for name in split_names[:-1]:
-                cumulative += self.split_ratios[name]
-                boundaries.append(int(round(cumulative * n)))
-            boundaries.append(n)
-
-            start = 0
-            for name, end in zip(split_names, boundaries):
-                for org_id in shuffled[start:end]:
-                    assignments[org_id] = name
-                start = end
-        return assignments
-
     def _build(self):
-        """Group all_data records by organoid, apply filters, derive labels."""
-        # Step 1: group records by organoid_id
+        """Group records by organoid, apply filters, derive labels. No split assignment here."""
         grouped: Dict[str, Dict[str, dict]] = {}
         for key, rec in self.all_data.items():
             org_id = extract_organoid_id(key)
@@ -432,20 +796,7 @@ class OrganoidDataset:
             day = canonical_day_id(day_raw)
             grouped.setdefault(org_id, {})[day] = rec
 
-        if self.splits_csv is not None:
-            self._build_from_csv(grouped)
-        else:
-            self._build_from_ratios(grouped)
-
-    def _build_from_csv(self, grouped: Dict[str, Dict[str, dict]]):
-        """Build using pre-assigned splits from CSV."""
-        csv_splits = self._load_splits_csv(self.splits_csv)
-        csv_ids = set(csv_splits.keys())
-
         for org_id, records in grouped.items():
-            if org_id not in csv_ids:
-                continue
-
             keep = True
             for filt in self.filters:
                 if not filt(org_id, records):
@@ -460,44 +811,55 @@ class OrganoidDataset:
 
             self._organoids[org_id] = {
                 "label": label,
-                "split": csv_splits[org_id],
                 "records": records,
             }
 
-        csv_only = csv_ids - set(self._organoids.keys())
-        if csv_only:
+    def apply_splits(self, splits: Splits, *, strict: bool = False) -> None:
+        """Assign each filtered organoid its partition from ``splits.mapping``.
+
+        Filtered organoids missing from the mapping are dropped (and warned about),
+        matching the historical ``_build_from_csv`` behavior. Pass ``strict=True``
+        to instead raise ``ValueError`` listing the unmapped IDs — useful when
+        constructing a Splits in-memory and you want a coverage assertion.
+
+        Either way, organoids in the mapping that were filtered out are silently
+        ignored (after a one-line summary warning).
+        """
+        filtered_ids = set(self._organoids.keys())
+        mapping_ids = splits.organoid_ids()
+
+        missing = filtered_ids - mapping_ids
+        if missing:
+            if strict:
+                sample = sorted(missing)[:10]
+                raise ValueError(
+                    f"{len(missing)} filtered organoids are not in Splits {splits.name!r}; "
+                    f"first {len(sample)}: {sample}"
+                )
+            sample = sorted(missing)[:5]
             warnings.warn(
-                f"{len(csv_only)} organoids in CSV were dropped by filters/label derivation"
+                f"{len(missing)} filtered organoids are not in Splits {splits.name!r} "
+                f"and were dropped (e.g. {sample}); pass strict=True to require coverage"
+            )
+            for oid in missing:
+                del self._organoids[oid]
+
+        mapping_only = mapping_ids - set(self._organoids.keys())
+        if mapping_only:
+            warnings.warn(
+                f"{len(mapping_only)} organoids in Splits {splits.name!r} were dropped by filters/label derivation"
             )
 
-    def _build_from_ratios(self, grouped: Dict[str, Dict[str, dict]]):
-        """Build by filtering first, then generating stratified splits."""
-        # First pass: filter and derive labels
-        eligible: Dict[str, Tuple[str, dict]] = {}  # org_id → (label, records)
-        for org_id, records in grouped.items():
-            keep = True
-            for filt in self.filters:
-                if not filt(org_id, records):
-                    keep = False
-                    break
-            if not keep:
-                continue
+        for org_id, info in self._organoids.items():
+            info["split"] = splits.mapping[org_id]
+        self._splits = splits
 
-            label = self.label_fn(org_id, records)
-            if label is None:
-                continue
-            eligible[org_id] = (label, records)
+    def organoid_labels(self) -> Dict[str, str]:
+        """Return ``{organoid_id: label}`` for every filtered+labeled organoid.
 
-        # Generate splits
-        org_labels = {org_id: lbl for org_id, (lbl, _) in eligible.items()}
-        assignments = self._stratified_split(org_labels)
-
-        for org_id, (label, records) in eligible.items():
-            self._organoids[org_id] = {
-                "label": label,
-                "split": assignments[org_id],
-                "records": records,
-            }
+        Useful as input to ``Splits.stratified_random``.
+        """
+        return {oid: info["label"] for oid, info in self._organoids.items()}
 
     # -- accessors -----------------------------------------------------------
 
@@ -507,7 +869,10 @@ class OrganoidDataset:
 
     @property
     def splits(self) -> List[str]:
-        return sorted(set(o["split"] for o in self._organoids.values()))
+        """Sorted list of unique split names assigned via apply_splits."""
+        if self._splits is None:
+            return []
+        return sorted(self._splits.split_names())
 
     @property
     def days(self) -> List[str]:
@@ -523,10 +888,18 @@ class OrganoidDataset:
         """Get organoids for a split, optionally filtered to those having a specific day.
 
         Returns: {org_id: {label, records: {day: record, ...}}}
+
+        Raises ``RuntimeError`` if no splits have been assigned (construct with
+        ``splits=Splits(...)`` or call ``apply_splits()`` first).
         """
+        if self._splits is None:
+            raise RuntimeError(
+                "No splits assigned to this OrganoidDataset. "
+                "Pass splits= at construction or call apply_splits(splits) first."
+            )
         result = {}
         for org_id, info in self._organoids.items():
-            if info["split"] != split:
+            if info.get("split") != split:
                 continue
             if day is not None and day not in info["records"]:
                 continue
@@ -539,8 +912,22 @@ class OrganoidDataset:
         day: str,
         include_growth: bool = False,
         include_initial: bool = True,
+        field: str = "concentration_uM",
     ) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
         """Extract metabolite feature matrix for split + day.
+
+        ``field`` selects which per-assay numeric to use as the primary column:
+        ``"concentration_uM"`` (default, raw uM), ``"win"`` or ``"win_vol_norm"``
+        (Promega-residualized — winsorized + per-metabolite scaled, see
+        ``data/normalized/README.md``). When ``include_initial`` is True the
+        secondary column is always raw ``initial_concentration`` regardless of
+        ``field``. Selecting a normalized ``field`` requires Step 2 to have been
+        run with ``--normalized-csv``.
+
+        Note: ``win`` is NOT on the same numeric scale as ``concentration_uM``
+        (the ratio is metabolite-specific, e.g. ~2.0 for Glucose, ~0.1 for
+        Glutamate/Pyruvate). Use it for within-metabolite analyses or as a
+        cleaner alternative to raw for modeling, not as a unit-equivalent.
 
         Returns: (X, y, feature_names, organoid_ids)
             X: (n_samples, n_features) float array
@@ -548,6 +935,12 @@ class OrganoidDataset:
             feature_names: list of feature column names
             organoid_ids: list of organoid IDs corresponding to rows
         """
+        if field not in RAW_METABOLITE_FIELDS + NORMALIZED_METABOLITE_FIELDS:
+            raise ValueError(
+                f"field={field!r} not recognized; valid: "
+                f"{RAW_METABOLITE_FIELDS + NORMALIZED_METABOLITE_FIELDS}"
+            )
+
         day_num = get_day_int_floor(day)
         subset = self.get_split(split, day=day)
 
@@ -560,7 +953,7 @@ class OrganoidDataset:
         # Build feature names
         feat_names = []
         for met in active_mets:
-            feat_names.append(f"{met}_concentration_uM")
+            feat_names.append(f"{met}_{field}")
             if include_initial:
                 feat_names.append(f"{met}_initial_concentration")
 
@@ -578,11 +971,11 @@ class OrganoidDataset:
             skip = False
             for met in active_mets:
                 met_data = mets.get(met, {})
-                conc = met_data.get("concentration_uM")
-                if conc is None:
+                val = met_data.get(field)
+                if val is None:
                     skip = True
                     break
-                row.append(conc)
+                row.append(val)
                 if include_initial:
                     row.append(met_data.get("initial_concentration", np.nan))
             if skip:
@@ -737,8 +1130,10 @@ class OrganoidDataset:
         lines = []
         lines.append(f"OrganoidDataset: {len(self._organoids)} organoids")
         lines.append(f"  Source: {self.all_data_path}")
-        splits_label = str(self.splits_csv) if self.splits_csv else f"runtime (seed={self.split_seed})"
-        lines.append(f"  Splits: {splits_label}")
+        if self._splits is not None:
+            lines.append(f"  Splits: {self._splits.name} ({self._splits.provenance})")
+        else:
+            lines.append("  Splits: <none assigned>")
         lines.append(f"  Days: {', '.join(self.days)}")
         lines.append("")
 
@@ -772,3 +1167,60 @@ class OrganoidDataset:
             f"OrganoidDataset({len(self._organoids)} organoids, "
             f"splits={self.splits}, days={len(self.days)})"
         )
+
+
+# ---------------------------------------------------------------------------
+# Deterministic train/val/test split (replaces materialized data_splits/*.json)
+# ---------------------------------------------------------------------------
+
+def split_organoids(
+    dataset: "OrganoidDataset",
+    *,
+    seed: int = 42,
+    test_size: float = 0.2,
+    val_size: float = 0.1,
+) -> Tuple[List[str], List[str], List[str]]:
+    """Base-well-grouped, label-stratified train/val/test partition.
+
+    Wells (not organoids) are the unit of split — daughter organoids from the
+    same well always co-locate, preventing genealogy leakage. Stratification
+    is by per-well majority label.
+
+    Logic ported from ``scripts/splits/make_splits.py::split_wells`` so the
+    output is byte-identical to Amanda's pre-materialized splits when given
+    the same input set + seed.
+
+    Returns ``(train_ids, val_ids, test_ids)``.
+    """
+    from sklearn.model_selection import train_test_split
+
+    well_to_orgs: Dict[str, List[str]] = {}
+    well_to_labels: Dict[str, List[str]] = {}
+    for org_id, info in dataset.iter_organoids():
+        any_rec = next(iter(info["records"].values()))
+        well = get_base_well(any_rec)
+        well_to_orgs.setdefault(well, []).append(org_id)
+        well_to_labels.setdefault(well, []).append(info["label"])
+
+    wells = list(well_to_orgs.keys())
+    majority = [max(set(lbls), key=lbls.count) for lbls in (well_to_labels[w] for w in wells)]
+
+    train_wells, test_wells, train_maj, _ = train_test_split(
+        wells, majority,
+        test_size=test_size, stratify=majority, random_state=seed,
+    )
+    train_final, val_wells = train_test_split(
+        train_wells,
+        test_size=val_size, stratify=train_maj, random_state=seed,
+    )
+
+    train_ids: List[str] = []
+    val_ids: List[str] = []
+    test_ids: List[str] = []
+    for w in train_final:
+        train_ids.extend(well_to_orgs[w])
+    for w in val_wells:
+        val_ids.extend(well_to_orgs[w])
+    for w in test_wells:
+        test_ids.extend(well_to_orgs[w])
+    return train_ids, val_ids, test_ids

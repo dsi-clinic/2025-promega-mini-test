@@ -17,9 +17,9 @@ import pandas as pd
 import seaborn as sns
 
 from pipeline.data_loader import CONDITIONAL_METABOLITES, FIGURE_DIR, OrganoidDataset, get_day_int_floor
+from pipeline.splits import Splits
 
 ALL_DATA_PATH = "data/all_data.json"
-SPLITS_CSV = "data/2026_winter_student_splits.csv"
 OUTPUT_DIR = FIGURE_DIR
 
 METABOLITE_NAMES = [
@@ -35,7 +35,7 @@ DISPLAY_NAMES = {
 
 
 def main():
-    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
+    ds = OrganoidDataset(ALL_DATA_PATH, splits=Splits.canonical())
 
     # Collect all concentration values across all organoids and days
     rows = []

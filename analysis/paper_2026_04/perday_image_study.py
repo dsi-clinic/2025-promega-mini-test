@@ -6,10 +6,9 @@ Input: overlay images (RGB with green mask outline), 384×512
 Training: warmup with frozen backbone → unfreeze last 2 blocks
 Loss: BCEWithLogitsLoss with class weights
 
-LABEL CONVENTION: 1 = Acceptable, 0 = Not Acceptable (matches LABEL_TO_INT).
-The legacy version inverted this (0 = Acceptable) which contradicted every
-other script; downstream metrics names (sensitivity vs. specificity) are
-re-interpreted accordingly.
+LABEL CONVENTION: 1 = Not Acceptable, 0 = Acceptable (matches LABEL_TO_INT,
+per AGENTS.md rule #9). pos_weight = n_neg/n_pos correctly upweights the
+Not Acceptable minority class.
 
 Outputs:
   - $ANALYSIS_OUTPUT_DIR/images/perday_results.json
@@ -44,6 +43,7 @@ from pipeline.data_loader import (
     LABEL_TO_INT,
     OrganoidDataset,
 )
+from pipeline.splits import Splits
 
 from .common import compute_classification_metrics, plot_balanced_accuracy_by_day
 
@@ -52,7 +52,6 @@ os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
 SEED = 1
 ALL_DATA_PATH = "data/all_data.json"
-SPLITS_CSV = "data/2026_winter_student_splits.csv"
 OUTPUT_DIR = ANALYSIS_OUTPUT_DIR / "images"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -169,7 +168,7 @@ def train_one_day(ds: OrganoidDataset, day: str, *, input_mode: str = "overlay",
         return None
 
     if verbose:
-        print(f"  Train: {len(train_paths)} ({n_pos} Acc, {n_neg} NAcc)")
+        print(f"  Train: {len(train_paths)} ({n_pos} NAcc, {n_neg} Acc)")
         print(f"  Val:   {len(val_paths)}")
         print(f"  Test:  {len(test_paths)}")
 
@@ -188,8 +187,8 @@ def train_one_day(ds: OrganoidDataset, day: str, *, input_mode: str = "overlay",
 
     model = EfficientNetClassifier().to(DEVICE)
 
-    # pos_weight = #neg / #pos (label 1 = Acceptable, so class 0 needs the boost
-    # if Acceptable is the majority — which it is in this dataset).
+    # pos_weight = #neg / #pos: label 1 = Not Acceptable (minority), so this
+    # ratio (>1) upweights the minority class, per AGENTS.md rule #9.
     pos_weight = torch.tensor([n_neg / n_pos], dtype=torch.float32).to(DEVICE)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
@@ -290,7 +289,7 @@ def main():
     args = parser.parse_args()
 
     set_seed(SEED)
-    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
+    ds = OrganoidDataset(ALL_DATA_PATH, splits=Splits.canonical())
     print(ds.summary())
     print(f"Device: {DEVICE}")
 

@@ -342,17 +342,36 @@ def compute_survey_majority(evaluations: list[dict], min_survey_votes: int = MIN
         None,
     )
 
-    if inv_votes and inv_votes[winning_inv_label] != reg_votes[winning_reg_label]:
+    # Cross-bucket consistency gate: clear the consensus only when BOTH buckets
+    # have a clear winner AND those winners disagree.  See
+    # 2025-promega-mini-test-<bead> for prior bug (was comparing vote *counts*
+    # instead of labels, which (a) cleared labels when both buckets agreed but
+    # had different counts, and (b) failed to clear when both had the same
+    # count but different winners).  An inconclusive inverted bucket is now
+    # treated as "missing data," not as contradicting evidence.
+    consensus_label = winning_reg_label
+    if (
+        winning_inv_label is not None
+        and winning_reg_label is not None
+        and winning_inv_label != winning_reg_label
+    ):
         main_id = evaluations[0].get("image_id")
-        logging.warning(f"{main_id}:  Inverted evaluation - {inv_votes[winning_inv_label]} '{winning_inv_label}' does not match regular evaluation - {reg_votes[winning_reg_label]} '{winning_reg_label}'")
-        winning_reg_label = None
+        logging.warning(
+            f"{main_id}: inverted-image winner '{winning_inv_label}' disagrees "
+            f"with regular-image winner '{winning_reg_label}' — clearing consensus"
+        )
+        consensus_label = None
 
     total = sum(inv_votes.values()) + sum(reg_votes.values())
 
     return {
-        "value": winning_reg_label,
-        "acceptance_flag": LABEL_MAP.get(winning_reg_label) if winning_reg_label else None,
+        "value": consensus_label,
+        "acceptance_flag": LABEL_MAP.get(consensus_label) if consensus_label else None,
         "votes": dict(reg_votes + inv_votes),
+        "regular_votes": dict(reg_votes),
+        "inverted_votes": dict(inv_votes),
+        "regular_winner": winning_reg_label,
+        "inverted_winner": winning_inv_label,
         "total_evaluations": total,
         "min_votes": min_survey_votes,
         "source": "survey.evaluations",

@@ -56,11 +56,11 @@ All dependencies are managed via the `core_env` conda environment (defined by `c
 
 ### 2. Splits are organoid-level, not record-level
 
-Organoids span multiple days (Dy03–Dy30). The **same organoid must stay in the same split** (train/val/test) across all days to prevent data leakage. The split assignment lives in `data/2026_winter_student_splits.csv` and keys on `organoid_id` (e.g. `BA1 96_1 A1` — no day component).
+Organoids span multiple days (Dy03–Dy30). The **same organoid must stay in the same split** (train/val/test) across all days to prevent data leakage. The canonical split assignment lives in `data/splits/canonical_2026_winter.csv` and keys on `organoid_id` (e.g. `BA1 96_1 A1` — no day component). Code loads it via `Splits.canonical()` from `pipeline.splits`. Multiple named splits can coexist under `data/splits/` — see `data/splits/README.md`.
 
 ### 3. all_data.json is the single source of truth
 
-Labels, features, filtering — everything is derived at runtime from `data/all_data.json`. The splits CSV contains **only** `organoid_id` and `split`. Do not materialize filtered/transformed data into separate JSON files for downstream models; use `pipeline/data_loader.py` instead.
+Labels, features, filtering — everything is derived at runtime from `data/all_data.json`. Split CSVs under `data/splits/` contain only `organoid_id` and `split` (extra columns are ignored by `Splits.from_csv`). Do not materialize filtered/transformed data into separate JSON files for downstream models; use `pipeline/data_loader.py` + `pipeline/splits.py` instead.
 
 ### 4. Paper filter defaults
 
@@ -83,7 +83,7 @@ Dy20 and Dy21 in the raw data represent the same biological timepoint. Canonical
 
 | What | Where | Git tracked? |
 |------|-------|--------------|
-| Split CSV | `data/2026_winter_student_splits.csv` | Yes |
+| Split CSVs | `data/splits/*.csv` (canonical_2026_winter.csv + alternates) | Yes |
 | Analysis code | `analysis/` | Yes |
 | Generated figures | `$ANALYSIS_OUTPUT_DIR/figures/` (default: `$DATA_ROOT/analysis_output/figures/`) | No |
 | Model checkpoints | `$DATA_ROOT/models/` | No |
@@ -91,12 +91,17 @@ Dy20 and Dy21 in the raw data represent the same biological timepoint. Canonical
 ### 8. Running analysis scripts
 
 ```bash
-# Generate splits (one-time, already checked in)
-make run ARGS="-m analysis.paper_2026_04.generate_splits"
+# Preview a fresh splits run against today's all_data.json (won't overwrite):
+make run ARGS="-m analysis.paper_2026_04.generate_splits --dry-run"
+
+# Write to a new file (use a descriptive name; canonical_2026_winter.csv is frozen):
+make run ARGS="-m analysis.paper_2026_04.generate_splits --output data/splits/regen_$(date +%Y%m).csv"
 
 # Run any analysis module
 make run ARGS="-m analysis.<module_name> --flag value"
 ```
+
+`generate_splits.py` refuses to overwrite `data/splits/canonical_2026_winter.csv` (which is treated as a frozen reference) unless `--overwrite` is passed. Use `--output <path>` to write a new named split instead — see `data/splits/README.md`.
 
 ### 9. Positive class convention
 
@@ -113,6 +118,23 @@ Per metabolite per day:
 - `{MetaboliteName}_growth` — delta from previous day (optional)
 
 Growth features require a previous timepoint and are unavailable at Dy03.
+
+## Schema Invariants
+
+These are properties of `data/all_data.json` and the pipeline that produces it; encoded in `pipeline/merge/normalized_records.py` and `pipeline/data_loader.py`. Treat them as load-bearing — code that depends on them lives across the repo.
+
+- The on-disk `all_data.json` uses the **normalized** schema (`plate.batch`, `day.id`, `images.*`, `metabolite` singular). The pre-normalization schema (`BA`, `dayID`, `processed`, `metabolites`) only exists in memory inside `merge_all_data.py`.
+- Day canonicalization: `Dy3 → Dy03`, `Dy20 / Dy20.5 / Dy21 → Dy20_5`. Centralized in `pipeline.data_loader`.
+- Organoid IDs strip the day component: `BA1 96_1 Dy03 A1` → `BA1 96_1 A1`.
+- Per-assay metabolite block carries 4 raw fields (`concentration_uM`, `initial_concentration`, `is_outlier`, `well_384`) plus 2 Promega-normalized fields (`win`, `win_vol_norm`) added by Step 2 from `data/normalized/CONC_*.csv`. See `data/normalized/README.md` for the scaling caveat.
+
+## Common Pitfalls
+
+- **Don't** import schema fields by name from old code without checking — many fields renamed in the 2026-04 normalized-records refactor.
+- **Don't** materialize filtered subsets to disk; always use `OrganoidDataset(filters=...)` with a `Splits` from `pipeline.splits`.
+- **Don't** hard-code data paths; use `$DATA_ROOT` / Makefile variables.
+- **Don't** `pip install` outside `core_env`; add to `core_env.yaml` and rebuild.
+- **Don't** overwrite `data/splits/canonical_2026_winter.csv` casually — `generate_splits.py` guards against this. Use `--output <new-path>` to add a labeled alternate.
 
 ## Landing the Plane (Session Completion)
 

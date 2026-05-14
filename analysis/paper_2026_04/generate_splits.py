@@ -1,88 +1,46 @@
 #!/usr/bin/env python3
 """
-One-time script to produce a splits CSV from all_data.json.
+One-time script to produce a stratified train/val/test splits CSV from all_data.json.
 
 All filtering and label derivation comes from ``pipeline.data_loader.OrganoidDataset``
 with the paper-default filter preset (BA1+BA2, complete metabolites, valid images,
-4/5 vote consensus at Dy30). This script just performs the stratified
-organoid-level split and writes the CSV.
+4/5 vote consensus at Dy30). Stratified split is delegated to
+``pipeline.splits.Splits.stratified_random``.
 
     72% train  /  8% val  /  20% test   (seed=42)
 
-Output: ``data/2026_winter_student_splits.csv`` with columns ``organoid_id, split``.
+Default output: ``data/splits/canonical_2026_winter.csv`` — note this is the
+frozen reference file, so the script will refuse to overwrite it unless
+``--overwrite`` is passed. For regenerations, point ``--output`` at a new path
+(see ``data/splits/README.md``).
 
 Usage:
-    make run ARGS="-m analysis.paper_2026_04.generate_splits"            # default
-    make run ARGS="-m analysis.paper_2026_04.generate_splits --dry-run"  # preview
-    make run ARGS="-m analysis.paper_2026_04.generate_splits --seed 7"   # custom seed
+    make run ARGS="-m analysis.paper_2026_04.generate_splits --dry-run"
+    make run ARGS="-m analysis.paper_2026_04.generate_splits --output data/splits/regen.csv"
+    make run ARGS="-m analysis.paper_2026_04.generate_splits --output data/splits/regen.csv --seed 7"
 """
 
 import argparse
-import csv
 from collections import Counter
 from pathlib import Path
 from typing import Dict
 
-from sklearn.model_selection import train_test_split
-
 from pipeline.data_loader import OrganoidDataset
+from pipeline.splits import CANONICAL_PATH, Splits
 
 ALL_DATA_PATH = Path("data/all_data.json")
-OUTPUT_PATH = Path("data/2026_winter_student_splits.csv")
-TEST_SIZE = 0.20   # 20% test
-VAL_SIZE = 0.10    # 10% of train+val → ~8% overall
+DEFAULT_OUTPUT = CANONICAL_PATH
+RATIOS = {"train": 0.72, "val": 0.08, "test": 0.20}
 DEFAULT_SEED = 42
 
 
 def collect_labeled_organoids(all_data_path: Path) -> Dict[str, str]:
-    """Build {organoid_id: label} using the paper-default filters via OrganoidDataset.
-
-    OrganoidDataset normally requires either a splits CSV or split ratios; we
-    pass dummy ratios since we only care about the filtered + labeled set.
-    """
-    ds = OrganoidDataset(
-        str(all_data_path),
-        split_ratios={"_unused": 1.0},  # no real splits needed
-        split_seed=0,
-    )
-    return {org_id: info["label"] for org_id, info in ds.iter_organoids()}
+    """Build {organoid_id: label} via OrganoidDataset's paper-default filters."""
+    ds = OrganoidDataset(str(all_data_path))
+    return ds.organoid_labels()
 
 
-def stratified_split(
-    org_labels: Dict[str, str],
-    seed: int = DEFAULT_SEED,
-    test_size: float = TEST_SIZE,
-    val_size: float = VAL_SIZE,
-) -> Dict[str, str]:
-    """Stratified train/val/test split → {organoid_id: split_name}."""
-    ids = sorted(org_labels.keys())
-    labels = [org_labels[i] for i in ids]
-
-    train_val_ids, test_ids = train_test_split(
-        ids, test_size=test_size, stratify=labels, random_state=seed
-    )
-    tv_labels = [org_labels[i] for i in train_val_ids]
-    train_ids, val_ids = train_test_split(
-        train_val_ids, test_size=val_size, stratify=tv_labels, random_state=seed
-    )
-
-    return (
-        {i: "train" for i in train_ids}
-        | {i: "val" for i in val_ids}
-        | {i: "test" for i in test_ids}
-    )
-
-
-def write_csv(splits: Dict[str, str], output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["organoid_id", "split"])
-        for org_id, split in sorted(splits.items()):
-            writer.writerow([org_id, split])
-
-
-def print_summary(org_labels: Dict[str, str], splits: Dict[str, str]) -> None:
+def print_summary(org_labels: Dict[str, str], splits: Splits) -> None:
     total = len(splits)
     label_counts = Counter(org_labels.values())
     print(f"Total organoids passing filters: {total}")
@@ -91,8 +49,8 @@ def print_summary(org_labels: Dict[str, str], splits: Dict[str, str]) -> None:
     print()
 
     for split_name in ("train", "val", "test"):
-        ids_in_split = [i for i, s in splits.items() if s == split_name]
-        split_labels = Counter(org_labels[i] for i in ids_in_split)
+        ids_in_split = [oid for oid, s in splits.mapping.items() if s == split_name]
+        split_labels = Counter(org_labels[oid] for oid in ids_in_split)
         n = len(ids_in_split)
         pct = 100 * n / total if total else 0
         print(
@@ -108,25 +66,40 @@ def main() -> None:
     )
     parser.add_argument("--all-data", type=Path, default=ALL_DATA_PATH,
                         help="Path to all_data.json")
-    parser.add_argument("--output", type=Path, default=OUTPUT_PATH,
-                        help="Output CSV path")
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT,
+                        help="Output CSV path (default: data/splits/canonical_2026_winter.csv)")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED,
                         help="Random seed for splitting")
+    parser.add_argument("--name", type=str, default=None,
+                        help="Name to embed in the Splits object (defaults to output filename stem)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print summary without writing CSV")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="Allow overwriting the frozen canonical CSV path")
     args = parser.parse_args()
+
+    if args.output.resolve() == CANONICAL_PATH.resolve() and not args.overwrite and not args.dry_run:
+        parser.error(
+            f"Refusing to overwrite frozen canonical splits at {CANONICAL_PATH}. "
+            "Pass --overwrite to force, or --output <path> to write elsewhere."
+        )
 
     print(f"Loading {args.all_data} via OrganoidDataset (paper-default filters) ...")
     org_labels = collect_labeled_organoids(args.all_data)
     print(f"Organoids passing filters: {len(org_labels)}\n")
 
-    splits = stratified_split(org_labels, seed=args.seed)
+    splits = Splits.stratified_random(
+        org_labels,
+        ratios=RATIOS,
+        seed=args.seed,
+        name=args.name or args.output.stem,
+    )
     print_summary(org_labels, splits)
 
     if args.dry_run:
         print("\n[dry-run] No file written.")
     else:
-        write_csv(splits, args.output)
+        splits.to_csv(args.output)
         print(f"\nWrote {args.output}  ({len(splits)} organoids)")
 
 

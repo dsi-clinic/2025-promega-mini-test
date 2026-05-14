@@ -572,6 +572,8 @@ def main() -> None:
                 e[out_key] = {
                     "cm_image_abs": str(out_img),
                     "cm_image": str(out_img.relative_to(args.out_images_dir)),
+                    "cm_source_image_abs": str(img_path),
+                    "cm_source_mask_abs": str(mask_path),
                     "cm_source_image_field": used_img_field,
                     "cm_source_mask_field": used_mask_field,
                 }

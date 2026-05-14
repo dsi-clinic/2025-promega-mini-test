@@ -41,6 +41,7 @@ from pipeline.data_loader import (
     FIGURE_DIR,
     OrganoidDataset,
 )
+from pipeline.splits import Splits
 
 from .common import compute_classification_metrics, plot_balanced_accuracy_by_day
 
@@ -48,7 +49,6 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 SEED = 42
 ALL_DATA_PATH = "data/all_data.json"
-SPLITS_CSV = "data/2026_winter_student_splits.csv"
 OUTPUT_DIR = ANALYSIS_OUTPUT_DIR / "metabolites"
 
 
@@ -261,7 +261,7 @@ def main():
     if not args.skip_lr:
         enabled.append(MODEL_SPECS["logreg"])
 
-    ds = OrganoidDataset(ALL_DATA_PATH, splits_csv=SPLITS_CSV)
+    ds = OrganoidDataset(ALL_DATA_PATH, splits=Splits.canonical())
     print(ds.summary())
 
     days_to_train = args.days if args.days else DAY_ORDER

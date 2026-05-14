@@ -31,8 +31,8 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--all-data", default="data/all_data.json",
                         help="Path to all_data.json (single source of truth)")
-    parser.add_argument("--splits-csv", default="data/2026_winter_student_splits.csv",
-                        help="Organoid-level train/val/test split CSV")
+    parser.add_argument("--splits-csv", default="data/splits/canonical_2026_winter.csv",
+                        help="Organoid-level train/val/test split CSV (loaded via Splits.from_csv)")
     parser.add_argument("--mode", default="base",
                         choices=["base", "switch1", "switch2", "switch3"],
                         help="Filter preset (see pipeline.data_loader.filters_for_mode)")

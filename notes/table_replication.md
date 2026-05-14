@@ -4,7 +4,7 @@ Comparison of paper tables against current code outputs.
 
 **Date:** 2026-04-09 (Table 2 content updated 2026-04-16; paths updated 2026-04-29)
 **Code version:** `main` (post separation-of-concerns rebuild)
-**Data:** `data/all_data.json` (5,168 records), `2026_winter_student_splits.csv` (220 organoids: train=158, val=18, test=44)
+**Data:** `data/all_data.json` (5,168 records), `data/splits/canonical_2026_winter.csv` (220 organoids: train=158, val=18, test=44; loaded via `Splits.canonical()`)
 
 **Note on paths:** After the 2026-04 restructure, paper-replication scripts live under `analysis/paper_2026_04/`; the DINOv2 trainer was renamed `train_model_accuracy_tony_dinov2.py` → `train_model_dinov2.py`. Older script-name references below are kept verbatim as historical pointers.
 
