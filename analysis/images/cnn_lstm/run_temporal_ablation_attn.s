@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name=cnn-lstm-attn
+#SBATCH --partition=general
+#SBATCH --gres=gpu:a100:1
+#SBATCH --mem=32G
+#SBATCH --time=08:00:00
+#SBATCH --output=logs/%x_%j.out
+#SBATCH --error=logs/%x_%j.err
+
+set -euo pipefail
+cd "$(dirname "$0")/../../.."   # repo root
+mkdir -p logs
+
+make run ARGS="analysis/images/cnn_lstm/train_temporal_ablation_attn.py $*"
