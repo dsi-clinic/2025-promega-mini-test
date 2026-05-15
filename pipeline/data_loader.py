@@ -217,8 +217,8 @@ def get_base_well(record: dict) -> str:
 
 
 def get_clipped_meanfill_image_path(record: dict) -> Optional[str]:
-    """Absolute path to the 575x575 mean-fill-masked image used by CNN-LSTM training."""
-    return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_image_abs")
+    """Absolute path to the 575x575 AR-conserved source image (resized_575_square)."""
+    return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_source_image_abs")
 
 
 def get_clipped_meanfill_mask_path(record: dict) -> Optional[str]:
