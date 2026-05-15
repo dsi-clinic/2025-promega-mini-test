@@ -2,7 +2,7 @@
 """Reproduce per-day EfficientNet image classifier results from the paper.
 
 Architecture: EfficientNet-B0 (ImageNet pretrained) → 128-dim → binary logit
-Input: overlay images (RGB with green mask outline), 384×512
+Input: aspect-ratio-conserved images (resized_575_square via cm_source_image_abs), 575×575
 Training: warmup with frozen backbone → unfreeze last 2 blocks
 Loss: BCEWithLogitsLoss with class weights
 
@@ -285,7 +285,8 @@ def train_one_day(ds: OrganoidDataset, day: str, *, input_mode: str = "overlay",
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", nargs="+", default=None)
-    parser.add_argument("--input-mode", default="overlay", choices=["overlay", "img", "mask"])
+    parser.add_argument("--input-mode", default="cm_source_image",
+                        choices=["cm_source_image", "cm_source_mask", "overlay", "img", "mask"])
     args = parser.parse_args()
 
     set_seed(SEED)
