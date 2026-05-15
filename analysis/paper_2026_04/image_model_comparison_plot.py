@@ -147,41 +147,76 @@ def main():
 
     pd_pairs = [(x_nums[i], v) for i, v in enumerate(perday_ba) if v is not None]
     ts_pairs = [(x_nums[i], v) for i, v in enumerate(cnn_ba)    if v is not None]
+    pd_dict  = dict(pd_pairs)
+    ts_dict  = dict(ts_pairs)
 
     # Per-Day: solid blue circles
     if pd_pairs:
         px, py = zip(*pd_pairs)
         ax.plot(px, py, "o-", color="#3a7bbf", linewidth=2.5, markersize=7,
                 label="Per-Day", zorder=3)
-        for x, y in pd_pairs:
-            ax.annotate(f"{y:.2f}", (x, y), textcoords="offset points",
-                        xytext=(0, 10), ha="center", fontsize=11,
-                        color="#3a7bbf", fontweight="bold")
 
     # Time Series: dashed red squares
     if ts_pairs:
         tx, ty = zip(*ts_pairs)
         ax.plot(tx, ty, "s--", color="#c0392b", linewidth=2.5, markersize=7,
                 label="Time Series", zorder=3)
-        for x, y in ts_pairs:
-            ax.annotate(f"{y:.2f}", (x, y), textcoords="offset points",
-                        xytext=(0, -18), ha="center", fontsize=11,
-                        color="#c0392b", fontweight="bold")
 
-    # Shaded fill and difference annotations where both series overlap
-    pd_dict = dict(pd_pairs)
-    ts_dict = dict(ts_pairs)
+    # Shaded fill between overlapping region
     shared_x = sorted(set(pd_dict) & set(ts_dict))
     if shared_x:
-        sy_pd = [pd_dict[x] for x in shared_x]
-        sy_ts = [ts_dict[x] for x in shared_x]
-        ax.fill_between(shared_x, sy_pd, sy_ts, alpha=0.12, color="#3a7bbf")
-        for x in shared_x:
-            diff = pd_dict[x] - ts_dict[x]
-            mid_y = (pd_dict[x] + ts_dict[x]) / 2
-            sign = "+" if diff >= 0 else ""
+        ax.fill_between(shared_x,
+                        [pd_dict[x] for x in shared_x],
+                        [ts_dict[x] for x in shared_x],
+                        alpha=0.12, color="#3a7bbf")
+
+    # Context-aware labels: horizontal separation when series are close,
+    # vertical separation when they are far apart.
+    CLOSE = 0.05   # threshold below which we split labels left/right
+    DELTA_MIN = 0.05  # only annotate the gap when it's meaningful
+
+    for i, d in enumerate(days):
+        x   = x_nums[i]
+        pd_y = perday_ba[i]
+        ts_y = cnn_ba[i]
+        both = pd_y is not None and ts_y is not None
+        gap  = abs(pd_y - ts_y) if both else None
+
+        # Per-Day label
+        if pd_y is not None:
+            if both and gap < CLOSE:
+                dx, dy, ha = -15, 8, "right"
+            elif both and pd_y >= ts_y:
+                dx, dy, ha = 0, 11, "center"
+            elif both:
+                dx, dy, ha = 0, -17, "center"
+            else:
+                dx, dy, ha = 0, 11, "center"
+            ax.annotate(f"{pd_y:.2f}", (x, pd_y), textcoords="offset points",
+                        xytext=(dx, dy), ha=ha, fontsize=10,
+                        color="#3a7bbf", fontweight="bold")
+
+        # Time Series label
+        if ts_y is not None:
+            if both and gap < CLOSE:
+                dx, dy, ha = 15, 8, "left"
+            elif both and ts_y >= pd_y:
+                dx, dy, ha = 0, 11, "center"
+            elif both:
+                dx, dy, ha = 0, -17, "center"
+            else:
+                dx, dy, ha = 0, -17, "center"
+            ax.annotate(f"{ts_y:.2f}", (x, ts_y), textcoords="offset points",
+                        xytext=(dx, dy), ha=ha, fontsize=10,
+                        color="#c0392b", fontweight="bold")
+
+        # Delta annotation — only when gap is large enough to be informative
+        if both and gap >= DELTA_MIN:
+            diff  = pd_y - ts_y
+            mid_y = (pd_y + ts_y) / 2
+            sign  = "+" if diff >= 0 else ""
             ax.annotate(f"{sign}{diff:.2f}", (x, mid_y), textcoords="offset points",
-                        xytext=(8, 0), ha="left", fontsize=10, color="gray")
+                        xytext=(10, 0), ha="left", fontsize=9, color="gray")
 
     # Chance line
     ax.axhline(0.5, color="gray", linestyle=":", linewidth=1.5,
