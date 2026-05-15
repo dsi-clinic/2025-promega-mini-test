@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=cnn-lstm-attn
+#SBATCH --partition=general
 #SBATCH --qos=general
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=32G

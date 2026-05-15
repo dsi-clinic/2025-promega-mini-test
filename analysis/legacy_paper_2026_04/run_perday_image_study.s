@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=perday-image-study
+#SBATCH --partition=general
 #SBATCH --qos=general
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem=32G
