@@ -31,7 +31,7 @@ from analysis.images.cnn_lstm.organoid_dataset import (
 
 # ---------------- Config ----------------
 DAY_RANGES = [
-    8, 10, 13, 15, 17, 20.5, 24, 30
+    8, 10, 13, 15, 17, 20.5, 24, 28, 30
 ]
 BATCH_SIZE = 16
 NUM_WORKERS = 0
