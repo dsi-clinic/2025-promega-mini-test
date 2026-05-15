@@ -11,7 +11,6 @@
 #SBATCH --requeue
 
 set -euo pipefail
-cd "$(dirname "$0")/../.."   # repo root, auto-detected
-mkdir -p logs
+cd /home/wenxu/2025-promega-mini-test
 
 make analysis-paper-perday ARGS="$*"

@@ -11,7 +11,6 @@
 #SBATCH --requeue
 
 set -euo pipefail
-cd "$(dirname "$0")/../../.."   # repo root
-mkdir -p logs
+cd /home/wenxu/2025-promega-mini-test
 
 make run ARGS="analysis/images/cnn_lstm/train_temporal_ablation_attn.py $*"
