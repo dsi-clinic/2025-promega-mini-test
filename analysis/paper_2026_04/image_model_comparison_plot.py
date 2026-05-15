@@ -170,53 +170,121 @@ def main():
                         [ts_dict[x] for x in shared_x],
                         alpha=0.12, color="#3a7bbf")
 
-    # Context-aware labels: horizontal separation when series are close,
-    # vertical separation when they are far apart.
-    CLOSE = 0.05   # threshold below which we split labels left/right
-    DELTA_MIN = 0.05  # only annotate the gap when it's meaningful
+    # Context-aware labels with manual offsets for crowded days.
+    # The offsets are in screen points, not data units:
+    #   (0, 12) means 12 points above the point
+    #   (-18, 8) means left and slightly above
+    #   (18, 8) means right and slightly above
+
+    CLOSE = 0.05
+    DELTA_MIN = 0.05
+
+    # Manual label positions for crowded areas
+    pd_label_offsets = {
+        10: (0, -20, "center"),
+        15: (-18, 10, "right"),
+        17: (-18, 10, "right"),
+        20.5: (0, -22, "center"),
+        24: (0, -22, "center"),
+        28: (-12, 12, "right"),
+        30: (-18, -2, "right"),
+    }
+
+    ts_label_offsets = {
+        8: (0, 12, "center"),
+        10: (0, 12, "center"),
+        13: (0, 12, "center"),
+        15: (18, 10, "left"),
+        17: (18, 10, "left"),
+        20.5: (0, 14, "center"),
+        24: (0, 14, "center"),
+        28: (12, 14, "left"),
+        30: (20, 10, "left"),
+    }
+
+    delta_offsets = {
+        20.5: (12, 0),
+        24: (12, 0),
+        28: (0, -18),
+        30: (0, -18),
+    }
 
     for i, d in enumerate(days):
-        x   = x_nums[i]
+        x = x_nums[i]
         pd_y = perday_ba[i]
         ts_y = cnn_ba[i]
+
         both = pd_y is not None and ts_y is not None
-        gap  = abs(pd_y - ts_y) if both else None
+        gap = abs(pd_y - ts_y) if both else None
 
         # Per-Day label
         if pd_y is not None:
-            if both and gap < CLOSE:
-                dx, dy, ha = -15, 8, "right"
+            if x in pd_label_offsets:
+                dx, dy, ha = pd_label_offsets[x]
+            elif both and gap < CLOSE:
+                dx, dy, ha = -16, 10, "right"
             elif both and pd_y >= ts_y:
-                dx, dy, ha = 0, 11, "center"
+                dx, dy, ha = 0, 12, "center"
             elif both:
-                dx, dy, ha = 0, -17, "center"
+                dx, dy, ha = 0, -20, "center"
             else:
-                dx, dy, ha = 0, 11, "center"
-            ax.annotate(f"{pd_y:.2f}", (x, pd_y), textcoords="offset points",
-                        xytext=(dx, dy), ha=ha, fontsize=10,
-                        color="#3a7bbf", fontweight="bold")
+                dx, dy, ha = 0, 12, "center"
+
+            ax.annotate(
+                f"{pd_y:.2f}",
+                xy=(x, pd_y),
+                xytext=(dx, dy),
+                textcoords="offset points",
+                ha=ha,
+                va="center",
+                fontsize=10,
+                color="#3a7bbf",
+                fontweight="bold",
+            )
 
         # Time Series label
         if ts_y is not None:
-            if both and gap < CLOSE:
-                dx, dy, ha = 15, 8, "left"
+            if x in ts_label_offsets:
+                dx, dy, ha = ts_label_offsets[x]
+            elif both and gap < CLOSE:
+                dx, dy, ha = 16, 10, "left"
             elif both and ts_y >= pd_y:
-                dx, dy, ha = 0, 11, "center"
+                dx, dy, ha = 0, 12, "center"
             elif both:
-                dx, dy, ha = 0, -17, "center"
+                dx, dy, ha = 0, -20, "center"
             else:
-                dx, dy, ha = 0, -17, "center"
-            ax.annotate(f"{ts_y:.2f}", (x, ts_y), textcoords="offset points",
-                        xytext=(dx, dy), ha=ha, fontsize=10,
-                        color="#c0392b", fontweight="bold")
+                dx, dy, ha = 0, 12, "center"
 
-        # Delta annotation — only when gap is large enough to be informative
+            ax.annotate(
+                f"{ts_y:.2f}",
+                xy=(x, ts_y),
+                xytext=(dx, dy),
+                textcoords="offset points",
+                ha=ha,
+                va="center",
+                fontsize=10,
+                color="#c0392b",
+                fontweight="bold",
+            )
+
+        # Delta annotation
         if both and gap >= DELTA_MIN:
-            diff  = pd_y - ts_y
+            diff = pd_y - ts_y
             mid_y = (pd_y + ts_y) / 2
-            sign  = "+" if diff >= 0 else ""
-            ax.annotate(f"{sign}{diff:.2f}", (x, mid_y), textcoords="offset points",
-                        xytext=(10, 0), ha="left", fontsize=9, color="gray")
+            sign = "+" if diff >= 0 else ""
+
+            dx, dy = delta_offsets.get(x, (12, 0))
+
+            ax.annotate(
+                f"{sign}{diff:.2f}",
+                xy=(x, mid_y),
+                xytext=(dx, dy),
+                textcoords="offset points",
+                ha="left" if dx >= 0 else "right",
+                va="center",
+                fontsize=9,
+                color="gray",
+            )
 
     # Chance line
     ax.axhline(0.5, color="gray", linestyle=":", linewidth=1.5,
