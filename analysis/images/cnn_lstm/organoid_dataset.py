@@ -37,47 +37,23 @@ def make_idor_series_splits(
 ):
     """Build the IDOR-series cohort using the canonical 2026-winter split.
 
-    Organoids in the IDOR cohort that appear in canonical_2026_winter get their
-    canonical train/val/test assignment. Any IDOR organoids not in the canonical
-    split (e.g. those without metabolite data) are assigned to train so they do
-    not pollute the test set.
+    Applies both the IDOR series filter (complete 11-day series) and
+    Splits.canonical(), so the resulting train/val/test sets are a direct
+    subset of the canonical split — the same organoids as the per-day model.
 
     Returns ``(dataset, train_ids, val_ids, test_ids)``.
     """
     dataset = OrganoidDataset(
         all_data_path,
         filters=filters_for_mode("series_idor"),
+        splits=Splits.canonical(),
     )
-    canonical = Splits.canonical()
-    idor_ids = set(dataset.organoid_ids)
-
-    in_canonical = idor_ids & canonical.organoid_ids()
-    extras = idor_ids - canonical.organoid_ids()
-
-    mapping = {oid: canonical[oid] for oid in in_canonical}
-    mapping.update({oid: "train" for oid in extras})
-
-    splits = Splits.from_dict(
-        mapping,
-        name="canonical_2026_winter_idor",
-        provenance=(
-            "canonical_2026_winter restricted to IDOR series cohort; "
-            f"{len(extras)} organoids not in canonical assigned to train"
-        ),
-    )
-    dataset.apply_splits(splits)
-
-    train_ids = [oid for oid in dataset.organoid_ids if mapping[oid] == "train"]
-    val_ids   = [oid for oid in dataset.organoid_ids if mapping[oid] == "val"]
-    test_ids  = [oid for oid in dataset.organoid_ids if mapping[oid] == "test"]
-
+    train_ids = list(dataset.get_split("train").keys())
+    val_ids   = list(dataset.get_split("val").keys())
+    test_ids  = list(dataset.get_split("test").keys())
     print(
         f"IDOR-series cohort: {len(dataset.organoid_ids)} organoids "
         f"-> train={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)}"
-    )
-    print(
-        f"  {len(in_canonical)} from canonical_2026_winter split, "
-        f"{len(extras)} extras assigned to train"
     )
     return dataset, train_ids, val_ids, test_ids
 
