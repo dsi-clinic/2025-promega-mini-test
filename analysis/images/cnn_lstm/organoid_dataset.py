@@ -35,13 +35,22 @@ LABEL_DAY = "Dy30"
 CANONICAL_DAYS = [3.0, 6.0, 8.0, 10.0, 13.0, 15.0, 17.0, 20.5, 24.0, 28.0, 30.0]
 
 
+def _has_clipped_image(dataset: "OrganoidDataset", oid: str) -> bool:
+    """Return True if the organoid has at least one cm_source_image_abs record."""
+    return any(
+        get_clipped_meanfill_image_path(rec) is not None
+        for rec in dataset.organoid_records(oid).values()
+    )
+
+
 def make_canonical_splits(
     all_data_path: str = "data/all_data.json",
 ):
     """Build train/val/test using the canonical 2026-winter split and base filter.
 
     Uses the same organoids as the per-day EfficientNet model (base filter +
-    Splits.canonical()).  Incomplete time series are handled by padding in
+    Splits.canonical()).  Organoids that have no cm_source_image_abs images are
+    dropped.  Incomplete time series are handled by padding in
     ``OrganoidTimeSeriesDataset.__getitem__``.
 
     Returns ``(dataset, train_ids, val_ids, test_ids)``.
@@ -51,11 +60,11 @@ def make_canonical_splits(
         filters=filters_for_mode("base"),
         splits=Splits.canonical(),
     )
-    train_ids = list(dataset.get_split("train").keys())
-    val_ids   = list(dataset.get_split("val").keys())
-    test_ids  = list(dataset.get_split("test").keys())
+    train_ids = [oid for oid in dataset.get_split("train") if _has_clipped_image(dataset, oid)]
+    val_ids   = [oid for oid in dataset.get_split("val")   if _has_clipped_image(dataset, oid)]
+    test_ids  = [oid for oid in dataset.get_split("test")  if _has_clipped_image(dataset, oid)]
     print(
-        f"Canonical split (base filter): {len(dataset.organoid_ids)} organoids "
+        f"Canonical split (base filter, clipped images): {len(dataset.organoid_ids)} organoids "
         f"-> train={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)}"
     )
     return dataset, train_ids, val_ids, test_ids
