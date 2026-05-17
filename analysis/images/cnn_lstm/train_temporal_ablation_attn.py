@@ -26,7 +26,7 @@ from sklearn.metrics import precision_recall_fscore_support
 
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
-    make_idor_series_splits,
+    make_canonical_splits,
 )
 
 # ---------------- Config ----------------
@@ -63,12 +63,13 @@ class TemporalAttentionPool(nn.Module):
             nn.Tanh(),
             nn.Linear(d // 2, 1),
         )
-    def forward(self, feats):  # feats: (B, T, D)
-        # weights over time
-        w = self.attn(feats).squeeze(-1)         # (B, T)
+    def forward(self, feats, mask=None):  # feats: (B, T, D), mask: (B, T) bool
+        w = self.attn(feats).squeeze(-1)           # (B, T)
+        if mask is not None:
+            w = w.masked_fill(~mask, float('-inf'))
         a = torch.softmax(w, dim=1).unsqueeze(-1)  # (B, T, 1)
-        pooled = (a * feats).sum(dim=1)          # (B, D)
-        return pooled, a.squeeze(-1)             # (B, D), (B, T)
+        pooled = (a * feats).sum(dim=1)            # (B, D)
+        return pooled, a.squeeze(-1)               # (B, D), (B, T)
 
 class OrganoidCNN_TAtt(nn.Module):
     def __init__(self, d_cnn=1280, attn_dropout=0.4):
@@ -104,17 +105,17 @@ class OrganoidCNN_TAtt(nn.Module):
             if "features.6" in name or "features.7" in name:
                 p.requires_grad = True
 
-    def forward(self, x, days_norm):  # x: (B,T,C,H,W), days_norm: (B,T)
+    def forward(self, x, days_norm, mask=None):  # x: (B,T,C,H,W), days_norm: (B,T), mask: (B,T) bool
         B, T, C, H, W = x.shape
         feats = []
         for t in range(T):
             f = self.cnn(x[:, t])                    # (B, d_cnn)
             dt = days_norm[:, t].unsqueeze(1)
-            dt = dt.to(f.device)                     # ensure same device   
-            f = f + self.time_proj(dt)            # inject absolute time
+            dt = dt.to(f.device)
+            f = f + self.time_proj(dt)
             feats.append(f)
         feats = torch.stack(feats, dim=1)            # (B, T, d_cnn)
-        pooled, attn = self.temporal(feats)
+        pooled, attn = self.temporal(feats, mask)
         logit = self.head(pooled).squeeze(1)         # (B,)
         return logit, attn
 
@@ -126,12 +127,13 @@ def evaluate_binary(model, loader, criterion, device):
     all_probs, all_labels, losses = [], [], []
     false_pos, false_neg = [], []
 
-    for seqs, days, labels, weights, ids in loader:
+    for seqs, days, labels, weights, ids, masks in loader:
         seqs   = seqs.to(device)
         days   = days.to(device).float()
         labels = labels.float().to(device)
+        masks  = masks.to(device)
 
-        logits, _ = model(seqs, days)
+        logits, _ = model(seqs, days, masks)
         # criterion has reduction='none' → average for reporting
         loss_raw = criterion(logits, labels)   # (B,)
         losses.append(loss_raw.mean().item())
@@ -278,14 +280,15 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
         model.train()
         running_loss, correct, total = 0.0, 0, 0
-        for seqs, days, labels, weights, ids in tqdm(train_loader, desc=f"Epoch {epoch:02d}", leave=False):
+        for seqs, days, labels, weights, ids, masks in tqdm(train_loader, desc=f"Epoch {epoch:02d}", leave=False):
             seqs   = seqs.to(device)
             days   = days.to(device).float()
             labels = labels.float().to(device)
             weights = weights.to(device).float()
+            masks  = masks.to(device)
 
             optimizer.zero_grad()
-            logits, _ = model(seqs, days)
+            logits, _ = model(seqs, days, masks)
 
             # combine class weights and agreement weights
             loss_raw = criterion(logits, labels)  # (B,)
@@ -362,10 +365,11 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     model.eval()
     all_preds_cm, all_labels_cm = [], []
     with torch.no_grad():
-        for seqs, days, labels, weights, ids in test_loader:
+        for seqs, days, labels, weights, ids, masks in test_loader:
             seqs = seqs.to(device)
             days = days.to(device).float()
-            logits, _ = model(seqs, days)
+            masks = masks.to(device)
+            logits, _ = model(seqs, days, masks)
             preds = (torch.sigmoid(logits) > 0.5).int().cpu()
             all_preds_cm.extend(preds.numpy())
             all_labels_cm.extend(labels.int().cpu().numpy())
@@ -463,7 +467,7 @@ def main():
     print("LOADING DATA")
     print("="*70)
 
-    ds, train_ids, val_ids, test_ids = make_idor_series_splits()
+    ds, train_ids, val_ids, test_ids = make_canonical_splits()
     print(f"Using image type: {args.image_type}")
 
     print("\n" + "="*70)

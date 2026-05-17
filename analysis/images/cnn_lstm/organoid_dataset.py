@@ -31,28 +31,31 @@ from pipeline.splits import Splits
 
 LABEL_DAY = "Dy30"
 
+# All canonical timepoints in the protocol (float days).
+CANONICAL_DAYS = [3.0, 6.0, 8.0, 10.0, 13.0, 15.0, 17.0, 20.5, 24.0, 28.0, 30.0]
 
-def make_idor_series_splits(
+
+def make_canonical_splits(
     all_data_path: str = "data/all_data.json",
 ):
-    """Build the IDOR-series cohort using the canonical 2026-winter split.
+    """Build train/val/test using the canonical 2026-winter split and base filter.
 
-    Applies both the IDOR series filter (complete 11-day series) and
-    Splits.canonical(), so the resulting train/val/test sets are a direct
-    subset of the canonical split — the same organoids as the per-day model.
+    Uses the same organoids as the per-day EfficientNet model (base filter +
+    Splits.canonical()).  Incomplete time series are handled by padding in
+    ``OrganoidTimeSeriesDataset.__getitem__``.
 
     Returns ``(dataset, train_ids, val_ids, test_ids)``.
     """
     dataset = OrganoidDataset(
         all_data_path,
-        filters=filters_for_mode("series_idor"),
+        filters=filters_for_mode("base"),
         splits=Splits.canonical(),
     )
     train_ids = list(dataset.get_split("train").keys())
     val_ids   = list(dataset.get_split("val").keys())
     test_ids  = list(dataset.get_split("test").keys())
     print(
-        f"IDOR-series cohort: {len(dataset.organoid_ids)} organoids "
+        f"Canonical split (base filter): {len(dataset.organoid_ids)} organoids "
         f"-> train={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)}"
     )
     return dataset, train_ids, val_ids, test_ids
@@ -129,7 +132,7 @@ class OrganoidTimeSeriesDataset(Dataset):
         """
         Args:
             organoid_ids: list of organoid_id strings (must be present in ``dataset``).
-            dataset:      OrganoidDataset built with ``filters_for_mode("series_idor")``.
+            dataset:      OrganoidDataset built with ``filters_for_mode("base")``.
             image_type:   'clipped' (575x575 mean-fill) or 'std' (512x384 standard).
         """
         self.organoid_ids = list(organoid_ids)
@@ -199,15 +202,29 @@ class OrganoidTimeSeriesDataset(Dataset):
 
             if self.transform:
                 from PIL import Image
-                img_pil = Image.fromarray((img * 255).astype(np.uint8))
+                img_pil = Image.fromarray(img.astype(np.uint8))
                 img_pil = self.transform(img_pil)
                 img = np.array(img_pil).astype(np.float32) / 255.0
 
             images.append(img)
             days_used.append(mdl_day)
 
-        sequence = np.stack(images)
-        sequence = np.transpose(sequence, (0, 3, 1, 2))
+        actual_T = len(images)
+
+        # Determine padded length from canonical day schedule.
+        if self.max_day is not None:
+            max_T = sum(1 for d in CANONICAL_DAYS if d <= self.max_day)
+        else:
+            max_T = actual_T
+
+        # Pad shorter series with zero frames so all samples in a batch are (max_T, C, H, W).
+        if actual_T > 0 and max_T > actual_T:
+            pad_frame = np.zeros_like(images[0])
+            for _ in range(max_T - actual_T):
+                images.append(pad_frame)
+
+        sequence = np.stack(images)           # (max_T, H, W, C)
+        sequence = np.transpose(sequence, (0, 3, 1, 2))  # (max_T, C, H, W)
         seq = torch.from_numpy(sequence).float()
 
         imagenet_mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(1, 3, 1, 1)
@@ -218,10 +235,17 @@ class OrganoidTimeSeriesDataset(Dataset):
         label_str = self.dataset.organoid_label(organoid_id) or ""
         label = LABEL_TO_INT.get(label_str, 0)
 
-        days_arr = np.array(days_used, dtype=np.float32)
-        dmin = days_arr.min()
-        drng = max(days_arr.max() - dmin, 1e-8)
-        days_norm = torch.from_numpy((days_arr - dmin) / drng).float()
+        # Normalize days over the actual (non-padded) range, then zero-pad.
+        actual_days = np.array(days_used, dtype=np.float32)
+        dmin = actual_days.min() if actual_T > 0 else 0.0
+        drng = max(actual_days.max() - dmin, 1e-8) if actual_T > 0 else 1.0
+        days_arr = np.zeros(max_T, dtype=np.float32)
+        days_arr[:actual_T] = (actual_days - dmin) / drng
+        days_norm = torch.from_numpy(days_arr).float()
+
+        # Boolean mask: True = real frame, False = padding (for attention masking).
+        pad_mask = torch.zeros(max_T, dtype=torch.bool)
+        pad_mask[:actual_T] = True
 
         # Sample weight from Dy30 vote agreement
         dy30_rec = records.get(LABEL_DAY)
@@ -243,4 +267,5 @@ class OrganoidTimeSeriesDataset(Dataset):
             torch.tensor(label, dtype=torch.float32),
             torch.tensor(weight, dtype=torch.float32),
             organoid_id,
+            pad_mask,
         )
