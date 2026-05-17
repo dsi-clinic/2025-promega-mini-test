@@ -35,12 +35,19 @@ LABEL_DAY = "Dy30"
 CANONICAL_DAYS = [3.0, 6.0, 8.0, 10.0, 13.0, 15.0, 17.0, 20.5, 24.0, 28.0, 30.0]
 
 
-def _has_clipped_image(dataset: "OrganoidDataset", oid: str) -> bool:
-    """Return True if the organoid has at least one cm_source_image_abs record."""
-    return any(
-        get_clipped_meanfill_image_path(rec) is not None
-        for rec in dataset.organoid_records(oid).values()
-    )
+def _has_clipped_image(dataset: "OrganoidDataset", oid: str, max_day: float = 8.0) -> bool:
+    """Return True if the organoid has at least one cm_source_image_abs record on a day ≤ max_day.
+
+    Uses max_day=8.0 (the earliest training range) so organoids that only have
+    clipped images from later days are excluded — they would produce empty sequences
+    for the most restrictive temporal ablation window.
+    """
+    for day_id, rec in dataset.organoid_records(oid).items():
+        day_float = get_day_float(day_id)
+        if day_float is not None and day_float <= max_day:
+            if get_clipped_meanfill_image_path(rec) is not None:
+                return True
+    return False
 
 
 def make_canonical_splits(
@@ -196,6 +203,8 @@ class OrganoidTimeSeriesDataset(Dataset):
                 break
 
             img_path = self._image_path(rec)
+            if img_path is None:
+                continue
             img = imread(img_path)
             if img.ndim == 2:
                 img = np.stack([img] * 3, axis=-1)
