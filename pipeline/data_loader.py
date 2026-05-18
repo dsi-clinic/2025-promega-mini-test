@@ -90,12 +90,17 @@ DAY_ALIAS = {
 }
 
 # Image-mode → image_path-key mapping. Single source of truth for translating
-# user-facing mode names ('img', 'mask', 'overlay') to record keys
-# ('img_path', 'mask_path', 'overlay_path').
+# user-facing mode names to record keys.
+# Flat modes resolve directly under images.*; nested modes use tuple (parent, key).
+# cm_source_image / cm_source_mask are aspect-ratio-conserved (resized_575_square)
+# and are the correct inputs for the per-day image classifier.
+# img / overlay use resized_512x384 which is NOT aspect-ratio-conserved.
 IMAGE_MODE_TO_PATH_KEY = {
     "img": "img_path",
     "mask": "mask_path",
     "overlay": "overlay_path",
+    "cm_source_image": ("clipped_meanfill", "cm_source_image_abs"),
+    "cm_source_mask": ("clipped_meanfill", "cm_source_mask_abs"),
 }
 
 
@@ -212,8 +217,8 @@ def get_base_well(record: dict) -> str:
 
 
 def get_clipped_meanfill_image_path(record: dict) -> Optional[str]:
-    """Absolute path to the 575x575 mean-fill-masked image used by CNN-LSTM training."""
-    return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_image_abs")
+    """Absolute path to the 575x575 AR-conserved source image (resized_575_square)."""
+    return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_source_image_abs")
 
 
 def get_clipped_meanfill_mask_path(record: dict) -> Optional[str]:
@@ -1079,12 +1084,14 @@ class OrganoidDataset:
         return X_combined, feat_names + growth_names, new_ids
 
     def get_image_paths(
-        self, split: str, day: str, mode: str = "overlay"
+        self, split: str, day: str, mode: str = "cm_source_image"
     ) -> List[Tuple[str, str, str]]:
         """Get image paths for split+day.
 
         Args:
-            mode: 'img' | 'mask' | 'overlay'
+            mode: 'cm_source_image' | 'cm_source_mask' | 'img' | 'mask' | 'overlay'
+                  cm_source_image/cm_source_mask are aspect-ratio-conserved (resized_575_square).
+                  img/overlay use resized_512x384 (not aspect-ratio-conserved).
 
         Returns: list of (organoid_id, label, path)
         """
@@ -1097,7 +1104,11 @@ class OrganoidDataset:
             if rec is None:
                 continue
             imgs = rec.get("images", {})
-            path = imgs.get(path_key)
+            if isinstance(path_key, tuple):
+                parent, key = path_key
+                path = (imgs.get(parent) or {}).get(key)
+            else:
+                path = imgs.get(path_key)
             if path:
                 result.append((org_id, info["label"], path))
         return result
