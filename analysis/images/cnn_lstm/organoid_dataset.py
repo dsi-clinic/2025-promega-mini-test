@@ -24,6 +24,7 @@ from pipeline.data_loader import (
     filters_for_mode,
     get_clipped_meanfill_image_path,
     get_clipped_meanfill_mask_path,
+    get_cm_image_path,
     get_day_float,
     get_survey_vote_counts,
 )
@@ -165,6 +166,8 @@ class OrganoidTimeSeriesDataset(Dataset):
     def _image_path(self, record):
         if self.image_type == "clipped":
             return get_clipped_meanfill_image_path(record)
+        if self.image_type == "cm_image":
+            return get_cm_image_path(record)
         return (record.get("images") or {}).get("img_path")
 
     def _mask_path(self, record):
