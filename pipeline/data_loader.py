@@ -101,6 +101,8 @@ IMAGE_MODE_TO_PATH_KEY = {
     "overlay": "overlay_path",
     "cm_source_image": ("clipped_meanfill", "cm_source_image_abs"),
     "cm_source_mask": ("clipped_meanfill", "cm_source_mask_abs"),
+    "cm_image": ("clipped_meanfill", "cm_image_abs"),
+    "cm_mask":  ("clipped_meanfill", "cm_mask_abs"),
 }
 
 

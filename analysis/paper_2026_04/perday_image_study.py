@@ -286,7 +286,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", nargs="+", default=None)
     parser.add_argument("--input-mode", default="cm_source_image",
-                        choices=["cm_source_image", "cm_source_mask", "overlay", "img", "mask"])
+                        choices=["cm_source_image", "cm_source_mask", "cm_image", "cm_mask", "overlay", "img", "mask"])
     args = parser.parse_args()
 
     set_seed(SEED)
