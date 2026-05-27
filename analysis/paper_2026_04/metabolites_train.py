@@ -26,15 +26,10 @@ Usage:
 import argparse
 import json
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score
-from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold
-from sklearn.preprocessing import StandardScaler
-
 from pipeline.data_loader import (
     ANALYSIS_OUTPUT_DIR,
     DAY_ORDER,
@@ -42,8 +37,15 @@ from pipeline.data_loader import (
     OrganoidDataset,
 )
 from pipeline.splits import Splits
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score
+from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold
+from sklearn.preprocessing import StandardScaler
 
-from .common import compute_classification_metrics, plot_balanced_accuracy_by_day
+from .common_renamed import (
+    compute_classification_metrics,
+    plot_balanced_accuracy_by_day,
+)
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -56,15 +58,17 @@ OUTPUT_DIR = ANALYSIS_OUTPUT_DIR / "metabolites"
 class ModelSpec:
     """All the bits that distinguish LightGBM-day from LogReg-day."""
 
-    name: str            # 'lgbm' / 'logreg'
-    display: str         # 'LightGBM' / 'Logistic Regression'
-    factory: Callable    # () → unfit estimator with class-balanced base config
+    name: str  # 'lgbm' / 'logreg'
+    display: str  # 'LightGBM' / 'Logistic Regression'
+    factory: Callable  # () → unfit estimator with class-balanced base config
     param_grid: dict
-    cv_scoring: str      # 'f1' (lgbm: minority class) or 'f1_weighted' (lr)
+    cv_scoring: str  # 'f1' (lgbm: minority class) or 'f1_weighted' (lr)
     threshold_grid: np.ndarray
     threshold_scoring: Callable[[np.ndarray, np.ndarray], float]
     use_scaler: bool
     captures_feature_importance: bool
+    include_growth: bool = True  # LightGBM uses differences per paper
+    include_initial: bool = True
 
 
 def _f1_minority(y_true, y_pred):
@@ -75,11 +79,15 @@ def _f1_weighted(y_true, y_pred):
     return f1_score(y_true, y_pred, average="weighted", zero_division=0)
 
 
-def _lgbm_factory(*, scale_pos_weight: float = 1.0):
+def _lgbm_factory():
+    """LightGBM with class_weight='balanced' per paper: 'class weighting to
+    address label imbalance: the Not Acceptable class receiving additional
+    emphasis during fitting.'"""
     import lightgbm as lgb
+
     return lgb.LGBMClassifier(
         objective="binary",
-        scale_pos_weight=scale_pos_weight,
+        class_weight="balanced",
         random_state=SEED,
         verbosity=-1,
         n_jobs=1,
@@ -87,10 +95,14 @@ def _lgbm_factory(*, scale_pos_weight: float = 1.0):
 
 
 def _logreg_factory():
+    """LogReg matching old `train_metabolites_logreg_nogrowth.py`. Paper does
+    not specify solver explicitly; liblinear was selected because it reproduces
+    paper Best Bal. Acc. to within 1.0%p (see notes/refactored_table3.md).
+    max_iter left at sklearn default (100)."""
     return LogisticRegression(
         class_weight="balanced",
         random_state=SEED,
-        solver="saga",
+        solver="liblinear",
     )
 
 
@@ -121,32 +133,41 @@ MODEL_SPECS = {
         param_grid={
             "C": [0.01, 0.1, 1.0, 10.0],
             "penalty": ["l1", "l2"],
-            "max_iter": [1000],
         },
         cv_scoring="f1_weighted",
         threshold_grid=np.linspace(0.1, 0.9, 17),
         threshold_scoring=_f1_weighted,
-        use_scaler=True,
+        use_scaler=False,  # paper: deliberately simple baseline, no scaling
         captures_feature_importance=False,
+        include_growth=False,  # paper: absolute concentrations only
+        include_initial=False,
     ),
 }
 
 
-def _features_for_day(ds: OrganoidDataset, day: str):
-    """Pull (X, y, names, ids) for each split on one day. include_growth=True."""
+def _features_for_day(ds: OrganoidDataset, day: str, spec: "ModelSpec"):
+    """Pull (X, y, names, ids) for each split on one day.
+
+    Feature set (include_growth, include_initial) comes from the ModelSpec.
+    """
     out = {}
     for split in ("train", "val", "test"):
         X, y, names, ids = ds.get_metabolite_features(
-            split, day, include_growth=True, include_initial=True,
+            split,
+            day,
+            include_growth=spec.include_growth,
+            include_initial=spec.include_initial,
         )
         out[split] = (X, y, names, ids)
     return out
 
 
-def _train_one(spec: ModelSpec, day: str, day_features: dict, *, verbose: bool) -> Optional[dict]:
+def _train_one(
+    spec: ModelSpec, day: str, day_features: dict, *, verbose: bool
+) -> dict | None:
     X_train, y_train, feat_names, ids_train = day_features["train"]
-    X_val,   y_val,   _,         _          = day_features["val"]
-    X_test,  y_test,  _,         _          = day_features["test"]
+    X_val, y_val, _, _ = day_features["val"]
+    X_test, y_test, _, _ = day_features["test"]
 
     if len(X_train) == 0 or len(X_test) == 0:
         return None
@@ -155,18 +176,21 @@ def _train_one(spec: ModelSpec, day: str, day_features: dict, *, verbose: bool) 
     if spec.use_scaler:
         scaler = StandardScaler()
         X_train_p = scaler.fit_transform(X_train)
-        X_val_p = scaler.transform(X_val) if len(X_val) > 0 else np.empty((0, X_train.shape[1]))
+        X_val_p = (
+            scaler.transform(X_val)
+            if len(X_val) > 0
+            else np.empty((0, X_train.shape[1]))
+        )
         X_test_p = scaler.transform(X_test)
     else:
         X_train_p, X_val_p, X_test_p = X_train, X_val, X_test
 
     # Phase 1: GridSearchCV on train (group-aware).
-    base = spec.factory() if spec.name == "logreg" else spec.factory(
-        scale_pos_weight=(sum(y_train == 0) / max(sum(y_train == 1), 1)),
-    )
+    base = spec.factory()
     cv = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=SEED)
-    grid = GridSearchCV(base, spec.param_grid, cv=cv, scoring=spec.cv_scoring,
-                        n_jobs=-1, refit=True)
+    grid = GridSearchCV(
+        base, spec.param_grid, cv=cv, scoring=spec.cv_scoring, n_jobs=-1, refit=True
+    )
     grid.fit(X_train_p, y_train, groups=np.asarray(ids_train))
     best_params = grid.best_params_
     if verbose:
@@ -192,13 +216,8 @@ def _train_one(spec: ModelSpec, day: str, day_features: dict, *, verbose: bool) 
     else:
         X_tv, y_tv = X_train_p, y_train
 
-    if spec.name == "logreg":
-        final = spec.factory()
-        final.set_params(**best_params)
-    else:
-        spw_tv = sum(y_tv == 0) / max(sum(y_tv == 1), 1)
-        final = spec.factory(scale_pos_weight=spw_tv)
-        final.set_params(**best_params)
+    final = spec.factory()
+    final.set_params(**best_params)
     final.fit(X_tv, y_tv)
 
     test_probs = final.predict_proba(X_test_p)[:, 1]
@@ -210,11 +229,13 @@ def _train_one(spec: ModelSpec, day: str, day_features: dict, *, verbose: bool) 
 
     if spec.captures_feature_importance and hasattr(final, "feature_importances_"):
         ranked = sorted(
-            zip(feat_names, final.feature_importances_),
+            zip(feat_names, final.feature_importances_, strict=False),
             key=lambda kv: kv[1],
             reverse=True,
         )
-        metrics["feature_importance"] = [{"feature": f, "importance": int(i)} for f, i in ranked]
+        metrics["feature_importance"] = [
+            {"feature": f, "importance": int(i)} for f, i in ranked
+        ]
 
     return metrics
 
@@ -249,9 +270,15 @@ def _print_aggregate(results: dict) -> None:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--days", nargs="+", default=None,
-                        help="Specific days to train (e.g. Dy30 Dy24)")
-    parser.add_argument("--skip-lr", action="store_true", help="Skip logistic regression")
+    parser.add_argument(
+        "--days",
+        nargs="+",
+        default=None,
+        help="Specific days to train (e.g. Dy30 Dy24)",
+    )
+    parser.add_argument(
+        "--skip-lr", action="store_true", help="Skip logistic regression"
+    )
     parser.add_argument("--skip-lgbm", action="store_true", help="Skip LightGBM")
     args = parser.parse_args()
 
@@ -264,15 +291,21 @@ def main():
     ds = OrganoidDataset(ALL_DATA_PATH, splits=Splits.canonical())
     print(ds.summary())
 
-    days_to_train = args.days if args.days else DAY_ORDER
+    days_to_train = args.days or DAY_ORDER
     results: dict = {spec.name: {} for spec in enabled}
 
     for day in days_to_train:
         if day not in ds.days:
             print(f"\nSkipping {day} (no data)")
             continue
-        day_features = _features_for_day(ds, day)
+        # Cache features by (include_growth, include_initial) so LightGBM and
+        # LogReg can share the call when their feature sets match.
+        feature_cache = {}
         for spec in enabled:
+            cache_key = (spec.include_growth, spec.include_initial)
+            if cache_key not in feature_cache:
+                feature_cache[cache_key] = _features_for_day(ds, day, spec)
+            day_features = feature_cache[cache_key]
             print(f"\n{'=' * 50}\n{spec.display} - {day}\n{'=' * 50}")
             m = _train_one(spec, day, day_features, verbose=True)
             if m is None:
@@ -298,8 +331,12 @@ def main():
             output_path=FIGURE_DIR / "LightGBM_vs_Logistic_Regression.png",
             title="LightGBM vs Logistic Regression: Balanced Accuracy by Day",
             style_overrides={
-                "LightGBM":            {"color": "#1f77b4", "marker": "o", "linestyle": "-"},
-                "Logistic Regression": {"color": "#ff7f0e", "marker": "s", "linestyle": "--"},
+                "LightGBM": {"color": "#1f77b4", "marker": "o", "linestyle": "-"},
+                "Logistic Regression": {
+                    "color": "#ff7f0e",
+                    "marker": "s",
+                    "linestyle": "--",
+                },
             },
             late_stage_shade_from_day=24,
         )
