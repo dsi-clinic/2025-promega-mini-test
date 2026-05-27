@@ -286,7 +286,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", nargs="+", default=None)
     parser.add_argument("--input-mode", default="cm_source_image",
-                        choices=["cm_source_image", "cm_source_mask", "overlay", "img", "mask"])
+                        choices=["cm_source_image", "cm_source_mask", "cm_image", "cm_mask", "overlay", "img", "mask"])
     args = parser.parse_args()
 
     set_seed(SEED)
@@ -305,8 +305,12 @@ def main():
         if m:
             results[day] = m
 
+    # Use a mode-specific suffix so different input-mode runs don't overwrite each other.
+    # The canonical raw run (cm_source_image) keeps the legacy filenames.
+    mode_suffix = "" if args.input_mode == "cm_source_image" else f"_{args.input_mode}"
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = OUTPUT_DIR / "perday_results.json"
+    out_path = OUTPUT_DIR / f"perday_results{mode_suffix}.json"
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nSaved results to {out_path}")
@@ -335,7 +339,7 @@ def main():
         plot_balanced_accuracy_by_day(
             {"Per-day EfficientNet": results},
             day_order=DAY_ORDER,
-            output_path=FIGURE_DIR / "perday_image_balanced_accuracy.png",
+            output_path=FIGURE_DIR / f"perday_image_balanced_accuracy{mode_suffix}.png",
             title="Per-Day Image Classifier: Balanced Accuracy by Day",
             style_overrides={"Per-day EfficientNet": {"color": "#1f77b4", "marker": "o"}},
         )

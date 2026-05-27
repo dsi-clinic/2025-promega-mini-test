@@ -101,6 +101,8 @@ IMAGE_MODE_TO_PATH_KEY = {
     "overlay": "overlay_path",
     "cm_source_image": ("clipped_meanfill", "cm_source_image_abs"),
     "cm_source_mask": ("clipped_meanfill", "cm_source_mask_abs"),
+    "cm_image": ("clipped_meanfill", "cm_image_abs"),
+    "cm_mask":  ("clipped_meanfill", "cm_mask_abs"),
 }
 
 
@@ -224,6 +226,11 @@ def get_clipped_meanfill_image_path(record: dict) -> Optional[str]:
 def get_clipped_meanfill_mask_path(record: dict) -> Optional[str]:
     """Absolute path to the 575x575 source mask used to apply the mean-fill clip."""
     return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_source_mask_abs")
+
+
+def get_cm_image_path(record: dict) -> Optional[str]:
+    """Absolute path to the 575x575 mean-filled AR-conserved image (mean_fill_clip/)."""
+    return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_image_abs")
 
 
 def get_survey_vote_counts(record: dict) -> Tuple[int, int]:

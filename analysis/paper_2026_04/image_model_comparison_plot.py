@@ -42,10 +42,8 @@ _LABEL_TO_NUM = {
     "Dy15": 15, "Dy17": 17, "Dy20_5": 20.5, "Dy24": 24, "Dy28": 28, "Dy30": 30,
 }
 
-_SHARED_CNN_LSTM_PATH = Path("/net/projects2/promega/2026_04_15_data/analysis_output/images/cnn_lstm/temporal_ablation_attn/temporal_ablation_results.json")
-_LOCAL_CNN_LSTM_PATH  = Path("outputs/cnn_lstm/temporal_ablation_attn/temporal_ablation_results.json")
-DEFAULT_CNN_LSTM_PATH = _SHARED_CNN_LSTM_PATH if _SHARED_CNN_LSTM_PATH.exists() else _LOCAL_CNN_LSTM_PATH
-DEFAULT_PERDAY_PATH = ANALYSIS_OUTPUT_DIR / "images" / "perday_results.json"
+_DEFAULT_CNN_LSTM_PATH = Path("outputs/cnn_lstm/temporal_ablation_attn/temporal_ablation_results.json")
+_DEFAULT_PERDAY_PATH = ANALYSIS_OUTPUT_DIR / "images" / "perday_results.json"
 
 
 def _load(path):
@@ -98,8 +96,8 @@ def _balanced_acc_from_entry(r, n_pos, n_neg):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--perday-path", default=str(DEFAULT_PERDAY_PATH))
-    parser.add_argument("--cnn-lstm-path", default=str(DEFAULT_CNN_LSTM_PATH))
+    parser.add_argument("--perday-path", default=str(_DEFAULT_PERDAY_PATH))
+    parser.add_argument("--cnn-lstm-path", default=str(_DEFAULT_CNN_LSTM_PATH))
     args = parser.parse_args()
 
     perday = _load(args.perday_path)

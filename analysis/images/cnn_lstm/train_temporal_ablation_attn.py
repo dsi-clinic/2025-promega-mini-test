@@ -451,8 +451,8 @@ def main():
     parser = argparse.ArgumentParser(description='Temporal ablation: attention pool')
     parser.add_argument('--output-dir', type=str, default='outputs/cnn_lstm/temporal_ablation_attn',
                         help='Output directory')
-    parser.add_argument('--image-type', type=str, default='clipped', choices=['clipped', 'std'],
-                        help='Image variant: clipped (575x575 AR meanfill) or std (512x384)')
+    parser.add_argument('--image-type', type=str, default='clipped', choices=['clipped', 'std', 'cm_image'],
+                        help='Image variant: clipped (raw AR-conserved), cm_image (mean-filled AR-conserved), or std (512x384)')
     args = parser.parse_args()
 
     set_seed(SEED)
