@@ -96,8 +96,7 @@ def _lgbm_factory():
 
 def _logreg_factory():
     """LogReg matching old `train_metabolites_logreg_nogrowth.py`. Paper does
-    not specify solver explicitly; liblinear was selected because it reproduces
-    paper Best Bal. Acc. to within 1.0%p (see notes/refactored_table3.md).
+    not specify solver explicitly.
     max_iter left at sklearn default (100)."""
     return LogisticRegression(
         class_weight="balanced",
