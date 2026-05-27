@@ -520,10 +520,9 @@ analysis-train-dinov2:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.imagequality_classification.train_model_dinov2 \
 		--all-data $(ALL_DATA_JSON) \
 		--splits-csv $(SPLITS_CSV) \
-		--mode base \
 		--batch-size 16 \
 		--val-batch-size 16 \
-		--input-path-key img_path \
+		--input-path-key cm_source_image \
 		--outdir $(MODELS_DIR)/imagequality_classification/dinov2_fixed_splits
 
 # Multimodal classifier — single configuration.
