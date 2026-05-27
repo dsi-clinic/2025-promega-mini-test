@@ -8,6 +8,18 @@ Raw inputs ──► pipeline/ (steps 1-16) ──► data/all_data.json ──�
 
 The `pipeline/` package turns raw images, Excel sheets, and segmentation masks into a single canonical `all_data.json`. The `analysis/` package consumes that JSON for model training, paper replication, and exploratory work. **One source of truth** — no derived JSONs are checked in (see `AGENTS.md` rule #3).
 
+## Contributors
+- Amanda Johnson
+- Harriet Zu
+- Liya Ding
+- Lucy Li
+- Nick Ross
+- Nikki Tebaldi
+- Sophie Feng
+- Summer Han
+- Yichen Ding
+
+
 ## Quick Start
 
 ```bash
