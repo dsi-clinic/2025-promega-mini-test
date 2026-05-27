@@ -1,0 +1,1540 @@
+=== Records in all_data.json (with metabolites) but NOT in CONC CSV ===
+Total: 1412
+
+  BA1 96_1 Dy17 C11
+  BA1 96_1 Dy17 D7
+  BA1 96_1 Dy28 A1
+  BA1 96_1 Dy28 A10
+  BA1 96_1 Dy28 A12
+  BA1 96_1 Dy28 A4
+  BA1 96_1 Dy28 B3
+  BA1 96_1 Dy28 D8
+  BA1 96_1 Dy28 E9
+  BA1 96_1 Dy28 F6
+  BA1 96_1 Dy28 H1
+  BA1 96_1 Dy28 H12
+  BA1 96_1 Dy28 H8
+  BA1 96_1 Dy28 H9
+  BA1 96_1 Dy30 A1
+  BA1 96_1 Dy30 A10
+  BA1 96_1 Dy30 A11
+  BA1 96_1 Dy30 A12
+  BA1 96_1 Dy30 A6
+  BA1 96_1 Dy30 A8
+  BA1 96_1 Dy30 A9
+  BA1 96_1 Dy30 B11
+  BA1 96_1 Dy30 B3
+  BA1 96_1 Dy30 D1
+  BA1 96_1 Dy30 D12
+  BA1 96_1 Dy30 D8
+  BA1 96_1 Dy30 E12
+  BA1 96_1 Dy30 E9
+  BA1 96_1 Dy30 F6
+  BA1 96_1 Dy30 G5
+  BA1 96_1 Dy30 G6
+  BA1 96_1 Dy30 G7
+  BA1 96_1 Dy30 H1
+  BA1 96_1 Dy30 H12
+  BA1 96_1 Dy30 H5
+  BA1 96_1 Dy30 H8
+  BA1 96_1 Dy30 H9
+  BA2 96_1 Dy03 A1
+  BA2 96_1 Dy03 C1
+  BA2 96_1 Dy03 D10
+  BA2 96_1 Dy03 E1
+  BA2 96_1 Dy03 E7
+  BA2 96_1 Dy03 E8
+  BA2 96_1 Dy03 H12
+  BA2 96_1 Dy06 A1
+  BA2 96_1 Dy06 C1
+  BA2 96_1 Dy06 D10
+  BA2 96_1 Dy06 E1
+  BA2 96_1 Dy06 E7
+  BA2 96_1 Dy06 E8
+  BA2 96_1 Dy06 H12
+  BA2 96_1 Dy08 A1
+  BA2 96_1 Dy08 C1
+  BA2 96_1 Dy08 D10
+  BA2 96_1 Dy08 E1
+  BA2 96_1 Dy08 E7
+  BA2 96_1 Dy08 E8
+  BA2 96_1 Dy08 H12
+  BA2 96_1 Dy10 A1
+  BA2 96_1 Dy10 C1
+  BA2 96_1 Dy10 D10
+  BA2 96_1 Dy10 E1
+  BA2 96_1 Dy10 E7
+  BA2 96_1 Dy10 E8
+  BA2 96_1 Dy10 H12
+  BA2 96_1 Dy13 A1
+  BA2 96_1 Dy13 C1
+  BA2 96_1 Dy13 D10
+  BA2 96_1 Dy13 E1
+  BA2 96_1 Dy13 E7
+  BA2 96_1 Dy13 E8
+  BA2 96_1 Dy13 H12
+  BA2 96_1 Dy15 A1
+  BA2 96_1 Dy15 C1
+  BA2 96_1 Dy15 D10
+  BA2 96_1 Dy15 E1
+  BA2 96_1 Dy15 E7
+  BA2 96_1 Dy15 E8
+  BA2 96_1 Dy15 H12
+  BA2 96_1 Dy17 C1
+  BA2 96_1 Dy17 D10
+  BA2 96_1 Dy17 E1
+  BA2 96_1 Dy17 E7
+  BA2 96_1 Dy17 E8
+  BA2 96_1 Dy17 H12
+  BA2 96_1 Dy20.5 A1
+  BA2 96_1 Dy20.5 B12
+  BA2 96_1 Dy20.5 B9
+  BA2 96_1 Dy20.5 C1
+  BA2 96_1 Dy20.5 D10
+  BA2 96_1 Dy20.5 D7
+  BA2 96_1 Dy20.5 E1
+  BA2 96_1 Dy20.5 E7 split_1
+  BA2 96_1 Dy20.5 E7 split_2
+  BA2 96_1 Dy20.5 E8 split_2
+  BA2 96_1 Dy20.5 H12
+  BA2 96_1 Dy24 A1
+  BA2 96_1 Dy24 A12
+  BA2 96_1 Dy24 A2
+  BA2 96_1 Dy24 A4
+  BA2 96_1 Dy24 A5
+  BA2 96_1 Dy24 B1
+  BA2 96_1 Dy24 B11
+  BA2 96_1 Dy24 B4
+  BA2 96_1 Dy24 B9
+  BA2 96_1 Dy24 C1
+  BA2 96_1 Dy24 C2
+  BA2 96_1 Dy24 C5
+  BA2 96_1 Dy24 C7
+  BA2 96_1 Dy24 D1
+  BA2 96_1 Dy24 D10 split_1
+  BA2 96_1 Dy24 D10 split_2
+  BA2 96_1 Dy24 D12
+  BA2 96_1 Dy24 D7
+  BA2 96_1 Dy24 E1 split_1
+  BA2 96_1 Dy24 E1 split_2
+  BA2 96_1 Dy24 E7 split_1
+  BA2 96_1 Dy24 E7 split_2
+  BA2 96_1 Dy24 E8 split_1
+  BA2 96_1 Dy24 E8 split_2
+  BA2 96_1 Dy24 F11
+  BA2 96_1 Dy24 F12
+  BA2 96_1 Dy24 H12
+  BA2 96_1 Dy28 A1
+  BA2 96_1 Dy28 A10
+  BA2 96_1 Dy28 A11
+  BA2 96_1 Dy28 A12
+  BA2 96_1 Dy28 A2
+  BA2 96_1 Dy28 A3
+  BA2 96_1 Dy28 A4
+  BA2 96_1 Dy28 A5
+  BA2 96_1 Dy28 A9
+  BA2 96_1 Dy28 B1
+  BA2 96_1 Dy28 B4
+  BA2 96_1 Dy28 B9
+  BA2 96_1 Dy28 C1 split_1
+  BA2 96_1 Dy28 C1 split_2
+  BA2 96_1 Dy28 C5
+  BA2 96_1 Dy28 C7
+  BA2 96_1 Dy28 D10 split_1
+  BA2 96_1 Dy28 D10 split_2
+  BA2 96_1 Dy28 D12
+  BA2 96_1 Dy28 D4
+  BA2 96_1 Dy28 E1 split_1
+  BA2 96_1 Dy28 E1 split_2
+  BA2 96_1 Dy28 E10
+  BA2 96_1 Dy28 E11
+  BA2 96_1 Dy28 E7 split_1
+  BA2 96_1 Dy28 E7 split_2
+  BA2 96_1 Dy28 E8 split_1
+  BA2 96_1 Dy28 E8 split_2
+  BA2 96_1 Dy28 E9
+  BA2 96_1 Dy28 F11
+  BA2 96_1 Dy28 F12
+  BA2 96_1 Dy28 F3
+  BA2 96_1 Dy28 G4
+  BA2 96_1 Dy28 G8
+  BA2 96_1 Dy28 H10
+  BA2 96_1 Dy28 H12
+  BA2 96_1 Dy28 H8
+  BA2 96_1 Dy30 A1
+  BA2 96_1 Dy30 A10
+  BA2 96_1 Dy30 A11
+  BA2 96_1 Dy30 A2
+  BA2 96_1 Dy30 A3
+  BA2 96_1 Dy30 A4
+  BA2 96_1 Dy30 B1
+  BA2 96_1 Dy30 B11
+  BA2 96_1 Dy30 B7
+  BA2 96_1 Dy30 C1 split_1
+  BA2 96_1 Dy30 C1 split_2
+  BA2 96_1 Dy30 C12
+  BA2 96_1 Dy30 C2
+  BA2 96_1 Dy30 C5
+  BA2 96_1 Dy30 D1
+  BA2 96_1 Dy30 D10 split_1
+  BA2 96_1 Dy30 D10 split_2
+  BA2 96_1 Dy30 D12
+  BA2 96_1 Dy30 D6
+  BA2 96_1 Dy30 E1 split_1
+  BA2 96_1 Dy30 E1 split_2
+  BA2 96_1 Dy30 E10
+  BA2 96_1 Dy30 E11
+  BA2 96_1 Dy30 E7 split_1
+  BA2 96_1 Dy30 E7 split_2
+  BA2 96_1 Dy30 E8 split_1
+  BA2 96_1 Dy30 E8 split_2
+  BA2 96_1 Dy30 F12
+  BA2 96_1 Dy30 F3
+  BA2 96_1 Dy30 G2
+  BA2 96_1 Dy30 H10
+  BA2 96_1 Dy30 H12
+  BA2 96_2 Dy03 A1
+  BA2 96_2 Dy03 B3
+  BA2 96_2 Dy03 B5
+  BA2 96_2 Dy03 B8
+  BA2 96_2 Dy03 C8
+  BA2 96_2 Dy03 D12
+  BA2 96_2 Dy03 D5
+  BA2 96_2 Dy03 D7
+  BA2 96_2 Dy03 E3
+  BA2 96_2 Dy03 H12
+  BA2 96_2 Dy06 A1
+  BA2 96_2 Dy06 B3
+  BA2 96_2 Dy06 B5
+  BA2 96_2 Dy06 B8
+  BA2 96_2 Dy06 C8
+  BA2 96_2 Dy06 D12
+  BA2 96_2 Dy06 D5
+  BA2 96_2 Dy06 D7
+  BA2 96_2 Dy06 E3
+  BA2 96_2 Dy06 H12
+  BA2 96_2 Dy08 A1
+  BA2 96_2 Dy08 A12
+  BA2 96_2 Dy08 B3
+  BA2 96_2 Dy08 B5
+  BA2 96_2 Dy08 B8
+  BA2 96_2 Dy08 C8
+  BA2 96_2 Dy08 D12
+  BA2 96_2 Dy08 D5
+  BA2 96_2 Dy08 D7
+  BA2 96_2 Dy08 E3
+  BA2 96_2 Dy08 H12
+  BA2 96_2 Dy10 A1
+  BA2 96_2 Dy10 A12
+  BA2 96_2 Dy10 B3
+  BA2 96_2 Dy10 B5
+  BA2 96_2 Dy10 B8
+  BA2 96_2 Dy10 C8
+  BA2 96_2 Dy10 D12
+  BA2 96_2 Dy10 D5
+  BA2 96_2 Dy10 D7
+  BA2 96_2 Dy10 E3
+  BA2 96_2 Dy10 H12
+  BA2 96_2 Dy13 A1
+  BA2 96_2 Dy13 B3
+  BA2 96_2 Dy13 B5
+  BA2 96_2 Dy13 B8
+  BA2 96_2 Dy13 C8
+  BA2 96_2 Dy13 D12
+  BA2 96_2 Dy13 D5
+  BA2 96_2 Dy13 D7
+  BA2 96_2 Dy13 E3
+  BA2 96_2 Dy13 H12
+  BA2 96_2 Dy15 A1
+  BA2 96_2 Dy15 A4
+  BA2 96_2 Dy15 B3
+  BA2 96_2 Dy15 B5
+  BA2 96_2 Dy15 B8
+  BA2 96_2 Dy15 C8
+  BA2 96_2 Dy15 D12
+  BA2 96_2 Dy15 D5
+  BA2 96_2 Dy15 D7
+  BA2 96_2 Dy15 E3
+  BA2 96_2 Dy15 H12
+  BA2 96_2 Dy17 A1
+  BA2 96_2 Dy17 B3
+  BA2 96_2 Dy17 B5
+  BA2 96_2 Dy17 B8
+  BA2 96_2 Dy17 C8
+  BA2 96_2 Dy17 D12
+  BA2 96_2 Dy17 D5
+  BA2 96_2 Dy17 D7
+  BA2 96_2 Dy17 E3
+  BA2 96_2 Dy17 H12
+  BA2 96_2 Dy20.5 B3
+  BA2 96_2 Dy20.5 B5
+  BA2 96_2 Dy20.5 B8
+  BA2 96_2 Dy20.5 C8
+  BA2 96_2 Dy20.5 D12 split_1
+  BA2 96_2 Dy20.5 D12 split_2
+  BA2 96_2 Dy20.5 D5 split_1
+  BA2 96_2 Dy20.5 D5 split_2
+  BA2 96_2 Dy20.5 D7 split_1
+  BA2 96_2 Dy20.5 D7 split_2
+  BA2 96_2 Dy20.5 E3
+  BA2 96_2 Dy20.5 H12
+  BA2 96_2 Dy24 A1
+  BA2 96_2 Dy24 A10
+  BA2 96_2 Dy24 A12
+  BA2 96_2 Dy24 A8
+  BA2 96_2 Dy24 B3 split_1
+  BA2 96_2 Dy24 B3 split_2
+  BA2 96_2 Dy24 B5 split_1
+  BA2 96_2 Dy24 B5 split_2
+  BA2 96_2 Dy24 B8 split_1
+  BA2 96_2 Dy24 B8 split_2
+  BA2 96_2 Dy24 C8
+  BA2 96_2 Dy24 D12 split_1
+  BA2 96_2 Dy24 D5 split_1
+  BA2 96_2 Dy24 D5 split_2
+  BA2 96_2 Dy24 D7 split_2
+  BA2 96_2 Dy24 D8
+  BA2 96_2 Dy24 E3 split_2
+  BA2 96_2 Dy24 E5
+  BA2 96_2 Dy24 F4
+  BA2 96_2 Dy24 H12
+  BA2 96_2 Dy28 A1
+  BA2 96_2 Dy28 A4
+  BA2 96_2 Dy28 A7
+  BA2 96_2 Dy28 B1
+  BA2 96_2 Dy28 B12
+  BA2 96_2 Dy28 B3 split_1
+  BA2 96_2 Dy28 B3 split_2
+  BA2 96_2 Dy28 B5 split_1
+  BA2 96_2 Dy28 B5 split_2
+  BA2 96_2 Dy28 B8 split_1
+  BA2 96_2 Dy28 B8 split_2
+  BA2 96_2 Dy28 C6
+  BA2 96_2 Dy28 C8 split_1
+  BA2 96_2 Dy28 C8 split_2
+  BA2 96_2 Dy28 D10
+  BA2 96_2 Dy28 D12 split_1
+  BA2 96_2 Dy28 D12 split_2
+  BA2 96_2 Dy28 D5 split_1
+  BA2 96_2 Dy28 D5 split_2
+  BA2 96_2 Dy28 D7 split_1
+  BA2 96_2 Dy28 D7 split_2
+  BA2 96_2 Dy28 E1
+  BA2 96_2 Dy28 E3 split_1
+  BA2 96_2 Dy28 E3 split_2
+  BA2 96_2 Dy28 F5
+  BA2 96_2 Dy28 G10
+  BA2 96_2 Dy28 H12
+  BA2 96_2 Dy28 H4
+  BA2 96_2 Dy30 A1
+  BA2 96_2 Dy30 A7
+  BA2 96_2 Dy30 A9
+  BA2 96_2 Dy30 B1
+  BA2 96_2 Dy30 B12
+  BA2 96_2 Dy30 B3 split_1
+  BA2 96_2 Dy30 B3 split_2
+  BA2 96_2 Dy30 B5 split_1
+  BA2 96_2 Dy30 B5 split_2
+  BA2 96_2 Dy30 B8 split_1
+  BA2 96_2 Dy30 B8 split_2
+  BA2 96_2 Dy30 C1
+  BA2 96_2 Dy30 C8 split_1
+  BA2 96_2 Dy30 C8 split_2
+  BA2 96_2 Dy30 D11
+  BA2 96_2 Dy30 D12 split_1
+  BA2 96_2 Dy30 D12 split_2
+  BA2 96_2 Dy30 D5 split_1
+  BA2 96_2 Dy30 D5 split_2
+  BA2 96_2 Dy30 D7 split_1
+  BA2 96_2 Dy30 D7 split_2
+  BA2 96_2 Dy30 E3 split_1
+  BA2 96_2 Dy30 E3 split_2
+  BA2 96_2 Dy30 G10
+  BA2 96_2 Dy30 G11
+  BA2 96_2 Dy30 H12
+  BA4 96_1 Dy03 A1
+  BA4 96_1 Dy03 A10
+  BA4 96_1 Dy03 A11
+  BA4 96_1 Dy03 A12
+  BA4 96_1 Dy03 A2
+  BA4 96_1 Dy03 A3
+  BA4 96_1 Dy03 A4
+  BA4 96_1 Dy03 A5
+  BA4 96_1 Dy03 A6
+  BA4 96_1 Dy03 A7
+  BA4 96_1 Dy03 A8
+  BA4 96_1 Dy03 A9
+  BA4 96_1 Dy03 B1
+  BA4 96_1 Dy03 B10
+  BA4 96_1 Dy03 B11
+  BA4 96_1 Dy03 B12
+  BA4 96_1 Dy03 B2
+  BA4 96_1 Dy03 B3
+  BA4 96_1 Dy03 B4
+  BA4 96_1 Dy03 B5
+  BA4 96_1 Dy03 B6
+  BA4 96_1 Dy03 B7
+  BA4 96_1 Dy03 B8
+  BA4 96_1 Dy03 B9
+  BA4 96_1 Dy03 C1
+  BA4 96_1 Dy03 C10
+  BA4 96_1 Dy03 C11
+  BA4 96_1 Dy03 C12
+  BA4 96_1 Dy03 C2
+  BA4 96_1 Dy03 C3
+  BA4 96_1 Dy03 C4
+  BA4 96_1 Dy03 C5
+  BA4 96_1 Dy03 C6
+  BA4 96_1 Dy03 C7
+  BA4 96_1 Dy03 C8
+  BA4 96_1 Dy03 C9
+  BA4 96_1 Dy03 D1
+  BA4 96_1 Dy03 D10
+  BA4 96_1 Dy03 D11
+  BA4 96_1 Dy03 D12
+  BA4 96_1 Dy03 D2
+  BA4 96_1 Dy03 D3
+  BA4 96_1 Dy03 D4
+  BA4 96_1 Dy03 D5
+  BA4 96_1 Dy03 D6
+  BA4 96_1 Dy03 D7
+  BA4 96_1 Dy03 D8
+  BA4 96_1 Dy03 D9
+  BA4 96_1 Dy03 E1
+  BA4 96_1 Dy03 E10
+  BA4 96_1 Dy03 E11
+  BA4 96_1 Dy03 E12
+  BA4 96_1 Dy03 E2
+  BA4 96_1 Dy03 E3
+  BA4 96_1 Dy03 E4
+  BA4 96_1 Dy03 E5
+  BA4 96_1 Dy03 E6
+  BA4 96_1 Dy03 E7
+  BA4 96_1 Dy03 E8
+  BA4 96_1 Dy03 E9
+  BA4 96_1 Dy03 F1
+  BA4 96_1 Dy03 F10
+  BA4 96_1 Dy03 F11
+  BA4 96_1 Dy03 F12
+  BA4 96_1 Dy03 F2
+  BA4 96_1 Dy03 F3
+  BA4 96_1 Dy03 F4
+  BA4 96_1 Dy03 F5
+  BA4 96_1 Dy03 F6
+  BA4 96_1 Dy03 F7
+  BA4 96_1 Dy03 F8
+  BA4 96_1 Dy03 F9
+  BA4 96_1 Dy03 G1
+  BA4 96_1 Dy03 G10
+  BA4 96_1 Dy03 G11
+  BA4 96_1 Dy03 G12
+  BA4 96_1 Dy03 G2
+  BA4 96_1 Dy03 G3
+  BA4 96_1 Dy03 G4
+  BA4 96_1 Dy03 G5
+  BA4 96_1 Dy03 G6
+  BA4 96_1 Dy03 G7
+  BA4 96_1 Dy03 G8
+  BA4 96_1 Dy03 G9
+  BA4 96_1 Dy03 H1
+  BA4 96_1 Dy03 H10
+  BA4 96_1 Dy03 H11
+  BA4 96_1 Dy03 H12
+  BA4 96_1 Dy03 H2
+  BA4 96_1 Dy03 H3
+  BA4 96_1 Dy03 H4
+  BA4 96_1 Dy03 H5
+  BA4 96_1 Dy03 H6
+  BA4 96_1 Dy03 H7
+  BA4 96_1 Dy03 H8
+  BA4 96_1 Dy03 H9
+  BA4 96_1 Dy06 A1
+  BA4 96_1 Dy06 A10
+  BA4 96_1 Dy06 A11
+  BA4 96_1 Dy06 A12
+  BA4 96_1 Dy06 A2
+  BA4 96_1 Dy06 A3
+  BA4 96_1 Dy06 A4
+  BA4 96_1 Dy06 A5
+  BA4 96_1 Dy06 A6
+  BA4 96_1 Dy06 A7
+  BA4 96_1 Dy06 A8
+  BA4 96_1 Dy06 A9
+  BA4 96_1 Dy06 B1
+  BA4 96_1 Dy06 B10
+  BA4 96_1 Dy06 B11
+  BA4 96_1 Dy06 B12
+  BA4 96_1 Dy06 B2
+  BA4 96_1 Dy06 B3
+  BA4 96_1 Dy06 B4
+  BA4 96_1 Dy06 B5
+  BA4 96_1 Dy06 B6
+  BA4 96_1 Dy06 B7
+  BA4 96_1 Dy06 B8
+  BA4 96_1 Dy06 B9
+  BA4 96_1 Dy06 C1
+  BA4 96_1 Dy06 C10
+  BA4 96_1 Dy06 C11
+  BA4 96_1 Dy06 C12
+  BA4 96_1 Dy06 C2
+  BA4 96_1 Dy06 C3
+  BA4 96_1 Dy06 C4
+  BA4 96_1 Dy06 C5
+  BA4 96_1 Dy06 C6
+  BA4 96_1 Dy06 C7
+  BA4 96_1 Dy06 C8
+  BA4 96_1 Dy06 C9
+  BA4 96_1 Dy06 D1
+  BA4 96_1 Dy06 D10
+  BA4 96_1 Dy06 D11
+  BA4 96_1 Dy06 D12
+  BA4 96_1 Dy06 D2
+  BA4 96_1 Dy06 D3
+  BA4 96_1 Dy06 D4
+  BA4 96_1 Dy06 D5
+  BA4 96_1 Dy06 D6
+  BA4 96_1 Dy06 D7
+  BA4 96_1 Dy06 D8
+  BA4 96_1 Dy06 D9
+  BA4 96_1 Dy06 E1
+  BA4 96_1 Dy06 E10
+  BA4 96_1 Dy06 E11
+  BA4 96_1 Dy06 E12
+  BA4 96_1 Dy06 E2
+  BA4 96_1 Dy06 E3
+  BA4 96_1 Dy06 E4
+  BA4 96_1 Dy06 E5
+  BA4 96_1 Dy06 E6
+  BA4 96_1 Dy06 E7
+  BA4 96_1 Dy06 E8
+  BA4 96_1 Dy06 E9
+  BA4 96_1 Dy06 F1
+  BA4 96_1 Dy06 F10
+  BA4 96_1 Dy06 F11
+  BA4 96_1 Dy06 F12
+  BA4 96_1 Dy06 F2
+  BA4 96_1 Dy06 F3
+  BA4 96_1 Dy06 F4
+  BA4 96_1 Dy06 F5
+  BA4 96_1 Dy06 F6
+  BA4 96_1 Dy06 F7
+  BA4 96_1 Dy06 F8
+  BA4 96_1 Dy06 F9
+  BA4 96_1 Dy06 G1
+  BA4 96_1 Dy06 G10
+  BA4 96_1 Dy06 G11
+  BA4 96_1 Dy06 G12
+  BA4 96_1 Dy06 G2
+  BA4 96_1 Dy06 G3
+  BA4 96_1 Dy06 G4
+  BA4 96_1 Dy06 G5
+  BA4 96_1 Dy06 G6
+  BA4 96_1 Dy06 G7
+  BA4 96_1 Dy06 G8
+  BA4 96_1 Dy06 G9
+  BA4 96_1 Dy06 H1
+  BA4 96_1 Dy06 H10
+  BA4 96_1 Dy06 H11
+  BA4 96_1 Dy06 H12
+  BA4 96_1 Dy06 H2
+  BA4 96_1 Dy06 H3
+  BA4 96_1 Dy06 H4
+  BA4 96_1 Dy06 H5
+  BA4 96_1 Dy06 H6
+  BA4 96_1 Dy06 H7
+  BA4 96_1 Dy06 H8
+  BA4 96_1 Dy06 H9
+  BA4 96_1 Dy08 A1
+  BA4 96_1 Dy08 A10
+  BA4 96_1 Dy08 A11
+  BA4 96_1 Dy08 A12
+  BA4 96_1 Dy08 A2
+  BA4 96_1 Dy08 A3
+  BA4 96_1 Dy08 A4
+  BA4 96_1 Dy08 A5
+  BA4 96_1 Dy08 A6
+  BA4 96_1 Dy08 A7
+  BA4 96_1 Dy08 A8
+  BA4 96_1 Dy08 A9
+  BA4 96_1 Dy08 B1
+  BA4 96_1 Dy08 B10
+  BA4 96_1 Dy08 B11
+  BA4 96_1 Dy08 B12
+  BA4 96_1 Dy08 B2
+  BA4 96_1 Dy08 B3
+  BA4 96_1 Dy08 B4
+  BA4 96_1 Dy08 B5
+  BA4 96_1 Dy08 B6
+  BA4 96_1 Dy08 B7
+  BA4 96_1 Dy08 B8
+  BA4 96_1 Dy08 B9
+  BA4 96_1 Dy08 C1
+  BA4 96_1 Dy08 C10
+  BA4 96_1 Dy08 C11
+  BA4 96_1 Dy08 C12
+  BA4 96_1 Dy08 C2
+  BA4 96_1 Dy08 C3
+  BA4 96_1 Dy08 C4
+  BA4 96_1 Dy08 C5
+  BA4 96_1 Dy08 C6
+  BA4 96_1 Dy08 C7
+  BA4 96_1 Dy08 C8
+  BA4 96_1 Dy08 C9
+  BA4 96_1 Dy08 D1
+  BA4 96_1 Dy08 D10
+  BA4 96_1 Dy08 D11
+  BA4 96_1 Dy08 D12
+  BA4 96_1 Dy08 D2
+  BA4 96_1 Dy08 D3
+  BA4 96_1 Dy08 D4
+  BA4 96_1 Dy08 D5
+  BA4 96_1 Dy08 D6
+  BA4 96_1 Dy08 D7
+  BA4 96_1 Dy08 D8
+  BA4 96_1 Dy08 D9
+  BA4 96_1 Dy08 E1
+  BA4 96_1 Dy08 E10
+  BA4 96_1 Dy08 E11
+  BA4 96_1 Dy08 E12
+  BA4 96_1 Dy08 E2
+  BA4 96_1 Dy08 E3
+  BA4 96_1 Dy08 E4
+  BA4 96_1 Dy08 E5
+  BA4 96_1 Dy08 E6
+  BA4 96_1 Dy08 E7
+  BA4 96_1 Dy08 E8
+  BA4 96_1 Dy08 E9
+  BA4 96_1 Dy08 F1
+  BA4 96_1 Dy08 F10
+  BA4 96_1 Dy08 F11
+  BA4 96_1 Dy08 F12
+  BA4 96_1 Dy08 F2
+  BA4 96_1 Dy08 F3
+  BA4 96_1 Dy08 F4
+  BA4 96_1 Dy08 F5
+  BA4 96_1 Dy08 F6
+  BA4 96_1 Dy08 F7
+  BA4 96_1 Dy08 F8
+  BA4 96_1 Dy08 F9
+  BA4 96_1 Dy08 G1
+  BA4 96_1 Dy08 G10
+  BA4 96_1 Dy08 G11
+  BA4 96_1 Dy08 G12
+  BA4 96_1 Dy08 G2
+  BA4 96_1 Dy08 G3
+  BA4 96_1 Dy08 G4
+  BA4 96_1 Dy08 G5
+  BA4 96_1 Dy08 G6
+  BA4 96_1 Dy08 G7
+  BA4 96_1 Dy08 G8
+  BA4 96_1 Dy08 G9
+  BA4 96_1 Dy08 H1
+  BA4 96_1 Dy08 H10
+  BA4 96_1 Dy08 H11
+  BA4 96_1 Dy08 H12
+  BA4 96_1 Dy08 H2
+  BA4 96_1 Dy08 H3
+  BA4 96_1 Dy08 H4
+  BA4 96_1 Dy08 H5
+  BA4 96_1 Dy08 H6
+  BA4 96_1 Dy08 H7
+  BA4 96_1 Dy08 H8
+  BA4 96_1 Dy08 H9
+  BA4 96_1 Dy10 A1
+  BA4 96_1 Dy10 A10
+  BA4 96_1 Dy10 A11
+  BA4 96_1 Dy10 A12
+  BA4 96_1 Dy10 A2
+  BA4 96_1 Dy10 A3
+  BA4 96_1 Dy10 A4
+  BA4 96_1 Dy10 A5
+  BA4 96_1 Dy10 A6
+  BA4 96_1 Dy10 A7
+  BA4 96_1 Dy10 A8
+  BA4 96_1 Dy10 A9
+  BA4 96_1 Dy10 B1
+  BA4 96_1 Dy10 B10
+  BA4 96_1 Dy10 B11
+  BA4 96_1 Dy10 B12
+  BA4 96_1 Dy10 B2
+  BA4 96_1 Dy10 B3
+  BA4 96_1 Dy10 B4
+  BA4 96_1 Dy10 B5
+  BA4 96_1 Dy10 B6
+  BA4 96_1 Dy10 B7
+  BA4 96_1 Dy10 B8
+  BA4 96_1 Dy10 B9
+  BA4 96_1 Dy10 C1
+  BA4 96_1 Dy10 C10
+  BA4 96_1 Dy10 C11
+  BA4 96_1 Dy10 C12
+  BA4 96_1 Dy10 C2
+  BA4 96_1 Dy10 C3
+  BA4 96_1 Dy10 C4
+  BA4 96_1 Dy10 C5
+  BA4 96_1 Dy10 C6
+  BA4 96_1 Dy10 C7
+  BA4 96_1 Dy10 C8
+  BA4 96_1 Dy10 C9
+  BA4 96_1 Dy10 D1
+  BA4 96_1 Dy10 D10
+  BA4 96_1 Dy10 D11
+  BA4 96_1 Dy10 D12
+  BA4 96_1 Dy10 D2
+  BA4 96_1 Dy10 D3
+  BA4 96_1 Dy10 D4
+  BA4 96_1 Dy10 D5
+  BA4 96_1 Dy10 D6
+  BA4 96_1 Dy10 D7
+  BA4 96_1 Dy10 D8
+  BA4 96_1 Dy10 D9
+  BA4 96_1 Dy10 E1
+  BA4 96_1 Dy10 E10
+  BA4 96_1 Dy10 E11
+  BA4 96_1 Dy10 E12
+  BA4 96_1 Dy10 E2
+  BA4 96_1 Dy10 E3
+  BA4 96_1 Dy10 E4
+  BA4 96_1 Dy10 E5
+  BA4 96_1 Dy10 E6
+  BA4 96_1 Dy10 E7
+  BA4 96_1 Dy10 E8
+  BA4 96_1 Dy10 E9
+  BA4 96_1 Dy10 F1
+  BA4 96_1 Dy10 F10
+  BA4 96_1 Dy10 F11
+  BA4 96_1 Dy10 F12
+  BA4 96_1 Dy10 F2
+  BA4 96_1 Dy10 F3
+  BA4 96_1 Dy10 F4
+  BA4 96_1 Dy10 F5
+  BA4 96_1 Dy10 F6
+  BA4 96_1 Dy10 F7
+  BA4 96_1 Dy10 F8
+  BA4 96_1 Dy10 F9
+  BA4 96_1 Dy10 G1
+  BA4 96_1 Dy10 G10
+  BA4 96_1 Dy10 G11
+  BA4 96_1 Dy10 G12
+  BA4 96_1 Dy10 G2
+  BA4 96_1 Dy10 G3
+  BA4 96_1 Dy10 G4
+  BA4 96_1 Dy10 G5
+  BA4 96_1 Dy10 G6
+  BA4 96_1 Dy10 G7
+  BA4 96_1 Dy10 G8
+  BA4 96_1 Dy10 G9
+  BA4 96_1 Dy10 H1
+  BA4 96_1 Dy10 H10
+  BA4 96_1 Dy10 H11
+  BA4 96_1 Dy10 H12
+  BA4 96_1 Dy10 H2
+  BA4 96_1 Dy10 H3
+  BA4 96_1 Dy10 H4
+  BA4 96_1 Dy10 H5
+  BA4 96_1 Dy10 H6
+  BA4 96_1 Dy10 H7
+  BA4 96_1 Dy10 H8
+  BA4 96_1 Dy10 H9
+  BA4 96_1 Dy13 A1
+  BA4 96_1 Dy13 A10
+  BA4 96_1 Dy13 A11
+  BA4 96_1 Dy13 A12
+  BA4 96_1 Dy13 A2
+  BA4 96_1 Dy13 A3
+  BA4 96_1 Dy13 A4
+  BA4 96_1 Dy13 A5
+  BA4 96_1 Dy13 A6
+  BA4 96_1 Dy13 A7
+  BA4 96_1 Dy13 A8
+  BA4 96_1 Dy13 A9
+  BA4 96_1 Dy13 B1
+  BA4 96_1 Dy13 B10
+  BA4 96_1 Dy13 B11
+  BA4 96_1 Dy13 B12
+  BA4 96_1 Dy13 B2
+  BA4 96_1 Dy13 B3
+  BA4 96_1 Dy13 B4
+  BA4 96_1 Dy13 B5
+  BA4 96_1 Dy13 B6
+  BA4 96_1 Dy13 B7
+  BA4 96_1 Dy13 B8
+  BA4 96_1 Dy13 B9
+  BA4 96_1 Dy13 C1
+  BA4 96_1 Dy13 C10
+  BA4 96_1 Dy13 C11
+  BA4 96_1 Dy13 C12
+  BA4 96_1 Dy13 C2
+  BA4 96_1 Dy13 C3
+  BA4 96_1 Dy13 C4
+  BA4 96_1 Dy13 C5
+  BA4 96_1 Dy13 C6
+  BA4 96_1 Dy13 C7
+  BA4 96_1 Dy13 C8
+  BA4 96_1 Dy13 C9
+  BA4 96_1 Dy13 D1
+  BA4 96_1 Dy13 D10
+  BA4 96_1 Dy13 D11
+  BA4 96_1 Dy13 D12
+  BA4 96_1 Dy13 D2
+  BA4 96_1 Dy13 D3
+  BA4 96_1 Dy13 D4
+  BA4 96_1 Dy13 D5
+  BA4 96_1 Dy13 D6
+  BA4 96_1 Dy13 D7
+  BA4 96_1 Dy13 D8
+  BA4 96_1 Dy13 D9
+  BA4 96_1 Dy13 E1
+  BA4 96_1 Dy13 E10
+  BA4 96_1 Dy13 E11
+  BA4 96_1 Dy13 E12
+  BA4 96_1 Dy13 E2
+  BA4 96_1 Dy13 E3
+  BA4 96_1 Dy13 E4
+  BA4 96_1 Dy13 E5
+  BA4 96_1 Dy13 E6
+  BA4 96_1 Dy13 E7
+  BA4 96_1 Dy13 E8
+  BA4 96_1 Dy13 E9
+  BA4 96_1 Dy13 F1
+  BA4 96_1 Dy13 F10
+  BA4 96_1 Dy13 F11
+  BA4 96_1 Dy13 F12
+  BA4 96_1 Dy13 F2
+  BA4 96_1 Dy13 F3
+  BA4 96_1 Dy13 F4
+  BA4 96_1 Dy13 F5
+  BA4 96_1 Dy13 F6
+  BA4 96_1 Dy13 F7
+  BA4 96_1 Dy13 F8
+  BA4 96_1 Dy13 F9
+  BA4 96_1 Dy13 G1
+  BA4 96_1 Dy13 G10
+  BA4 96_1 Dy13 G11
+  BA4 96_1 Dy13 G12
+  BA4 96_1 Dy13 G2
+  BA4 96_1 Dy13 G3
+  BA4 96_1 Dy13 G4
+  BA4 96_1 Dy13 G5
+  BA4 96_1 Dy13 G6
+  BA4 96_1 Dy13 G7
+  BA4 96_1 Dy13 G8
+  BA4 96_1 Dy13 G9
+  BA4 96_1 Dy13 H1
+  BA4 96_1 Dy13 H10
+  BA4 96_1 Dy13 H11
+  BA4 96_1 Dy13 H12
+  BA4 96_1 Dy13 H2
+  BA4 96_1 Dy13 H3
+  BA4 96_1 Dy13 H4
+  BA4 96_1 Dy13 H5
+  BA4 96_1 Dy13 H6
+  BA4 96_1 Dy13 H7
+  BA4 96_1 Dy13 H8
+  BA4 96_1 Dy13 H9
+  BA4 96_1 Dy15 A1
+  BA4 96_1 Dy15 A10
+  BA4 96_1 Dy15 A11
+  BA4 96_1 Dy15 A12
+  BA4 96_1 Dy15 A2
+  BA4 96_1 Dy15 A3
+  BA4 96_1 Dy15 A4
+  BA4 96_1 Dy15 A5
+  BA4 96_1 Dy15 A6
+  BA4 96_1 Dy15 A7
+  BA4 96_1 Dy15 A8
+  BA4 96_1 Dy15 A9
+  BA4 96_1 Dy15 B1
+  BA4 96_1 Dy15 B10
+  BA4 96_1 Dy15 B11
+  BA4 96_1 Dy15 B12
+  BA4 96_1 Dy15 B2
+  BA4 96_1 Dy15 B3
+  BA4 96_1 Dy15 B4
+  BA4 96_1 Dy15 B5
+  BA4 96_1 Dy15 B6
+  BA4 96_1 Dy15 B7
+  BA4 96_1 Dy15 B8
+  BA4 96_1 Dy15 B9
+  BA4 96_1 Dy15 C1
+  BA4 96_1 Dy15 C10
+  BA4 96_1 Dy15 C11
+  BA4 96_1 Dy15 C12
+  BA4 96_1 Dy15 C2
+  BA4 96_1 Dy15 C3
+  BA4 96_1 Dy15 C4
+  BA4 96_1 Dy15 C5
+  BA4 96_1 Dy15 C6
+  BA4 96_1 Dy15 C7
+  BA4 96_1 Dy15 C8
+  BA4 96_1 Dy15 C9
+  BA4 96_1 Dy15 D1
+  BA4 96_1 Dy15 D10
+  BA4 96_1 Dy15 D11
+  BA4 96_1 Dy15 D12
+  BA4 96_1 Dy15 D2
+  BA4 96_1 Dy15 D3
+  BA4 96_1 Dy15 D4
+  BA4 96_1 Dy15 D5
+  BA4 96_1 Dy15 D6
+  BA4 96_1 Dy15 D7
+  BA4 96_1 Dy15 D8
+  BA4 96_1 Dy15 D9
+  BA4 96_1 Dy15 E1
+  BA4 96_1 Dy15 E10
+  BA4 96_1 Dy15 E11
+  BA4 96_1 Dy15 E12
+  BA4 96_1 Dy15 E2
+  BA4 96_1 Dy15 E3
+  BA4 96_1 Dy15 E4
+  BA4 96_1 Dy15 E5
+  BA4 96_1 Dy15 E6
+  BA4 96_1 Dy15 E7
+  BA4 96_1 Dy15 E8
+  BA4 96_1 Dy15 E9
+  BA4 96_1 Dy15 F1
+  BA4 96_1 Dy15 F10
+  BA4 96_1 Dy15 F11
+  BA4 96_1 Dy15 F12
+  BA4 96_1 Dy15 F2
+  BA4 96_1 Dy15 F3
+  BA4 96_1 Dy15 F4
+  BA4 96_1 Dy15 F5
+  BA4 96_1 Dy15 F6
+  BA4 96_1 Dy15 F7
+  BA4 96_1 Dy15 F8
+  BA4 96_1 Dy15 F9
+  BA4 96_1 Dy15 G1
+  BA4 96_1 Dy15 G10
+  BA4 96_1 Dy15 G11
+  BA4 96_1 Dy15 G12
+  BA4 96_1 Dy15 G2
+  BA4 96_1 Dy15 G3
+  BA4 96_1 Dy15 G4
+  BA4 96_1 Dy15 G5
+  BA4 96_1 Dy15 G6
+  BA4 96_1 Dy15 G7
+  BA4 96_1 Dy15 G8
+  BA4 96_1 Dy15 G9
+  BA4 96_1 Dy15 H1
+  BA4 96_1 Dy15 H10
+  BA4 96_1 Dy15 H11
+  BA4 96_1 Dy15 H12
+  BA4 96_1 Dy15 H2
+  BA4 96_1 Dy15 H3
+  BA4 96_1 Dy15 H4
+  BA4 96_1 Dy15 H5
+  BA4 96_1 Dy15 H6
+  BA4 96_1 Dy15 H7
+  BA4 96_1 Dy15 H8
+  BA4 96_1 Dy15 H9
+  BA4 96_1 Dy17 A1
+  BA4 96_1 Dy17 A10
+  BA4 96_1 Dy17 A11
+  BA4 96_1 Dy17 A12
+  BA4 96_1 Dy17 A2
+  BA4 96_1 Dy17 A3
+  BA4 96_1 Dy17 A4
+  BA4 96_1 Dy17 A5
+  BA4 96_1 Dy17 A6
+  BA4 96_1 Dy17 A7
+  BA4 96_1 Dy17 A8
+  BA4 96_1 Dy17 A9
+  BA4 96_1 Dy17 B1
+  BA4 96_1 Dy17 B10
+  BA4 96_1 Dy17 B11
+  BA4 96_1 Dy17 B12
+  BA4 96_1 Dy17 B2
+  BA4 96_1 Dy17 B3
+  BA4 96_1 Dy17 B4
+  BA4 96_1 Dy17 B5
+  BA4 96_1 Dy17 B6
+  BA4 96_1 Dy17 B7
+  BA4 96_1 Dy17 B8
+  BA4 96_1 Dy17 B9
+  BA4 96_1 Dy17 C1
+  BA4 96_1 Dy17 C10
+  BA4 96_1 Dy17 C11
+  BA4 96_1 Dy17 C12 split_1
+  BA4 96_1 Dy17 C12 split_2
+  BA4 96_1 Dy17 C2
+  BA4 96_1 Dy17 C3
+  BA4 96_1 Dy17 C4
+  BA4 96_1 Dy17 C5
+  BA4 96_1 Dy17 C6
+  BA4 96_1 Dy17 C7
+  BA4 96_1 Dy17 C8
+  BA4 96_1 Dy17 C9
+  BA4 96_1 Dy17 D1
+  BA4 96_1 Dy17 D10
+  BA4 96_1 Dy17 D11
+  BA4 96_1 Dy17 D12
+  BA4 96_1 Dy17 D2
+  BA4 96_1 Dy17 D3
+  BA4 96_1 Dy17 D4
+  BA4 96_1 Dy17 D5
+  BA4 96_1 Dy17 D6
+  BA4 96_1 Dy17 D7
+  BA4 96_1 Dy17 D8
+  BA4 96_1 Dy17 D9
+  BA4 96_1 Dy17 E1
+  BA4 96_1 Dy17 E10
+  BA4 96_1 Dy17 E11
+  BA4 96_1 Dy17 E12
+  BA4 96_1 Dy17 E2
+  BA4 96_1 Dy17 E3
+  BA4 96_1 Dy17 E4
+  BA4 96_1 Dy17 E5
+  BA4 96_1 Dy17 E6
+  BA4 96_1 Dy17 E7
+  BA4 96_1 Dy17 E8
+  BA4 96_1 Dy17 E9
+  BA4 96_1 Dy17 F1
+  BA4 96_1 Dy17 F10
+  BA4 96_1 Dy17 F11
+  BA4 96_1 Dy17 F12
+  BA4 96_1 Dy17 F2
+  BA4 96_1 Dy17 F3
+  BA4 96_1 Dy17 F4
+  BA4 96_1 Dy17 F5
+  BA4 96_1 Dy17 F6
+  BA4 96_1 Dy17 F7
+  BA4 96_1 Dy17 F8
+  BA4 96_1 Dy17 F9
+  BA4 96_1 Dy17 G1
+  BA4 96_1 Dy17 G10
+  BA4 96_1 Dy17 G11
+  BA4 96_1 Dy17 G12
+  BA4 96_1 Dy17 G2
+  BA4 96_1 Dy17 G3
+  BA4 96_1 Dy17 G4
+  BA4 96_1 Dy17 G5
+  BA4 96_1 Dy17 G6
+  BA4 96_1 Dy17 G7
+  BA4 96_1 Dy17 G8
+  BA4 96_1 Dy17 G9
+  BA4 96_1 Dy17 H1
+  BA4 96_1 Dy17 H10
+  BA4 96_1 Dy17 H11
+  BA4 96_1 Dy17 H12
+  BA4 96_1 Dy17 H2
+  BA4 96_1 Dy17 H3
+  BA4 96_1 Dy17 H4
+  BA4 96_1 Dy17 H5
+  BA4 96_1 Dy17 H6
+  BA4 96_1 Dy17 H7
+  BA4 96_1 Dy17 H8
+  BA4 96_1 Dy17 H9
+  BA4 96_1 Dy20.5 A1
+  BA4 96_1 Dy20.5 A10
+  BA4 96_1 Dy20.5 A11
+  BA4 96_1 Dy20.5 A12
+  BA4 96_1 Dy20.5 A2
+  BA4 96_1 Dy20.5 A3
+  BA4 96_1 Dy20.5 A4
+  BA4 96_1 Dy20.5 A5
+  BA4 96_1 Dy20.5 A6
+  BA4 96_1 Dy20.5 A7
+  BA4 96_1 Dy20.5 A8
+  BA4 96_1 Dy20.5 A9
+  BA4 96_1 Dy20.5 B1
+  BA4 96_1 Dy20.5 B10
+  BA4 96_1 Dy20.5 B11
+  BA4 96_1 Dy20.5 B12
+  BA4 96_1 Dy20.5 B2
+  BA4 96_1 Dy20.5 B3
+  BA4 96_1 Dy20.5 B4
+  BA4 96_1 Dy20.5 B5
+  BA4 96_1 Dy20.5 B6
+  BA4 96_1 Dy20.5 B7
+  BA4 96_1 Dy20.5 B8
+  BA4 96_1 Dy20.5 B9
+  BA4 96_1 Dy20.5 C1
+  BA4 96_1 Dy20.5 C10
+  BA4 96_1 Dy20.5 C11
+  BA4 96_1 Dy20.5 C12 split_1
+  BA4 96_1 Dy20.5 C12 split_2
+  BA4 96_1 Dy20.5 C2
+  BA4 96_1 Dy20.5 C3
+  BA4 96_1 Dy20.5 C4
+  BA4 96_1 Dy20.5 C5
+  BA4 96_1 Dy20.5 C6
+  BA4 96_1 Dy20.5 C7
+  BA4 96_1 Dy20.5 C8
+  BA4 96_1 Dy20.5 C9
+  BA4 96_1 Dy20.5 D1
+  BA4 96_1 Dy20.5 D10
+  BA4 96_1 Dy20.5 D11
+  BA4 96_1 Dy20.5 D12
+  BA4 96_1 Dy20.5 D2
+  BA4 96_1 Dy20.5 D3
+  BA4 96_1 Dy20.5 D4
+  BA4 96_1 Dy20.5 D5
+  BA4 96_1 Dy20.5 D6
+  BA4 96_1 Dy20.5 D7
+  BA4 96_1 Dy20.5 D8
+  BA4 96_1 Dy20.5 D9
+  BA4 96_1 Dy20.5 E1
+  BA4 96_1 Dy20.5 E10
+  BA4 96_1 Dy20.5 E11
+  BA4 96_1 Dy20.5 E12
+  BA4 96_1 Dy20.5 E2
+  BA4 96_1 Dy20.5 E3
+  BA4 96_1 Dy20.5 E4
+  BA4 96_1 Dy20.5 E5
+  BA4 96_1 Dy20.5 E6
+  BA4 96_1 Dy20.5 E7
+  BA4 96_1 Dy20.5 E8
+  BA4 96_1 Dy20.5 E9
+  BA4 96_1 Dy20.5 F1
+  BA4 96_1 Dy20.5 F10
+  BA4 96_1 Dy20.5 F11
+  BA4 96_1 Dy20.5 F12
+  BA4 96_1 Dy20.5 F2
+  BA4 96_1 Dy20.5 F3
+  BA4 96_1 Dy20.5 F4
+  BA4 96_1 Dy20.5 F5
+  BA4 96_1 Dy20.5 F6
+  BA4 96_1 Dy20.5 F7
+  BA4 96_1 Dy20.5 F8
+  BA4 96_1 Dy20.5 F9
+  BA4 96_1 Dy20.5 G1
+  BA4 96_1 Dy20.5 G10
+  BA4 96_1 Dy20.5 G11
+  BA4 96_1 Dy20.5 G12
+  BA4 96_1 Dy20.5 G2
+  BA4 96_1 Dy20.5 G3
+  BA4 96_1 Dy20.5 G4
+  BA4 96_1 Dy20.5 G5
+  BA4 96_1 Dy20.5 G6
+  BA4 96_1 Dy20.5 G7
+  BA4 96_1 Dy20.5 G8
+  BA4 96_1 Dy20.5 G9
+  BA4 96_1 Dy20.5 H1
+  BA4 96_1 Dy20.5 H10
+  BA4 96_1 Dy20.5 H11
+  BA4 96_1 Dy20.5 H12
+  BA4 96_1 Dy20.5 H2
+  BA4 96_1 Dy20.5 H3
+  BA4 96_1 Dy20.5 H4
+  BA4 96_1 Dy20.5 H5
+  BA4 96_1 Dy20.5 H6
+  BA4 96_1 Dy20.5 H7
+  BA4 96_1 Dy20.5 H8
+  BA4 96_1 Dy20.5 H9
+  BA4 96_1 Dy24 A1
+  BA4 96_1 Dy24 A10
+  BA4 96_1 Dy24 A11
+  BA4 96_1 Dy24 A12
+  BA4 96_1 Dy24 A2
+  BA4 96_1 Dy24 A3
+  BA4 96_1 Dy24 A4
+  BA4 96_1 Dy24 A5
+  BA4 96_1 Dy24 A6
+  BA4 96_1 Dy24 A7
+  BA4 96_1 Dy24 A8
+  BA4 96_1 Dy24 A9
+  BA4 96_1 Dy24 B1
+  BA4 96_1 Dy24 B10
+  BA4 96_1 Dy24 B11
+  BA4 96_1 Dy24 B12
+  BA4 96_1 Dy24 B2
+  BA4 96_1 Dy24 B3
+  BA4 96_1 Dy24 B4
+  BA4 96_1 Dy24 B5
+  BA4 96_1 Dy24 B6
+  BA4 96_1 Dy24 B7
+  BA4 96_1 Dy24 B8
+  BA4 96_1 Dy24 B9
+  BA4 96_1 Dy24 C1
+  BA4 96_1 Dy24 C10
+  BA4 96_1 Dy24 C11
+  BA4 96_1 Dy24 C12 split_1
+  BA4 96_1 Dy24 C12 split_2
+  BA4 96_1 Dy24 C2
+  BA4 96_1 Dy24 C3
+  BA4 96_1 Dy24 C4
+  BA4 96_1 Dy24 C5
+  BA4 96_1 Dy24 C6
+  BA4 96_1 Dy24 C7
+  BA4 96_1 Dy24 C8
+  BA4 96_1 Dy24 C9
+  BA4 96_1 Dy24 D1
+  BA4 96_1 Dy24 D10
+  BA4 96_1 Dy24 D11
+  BA4 96_1 Dy24 D12
+  BA4 96_1 Dy24 D2
+  BA4 96_1 Dy24 D3
+  BA4 96_1 Dy24 D4
+  BA4 96_1 Dy24 D5
+  BA4 96_1 Dy24 D6
+  BA4 96_1 Dy24 D7
+  BA4 96_1 Dy24 D8
+  BA4 96_1 Dy24 D9
+  BA4 96_1 Dy24 E1
+  BA4 96_1 Dy24 E10
+  BA4 96_1 Dy24 E11
+  BA4 96_1 Dy24 E12
+  BA4 96_1 Dy24 E2
+  BA4 96_1 Dy24 E3
+  BA4 96_1 Dy24 E4
+  BA4 96_1 Dy24 E5
+  BA4 96_1 Dy24 E6
+  BA4 96_1 Dy24 E7
+  BA4 96_1 Dy24 E8
+  BA4 96_1 Dy24 E9
+  BA4 96_1 Dy24 F1
+  BA4 96_1 Dy24 F10
+  BA4 96_1 Dy24 F11
+  BA4 96_1 Dy24 F12
+  BA4 96_1 Dy24 F2
+  BA4 96_1 Dy24 F3
+  BA4 96_1 Dy24 F4
+  BA4 96_1 Dy24 F5
+  BA4 96_1 Dy24 F6
+  BA4 96_1 Dy24 F7
+  BA4 96_1 Dy24 F8
+  BA4 96_1 Dy24 F9
+  BA4 96_1 Dy24 G1
+  BA4 96_1 Dy24 G10
+  BA4 96_1 Dy24 G11
+  BA4 96_1 Dy24 G12
+  BA4 96_1 Dy24 G2
+  BA4 96_1 Dy24 G3
+  BA4 96_1 Dy24 G4
+  BA4 96_1 Dy24 G5
+  BA4 96_1 Dy24 G6
+  BA4 96_1 Dy24 G7
+  BA4 96_1 Dy24 G8
+  BA4 96_1 Dy24 G9
+  BA4 96_1 Dy24 H1
+  BA4 96_1 Dy24 H10
+  BA4 96_1 Dy24 H11
+  BA4 96_1 Dy24 H12
+  BA4 96_1 Dy24 H2
+  BA4 96_1 Dy24 H3
+  BA4 96_1 Dy24 H4
+  BA4 96_1 Dy24 H5
+  BA4 96_1 Dy24 H6
+  BA4 96_1 Dy24 H7
+  BA4 96_1 Dy24 H8
+  BA4 96_1 Dy24 H9
+  BA4 96_1 Dy28 A1
+  BA4 96_1 Dy28 A10
+  BA4 96_1 Dy28 A11
+  BA4 96_1 Dy28 A12
+  BA4 96_1 Dy28 A2
+  BA4 96_1 Dy28 A3
+  BA4 96_1 Dy28 A4
+  BA4 96_1 Dy28 A5
+  BA4 96_1 Dy28 A6
+  BA4 96_1 Dy28 A7
+  BA4 96_1 Dy28 A8
+  BA4 96_1 Dy28 A9
+  BA4 96_1 Dy28 B1
+  BA4 96_1 Dy28 B10
+  BA4 96_1 Dy28 B11
+  BA4 96_1 Dy28 B12
+  BA4 96_1 Dy28 B2
+  BA4 96_1 Dy28 B3
+  BA4 96_1 Dy28 B4
+  BA4 96_1 Dy28 B5
+  BA4 96_1 Dy28 B6
+  BA4 96_1 Dy28 B7
+  BA4 96_1 Dy28 B8
+  BA4 96_1 Dy28 B9
+  BA4 96_1 Dy28 C1
+  BA4 96_1 Dy28 C10
+  BA4 96_1 Dy28 C11
+  BA4 96_1 Dy28 C12 split_1
+  BA4 96_1 Dy28 C12 split_2
+  BA4 96_1 Dy28 C2
+  BA4 96_1 Dy28 C3
+  BA4 96_1 Dy28 C4
+  BA4 96_1 Dy28 C5
+  BA4 96_1 Dy28 C6
+  BA4 96_1 Dy28 C7
+  BA4 96_1 Dy28 C8
+  BA4 96_1 Dy28 C9
+  BA4 96_1 Dy28 D1
+  BA4 96_1 Dy28 D10
+  BA4 96_1 Dy28 D11
+  BA4 96_1 Dy28 D12
+  BA4 96_1 Dy28 D2
+  BA4 96_1 Dy28 D3
+  BA4 96_1 Dy28 D4
+  BA4 96_1 Dy28 D5
+  BA4 96_1 Dy28 D6
+  BA4 96_1 Dy28 D7
+  BA4 96_1 Dy28 D8
+  BA4 96_1 Dy28 D9
+  BA4 96_1 Dy28 E1
+  BA4 96_1 Dy28 E10
+  BA4 96_1 Dy28 E11
+  BA4 96_1 Dy28 E12
+  BA4 96_1 Dy28 E2
+  BA4 96_1 Dy28 E3
+  BA4 96_1 Dy28 E4
+  BA4 96_1 Dy28 E5
+  BA4 96_1 Dy28 E6
+  BA4 96_1 Dy28 E7
+  BA4 96_1 Dy28 E8
+  BA4 96_1 Dy28 E9
+  BA4 96_1 Dy28 F1
+  BA4 96_1 Dy28 F10
+  BA4 96_1 Dy28 F11
+  BA4 96_1 Dy28 F12
+  BA4 96_1 Dy28 F2
+  BA4 96_1 Dy28 F3
+  BA4 96_1 Dy28 F4
+  BA4 96_1 Dy28 F5
+  BA4 96_1 Dy28 F6
+  BA4 96_1 Dy28 F7
+  BA4 96_1 Dy28 F8
+  BA4 96_1 Dy28 F9
+  BA4 96_1 Dy28 G1
+  BA4 96_1 Dy28 G10
+  BA4 96_1 Dy28 G11
+  BA4 96_1 Dy28 G12
+  BA4 96_1 Dy28 G2
+  BA4 96_1 Dy28 G3
+  BA4 96_1 Dy28 G4
+  BA4 96_1 Dy28 G5
+  BA4 96_1 Dy28 G6
+  BA4 96_1 Dy28 G7
+  BA4 96_1 Dy28 G8
+  BA4 96_1 Dy28 G9
+  BA4 96_1 Dy28 H1
+  BA4 96_1 Dy28 H10
+  BA4 96_1 Dy28 H11
+  BA4 96_1 Dy28 H12
+  BA4 96_1 Dy28 H2
+  BA4 96_1 Dy28 H3
+  BA4 96_1 Dy28 H4
+  BA4 96_1 Dy28 H5
+  BA4 96_1 Dy28 H6
+  BA4 96_1 Dy28 H7
+  BA4 96_1 Dy28 H8
+  BA4 96_1 Dy28 H9
+  BA4 96_1 Dy30 A1
+  BA4 96_1 Dy30 A10
+  BA4 96_1 Dy30 A11
+  BA4 96_1 Dy30 A12
+  BA4 96_1 Dy30 A2
+  BA4 96_1 Dy30 A3
+  BA4 96_1 Dy30 A4
+  BA4 96_1 Dy30 A5
+  BA4 96_1 Dy30 A6
+  BA4 96_1 Dy30 A7
+  BA4 96_1 Dy30 A8
+  BA4 96_1 Dy30 A9
+  BA4 96_1 Dy30 B1
+  BA4 96_1 Dy30 B10
+  BA4 96_1 Dy30 B11
+  BA4 96_1 Dy30 B12
+  BA4 96_1 Dy30 B2
+  BA4 96_1 Dy30 B3
+  BA4 96_1 Dy30 B4
+  BA4 96_1 Dy30 B5
+  BA4 96_1 Dy30 B6
+  BA4 96_1 Dy30 B7
+  BA4 96_1 Dy30 B8
+  BA4 96_1 Dy30 B9
+  BA4 96_1 Dy30 C1
+  BA4 96_1 Dy30 C10
+  BA4 96_1 Dy30 C11
+  BA4 96_1 Dy30 C12 split_1
+  BA4 96_1 Dy30 C12 split_2
+  BA4 96_1 Dy30 C2
+  BA4 96_1 Dy30 C3
+  BA4 96_1 Dy30 C4
+  BA4 96_1 Dy30 C5
+  BA4 96_1 Dy30 C6
+  BA4 96_1 Dy30 C7
+  BA4 96_1 Dy30 C8
+  BA4 96_1 Dy30 C9
+  BA4 96_1 Dy30 D1
+  BA4 96_1 Dy30 D10
+  BA4 96_1 Dy30 D11
+  BA4 96_1 Dy30 D12
+  BA4 96_1 Dy30 D2
+  BA4 96_1 Dy30 D3
+  BA4 96_1 Dy30 D4
+  BA4 96_1 Dy30 D5
+  BA4 96_1 Dy30 D6
+  BA4 96_1 Dy30 D7
+  BA4 96_1 Dy30 D8
+  BA4 96_1 Dy30 D9
+  BA4 96_1 Dy30 E1
+  BA4 96_1 Dy30 E10
+  BA4 96_1 Dy30 E11
+  BA4 96_1 Dy30 E12
+  BA4 96_1 Dy30 E2
+  BA4 96_1 Dy30 E3
+  BA4 96_1 Dy30 E4
+  BA4 96_1 Dy30 E5
+  BA4 96_1 Dy30 E6
+  BA4 96_1 Dy30 E7
+  BA4 96_1 Dy30 E8
+  BA4 96_1 Dy30 E9
+  BA4 96_1 Dy30 F1
+  BA4 96_1 Dy30 F10
+  BA4 96_1 Dy30 F11
+  BA4 96_1 Dy30 F12
+  BA4 96_1 Dy30 F2
+  BA4 96_1 Dy30 F3
+  BA4 96_1 Dy30 F4
+  BA4 96_1 Dy30 F5
+  BA4 96_1 Dy30 F6
+  BA4 96_1 Dy30 F7
+  BA4 96_1 Dy30 F8
+  BA4 96_1 Dy30 F9
+  BA4 96_1 Dy30 G1
+  BA4 96_1 Dy30 G10
+  BA4 96_1 Dy30 G11
+  BA4 96_1 Dy30 G12
+  BA4 96_1 Dy30 G2
+  BA4 96_1 Dy30 G3
+  BA4 96_1 Dy30 G4
+  BA4 96_1 Dy30 G5
+  BA4 96_1 Dy30 G6
+  BA4 96_1 Dy30 G7
+  BA4 96_1 Dy30 G8
+  BA4 96_1 Dy30 G9
+  BA4 96_1 Dy30 H1
+  BA4 96_1 Dy30 H10
+  BA4 96_1 Dy30 H11
+  BA4 96_1 Dy30 H12
+  BA4 96_1 Dy30 H2
+  BA4 96_1 Dy30 H3
+  BA4 96_1 Dy30 H4
+  BA4 96_1 Dy30 H5
+  BA4 96_1 Dy30 H6
+  BA4 96_1 Dy30 H7
+  BA4 96_1 Dy30 H8
+  BA4 96_1 Dy30 H9
+
+=== Records matched in CSV but with null win or win_vol_norm ===
+Total: 121
+
+  BA1 96_1 Dy03 A1: GlucoseGlo, GlutamateGlo, BCAAGlo
+  BA1 96_1 Dy03 H1: PyruvateGlo
+  BA1 96_1 Dy03 H10: PyruvateGlo
+  BA1 96_1 Dy03 H11: PyruvateGlo
+  BA1 96_1 Dy03 H12: PyruvateGlo
+  BA1 96_1 Dy03 H2: PyruvateGlo
+  BA1 96_1 Dy03 H3: PyruvateGlo
+  BA1 96_1 Dy03 H4: PyruvateGlo
+  BA1 96_1 Dy03 H5: PyruvateGlo
+  BA1 96_1 Dy03 H6: PyruvateGlo
+  BA1 96_1 Dy03 H7: PyruvateGlo
+  BA1 96_1 Dy03 H8: PyruvateGlo
+  BA1 96_1 Dy03 H9: PyruvateGlo
+  BA1 96_1 Dy06 A1: GlucoseGlo, GlutamateGlo, BCAAGlo
+  BA1 96_1 Dy08 A1: GlucoseGlo, GlutamateGlo, BCAAGlo
+  BA1 96_1 Dy08 C12: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy08 C2: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy08 E6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy08 F7: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy10 A1: GlucoseGlo, GlutamateGlo, BCAAGlo
+  BA1 96_1 Dy13 A1: GlucoseGlo, GlutamateGlo, BCAAGlo
+  BA1 96_1 Dy15 A1: GlucoseGlo, GlutamateGlo, BCAAGlo
+  BA1 96_1 Dy17 A1: GlucoseGlo, GlutamateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A1: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A10: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A11: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A12: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A2: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A3: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A4: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A5: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A7: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A8: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 A9: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B1: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B10: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B11: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B12: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B2: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B3: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B4: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B5: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B7: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B8: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 B9: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C1: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C10: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C11: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C12: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C2: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C3: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C4: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C5: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C7: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 C8: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D1: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D10: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D11: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D12: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D2: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D3: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D4: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D5: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D7: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D8: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 D9: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E1: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E10: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E11: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E12: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E2: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E3: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E4: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E5: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E7: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 E9: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F1: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F10: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F11: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F12: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F2: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F3: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F4: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F5: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F7: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F8: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 F9: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G1: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G10: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G11: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G12: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G2: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G3: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G4: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G5: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G7: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G8: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 G9: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H1: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H10: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H11: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H12: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H2: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H3: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H4: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H5: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H7: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H8: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy20.5 H9: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA1 96_1 Dy24 A1: GlucoseGlo, GlutamateGlo, BCAAGlo
+  BA2 96_1 Dy08 E6: GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, MalateGlo, BCAAGlo
+  BA2 96_1 Dy17 A4: GlutamateGlo
+  BA2 96_1 Dy17 B5: GlutamateGlo
