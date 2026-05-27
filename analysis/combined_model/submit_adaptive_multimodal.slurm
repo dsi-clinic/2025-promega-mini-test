@@ -5,12 +5,12 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=2:00:00
-#SBATCH --output=/home/feng27/2025-promega-mini-test/analysis/combined_model/logs/adaptive_%j.out
-#SBATCH --error=/home/feng27/2025-promega-mini-test/analysis/combined_model/logs/adaptive_%j.err
+#SBATCH --output=/home/YOUR_USERNAME/2025-promega-mini-test/analysis/combined_model/logs/adaptive_%j.out
+#SBATCH --error=/home/YOUR_USERNAME/2025-promega-mini-test/analysis/combined_model/logs/adaptive_%j.err
 
 set -euo pipefail
 
-PROJ_ROOT=/home/feng27/2025-promega-mini-test
+PROJ_ROOT=/home/YOUR_USERNAME/2025-promega-mini-test
 CONDA_PREFIX=/net/projects2/promega
 SCRIPT="${PROJ_ROOT}/analysis/combined_model/train_adaptive_cv.py"
 OUTDIR="${PROJ_ROOT}/analysis/combined_model/outputs/adaptive_multimodal"

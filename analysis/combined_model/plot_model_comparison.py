@@ -19,7 +19,7 @@ def day_to_int(day):
     return int(day.replace("Dy", ""))
 
 
-ROOT = Path("/home/feng27/2025-promega-mini-test")
+ROOT = Path("/home/YOUR_USERNAME/2025-promega-mini-test")
 
 combined_path = ROOT / "analysis/combined_model/outputs/adaptive_multimodal/results.json"
 image_path = ROOT / "analysis_output/images/perday_results.json"

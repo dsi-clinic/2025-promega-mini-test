@@ -44,7 +44,7 @@ from sklearn.metrics import r2_score
 import matplotlib.pyplot as plt
 
 
-PROJ_ROOT = Path("/home/feng27/2025-promega-mini-test")
+PROJ_ROOT = Path("/home/YOUR_USERNAME/2025-promega-mini-test")
 
 DAY_ORDER = [
     "Dy03", "Dy06", "Dy08", "Dy10", "Dy13",
@@ -428,7 +428,7 @@ def main():
     parser.add_argument("--pca-dim", type=int, default=10)
     parser.add_argument(
         "--output-dir",
-        default="/home/feng27/2025-promega-mini-test/analysis/combined_model/outputs/feature_correlation",
+        default="/home/YOUR_USERNAME/2025-promega-mini-test/analysis/combined_model/outputs/feature_correlation",
     )
     args = parser.parse_args()
 

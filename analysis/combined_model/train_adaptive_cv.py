@@ -406,7 +406,7 @@ def get_transforms(config, augment=False):
 
 def load_all_data(config):
     """Load all organoids into a single DataFrame using the provided split CSV."""
-    sys.path.insert(0, str(Path("/home/feng27/2025-promega-mini-test")))
+    sys.path.insert(0, str(Path("/home/YOUR_USERNAME/2025-promega-mini-test")))
 
     from pipeline.data_loader import OrganoidDataset as LoaderDataset
     from pipeline.data_loader import default_filters
@@ -415,7 +415,7 @@ def load_all_data(config):
     splits = Splits.canonical()
 
     ds = LoaderDataset(
-        "/home/feng27/2025-promega-mini-test/data/all_data.json",
+        "/home/YOUR_USERNAME/2025-promega-mini-test/data/all_data.json",
         splits=splits,
         filters=default_filters(),
     )
