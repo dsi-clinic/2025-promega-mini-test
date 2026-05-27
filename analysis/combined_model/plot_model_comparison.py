@@ -21,7 +21,7 @@ def day_to_int(day):
 
 ROOT = Path("/home/feng27/2025-promega-mini-test")
 
-combined_path = ROOT / "analysis/combined_model/outputs/adaptive_cv_v2_efficientnet/results.json"
+combined_path = ROOT / "analysis/combined_model/outputs/adaptive_multimodal/results.json"
 image_path = ROOT / "analysis_output/images/perday_results.json"
 metabolite_path = ROOT / "analysis_output/metabolites/results.json"
 
