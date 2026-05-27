@@ -5,6 +5,23 @@ Reads directly from data/all_data.json via pipeline.data_loader.OrganoidDataset
 (paper-default filter preset: BA1+BA2, complete metabolites, valid images,
 ≥4/5 vote consensus at Dy30). Splits come from data/splits/canonical_2026_winter.csv via Splits.from_csv.
 
+Image set up aligned with `analysis/paper_2026_04/perday_image_study.py`:
+    - Default image source: cm_source_image_abs (aspect-ratio-conserved 575x575
+      from resized_575_square/), not the legacy img_path (mean-filled 512x384).
+    - Model input size: (384, 512) —  resizes the 575x575 source down
+    - No filter applied 
+ 
+Label convention (matches pipeline.data_loader.LABEL_TO_INT):
+    Not Acceptable = 1 (positive class in our code)
+    Acceptable     = 0 (negative class in our code)
+ 
+Paper Table 2 metric convention (FLIPPED from above):
+    The paper treats Acceptable as positive and Not Acceptable as negative,
+    so paper's "TNR" = recall on Not Acceptable, paper's "F1(NA)" = F1 of
+    the (paper's) negative class = F1 of Not Acceptable. The confusion
+    matrix counts saved to metrics_test.json (tn/fp/fn/tp) follow the
+    PAPER convention so the printed table matches the paper directly.
+ 
 Focal loss + ReduceLROnPlateau scheduler — both threaded through the shared
 ``train.run_phases`` via its ``loss_fn`` / ``scheduler_factory`` parameters.
 The rest of the plumbing (extract_samples_by_day, build_results_table,
@@ -17,7 +34,6 @@ Invoked via ``make analysis-train-dinov2``.
 import argparse
 import dataclasses
 import json
-from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -27,8 +43,8 @@ from sklearn.utils.class_weight import compute_class_weight
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from pipeline.data_loader import OrganoidDataset, filters_for_mode
-from pipeline.splits import CANONICAL_PATH, Splits
+from pipeline.data_loader import OrganoidDataset
+from pipeline.splits import Splits
 
 from .cli import build_results_table, create_summary, day_to_int
 from .data import ImagePathDataset, extract_samples_by_day
@@ -38,12 +54,15 @@ from .plots import plot_training_curve
 from .train import FocalLoss, run_phases, set_seed
 
 ALL_DATA_PATH = Path("data/all_data.json")
-SPLITS_CSV = CANONICAL_PATH
+SPLITS_CSV = Path("data/splits/canonical_2026_winter.csv")
 OUT_ROOT = Path("analysis/outputs/imagequality_classification/dinov2_fixed_splits")
-TARGET_SIZE = (384, 512)  # (H, W) — torchvision Resize convention
+TARGET_SIZE = (384, 512)  # (H, W) — model input size 
 BATCH_SIZE = 16
 NUM_WORKERS = 0
 SEED = 1
+
+# Paper Table 2 reports "Early TNR" averaged over these early-timepoint days.
+EARLY_DAYS = {"Dy03", "Dy06", "Dy08", "Dy10"}
 
 
 @dataclasses.dataclass
@@ -127,6 +146,19 @@ def run_training_for_day(day_str, backbone_key, backbone_name, ds, train_bs, val
     actual_good = int(trues.sum())
     predicted_good = int(preds_bin.sum())
 
+    # Confusion matrix in PAPER convention (Acc=positive, NA=negative).
+    # Our internal LABEL_TO_INT is NA=1/Acc=0, so we flip when counting:
+    #   paper TN = NA correctly identified  -> trues==1 & preds==1
+    #   paper FP = NA missed (called Acc)   -> trues==1 & preds==0
+    #   paper FN = Acc called NA            -> trues==0 & preds==1
+    #   paper TP = Acc correctly identified -> trues==0 & preds==0
+    # With these: paper_TNR = TN/(TN+FP) = recall on NA, which is what the
+    # paper's Table 2 reports as "TNR". Same for F1(NA).
+    TN = int(((trues == 1) & (preds_bin == 1)).sum())
+    FP = int(((trues == 1) & (preds_bin == 0)).sum())
+    FN = int(((trues == 0) & (preds_bin == 1)).sum())
+    TP = int(((trues == 0) & (preds_bin == 0)).sum())
+
     val_metrics = {
         "day": day_str, "split": "val",
         "accuracy": float(val_acc), "f1": float(val_f1),
@@ -143,11 +175,13 @@ def run_training_for_day(day_str, backbone_key, backbone_name, ds, train_bs, val
         "val_accuracy_for_selection": float(best_acc),
         "val_n": int(len(val_labels)), "test_n": int(len(trues)),
         "actual_good": actual_good, "predicted_good": predicted_good,
+        "tn": TN, "fp": FP, "fn": FN, "tp": TP,
+        "confusion_convention": "paper (Acc=positive, NA=negative)",
         "batch_size_train": int(train_bs), "batch_size_valtest": int(val_bs),
         "backbone_key": backbone_key, "input_key": input_key, "use_mask": use_mask,
     }
     (model_dir / "metrics_test.json").write_text(json.dumps(test_metrics, indent=2))
-    print(f"Saved metrics → {model_dir / 'metrics_val.json'} and {model_dir / 'metrics_test.json'}")
+    print(f"Saved metrics -> {model_dir / 'metrics_val.json'} and {model_dir / 'metrics_test.json'}")
 
     return {
         "day": day_str, "day_no": day_no, "backbone_key": backbone_key,
@@ -156,7 +190,77 @@ def run_training_for_day(day_str, backbone_key, backbone_name, ds, train_bs, val
         "val_roc_auc": val_roc_auc, "test_roc_auc": test_roc_auc,
         "val_num": int(len(val_labels)), "test_num": int(len(trues)),
         "test_actual_good": actual_good, "test_pred_good": predicted_good,
+        "tn": TN, "fp": FP, "fn": FN, "tp": TP,
     }
+
+
+def _per_day_metrics(TN: int, FP: int, FN: int, TP: int) -> dict:
+    """Compute paper Table 2 per-day metrics from PAPER-convention counts.
+
+    Inputs (TN/FP/FN/TP) follow the paper's convention:
+        Acc = positive (paper "TP" = Acc correctly identified)
+        NA  = negative (paper "TN" = NA  correctly identified)
+
+    Computes:
+      - TNR = recall on NA  = TN / (TN + FP)
+      - TPR = recall on Acc = TP / (TP + FN)
+      - Bal.Acc = (TNR + TPR) / 2
+      - F1(NA)  = F1 of the (paper's) negative class = F1 of Not Acceptable
+                prec_NA = TN / (TN + FN)
+                rec_NA  = TN / (TN + FP)
+    """
+    tnr = TN / (TN + FP) if (TN + FP) > 0 else 0.0  # recall(NA)
+    tpr = TP / (TP + FN) if (TP + FN) > 0 else 0.0  # recall(Acc)
+    bal_acc = (tnr + tpr) / 2
+    prec_na = TN / (TN + FN) if (TN + FN) > 0 else 0.0
+    rec_na = TN / (TN + FP) if (TN + FP) > 0 else 0.0
+    f1_na = (2 * prec_na * rec_na / (prec_na + rec_na)
+             if (prec_na + rec_na) > 0 else 0.0)
+    return {"tnr": tnr, "tpr": tpr, "bal_acc": bal_acc, "f1_na": f1_na}
+
+
+def _compute_paper_metrics(per_model_results: dict) -> dict:
+    """Compute paper Table 2 aggregate metrics per backbone."""
+    aggregated = {}
+    for bk, day_res in per_model_results.items():
+        if not day_res:
+            continue
+        per_day = []
+        for day, r in day_res.items():
+            m = _per_day_metrics(r["tn"], r["fp"], r["fn"], r["tp"])
+            m["day"] = day
+            m["is_early"] = day in EARLY_DAYS
+            per_day.append(m)
+        early = [m["tnr"] for m in per_day if m["is_early"]]
+        aggregated[bk] = {
+            "avg_tnr": float(np.mean([m["tnr"] for m in per_day])),
+            "early_tnr": float(np.mean(early)) if early else None,
+            "bal_acc": float(np.mean([m["bal_acc"] for m in per_day])),
+            "days_tnr_zero": sum(1 for m in per_day if m["tnr"] == 0.0),
+            "f1_na": float(np.mean([m["f1_na"] for m in per_day])),
+            "n_days": len(per_day),
+            "n_early": len(early),
+        }
+    return aggregated
+
+
+def _print_paper_metrics_table(metrics: dict) -> None:
+    """Print paper Table 2-style aggregate per backbone."""
+    print("\n--- Paper Table 2 metrics (aggregated per backbone) ---")
+    print("Convention: Acc=positive, NA=negative (matches paper)")
+    print("  TNR    = recall on Not Acceptable")
+    print("  F1(NA) = F1 of Not Acceptable class")
+    print()
+    print(f"{'Backbone':>14} | {'Avg.TNR':>8} | {'EarlyTNR':>9} | {'Bal.Acc':>8} | "
+          f"{'DaysTNR=0':>10} | {'F1(NA)':>7}")
+    print("-" * 75)
+    for bk, m in metrics.items():
+        early_s = f"{m['early_tnr']*100:>7.1f}%" if m["early_tnr"] is not None else "    N/A "
+        print(f"{bk:>14} | {m['avg_tnr']*100:>6.1f}% | {early_s:>9} | "
+              f"{m['bal_acc']*100:>6.1f}% | {m['days_tnr_zero']:>3}/{m['n_days']:<5} | "
+              f"{m['f1_na']*100:>5.1f}%")
+    print(f"\nEarly days = {sorted(EARLY_DAYS)} (n_early per backbone may be < 4 "
+          f"if some early days were skipped)")
 
 
 @dataclasses.dataclass
@@ -166,7 +270,7 @@ class _SummaryCfg:
     out_dir: Path
     batch_size: int
     val_batch_size: int
-    test_frac: float = 0.0  # not meaningful for fixed splits
+    test_frac: float = 0.0
     val_frac: float = 0.0
 
 
@@ -175,13 +279,14 @@ def parse_args():
     p.add_argument("--outdir", default=OUT_ROOT, help="Where to save outputs")
     p.add_argument("--all-data", default=ALL_DATA_PATH, help="Path to all_data.json")
     p.add_argument("--splits-csv", default=SPLITS_CSV, help="Path to organoid splits CSV")
-    p.add_argument("--mode", default="base", choices=["base", "switch1", "switch2", "switch3"],
-                   help="Split mode preset (see filters_for_mode)")
     p.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="Train batch size")
     p.add_argument("--val-batch-size", type=int, default=None, help="Val/Test batch size (defaults to train)")
     p.add_argument("--use-mask", action="store_true", help="Include mask tensors and a mask branch")
-    p.add_argument("--input-path-key", choices=["img_path", "overlay_path"], default="img_path",
-                   help="Which JSON field to use as the primary image input")
+    p.add_argument("--input-path-key",
+                   choices=["cm_source_image", "img_path", "overlay_path"],
+                   default="cm_source_image",
+                   help="Image source. cm_source_image = AR-conserved 575x575. "
+                        "img_path = legacy mean-filled 512x384. overlay_path = QC overlays.")
     return p.parse_args()
 
 
@@ -198,10 +303,10 @@ def main():
     if not splits_csv.exists():
         raise FileNotFoundError(f"splits CSV not found: {splits_csv}")
 
+    # No filter — matches perday_image_study.py.
     ds = OrganoidDataset(
         str(all_data_path),
         splits=Splits.from_csv(splits_csv),
-        filters=filters_for_mode(args.mode, modality="image"),
     )
     print(ds.summary())
 
@@ -210,10 +315,9 @@ def main():
     use_mask = bool(args.use_mask)
     input_key = str(args.input_path_key)
 
-    print(f"Using batch sizes — train: {train_bs}, val/test: {val_bs}")
+    print(f"Using batch sizes - train: {train_bs}, val/test: {val_bs}")
     print(f"Target size (HxW): {TARGET_SIZE}")
     print(f"Input field: {input_key}; masks enabled: {use_mask}")
-    print(f"Mode preset: {args.mode} (modality=image)")
 
     all_days = ds.days
     print(f"Found {len(all_days)} days: {', '.join(all_days)}")
@@ -247,9 +351,12 @@ def main():
     create_summary(
         per_model_results, rows, summary_cfg,
         used_fixed_splits=True,
-        mode=args.mode,
     )
+
+    paper_metrics = _compute_paper_metrics(per_model_results)
+    _print_paper_metrics_table(paper_metrics)
 
 
 if __name__ == "__main__":
     main()
+
