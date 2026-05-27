@@ -3,7 +3,9 @@ Temporal ablation with EfficientNet features + Temporal Attention (BCE)
 Run: python analysis/images/cnn_lstm/train_temporal_ablation_attn.py
 """
 
-import sys, json, math, argparse
+import sys
+import json
+import argparse
 from pathlib import Path
 import matplotlib
 matplotlib.use('Agg')
@@ -13,18 +15,18 @@ import matplotlib.pyplot as plt
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-import numpy as np
-from tqdm import tqdm
+import numpy as np  # noqa: E402
+from tqdm import tqdm  # noqa: E402
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
-from torchvision import models, transforms
-from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
-from sklearn.metrics import precision_recall_fscore_support
+import torch  # noqa: E402
+import torch.nn as nn  # noqa: E402
+import torch.optim as optim  # noqa: E402
+from torch.utils.data import DataLoader  # noqa: E402
+from torchvision import transforms  # noqa: E402
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights  # noqa: E402
+from sklearn.metrics import precision_recall_fscore_support  # noqa: E402
 
-from analysis.images.cnn_lstm.organoid_dataset import (
+from analysis.images.cnn_lstm.organoid_dataset import (  # noqa: E402
     OrganoidTimeSeriesDataset,
     make_canonical_splits,
 )
@@ -162,7 +164,6 @@ def evaluate_binary(model, loader, criterion, device):
     acc = (preds == labels.int()).float().mean().item()
 
     from sklearn.metrics import (
-        precision_recall_fscore_support,
         roc_auc_score,
         average_precision_score,
     )
@@ -235,17 +236,18 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
     n_pos = int(np.sum(train_labels))
     n_neg = int(len(train_labels) - n_pos)
-    if n_pos == 0: n_pos = 1
-    if n_neg == 0: n_neg = 1
+    if n_pos == 0:
+        n_pos = 1
+    if n_neg == 0:
+        n_neg = 1
     pos_weight = torch.tensor([n_neg / n_pos], device=device, dtype=torch.float32)
     print(f"class balance (train): NotAcceptable={n_pos}, Acceptable={n_neg}, pos_weight={pos_weight.item():.3f}")
 
     model = OrganoidCNN_TAtt(attn_dropout=ATTN_DROPOUT).to(device)
 
-    # two phase optimizer setup (we'll swap LR when unfreezing)
-    def make_optimizer(lr_cnn, lr_head):
-        params_cnn = [p for n,p in model.cnn.named_parameters() if p.requires_grad]
-        params_head = [p for n,p in model.named_parameters()
+    def make_optimizer(m, lr_cnn, lr_head):
+        params_cnn = [p for n, p in m.cnn.named_parameters() if p.requires_grad]
+        params_head = [p for n, p in m.named_parameters()
                        if not n.startswith("cnn.") and p.requires_grad]
         groups = []
         if len(params_cnn) > 0:
@@ -255,7 +257,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         return optim.Adam(groups)
 
     # warmup: CNN frozen → only head gets LR
-    optimizer = make_optimizer(lr_cnn=0.0, lr_head=LR_HEAD)
+    optimizer = make_optimizer(model, lr_cnn=0.0, lr_head=LR_HEAD)
     # Per-sample weighting in train loop, so reduction='none' with no pos_weight.
     criterion = nn.BCEWithLogitsLoss(reduction='none')
 
@@ -274,7 +276,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         # unfreeze last blocks after warmup
         if epoch == WARMUP_EPOCHS + 1:
             model.unfreeze_last_blocks()
-            optimizer = make_optimizer(lr_cnn=LR_CNN_UNFREEZE, lr_head=LR_HEAD)
+            optimizer = make_optimizer(model, lr_cnn=LR_CNN_UNFREEZE, lr_head=LR_HEAD)
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
             print("→ Unfroze last CNN blocks; using small LR for CNN.")
 
@@ -377,8 +379,8 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     from sklearn.metrics import confusion_matrix as sk_cm
     cm = sk_cm(all_labels_cm, all_preds_cm)
     print("\nConfusion Matrix (Test Set):")
-    print(f"                       Predicted")
-    print(f"                Acceptable   Not Acceptable")
+    print("                       Predicted")
+    print("                Acceptable   Not Acceptable")
     print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
     print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 

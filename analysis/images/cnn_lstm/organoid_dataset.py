@@ -12,13 +12,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-import cv2
-import numpy as np
-import torch
-from skimage.io import imread
-from torch.utils.data import Dataset
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+from skimage.io import imread  # noqa: E402
+from torch.utils.data import Dataset  # noqa: E402
 
-from pipeline.data_loader import (
+from pipeline.data_loader import (  # noqa: E402
     LABEL_TO_INT,
     OrganoidDataset,
     filters_for_mode,
@@ -28,7 +28,7 @@ from pipeline.data_loader import (
     get_day_float,
     get_survey_vote_counts,
 )
-from pipeline.splits import Splits
+from pipeline.splits import Splits  # noqa: E402
 
 LABEL_DAY = "Dy30"
 

@@ -1014,7 +1014,6 @@ class OrganoidDataset:
                 X, feat_names, ids, split, day, active_mets, include_initial
             )
             y_out = []
-            id_set = set(ids_out)
             for org_id in ids_out:
                 y_out.append(
                     1 if self._organoids[org_id]["label"] == "Not Acceptable" else 0
