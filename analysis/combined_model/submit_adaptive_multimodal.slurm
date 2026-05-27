@@ -5,12 +5,12 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=2:00:00
-#SBATCH --output=/home/YOUR_USERNAME/2025-promega-mini-test/analysis/combined_model/logs/adaptive_%j.out
-#SBATCH --error=/home/YOUR_USERNAME/2025-promega-mini-test/analysis/combined_model/logs/adaptive_%j.err
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.err
 
 set -euo pipefail
 
-PROJ_ROOT=/home/YOUR_USERNAME/2025-promega-mini-test
+PROJ_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CONDA_PREFIX=/net/projects2/promega
 SCRIPT="${PROJ_ROOT}/analysis/combined_model/train_adaptive_cv.py"
 OUTDIR="${PROJ_ROOT}/analysis/combined_model/outputs/adaptive_multimodal"
@@ -40,7 +40,7 @@ ${CONDA_PREFIX}/bin/python3 -u "${SCRIPT}" \
     --num-epochs 50 \
     --early-stopping-patience 20 \
     --use-augmentation \
-    --output-dir "${OUTDIR}" 
+    --output-dir "${OUTDIR}"
 
 EXIT_CODE=$?
 

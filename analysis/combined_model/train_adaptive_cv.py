@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 Day-Adaptive Multimodal Organoid Classification with 5-Fold Cross Validation.
@@ -78,8 +77,15 @@ LABEL_MAP = {
     "Accepted": 0,
 }
 
+PROJ_ROOT = Path(__file__).resolve().parents[2]
+
 
 def set_seed(seed=SEED):
+    """Set random seeds for reproducibility across numpy, torch, and CUDA.
+
+    Args:
+        seed: Integer seed value. Defaults to global SEED constant.
+    """
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -87,12 +93,35 @@ def set_seed(seed=SEED):
 
 
 def day_to_int(day_str):
+    """Extract the numeric day value from a day string like 'Dy03' or 'Dy20_5'.
+
+    Args:
+        day_str: Day string in format 'DyNN' or 'DyNN_N'.
+
+    Returns:
+        Integer day number, or -1 if no match found.
+    """
     m = re.search(r"[Dd][Yy](\d+)", day_str)
     return int(m.group(1)) if m else -1
 
 
 class OrganoidDataset(Dataset):
+    """PyTorch Dataset for organoid image and metabolite data.
+
+    Filters out records with missing or non-existent image paths,
+    and optionally fits or applies a metabolite scaler.
+    """
+
     def __init__(self, df, config, transform=None, scaler=None, fit_scaler=False):
+        """Initialize the dataset, filter valid records, and prepare metabolite features.
+
+        Args:
+            df: DataFrame containing organoid records.
+            config: Dict with keys use_images, use_metabolites, input_mode, etc.
+            transform: Optional torchvision transform to apply to images.
+            scaler: Optional pre-fitted StandardScaler for metabolite features.
+            fit_scaler: If True, fit a new StandardScaler on this dataset's metabolites.
+        """
         self.df = df.reset_index(drop=True)
         self.config = config
         self.transform = transform
@@ -160,9 +189,18 @@ class OrganoidDataset(Dataset):
         return features
 
     def __len__(self):
+        """Return the number of valid samples in the dataset."""
         return len(self.df)
 
     def __getitem__(self, idx):
+        """Return a single sample as a tuple of (image, metabolites, label) tensors.
+
+        Args:
+            idx: Integer index of the sample.
+
+        Returns:
+            Tuple of tensors. Contents depend on config use_images and use_metabolites flags.
+        """
         row = self.df.iloc[idx]
         label = torch.tensor(self.label_map.get(row["label"], 0), dtype=torch.float32)
 
@@ -186,6 +224,13 @@ class MetaboliteBranch(nn.Module):
     """Metabolite MLP with optional projection."""
 
     def __init__(self, input_dim=5, hidden_dim=64, proj_dim=None):
+        """Initialize the metabolite MLP branch.
+
+        Args:
+            input_dim: Number of input metabolite features.
+            hidden_dim: Size of hidden layers.
+            proj_dim: If set, adds a final projection layer to this dimension.
+        """
         super().__init__()
         self.input_dim = input_dim
 
@@ -210,6 +255,14 @@ class MetaboliteBranch(nn.Module):
         self.net = nn.Sequential(*layers)
 
     def forward(self, x):
+        """Forward pass with zero-padding if input is shorter than expected.
+
+        Args:
+            x: Tensor of shape (batch_size, input_dim).
+
+        Returns:
+            Tensor of shape (batch_size, out_dim).
+        """
         if x.shape[1] < self.input_dim:
             padding = torch.zeros(
                 x.shape[0],
@@ -221,8 +274,7 @@ class MetaboliteBranch(nn.Module):
 
 
 class AdaptiveCrossAttentionFusion(nn.Module):
-    """
-    Adaptive cross-modal fusion.
+    """Adaptive cross-modal fusion.
 
     early_mode=True:
         image is primary, metabolite supplements.
@@ -241,6 +293,17 @@ class AdaptiveCrossAttentionFusion(nn.Module):
         early_mode=True,
         use_projection=False,
     ):
+        """Initialize the adaptive cross-attention fusion module.
+
+        Args:
+            img_dim: Dimensionality of image features.
+            meta_dim: Dimensionality of metabolite features.
+            proj_dim: Projection dimension for attention. Must be divisible by num_heads.
+            num_heads: Number of attention heads.
+            dropout: Dropout rate for attention.
+            early_mode: If True, image is query (primary). If False, metabolite is query.
+            use_projection: If True, apply an additional linear projection to image features.
+        """
         super().__init__()
         assert proj_dim % num_heads == 0, "proj_dim must be divisible by num_heads"
 
@@ -269,6 +332,15 @@ class AdaptiveCrossAttentionFusion(nn.Module):
         self.out_dim = proj_dim * 2
 
     def forward(self, img_feats, meta_feats):
+        """Fuse image and metabolite features via cross-attention.
+
+        Args:
+            img_feats: Image feature tensor of shape (batch_size, img_dim).
+            meta_feats: Metabolite feature tensor of shape (batch_size, meta_dim).
+
+        Returns:
+            Fused tensor of shape (batch_size, proj_dim * 2).
+        """
         if self.use_projection:
             img_feats = self.img_pre_proj(img_feats)
 
@@ -288,7 +360,17 @@ class AdaptiveCrossAttentionFusion(nn.Module):
 
 
 class AdaptiveMultimodalClassifier(nn.Module):
+    """Full multimodal classifier combining image backbone, metabolite MLP, and fusion head."""
+
     def __init__(self, config, early_mode=True):
+        """Initialize the classifier with backbone, metabolite branch, fusion, and head.
+
+        Args:
+            config: Dict containing model hyperparameters (backbone, use_images,
+                use_metabolites, use_projection, proj_dim, cross_attn_proj_dim,
+                cross_attn_heads, target_size).
+            early_mode: If True, image is primary in cross-attention fusion.
+        """
         super().__init__()
 
         self.config = config
@@ -349,6 +431,15 @@ class AdaptiveMultimodalClassifier(nn.Module):
         )
 
     def forward(self, *args):
+        """Forward pass routing inputs based on active modalities.
+
+        Args:
+            *args: Positional tensors. Order is (image, metabolite) for multimodal,
+                (image,) for image-only, or (metabolite,) for metabolite-only.
+
+        Returns:
+            Logit tensor of shape (batch_size,).
+        """
         if self.use_images and self.use_metabolites:
             img, meta = args[0], args[1]
             img_feats = self.backbone(img)
@@ -368,12 +459,27 @@ class AdaptiveMultimodalClassifier(nn.Module):
 
 
 class EarlyStopping:
+    """Early stopping handler that tracks a monitored metric and signals when to stop."""
+
     def __init__(self, patience=20):
+        """Initialize early stopping with a given patience.
+
+        Args:
+            patience: Number of epochs without improvement before stopping.
+        """
         self.patience = patience
         self.best = -np.inf
         self.counter = 0
 
     def __call__(self, score):
+        """Update state with the latest score and return whether to stop.
+
+        Args:
+            score: The monitored metric value for the current epoch.
+
+        Returns:
+            True if training should stop, False otherwise.
+        """
         if score > self.best + 1e-4:
             self.best = score
             self.counter = 0
@@ -384,6 +490,15 @@ class EarlyStopping:
 
 
 def get_transforms(config, augment=False):
+    """Build a torchvision transform pipeline for image preprocessing.
+
+    Args:
+        config: Dict containing target_size and use_augmentation keys.
+        augment: If True and config allows, applies random flips and rotation.
+
+    Returns:
+        A composed torchvision transform.
+    """
     t = [T.Resize(config["target_size"])]
 
     if augment and config["use_augmentation"]:
@@ -405,8 +520,16 @@ def get_transforms(config, augment=False):
 
 
 def load_all_data(config):
-    """Load all organoids into a single DataFrame using the provided split CSV."""
-    sys.path.insert(0, str(Path("/home/YOUR_USERNAME/2025-promega-mini-test")))
+    """Load all organoids into a single DataFrame using the canonical split CSV.
+
+    Args:
+        config: Dict containing use_images and use_metabolites flags.
+
+    Returns:
+        DataFrame with one row per organoid-day record, including image paths,
+        metabolite concentrations, label, and split assignment.
+    """
+    sys.path.insert(0, str(PROJ_ROOT))
 
     from pipeline.data_loader import OrganoidDataset as LoaderDataset
     from pipeline.data_loader import default_filters
@@ -415,7 +538,7 @@ def load_all_data(config):
     splits = Splits.canonical()
 
     ds = LoaderDataset(
-        "/home/YOUR_USERNAME/2025-promega-mini-test/data/all_data.json",
+        str(PROJ_ROOT / "data/all_data.json"),
         splits=splits,
         filters=default_filters(),
     )
@@ -465,6 +588,20 @@ def load_all_data(config):
 
 
 def train_epoch(model, loader, opt, crit, weights, device, config):
+    """Run one training epoch over the dataloader.
+
+    Args:
+        model: The classifier model.
+        loader: DataLoader for training data.
+        opt: Optimizer.
+        crit: Loss function (BCEWithLogitsLoss with reduction='none').
+        weights: Dict mapping class index to sample weight.
+        device: Torch device string.
+        config: Dict with use_images and use_metabolites flags.
+
+    Returns:
+        Mean loss over the epoch as a float.
+    """
     model.train()
     losses = []
 
@@ -506,6 +643,17 @@ def train_epoch(model, loader, opt, crit, weights, device, config):
 
 
 def eval_epoch(model, loader, device, config):
+    """Evaluate the model on a dataloader and return classification metrics.
+
+    Args:
+        model: The classifier model.
+        loader: DataLoader for evaluation data.
+        device: Torch device string.
+        config: Dict with use_images and use_metabolites flags.
+
+    Returns:
+        Dict with keys acc, f1, bal_acc, and auc.
+    """
     model.eval()
 
     probs_all = []
@@ -550,6 +698,16 @@ def eval_epoch(model, loader, device, config):
 
 
 def train_day_cv(day, day_df, config):
+    """Run 5-fold cross-validation for a single development day.
+
+    Args:
+        day: Day string (e.g. 'Dy03').
+        day_df: DataFrame subset for this day.
+        config: Model and training configuration dict.
+
+    Returns:
+        List of per-fold result dicts with keys fold, acc, f1, bal_acc, auc.
+    """
     early_mode = day in EARLY_DAYS
     mode_str = "early image-primary" if early_mode else "late metabolite-primary"
 
@@ -764,6 +922,14 @@ def train_day_cv(day, day_df, config):
 
 
 def aggregate_folds(fold_results):
+    """Compute mean and std of each metric across folds.
+
+    Args:
+        fold_results: List of per-fold result dicts.
+
+    Returns:
+        Dict with {metric}_mean and {metric}_std keys, or None if input is empty.
+    """
     if not fold_results:
         return None
 
@@ -783,6 +949,18 @@ def aggregate_folds(fold_results):
 
 
 def plot_summary(results, output_dir, backbone, use_projection, proj_dim):
+    """Generate and save summary plots of CV results across all days.
+
+    Saves three figures: a 2x2 grid of all metrics, an overlay of acc/f1/bal_acc,
+    and a standalone balanced accuracy plot.
+
+    Args:
+        results: Dict mapping day strings to aggregated metric dicts.
+        output_dir: Path to the output directory.
+        backbone: Backbone name string for plot titles.
+        use_projection: Bool indicating whether projection was used.
+        proj_dim: Projection dimension used, shown in title if use_projection is True.
+    """
     days_present = [d for d in DAY_ORDER_LABELS if d in results and results[d]]
     day_nos = [day_to_int(d) for d in days_present]
     modes = ["early" if d in EARLY_DAYS else "late" for d in days_present]
@@ -1001,6 +1179,7 @@ def plot_summary(results, output_dir, backbone, use_projection, proj_dim):
 
 
 def main():
+    """Parse arguments, load data, run day-by-day CV training, and save results and plots."""
     parser = argparse.ArgumentParser(
         description="Day-adaptive multimodal CV with weighted BCE."
     )

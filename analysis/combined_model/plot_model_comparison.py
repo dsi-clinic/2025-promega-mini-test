@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""
+Compare balanced accuracy across combined, image-only, and metabolite-only models.
+
+Reads results from:
+  - analysis/combined_model/outputs/adaptive_multimodal/results.json
+  - analysis_output/images/perday_results.json
+  - analysis_output/metabolites/results.json
+
+Outputs:
+  analysis/combined_model/outputs/model_comparison/balanced_accuracy_comparison.png
+"""
 
 import json
 from pathlib import Path
@@ -12,141 +23,176 @@ DAY_ORDER = [
     "Dy15", "Dy17", "Dy20_5", "Dy24", "Dy28", "Dy30",
 ]
 
+ROOT = Path(__file__).resolve().parents[2]
+
 
 def day_to_int(day):
+    """Convert a day string like 'Dy03' or 'Dy20_5' to a numeric value."""
     if day == "Dy20_5":
         return 20.5
     return int(day.replace("Dy", ""))
 
 
-ROOT = Path("/home/YOUR_USERNAME/2025-promega-mini-test")
+def load_combined_results(path):
+    """Load and parse combined model results from results.json.
 
-combined_path = ROOT / "analysis/combined_model/outputs/adaptive_multimodal/results.json"
-image_path = ROOT / "analysis_output/images/perday_results.json"
-metabolite_path = ROOT / "analysis_output/metabolites/results.json"
+    Args:
+        path: Path to the combined model results.json file.
 
-outdir = ROOT / "analysis/combined_model/outputs/model_comparison"
-outdir.mkdir(parents=True, exist_ok=True)
+    Returns:
+        DataFrame with columns: day, x, bal_acc, std.
+    """
+    with open(path) as f:
+        combined_json = json.load(f)
 
-outpath = outdir / "balanced_accuracy_comparison.png"
+    combined = combined_json["aggregated"]
+    rows = []
 
+    for day in DAY_ORDER:
+        if day in combined:
+            rows.append({
+                "day": day,
+                "x": day_to_int(day),
+                "bal_acc": combined[day]["bal_acc_mean"],
+                "std": combined[day]["bal_acc_std"],
+            })
 
-# ----------------------------
-# Combined model
-# ----------------------------
-with open(combined_path) as f:
-    combined_json = json.load(f)
-
-combined = combined_json["aggregated"]
-
-combined_rows = []
-for day in DAY_ORDER:
-    if day in combined:
-        combined_rows.append({
-            "day": day,
-            "x": day_to_int(day),
-            "bal_acc": combined[day]["bal_acc_mean"],
-            "std": combined[day]["bal_acc_std"],
-        })
-
-combined_df = pd.DataFrame(combined_rows)
+    return pd.DataFrame(rows)
 
 
-# ----------------------------
-# Image model
-# ----------------------------
-with open(image_path) as f:
-    image_json = json.load(f)
+def load_image_results(path):
+    """Load and parse image-only model results.
 
-image_rows = []
-for day in DAY_ORDER:
-    if day in image_json:
-        image_rows.append({
-            "day": day,
-            "x": day_to_int(day),
-            "bal_acc": image_json[day]["balanced_accuracy"],
-        })
+    Args:
+        path: Path to the image model perday_results.json file.
 
-image_df = pd.DataFrame(image_rows)
+    Returns:
+        DataFrame with columns: day, x, bal_acc.
+    """
+    with open(path) as f:
+        image_json = json.load(f)
 
+    rows = []
 
-# ----------------------------
-# Metabolite model
-# ----------------------------
-with open(metabolite_path) as f:
-    met_json = json.load(f)
+    for day in DAY_ORDER:
+        if day in image_json:
+            rows.append({
+                "day": day,
+                "x": day_to_int(day),
+                "bal_acc": image_json[day]["balanced_accuracy"],
+            })
 
-# Use LightGBM as metabolite model
-met_results = met_json["lgbm"] if "lgbm" in met_json else met_json
-
-met_rows = []
-for day in DAY_ORDER:
-    if day in met_results:
-        met_rows.append({
-            "day": day,
-            "x": day_to_int(day),
-            "bal_acc": met_results[day]["balanced_accuracy"],
-        })
-
-met_df = pd.DataFrame(met_rows)
+    return pd.DataFrame(rows)
 
 
-# ----------------------------
-# Plot
-# ----------------------------
-fig, ax = plt.subplots(figsize=(11, 6))
+def load_metabolite_results(path):
+    """Load and parse metabolite-only model results, using LightGBM if available.
 
-if not combined_df.empty:
-    ax.plot(
-        combined_df["x"],
-        combined_df["bal_acc"],
-        marker="o",
-        linewidth=2.5,
-        label="Combined Model",
-    )
+    Args:
+        path: Path to the metabolite model results.json file.
 
-    ax.fill_between(
-        combined_df["x"],
-        combined_df["bal_acc"] - combined_df["std"],
-        combined_df["bal_acc"] + combined_df["std"],
-        alpha=0.15,
-    )
+    Returns:
+        DataFrame with columns: day, x, bal_acc.
+    """
+    with open(path) as f:
+        met_json = json.load(f)
 
-if not image_df.empty:
-    ax.plot(
-        image_df["x"],
-        image_df["bal_acc"],
-        marker="s",
-        linestyle="--",
-        linewidth=2,
-        label="Image Only",
-    )
+    met_results = met_json["lgbm"] if "lgbm" in met_json else met_json
+    rows = []
 
-if not met_df.empty:
-    ax.plot(
-        met_df["x"],
-        met_df["bal_acc"],
-        marker="^",
-        linestyle=":",
-        linewidth=2,
-        label="Metabolite Only / LightGBM",
-    )
+    for day in DAY_ORDER:
+        if day in met_results:
+            rows.append({
+                "day": day,
+                "x": day_to_int(day),
+                "bal_acc": met_results[day]["balanced_accuracy"],
+            })
 
-ax.axvspan(19, 31, alpha=0.08)
-ax.axhline(0.5, linestyle="--", alpha=0.5)
+    return pd.DataFrame(rows)
 
-ax.set_xlabel("Development Day")
-ax.set_ylabel("Balanced Accuracy")
-ax.set_title("Balanced Accuracy Comparison Across Models")
 
-ax.set_xticks([day_to_int(d) for d in DAY_ORDER])
-ax.set_xticklabels(DAY_ORDER, rotation=45)
+def plot_comparison(combined_df, image_df, met_df, outpath):
+    """Plot balanced accuracy curves for all three models and save to disk.
 
-ax.set_ylim(0.3, 1.05)
-ax.grid(True, alpha=0.3)
-ax.legend()
+    Args:
+        combined_df: DataFrame with combined model results (includes std column).
+        image_df: DataFrame with image-only model results.
+        met_df: DataFrame with metabolite-only model results.
+        outpath: Path to save the output figure.
+    """
+    fig, ax = plt.subplots(figsize=(11, 6))
 
-plt.tight_layout()
-plt.savefig(outpath, dpi=200)
+    if not combined_df.empty:
+        ax.plot(
+            combined_df["x"],
+            combined_df["bal_acc"],
+            marker="o",
+            linewidth=2.5,
+            label="Combined Model",
+        )
+        ax.fill_between(
+            combined_df["x"],
+            combined_df["bal_acc"] - combined_df["std"],
+            combined_df["bal_acc"] + combined_df["std"],
+            alpha=0.15,
+        )
 
-print(f"Saved figure to: {outpath}")
+    if not image_df.empty:
+        ax.plot(
+            image_df["x"],
+            image_df["bal_acc"],
+            marker="s",
+            linestyle="--",
+            linewidth=2,
+            label="Image Only",
+        )
+
+    if not met_df.empty:
+        ax.plot(
+            met_df["x"],
+            met_df["bal_acc"],
+            marker="^",
+            linestyle=":",
+            linewidth=2,
+            label="Metabolite Only / LightGBM",
+        )
+
+    ax.axvspan(19, 31, alpha=0.08)
+    ax.axhline(0.5, linestyle="--", alpha=0.5)
+
+    ax.set_xlabel("Development Day")
+    ax.set_ylabel("Balanced Accuracy")
+    ax.set_title("Balanced Accuracy Comparison Across Models")
+
+    ax.set_xticks([day_to_int(d) for d in DAY_ORDER])
+    ax.set_xticklabels(DAY_ORDER, rotation=45)
+
+    ax.set_ylim(0.3, 1.05)
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    plt.tight_layout()
+    plt.savefig(outpath, dpi=200)
+
+    print(f"Saved figure to: {outpath}")
+
+
+def main():
+    """Load results from all three models and generate comparison plot."""
+    combined_path = ROOT / "analysis/combined_model/outputs/adaptive_multimodal/results.json"
+    image_path = ROOT / "analysis_output/images/perday_results.json"
+    metabolite_path = ROOT / "analysis_output/metabolites/results.json"
+
+    outdir = ROOT / "analysis/combined_model/outputs/model_comparison"
+    outdir.mkdir(parents=True, exist_ok=True)
+    outpath = outdir / "balanced_accuracy_comparison.png"
+
+    combined_df = load_combined_results(combined_path)
+    image_df = load_image_results(image_path)
+    met_df = load_metabolite_results(metabolite_path)
+
+    plot_comparison(combined_df, image_df, met_df, outpath)
+
+
+if __name__ == "__main__":
+    main()

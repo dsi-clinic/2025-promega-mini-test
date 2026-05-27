@@ -23,7 +23,6 @@ Outputs:
 """
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -39,12 +38,11 @@ import timm
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.cross_decomposition import CCA
-from sklearn.metrics import r2_score
 
 import matplotlib.pyplot as plt
 
 
-PROJ_ROOT = Path("/home/YOUR_USERNAME/2025-promega-mini-test")
+PROJ_ROOT = Path(__file__).resolve().parents[2]
 
 DAY_ORDER = [
     "Dy03", "Dy06", "Dy08", "Dy10", "Dy13",
@@ -62,12 +60,30 @@ MALATE_FEATURE = "MalateGlo_concentration_uM"
 
 
 def day_to_int(day):
+    """Convert a day string like 'Dy03' or 'Dy20_5' to an integer day number.
+
+    Args:
+        day: Day string in format 'DyNN' or 'DyNN_N'.
+
+    Returns:
+        Integer day number.
+    """
     if day == "Dy20_5":
         return 20
     return int(day.replace("Dy", "").split("_")[0])
 
 
 def get_metabolite_columns(day):
+    """Return the list of metabolite feature columns for a given day.
+
+    Malate is only included for days after day 10.
+
+    Args:
+        day: Day string (e.g. 'Dy03', 'Dy20_5').
+
+    Returns:
+        List of metabolite column name strings.
+    """
     cols = BASE_MET_FEATURES.copy()
     if day_to_int(day) > 10:
         cols.append(MALATE_FEATURE)
@@ -75,15 +91,33 @@ def get_metabolite_columns(day):
 
 
 class ImageEmbeddingDataset(Dataset):
+    """PyTorch Dataset for loading organoid images for embedding extraction."""
+
     def __init__(self, df, image_col, transform):
+        """Initialize the dataset.
+
+        Args:
+            df: DataFrame containing organoid records with image paths.
+            image_col: Column name for image file paths.
+            transform: Torchvision transform to apply to each image.
+        """
         self.df = df.reset_index(drop=True)
         self.image_col = image_col
         self.transform = transform
 
     def __len__(self):
+        """Return the number of samples in the dataset."""
         return len(self.df)
 
     def __getitem__(self, idx):
+        """Load and transform a single image and return it with metadata.
+
+        Args:
+            idx: Integer index of the sample.
+
+        Returns:
+            Dict with keys image, org_id, day, label, and split.
+        """
         row = self.df.iloc[idx]
         path = row[self.image_col]
 
@@ -100,6 +134,14 @@ class ImageEmbeddingDataset(Dataset):
 
 
 def get_transform(target_size=(384, 512)):
+    """Build a standard image preprocessing transform.
+
+    Args:
+        target_size: Tuple (height, width) to resize images to.
+
+    Returns:
+        A composed torchvision transform.
+    """
     return T.Compose([
         T.Resize(target_size),
         T.ToTensor(),
@@ -111,6 +153,15 @@ def get_transform(target_size=(384, 512)):
 
 
 def load_all_data(input_mode):
+    """Load all organoid records into a DataFrame using canonical splits.
+
+    Args:
+        input_mode: Either 'rgb' or 'overlay' to select image type.
+
+    Returns:
+        DataFrame with one row per organoid-day record, including image paths,
+        metabolite concentrations, label, and split assignment.
+    """
     sys.path.insert(0, str(PROJ_ROOT))
 
     from pipeline.data_loader import OrganoidDataset, default_filters
@@ -123,7 +174,6 @@ def load_all_data(input_mode):
     )
 
     rows = []
-
     image_col = "overlay_path" if input_mode == "overlay" else "img_path"
 
     for org_id, info in ds.iter_organoids():
@@ -169,6 +219,17 @@ def load_all_data(input_mode):
 
 
 def extract_image_embeddings(df, input_mode, batch_size, device):
+    """Extract EfficientNet-B0 embeddings for all images in the DataFrame.
+
+    Args:
+        df: DataFrame with image path columns.
+        input_mode: Either 'rgb' or 'overlay' to select image column.
+        batch_size: Number of images per batch.
+        device: Torch device string ('cuda' or 'cpu').
+
+    Returns:
+        DataFrame with org_id, day, label, split, and one column per embedding dimension.
+    """
     image_col = "overlay_path" if input_mode == "overlay" else "img_path"
 
     transform = get_transform()
@@ -218,6 +279,15 @@ def extract_image_embeddings(df, input_mode, batch_size, device):
 
 
 def prepare_aligned_features(df, emb_df):
+    """Merge image embeddings with metabolite features on shared key columns.
+
+    Args:
+        df: Original records DataFrame with metabolite columns.
+        emb_df: DataFrame of image embeddings with org_id, day, label, split columns.
+
+    Returns:
+        Merged DataFrame containing both embedding and metabolite columns.
+    """
     key_cols = ["org_id", "day", "label", "split"]
 
     met_cols_all = BASE_MET_FEATURES + [MALATE_FEATURE]
@@ -233,8 +303,17 @@ def prepare_aligned_features(df, emb_df):
 
 
 def compute_cca_by_day(aligned, output_dir, pca_dim):
-    results = []
+    """Compute Canonical Correlation Analysis between image PCs and metabolites per day.
 
+    Args:
+        aligned: DataFrame with both image embedding and metabolite columns.
+        output_dir: Path to save cca_by_day.csv.
+        pca_dim: Number of PCA components to reduce image embeddings to before CCA.
+
+    Returns:
+        DataFrame with CCA results per day.
+    """
+    results = []
     img_cols = [c for c in aligned.columns if c.startswith("img_emb_")]
 
     for day in DAY_ORDER:
@@ -302,8 +381,17 @@ def compute_cca_by_day(aligned, output_dir, pca_dim):
 
 
 def compute_metabolite_pc_correlations(aligned, output_dir, pca_dim):
-    rows = []
+    """Compute pairwise correlations between each metabolite and each image PC per day.
 
+    Args:
+        aligned: DataFrame with both image embedding and metabolite columns.
+        output_dir: Path to save metabolite_pc_correlations.csv.
+        pca_dim: Number of PCA components to reduce image embeddings to.
+
+    Returns:
+        DataFrame with columns day, metabolite, image_pc, correlation, abs_correlation.
+    """
+    rows = []
     img_cols = [c for c in aligned.columns if c.startswith("img_emb_")]
 
     for day in DAY_ORDER:
@@ -349,6 +437,12 @@ def compute_metabolite_pc_correlations(aligned, output_dir, pca_dim):
 
 
 def plot_cca(cca_df, output_dir):
+    """Plot first and mean canonical correlations across days and save to disk.
+
+    Args:
+        cca_df: DataFrame with CCA results from compute_cca_by_day.
+        output_dir: Path to save cca_by_day.png.
+    """
     if cca_df.empty:
         return
 
@@ -381,6 +475,12 @@ def plot_cca(cca_df, output_dir):
 
 
 def plot_metabolite_pc_heatmap(corr_df, output_dir):
+    """Plot a heatmap of max absolute correlation between each metabolite and image PCs.
+
+    Args:
+        corr_df: DataFrame from compute_metabolite_pc_correlations.
+        output_dir: Path to save metabolite_pc_heatmap.png.
+    """
     if corr_df.empty:
         return
 
@@ -422,13 +522,14 @@ def plot_metabolite_pc_heatmap(corr_df, output_dir):
 
 
 def main():
+    """Parse arguments, load data, compute correlations, and save results and plots."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-mode", choices=["rgb", "overlay"], default="rgb")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--pca-dim", type=int, default=10)
     parser.add_argument(
         "--output-dir",
-        default="/home/YOUR_USERNAME/2025-promega-mini-test/analysis/combined_model/outputs/feature_correlation",
+        default=str(PROJ_ROOT / "analysis/combined_model/outputs/feature_correlation"),
     )
     args = parser.parse_args()
 
@@ -478,7 +579,7 @@ def main():
     plot_metabolite_pc_heatmap(corr_df, output_dir)
 
     print("\nDone.")
-    print(f"Main results:")
+    print("Main results:")
     print(f"  {output_dir / 'cca_by_day.csv'}")
     print(f"  {output_dir / 'metabolite_pc_correlations.csv'}")
     print(f"  {output_dir / 'cca_by_day.png'}")
