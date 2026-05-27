@@ -50,13 +50,16 @@ pipeline/                           # Steps 1-16: data prep, deterministic
 analysis/                           # Steps 17+: ML heads, exploration, paper repro
   imagequality_classification/      # Step 17 (PyTorch ViT/ResNet/CNN/DINOv2)
   image_survey_classification/      # Step 18 (TensorFlow ResNet50V2)
-  cnn_lstm/                         # Temporal models
+  images/cnn_lstm/                  # CNN-LSTM temporal ablation (EfficientNet + attention)
+  images/classifier/                # Per-day image classifiers, Fig 7, Table 2 scripts
   metabolites/  multimodal/         # Misc model heads
   paper_2026_04/                    # Self-contained paper-replication scripts
+  legacy_paper_2026_04/             # SLURM submission scripts for paper-replication runs
 
 data/                               # Committed: all_data.json + organoid splits CSV only
 notes/                              # Working docs (see CODE_ORGANIZATION.md)
 paper/                              # Paper drafts, figures, feedback
+scripts/                            # Standalone SLURM scripts (Fig 7, Table 2, organoid strips)
 core_env.yaml                       # Canonical conda env spec
 Makefile                            # Single source of truth for all step invocations
 ```
@@ -167,7 +170,7 @@ If you need a new package, add it to `core_env.yaml` and rebuild — never `pip 
 | Step 17 (image classifier) | A100 ×1 | 32 GB | ~2-3 hr |
 | Step 18 (survey classifier) | A100 ×1 | 32 GB | ~1-2 hr |
 
-Cluster jobs go through SLURM (see `analysis/imagequality_classification/run_*.s` for sweep templates that aren't covered by a single `make` target).
+Cluster jobs go through SLURM (see `analysis/imagequality_classification/run_*.sh` for sweep templates that aren't covered by a single `make` target).
 
 ## Documentation Map
 
@@ -180,8 +183,10 @@ Cluster jobs go through SLURM (see `analysis/imagequality_classification/run_*.s
 | `notes/table_replication.md` | Master Tables 1/2/3 reproduction summary |
 | `notes/table2_reproducibility.md`, `notes/table3_reproducibility.md` | Deep findings + variance analyses for the per-table reproduction |
 | `data/splits/README.md`, `data/normalized/README.md` | Co-located docs for the splits and Promega-normalized metabolite directories |
+| `REPLICATION_STATUS.md` | Table 1/2/3 and Fig 7 replication status and balanced-accuracy results |
+| `VERIFICATION_REPORT.md` | End-to-end verification report: data coverage, model results, coding-standards audit |
 
 ---
 
-**Document Version**: 3.1
-**Last Updated**: 2026-05-12
+**Document Version**: 3.2
+**Last Updated**: 2026-05-27
