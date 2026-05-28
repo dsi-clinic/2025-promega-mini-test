@@ -112,13 +112,13 @@ Ablation run with α=0.75 only — identical setup otherwise.
  
 **Per-day TNR (recall on Not Acceptable):**
  
-![Per-day TNR comparison](../paper/images/per_day_tnr_alpha_comparison.png)
+![Per-day TNR comparison](../paper/Images/per_day_tnr_alpha_comparison.png)
  
 α=0.75 lifts TNR almost everywhere across all 3 backbones, most dramatically on ResNet early days (0% → 30–100%). DINOv2 and ResNet under α=0.25 collapse to TNR=0 on most days; α=0.75 recovers them. EfficientNet shows the smallest gap between the two settings.
  
 **Per-day F1 of Not Acceptable:**
  
-![Per-day F1(NA) comparison](../paper/images/per_day_f1na_alpha_comparison.png)
+![Per-day F1(NA) comparison](../paper/Images/per_day_f1na_alpha_comparison.png)
  
 α=0.75 wins on early/middle days for all backbones, especially ResNet (α=0.25 stuck near 0 through Dy24). α=0.25 retains an edge on DINOv2 late days (Dy20.5, Dy24, Dy28), where α=0.75 over-predicts NA and hurts precision. EfficientNet late days (Dy28, Dy30) are roughly tied.
  
