@@ -20,12 +20,12 @@ Cross-cohort comparison (one PNG of test_acc + test_f1 across cohorts):
 
 Layout (per-cohort montage)
 ---------------------------
-4 rows (one per model) x 3 columns:
-    col 1: training curves (cnn_lstm) OR test acc/F1 vs day (ablation)
+3 rows (one per model) x 3 columns:
+    col 1: test acc/F1 vs day (ablation curve)
     col 2: confusion matrix (best-F1 day for ablation models)
     col 3: text block with headline test metrics
 
-The ablation models (base_effnet, temporal_ablation_attn, temporal_ablation_lstm)
+All three models (base_effnet, temporal_ablation_attn, temporal_ablation_lstm)
 emit lists of per-day results. We pick the entry with the highest test_f1 as the
 "headline" view and embed its already-saved confusion-matrix PNG.
 
@@ -35,9 +35,6 @@ Expected directory layout after `bash run_all_lstm.sh <label>`:
         base_effnet/
             baseline_results.json
             day_<N>/confusion_matrix_day_<N>.png
-        cnn_lstm/
-            results.json
-            confusion_matrix.png
         temporal_ablation_attn/
             temporal_ablation_results.json
             days_3-<N>/confusion_matrix_days_3-<N>.png
@@ -47,7 +44,7 @@ Expected directory layout after `bash run_all_lstm.sh <label>`:
 
 If a model's outputs are missing, that row of the montage is rendered as a
 placeholder rather than crashing — useful when you've only run a subset of
-the four trainers.
+the three trainers.
 """
 
 from __future__ import annotations
@@ -81,14 +78,6 @@ plt.rcParams["figure.dpi"] = 100
 #   cm_subdir_fmt   – format string for the per-result subdir (ablation only)
 #   cm_file_fmt     – format string for the CM PNG inside that subdir
 MODEL_SPECS: list[dict[str, Any]] = [
-    {
-        "label":         "cnn_lstm",
-        "title":         "CNN-LSTM",
-        "subdir":        "cnn_lstm",
-        "results_file":  "results.json",
-        "kind":          "single",
-        "cm_file":       "confusion_matrix.png",
-    },
     {
         "label":         "base_effnet",
         "title":         "EfficientNet (per-day baseline)",
