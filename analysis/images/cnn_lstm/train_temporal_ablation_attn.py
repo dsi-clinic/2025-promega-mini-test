@@ -163,7 +163,9 @@ def evaluate_binary(model, loader, criterion, device):
         precision_recall_fscore_support,
         roc_auc_score,
         average_precision_score,
+        balanced_accuracy_score,
     )
+    bal_acc = float(balanced_accuracy_score(labels.numpy(), preds.numpy()))
 
     prec, rec, f1, _ = precision_recall_fscore_support(
         labels.numpy(), preds.numpy(), average="binary", zero_division=0
@@ -189,6 +191,7 @@ def evaluate_binary(model, loader, criterion, device):
         float(ap),
         false_pos,
         false_neg,
+        bal_acc,
     )
 
 # -------------- Training (one day range) --------------
@@ -307,7 +310,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         train_loss = running_loss / max(1, total)
         train_acc = correct / max(1, total)
 
-        val_loss, val_acc, val_prec, val_rec, val_f1, val_auc, val_ap, val_fp, val_fn = evaluate_binary(
+        val_loss, val_acc, val_prec, val_rec, val_f1, val_auc, val_ap, val_fp, val_fn, val_bal_acc = evaluate_binary(
             model, val_loader, criterion, device
         )
 
@@ -344,7 +347,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     # test with best
     model.load_state_dict(best_state, strict=True)
 
-    test_loss, test_acc, test_prec, test_rec, test_f1, test_auc, test_ap, test_fp, test_fn = evaluate_binary(
+    test_loss, test_acc, test_prec, test_rec, test_f1, test_auc, test_ap, test_fp, test_fn, test_bal_acc = evaluate_binary(
         model, test_loader, criterion, device
     )
 
@@ -431,6 +434,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         "max_day": max_day,
         "best_val_acc": float(best_val_acc),
         "test_acc": float(test_acc),
+        "test_balanced_acc": float(test_bal_acc),
         "test_precision": float(test_prec),
         "test_recall": float(test_rec),
         "test_f1": float(test_f1),

@@ -34,7 +34,8 @@ from sklearn.metrics import (
     precision_recall_fscore_support,
     roc_auc_score,
     average_precision_score,
-    confusion_matrix
+    confusion_matrix,
+    balanced_accuracy_score,
 )
 
 from analysis.images.cnn_lstm.organoid_dataset import load_split_from_json
@@ -191,14 +192,15 @@ def evaluate(model, loader, criterion, device):
         all_ids.extend(ids)
     
     if len(all_probs) == 0:
-        return 0.0, 0.0, 0.0, 0.0, 0.0, float('nan'), float('nan'), [], []
-    
+        return 0.0, 0.0, 0.0, 0.0, 0.0, float('nan'), float('nan'), [], [], 0.0
+
     probs = torch.cat(all_probs)
     labels = torch.cat(all_labels)
     preds = (probs > 0.5).int()
-    
+
     acc = (preds == labels.int()).float().mean().item()
-    
+    bal_acc = float(balanced_accuracy_score(labels.numpy(), preds.numpy()))
+
     prec, rec, f1, _ = precision_recall_fscore_support(
         labels.numpy(), preds.numpy(), average="binary", zero_division=0
     )
@@ -227,6 +229,7 @@ def evaluate(model, loader, criterion, device):
         float(ap),
         fp_ids,
         fn_ids,
+        bal_acc,
     )
 
 
@@ -312,7 +315,7 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
         train_loss = running_loss / max(1, total)
         train_acc = correct / max(1, total)
         
-        val_loss, val_acc, val_prec, val_rec, val_f1, val_auc, val_ap, _, _ = evaluate(
+        val_loss, val_acc, val_prec, val_rec, val_f1, val_auc, val_ap, _, _, _ = evaluate(
             model, val_loader, criterion, device
         )
         
@@ -348,7 +351,7 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     
     model.load_state_dict(best_state, strict=True)
     
-    test_loss, test_acc, test_prec, test_rec, test_f1, test_auc, test_ap, test_fp, test_fn = evaluate(
+    test_loss, test_acc, test_prec, test_rec, test_f1, test_auc, test_ap, test_fp, test_fn, test_bal_acc = evaluate(
         model, test_loader, criterion, device
     )
     
@@ -435,6 +438,7 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
         "target_day": target_day,
         "best_val_acc": float(best_val_acc),
         "test_acc": float(test_acc),
+        "test_balanced_acc": float(test_bal_acc),
         "test_precision": float(test_prec),
         "test_recall": float(test_rec),
         "test_f1": float(test_f1),

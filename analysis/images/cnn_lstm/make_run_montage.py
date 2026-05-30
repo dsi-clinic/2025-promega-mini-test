@@ -118,6 +118,56 @@ MODEL_SPECS: list[dict[str, Any]] = [
 # Loaders
 # ============================================================
 
+def load_test_split_balance(cohorts_dir: Path, label: str) -> tuple[int, int] | None:
+    """
+    Read the cohort's series test split and return (n_pos, n_neg) where pos =
+    'Acceptable'. Used to reconstruct balanced accuracy from each result's
+    test_false_positives / test_false_negatives counts.
+    """
+    p = cohorts_dir / label / "series" / "test.json"
+    if not p.exists():
+        return None
+    try:
+        with open(p) as f:
+            d = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+    n_pos = sum(1 for v in d.values() if v.get("label") == "Acceptable")
+    n_neg = len(d) - n_pos
+    return n_pos, n_neg
+
+
+def balanced_acc_for_result(result: dict, n_pos: int, n_neg: int) -> float | None:
+    """
+    Prefer a 'test_balanced_acc' field if the trainer saved it directly.
+    Otherwise reconstruct from test_false_positives / test_false_negatives
+    plus the test split size.
+
+        balanced_acc = (recall + specificity) / 2
+                     = (TP / (TP+FN) + TN / (TN+FP)) / 2
+
+    FP = positives predicted by mistake on actual negatives  -> 'Bad' called 'Good'
+    FN = negatives predicted by mistake on actual positives  -> 'Good' called 'Bad'
+    """
+    if "test_balanced_acc" in result and result["test_balanced_acc"] is not None:
+        return float(result["test_balanced_acc"])
+
+    fp_list = result.get("test_false_positives")
+    fn_list = result.get("test_false_negatives")
+    if fp_list is None or fn_list is None or n_pos is None or n_neg is None:
+        return None
+
+    fp = len(fp_list)
+    fn = len(fn_list)
+    tp = n_pos - fn
+    tn = n_neg - fp
+    if (tp + fn) == 0 or (tn + fp) == 0:
+        return None
+    recall = tp / (tp + fn)
+    specificity = tn / (tn + fp)
+    return (recall + specificity) / 2
+
+
 def load_results(run_dir: Path, label: str, spec: dict) -> dict | list | None:
     p = run_dir / label / spec["subdir"] / spec["results_file"]
     if not p.exists():
@@ -268,10 +318,16 @@ def fmt_metric(v) -> str:
 # Per-cohort montage
 # ============================================================
 
-def render_per_cohort(run_dir: Path, label: str, output_dir: Path) -> Path:
+def render_per_cohort(run_dir: Path, label: str, output_dir: Path,
+                      cohorts_dir: Path) -> Path:
     cohort_dir = run_dir / label
     if not cohort_dir.exists():
         raise FileNotFoundError(f"Cohort run dir not found: {cohort_dir}")
+
+    # Load test split balance once — used to reconstruct balanced_acc for any
+    # result that didn't save it directly.
+    split_balance = load_test_split_balance(cohorts_dir, label)
+    n_pos, n_neg = split_balance if split_balance else (None, None)
 
     n_rows = len(MODEL_SPECS)
     fig, axes = plt.subplots(n_rows, 3, figsize=(15, 4 * n_rows))
@@ -301,10 +357,12 @@ def render_per_cohort(run_dir: Path, label: str, output_dir: Path) -> Path:
                 cm_png = cohort_dir / spec["subdir"] / spec.get("cm_file", "")
                 draw_confusion_from_png(ax_mid, cm_png, "Test confusion matrix")
             # Metrics text
+            bal = balanced_acc_for_result(results, n_pos, n_neg) if isinstance(results, dict) else None
             lines = [
                 f"best_val_acc   {fmt_metric(results.get('best_val_acc'))}",
                 f"best_val_loss  {fmt_metric(results.get('best_val_loss'))}",
                 f"test_acc       {fmt_metric(results.get('test_acc'))}",
+                f"test_bal_acc   {fmt_metric(bal)}",
                 f"test_f1        {fmt_metric(results.get('test_f1'))}",
                 f"test_precision {fmt_metric(results.get('test_precision'))}",
                 f"test_recall    {fmt_metric(results.get('test_recall'))}",
@@ -332,9 +390,11 @@ def render_per_cohort(run_dir: Path, label: str, output_dir: Path) -> Path:
                 f"Confusion matrix — best ({xlabel.split()[0].lower()}={val_str})",
             )
 
+            best_bal = balanced_acc_for_result(best, n_pos, n_neg)
             lines = [
                 f"BEST {x_key}      {val_str}",
                 f"  test_acc       {fmt_metric(best.get('test_acc'))}",
+                f"  test_bal_acc   {fmt_metric(best_bal)}",
                 f"  test_f1        {fmt_metric(best.get('test_f1'))}",
                 f"  test_precision {fmt_metric(best.get('test_precision'))}",
                 f"  test_recall    {fmt_metric(best.get('test_recall'))}",
@@ -369,20 +429,39 @@ def _headline_metric(results, kind: str, metric: str):
     return None if best is None else best.get(metric)
 
 
-def render_comparison(run_dir: Path, labels: list[str], output_dir: Path) -> Path:
+def _headline_balanced_acc(results, kind: str, n_pos: int, n_neg: int):
+    """Headline balanced_accuracy for the model's best variant (or single result)."""
+    if results is None:
+        return None
+    if kind == "single":
+        return balanced_acc_for_result(results, n_pos, n_neg)
+    best = pick_best_ablation_entry(results, metric="test_f1")
+    return None if best is None else balanced_acc_for_result(best, n_pos, n_neg)
+
+
+def render_comparison(run_dir: Path, labels: list[str], output_dir: Path,
+                      cohorts_dir: Path) -> Path:
     n_models  = len(MODEL_SPECS)
     n_cohorts = len(labels)
 
+    # Pre-load test split balance per cohort (for post-hoc balanced_acc)
+    splits = {}
+    for lab in labels:
+        splits[lab] = load_test_split_balance(cohorts_dir, lab) or (None, None)
+
     # Collect headline metrics
     matrix_acc = np.full((n_models, n_cohorts), np.nan)
+    matrix_bal = np.full((n_models, n_cohorts), np.nan)
     matrix_f1  = np.full((n_models, n_cohorts), np.nan)
     for c_idx, lab in enumerate(labels):
+        n_pos, n_neg = splits[lab]
         for m_idx, spec in enumerate(MODEL_SPECS):
             r = load_results(run_dir, lab, spec)
             matrix_acc[m_idx, c_idx] = _headline_metric(r, spec["kind"], "test_acc") or np.nan
+            matrix_bal[m_idx, c_idx] = _headline_balanced_acc(r, spec["kind"], n_pos, n_neg) or np.nan
             matrix_f1 [m_idx, c_idx] = _headline_metric(r, spec["kind"], "test_f1")  or np.nan
 
-    fig, axes = plt.subplots(n_models, 2, figsize=(12, 3.5 * n_models))
+    fig, axes = plt.subplots(n_models, 3, figsize=(16, 3.5 * n_models))
     if n_models == 1:
         axes = np.array([axes])
     x = np.arange(n_cohorts)
@@ -390,7 +469,9 @@ def render_comparison(run_dir: Path, labels: list[str], output_dir: Path) -> Pat
 
     for m_idx, spec in enumerate(MODEL_SPECS):
         for col, (metric_name, mat) in enumerate(
-            (("test_acc", matrix_acc), ("test_f1", matrix_f1))
+            (("test_acc", matrix_acc),
+             ("test_bal_acc", matrix_bal),
+             ("test_f1",  matrix_f1))
         ):
             ax = axes[m_idx, col]
             vals = mat[m_idx]
@@ -427,6 +508,10 @@ def main() -> int:
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--run-dir", type=Path, required=True,
                    help="Top-level lstm_runs directory containing per-cohort subdirs.")
+    p.add_argument("--cohorts-dir", type=Path, default=Path("data/cohorts"),
+                   help=("Root containing data/cohorts/<label>/series/test.json. "
+                         "Used to reconstruct balanced accuracy post-hoc when the "
+                         "trainer didn't save it. Default: data/cohorts/"))
     p.add_argument("--output-dir", type=Path,
                    default=Path("/net/projects2/promega/project_data/amanda_test/model_plots"),
                    help="Where montage PNGs are written.")
@@ -438,12 +523,14 @@ def main() -> int:
     args = p.parse_args()
 
     if args.label:
-        out = render_per_cohort(args.run_dir, args.label, args.output_dir)
+        out = render_per_cohort(args.run_dir, args.label, args.output_dir,
+                                args.cohorts_dir)
         print(f"[done]  wrote {out}")
     else:
         if len(args.compare) < 2:
             p.error("--compare requires at least 2 labels")
-        out = render_comparison(args.run_dir, args.compare, args.output_dir)
+        out = render_comparison(args.run_dir, args.compare, args.output_dir,
+                                args.cohorts_dir)
         print(f"[done]  wrote {out}")
     return 0
 
