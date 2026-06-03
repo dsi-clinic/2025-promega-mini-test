@@ -18,6 +18,15 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
 
 SchemaDict = Dict[str, Any]
 
+# Canonical survey/label day. Organoid-level label tracking and split-conflict
+# detection consider ONLY records on this day: the survey is conducted on the
+# final timepoint (Dy30) and downstream analysis reads the label from Dy30
+# (see data_loader.LABEL_DAY). Secondary reviews on other days (e.g. a Dy28
+# survey) keep their own per-day label but must NOT participate in conflict
+# detection — otherwise a Dy28-vs-Dy30 disagreement is mistaken for a split
+# conflict and the organoid's label is wiped everywhere.
+SURVEY_LABEL_DAY = "Dy30"
+
 
 @dataclass(frozen=True)
 class OrganoidRecord:
@@ -181,6 +190,14 @@ class OrganoidRecordBuilder:
         Returns:
             The label
         """
+        # Only the canonical survey day defines an organoid's label and can
+        # raise a split conflict. Records on other days keep their own per-day
+        # label but are not tracked organoid-wide (see SURVEY_LABEL_DAY) — this
+        # prevents a cross-day disagreement (e.g. Dy28 vs Dy30) from being
+        # misread as a split conflict.
+        if day_id != SURVEY_LABEL_DAY:
+            return label
+
         if organoid_id in self.organoid_dict:
             existing = self.organoid_dict[organoid_id]
             existing_value = existing["label"].get("value")
