@@ -3,6 +3,16 @@
 Metabolite Organoid Quality Classification
 Trains per-day classifiers using LightGBM with metabolite features.
 
+ARCHIVED — DOES NOT RUN ON MAIN.
+================================
+Same situation as the sibling ``train_metabolites.py``: this file hard-codes
+paths to ``data_splits/both_{train,val,test}_base.json`` (around line 590)
+which were removed in PR #107 (rule #3). The active replacement is
+`analysis.paper_2026_04.metabolites_train`. To revive, port to the current
+Splits API — see the comment at the top of ``train_metabolites.py``.
+
+Original docstring follows.
+
 Improvements implemented (keeping core logic and outputs the same):
 - Class weighting using sklearn.compute_class_weight
 - Expanded LightGBM hyperparameter grid (num_leaves, min_child_samples, etc.)
