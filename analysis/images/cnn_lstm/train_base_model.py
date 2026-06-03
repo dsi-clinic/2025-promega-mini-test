@@ -41,7 +41,7 @@ from sklearn.metrics import (
 from analysis.images.cnn_lstm.organoid_dataset import load_split_from_json
 
 # -------- Config --------
-DAY_RANGES = [3, 6, 8, 10, 13, 15, 17, 20.5, 24, 30]  # Same as LSTM
+DAY_RANGES = [3, 6, 8, 10, 13, 15, 17, 20.5, 24, 28, 30]  # Full per-day set (11 days).
 BATCH_SIZE = 16
 NUM_WORKERS = 0
 MAX_EPOCHS = 100
