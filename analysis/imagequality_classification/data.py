@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 
 from pipeline.common.json_views import BaseViewEmitter
-from pipeline.data_loader import IMAGE_MODE_TO_PATH_KEY, LABEL_TO_INT
+from pipeline.data_loader import IMAGE_MODE_TO_PATH_KEY, LABEL_TO_INT, iter_organoid_records
 from pipeline.merge.normalized_records import OrganoidRecord
 
 PATH_KEY_TO_IMAGE_MODE = {v: k for k, v in IMAGE_MODE_TO_PATH_KEY.items()}
@@ -101,13 +101,16 @@ class ImagePathDataset(Dataset):
 
 
 def load_image_classifier_views(all_data_json: Path):
-    """Load image classifier views from all_data.json by replaying the emitter."""
-    import json
-    with open(all_data_json) as f:
-        records = json.load(f)
+    """Load image classifier views from all_data.json by replaying the emitter.
+
+    Iterates the unfiltered organoid pool via ``iter_organoid_records`` (the
+    intentional rule-#3-respecting alternative to a raw ``json.load``) and
+    feeds each per-day record into ``ImageClassifierEmitter``.
+    """
     emitter = ImageClassifierEmitter()
-    for record in records.values():
-        emitter.process(record)
+    for _org_id, records_by_day, _batch in iter_organoid_records(all_data_json):
+        for record in records_by_day.values():
+            emitter.process(record)
     return emitter.finalize()
 
 

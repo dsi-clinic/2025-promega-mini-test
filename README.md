@@ -26,6 +26,30 @@ make help                                                # list all targets
 
 `make` handles conda env activation and `PYTHONPATH` automatically. See `AGENTS.md` for project conventions.
 
+## Loading data in code
+
+Every analysis script reads `data/all_data.json` through `pipeline.data_loader.OrganoidDataset`. The split assignment is a first-class `Splits` object from `pipeline.splits` (see `data/splits/README.md` for the full reference).
+
+```python
+from pipeline.data_loader import OrganoidDataset, filters_for_mode
+from pipeline.splits import Splits
+
+# Default — canonical paper split, base filter (BA1+BA2, complete metabolites, valid images)
+ds = OrganoidDataset(
+    "data/all_data.json",
+    splits=Splits.canonical(),
+    filters=filters_for_mode("base"),
+)
+
+# Per-day metabolite features (raw concentrations)
+X, y, names, ids = ds.get_metabolite_features("train", day="Dy30")
+
+# Same call, but use the Promega-normalized "win" field instead of raw concentration_uM
+X, y, names, ids = ds.get_metabolite_features("train", day="Dy30", field="win")
+```
+
+For ad-hoc work — comparing two splits, generating a quick stratified 80/20, applying a runtime split to an unsplit cohort — `Splits` has factory methods (`from_csv`, `from_partition`, `stratified_random`) and an `agreement_with()` comparison method. See `data/splits/README.md` for examples and `data/normalized/README.md` for what the `win` / `win_vol_norm` fields actually mean (they're winsorized + per-metabolite scaled, not unit-equivalent to raw concentrations).
+
 ## Repo Layout
 
 ```
