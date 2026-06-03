@@ -288,45 +288,163 @@ def print_summary(rows: list[dict], label: str, top_n: int = 15) -> None:
 def render_comparison(run_dir: Path, labels: list[str], cohorts_dir: Path,
                       output_dir: Path, top_n: int = 15) -> Path:
     """
-    For each cohort, find the top-N most-missed organoids; report which
-    organoid_ids appear in multiple cohorts' top-N lists.
+    Cross-cohort comparison done two ways:
+
+    (1) HEAD-TO-HEAD on shared organoids — the *proper* comparison. Only
+        organoids that appear in EVERY cohort's test set are included. For
+        each, report miss_rate per cohort + mean across cohorts. This is the
+        right way to ask "does the relaxed threshold help/hurt the same
+        organoid." Output: misses_headtohead_<labels>.csv.
+
+    (2) TOP-N UNION (the older, weaker comparison). Lists organoids in any
+        cohort's top-N, flagged by which cohorts they appeared in. Useful for
+        a quick "do the same names keep coming up" eyeball check, but biased
+        by differing test-set composition. Output:
+        misses_compare_<labels>.csv.
+
+    If exactly 2 cohorts are compared, also writes a scatter PNG of
+    miss_rate(A) vs miss_rate(B) for shared organoids.
     """
-    per_cohort_tops: dict[str, list[dict]] = {}
+    # --- Aggregate misses for every cohort once ---
+    per_cohort: dict[str, dict[str, dict]] = {}
     for lab in labels:
         rows = aggregate_misses(run_dir, lab, cohorts_dir) or []
-        per_cohort_tops[lab] = [r for r in rows if r["total_misses"] > 0][:top_n]
+        per_cohort[lab] = {r["organoid_id"]: r for r in rows}
 
-    # Cross-tabulate: which organoid_ids show up in multiple cohorts' top-N
+    # ---------- (1) Head-to-head on shared organoids ----------
+    if not per_cohort:
+        print("[error] no cohort data loaded")
+        return None
+    shared_ids = sorted(set.intersection(*[set(d.keys()) for d in per_cohort.values()]))
+    h2h_rows = []
+    for oid in shared_ids:
+        first = per_cohort[labels[0]][oid]
+        row = {
+            "organoid_id":   oid,
+            "true_label":    first["true_label"],
+            "n_votes_good":  first["n_votes_good"],
+            "n_votes_total": first["n_votes_total"],
+            "vote_fraction": first["vote_fraction"],
+        }
+        rates = []
+        for lab in labels:
+            r = per_cohort[lab][oid]
+            row[f"miss_rate__{lab}"]    = r["miss_rate"]
+            row[f"total_misses__{lab}"] = r["total_misses"]
+            row[f"total_runs__{lab}"]   = r["total_runs"]
+            rates.append(r["miss_rate"])
+        row["mean_miss_rate"] = sum(rates) / len(rates)
+        row["miss_rate_delta"] = (max(rates) - min(rates)) if len(rates) > 1 else 0.0
+        h2h_rows.append(row)
+    h2h_rows.sort(key=lambda r: -r["mean_miss_rate"])
+
+    # Write head-to-head CSV
+    output_dir.mkdir(parents=True, exist_ok=True)
+    h2h_path = output_dir / f"misses_headtohead_{'_vs_'.join(labels)}.csv"
+    if h2h_rows:
+        base_cols = ["organoid_id", "true_label",
+                     "n_votes_good", "n_votes_total", "vote_fraction"]
+        rate_cols = []
+        for lab in labels:
+            rate_cols += [f"miss_rate__{lab}", f"total_misses__{lab}", f"total_runs__{lab}"]
+        derived_cols = ["mean_miss_rate", "miss_rate_delta"]
+        fieldnames = base_cols + rate_cols + derived_cols
+        with open(h2h_path, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fieldnames)
+            w.writeheader()
+            for r in h2h_rows:
+                rr = dict(r)
+                for k, v in rr.items():
+                    if isinstance(v, float):
+                        rr[k] = round(v, 3)
+                w.writerow(rr)
+        print(f"\n[wrote] {h2h_path}  ({len(h2h_rows)} organoids shared across all cohorts)")
+    else:
+        print("\n[warn] no organoids are in ALL compared cohorts' test sets")
+
+    # Print top-15 of head-to-head to stdout
+    print(f"\n=== head-to-head: organoids in all {len(labels)} cohorts (top {top_n}) ===")
+    hdr = f"{'organoid_id':35} {'true':>5} {'votes':>6}"
+    for lab in labels:
+        hdr += f"  {('rate_'+lab)[:14]:>14}"
+    hdr += f"  {'mean':>5}  {'Δ':>5}"
+    print(hdr)
+    for r in h2h_rows[:top_n]:
+        if r["mean_miss_rate"] == 0:
+            break
+        tl = "Acc" if r["true_label"] == "Acceptable" else "Bad"
+        vf = f"{r['n_votes_good']}/{r['n_votes_total']}" if r["n_votes_total"] else "?"
+        line = f"{r['organoid_id']:35} {tl:>5} {vf:>6}"
+        for lab in labels:
+            line += f"  {r[f'miss_rate__{lab}']:>14.2f}"
+        line += f"  {r['mean_miss_rate']:>5.2f}  {r['miss_rate_delta']:>5.2f}"
+        print(line)
+
+    # ---------- (2) Top-N union (weaker view, kept for the old workflow) ----------
+    per_cohort_tops: dict[str, list[dict]] = {}
+    for lab, all_rows in per_cohort.items():
+        tops = sorted(all_rows.values(), key=lambda r: -r["total_misses"])
+        per_cohort_tops[lab] = [r for r in tops if r["total_misses"] > 0][:top_n]
+
     cross_count: dict[str, set[str]] = defaultdict(set)
     for lab, top in per_cohort_tops.items():
         for r in top:
             cross_count[r["organoid_id"]].add(lab)
 
-    repeat_offenders = sorted(
-        [(oid, cohorts) for oid, cohorts in cross_count.items() if len(cohorts) > 1],
-        key=lambda x: -len(x[1]),
-    )
-
-    print("\n=== cross-cohort repeat offenders ===")
-    if not repeat_offenders:
-        print("  (no organoid in the top-N of more than one cohort)")
-    else:
-        print(f"{'organoid_id':35}  {'cohorts':<40}")
-        for oid, cohorts in repeat_offenders:
-            print(f"{oid:35}  {sorted(cohorts)}")
-
-    # Save a CSV listing the union of top-Ns with cohort flags
-    output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / f"misses_compare_{'_vs_'.join(labels)}.csv"
+    union_path = output_dir / f"misses_compare_{'_vs_'.join(labels)}.csv"
     all_ids = sorted(cross_count.keys())
-    with open(out_path, "w", newline="") as f:
+    with open(union_path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["organoid_id", "n_cohorts_in_top_n", *labels])
         for oid in all_ids:
             cohorts = cross_count[oid]
-            w.writerow([oid, len(cohorts), *[("X" if lab in cohorts else "") for lab in labels]])
-    print(f"\n[wrote] {out_path}")
-    return out_path
+            w.writerow([oid, len(cohorts),
+                        *[("X" if lab in cohorts else "") for lab in labels]])
+    print(f"[wrote] {union_path}  (top-{top_n} union flag table)")
+
+    # ---------- (3) Scatter PNG if exactly 2 cohorts ----------
+    if len(labels) == 2 and h2h_rows:
+        a, b = labels
+        fig, ax = plt.subplots(figsize=(7, 7))
+        for r in h2h_rows:
+            color = "tab:green" if r["true_label"] == "Acceptable" else "tab:red"
+            ax.scatter(r[f"miss_rate__{a}"], r[f"miss_rate__{b}"],
+                       color=color, edgecolor="black", s=60, alpha=0.85)
+        ax.plot([0, 1], [0, 1], "k--", alpha=0.4, label="equal miss rate")
+        ax.set_xlim(-0.02, 1.02)
+        ax.set_ylim(-0.02, 1.02)
+        ax.set_xlabel(f"miss_rate in {a}")
+        ax.set_ylabel(f"miss_rate in {b}")
+        ax.grid(True, alpha=0.3)
+
+        # Annotate the worst offenders by mean miss_rate
+        annot_n = min(8, len(h2h_rows))
+        for r in h2h_rows[:annot_n]:
+            if r["mean_miss_rate"] == 0:
+                continue
+            ax.annotate(r["organoid_id"].replace("_nosplit", ""),
+                        (r[f"miss_rate__{a}"], r[f"miss_rate__{b}"]),
+                        fontsize=7, alpha=0.8,
+                        xytext=(4, 4), textcoords="offset points")
+
+        from matplotlib.patches import Patch
+        ax.legend(
+            handles=[
+                Patch(facecolor="tab:green", edgecolor="black", label="Acceptable"),
+                Patch(facecolor="tab:red",   edgecolor="black", label="Not Acceptable"),
+            ],
+            loc="upper left", fontsize=9,
+        )
+        ax.set_title(f"Miss-rate per shared organoid — {a} vs {b}\n"
+                     f"(n={len(h2h_rows)} organoids in both test sets)",
+                     fontsize=11)
+        fig.tight_layout()
+        scatter_path = output_dir / f"misses_scatter_{a}_vs_{b}.png"
+        fig.savefig(scatter_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        print(f"[wrote] {scatter_path}")
+
+    return h2h_path
 
 
 # ============================================================
