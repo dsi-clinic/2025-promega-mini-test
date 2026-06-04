@@ -7,8 +7,11 @@ Recreates the headline organoid counts through ``pipeline.data_loader`` (no raw
 Table 1 — vote-split distribution over the IDOR organoids classified at Dy30
 (col2, N=248): each organoid grouped by its Dy30 survey tally
 ``Acceptable-NotAcceptable`` (e.g. ``5-0``, ``4-1``), with counts and percents.
-Most organoids got 5 reviews; a smaller re-reviewed set got 10. The implied
-majority consensus is shown per row.
+Uses the *regular-image* vote bucket only (``get_survey_vote_counts``) — the
+bucket that decides the consensus label — so tallies cap at 5 and align with
+the good/bad consensus in Table 2. The implied majority consensus is shown per
+row. (The inverted-image re-show pass, which would push totals to 10, is the
+``get_complete_survey_vote_counts`` view and is intentionally excluded here.)
 
 Table 2 — the cohort cascade that situates those 248 within BA1+BA2:
 
@@ -39,6 +42,7 @@ from pipeline.data_loader import (
     FIGURE_DIR,
     HIGH_QUALITY_BATCHES,
     LABEL_DAY,
+    MIN_VOTES,
     OrganoidDataset,
     _load_idor_organoid_ids,
     get_survey_vote_counts,
@@ -74,9 +78,10 @@ def _col2_records(all_data_path: Path):
 def _vote_split_table(all_data_path: Path) -> pd.DataFrame:
     """Vote-split distribution: organoids grouped by their Dy30 vote tally.
 
-    Uses the public ``get_survey_vote_counts`` accessor; the not-acceptable
-    count is ``total - acceptable``. Sorted by total votes, then by acceptable
-    count descending. A trailing Total row sums to col2.
+    Uses the public ``get_survey_vote_counts`` accessor (regular-image bucket
+    only, capped at 5); the not-acceptable count is ``total - acceptable``.
+    Sorted by total votes, then by acceptable count descending. A trailing Total
+    row sums to col2.
     """
     splits = Counter()
     for _oid, rec in _col2_records(all_data_path):
@@ -90,14 +95,18 @@ def _vote_split_table(all_data_path: Path) -> pd.DataFrame:
         splits.items(), key=lambda kv: (kv[0][0] + kv[0][1], -kv[0][0])
     ):
         total = acc + nacc
+        # Consensus follows the canonical merge rule (compute_survey_majority):
+        # a label needs at least MIN_VOTES in the regular bucket; anything short
+        # of that is "no consensus" (this is why 3-2 / 2-3 land in the 50
+        # reviewed-without-consensus organoids of Table 2), not a bare majority.
         if total == 0:
             consensus = "no votes"
-        elif acc > nacc:
+        elif acc >= MIN_VOTES:
             consensus = "Acceptable"
-        elif nacc > acc:
+        elif nacc >= MIN_VOTES:
             consensus = "Not Acceptable"
         else:
-            consensus = "tie"
+            consensus = "no consensus"
         rows.append({
             "split (acc-nacc)": f"{acc}-{nacc}",
             "votes": total,
