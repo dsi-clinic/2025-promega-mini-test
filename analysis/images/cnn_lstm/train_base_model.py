@@ -6,9 +6,12 @@ Uses the same data splits as CNN-LSTM temporal models for fair comparison.
 Run: python train_baseline_effnet.py
 """
 
-import sys, json, random
+import sys, json, random, argparse
 import os
 from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 # ----- Repo root on sys.path -----
 ROOT = Path(__file__).resolve().parents[3]
@@ -34,8 +37,12 @@ from sklearn.metrics import (
     confusion_matrix
 )
 
-from config import OUTPUT_FOLDER
-from analysis.images.cnn_lstm.organoid_dataset import load_data_and_create_splits
+from analysis.images.cnn_lstm.organoid_dataset import make_idor_series_splits
+from pipeline.data_loader import (
+    LABEL_TO_INT,
+    get_clipped_meanfill_image_path,
+    get_day_float,
+)
 
 # -------- Config --------
 DAY_RANGES = [3, 6, 8, 10, 13, 15, 17, 20.5, 24, 30]  # Same as LSTM
@@ -45,7 +52,7 @@ MAX_EPOCHS = 100
 PATIENCE = 15
 LR = 5e-4
 GRAD_CLIP = 1.0
-SEED = 1
+SEED = 42
 TARGET_SIZE = (384, 512)  # (H, W) to match coworker's code
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -66,49 +73,46 @@ class SingleDayOrganoidDataset(Dataset):
     Dataset for single timepoint organoid images.
     Uses the LSTM processed images (same as LSTM but picks one timepoint).
     """
-    def __init__(self, organoid_ids, series_metadata, data, target_day, transform=None):
+    def __init__(self, organoid_ids, dataset, target_day, transform=None, image_type='std'):
         self.samples = []
-        
+
         for org_id in organoid_ids:
-            metadata = series_metadata.get(org_id, {})
-            label_str = str(metadata.get("label", "")).strip().lower()
-            label = 1 if label_str in ("good", "acceptable", "accepted") else 0
-            
-            # Get entry_keys and days (SAME AS LSTM!)
-            entry_keys = metadata.get('entry_keys', [])
-            days = metadata.get('days', [])
-            
-            if not entry_keys or not days:
+            label_str = dataset.organoid_label(org_id)
+            if label_str is None:
                 continue
-            
-            # Find the entry closest to target_day
-            best_idx = None
-            min_diff = float('inf')
-            for i, day in enumerate(days):
-                diff = abs(day - target_day)
-                if diff < min_diff:
-                    min_diff = diff
-                    best_idx = i
-            
-            if best_idx is None:
+            label = LABEL_TO_INT.get(label_str, 0)
+
+            records = dataset.organoid_records(org_id)
+            if not records:
                 continue
-            
-            # Get the entry for that day
-            entry_key = entry_keys[best_idx]
-            entry = data.get(entry_key, {})
-            
-            # Get processed image path (512x384 resized images)
-            processed = entry.get('processed', {})
-            img_path = processed.get('img_path')
-            
+
+            # Pick the day whose mdl_day is closest to target_day
+            best_day = None
+            best_dist = float("inf")
+            for day in records:
+                mdl = get_day_float(day)
+                if mdl is None:
+                    continue
+                d = abs(mdl - target_day)
+                if d < best_dist:
+                    best_dist = d
+                    best_day = day
+            if best_day is None:
+                continue
+            best_rec = records[best_day]
+
+            if image_type == "clipped":
+                img_path = get_clipped_meanfill_image_path(best_rec)
+            else:
+                img_path = (best_rec.get("images") or {}).get("img_path")
             if img_path is None or not Path(img_path).exists():
                 continue
-            
+
             self.samples.append({
                 "img_path": img_path,
                 "label": label,
                 "org_id": org_id,
-                "actual_day": days[best_idx],
+                "actual_day": get_day_float(best_day),
             })
         
         self.transform = transform
@@ -248,32 +252,24 @@ def evaluate(model, loader, criterion, device):
 
 
 # ---------- Training ----------
-def train_for_day(target_day, train_ids, val_ids, test_ids, 
-                  series_metadata, data, device, output_dir):
+def train_for_day(target_day, train_ids, val_ids, test_ids,
+                  dataset, device, output_dir, image_type='std'):
     print(f"\n{'='*70}\nTRAINING BASELINE for DAY {target_day}\n{'='*70}")
-    
-    # Transforms (no ToTensor - we do that in __getitem__)
+
     train_tf = T.Compose([
         T.Resize(TARGET_SIZE),
         T.RandomHorizontalFlip(0.5),
         T.RandomVerticalFlip(0.5),
         T.ColorJitter(0.2, 0.2, 0.2, 0.1),
     ])
-    
+
     eval_tf = T.Compose([
         T.Resize(TARGET_SIZE),
     ])
-    
-    # Datasets
-    train_dataset = SingleDayOrganoidDataset(
-        train_ids, series_metadata, data, target_day, transform=train_tf
-    )
-    val_dataset = SingleDayOrganoidDataset(
-        val_ids, series_metadata, data, target_day, transform=eval_tf
-    )
-    test_dataset = SingleDayOrganoidDataset(
-        test_ids, series_metadata, data, target_day, transform=eval_tf
-    )
+
+    train_dataset = SingleDayOrganoidDataset(train_ids, dataset, target_day, transform=train_tf, image_type=image_type)
+    val_dataset   = SingleDayOrganoidDataset(val_ids,   dataset, target_day, transform=eval_tf, image_type=image_type)
+    test_dataset  = SingleDayOrganoidDataset(test_ids,  dataset, target_day, transform=eval_tf, image_type=image_type)
     
     if len(train_dataset) == 0:
         print(f"  ⚠ No training samples for day {target_day}, skipping")
@@ -287,14 +283,14 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False,
                             num_workers=NUM_WORKERS, pin_memory=True)
     
-    # Class balance
+    # Class balance per rule #9: label 1 = Not Acceptable (minority).
     train_labels = [s["label"] for s in train_dataset.samples]
-    n_good = sum(train_labels)
-    n_bad = len(train_labels) - n_good
-    if n_good == 0: n_good = 1
-    if n_bad == 0: n_bad = 1
-    pos_weight = torch.tensor([n_bad / n_good], device=device)
-    print(f"  Class balance: good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}")
+    n_pos = sum(train_labels)
+    n_neg = len(train_labels) - n_pos
+    if n_pos == 0: n_pos = 1
+    if n_neg == 0: n_neg = 1
+    pos_weight = torch.tensor([n_neg / n_pos], device=device)
+    print(f"  Class balance: NotAcceptable={n_pos}, Acceptable={n_neg}, pos_weight={pos_weight.item():.3f}")
     
     # Model
     model = BaselineEfficientNet().to(device)
@@ -305,7 +301,8 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     best_val_acc = -1.0
     best_state = None
     bad_epochs = 0
-    
+    history = []  # track per-epoch metrics for plotting
+
     # Training loop
     for epoch in range(1, MAX_EPOCHS + 1):
         # Unfreeze backbone after 3 epochs
@@ -346,7 +343,15 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
             f"Epoch {epoch:02d} | Train {train_acc:.3f}/{train_loss:.4f} | "
             f"Val {val_acc:.3f}/{val_loss:.4f} (P {val_prec:.3f} R {val_rec:.3f} F1 {val_f1:.3f})"
         )
-        
+
+        history.append({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_acc': train_acc,
+            'val_loss': val_loss,
+            'val_acc': val_acc,
+        })
+
         if val_acc > best_val_acc + 1e-4:
             best_val_acc = val_acc
             best_state = {k: v.cpu() for k, v in model.state_dict().items()}
@@ -396,11 +401,54 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     if len(all_preds) > 0:
         cm = confusion_matrix(all_labels, all_preds)
         print("\nConfusion Matrix (Test Set):")
-        print(f"              Predicted")
-        print(f"              Good   Bad")
-        print(f"Actual Good   {cm[1,1]:<6} {cm[1,0]:<6}")
-        print(f"Actual Bad    {cm[0,1]:<6} {cm[0,0]:<6}")
-    
+        print(f"                       Predicted")
+        print(f"                Acceptable   Not Acceptable")
+        print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
+        print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
+
+        # --- Save confusion matrix image ---
+        fig, ax = plt.subplots(figsize=(5, 4))
+        im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+        plt.colorbar(im, ax=ax)
+        classes = ['Acceptable (0)', 'Not Acceptable (1)']
+        ax.set(xticks=[0, 1], yticks=[0, 1],
+               xticklabels=classes, yticklabels=classes,
+               xlabel='Predicted', ylabel='Actual',
+               title=f'Confusion Matrix – Day {target_day} (Test)')
+        thresh = cm.max() / 2.0
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, str(cm[i, j]), ha='center', va='center',
+                        color='white' if cm[i, j] > thresh else 'black')
+        plt.tight_layout()
+        cm_path = model_dir / f'confusion_matrix_day_{target_day}.png'
+        plt.savefig(cm_path, dpi=150)
+        plt.close(fig)
+        print(f"  Confusion matrix saved → {cm_path}")
+
+    # --- Save accuracy & loss plot ---
+    if history:
+        epochs = [h['epoch'] for h in history]
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+        ax1.plot(epochs, [h['train_acc'] for h in history], label='Train Acc')
+        ax1.plot(epochs, [h['val_acc'] for h in history], label='Val Acc')
+        ax1.set(xlabel='Epoch', ylabel='Accuracy', title=f'Accuracy – Day {target_day}')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        ax2.plot(epochs, [h['train_loss'] for h in history], label='Train Loss')
+        ax2.plot(epochs, [h['val_loss'] for h in history], label='Val Loss')
+        ax2.set(xlabel='Epoch', ylabel='Loss', title=f'Loss – Day {target_day}')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plot_path = model_dir / f'training_curves_day_{target_day}.png'
+        plt.savefig(plot_path, dpi=150)
+        plt.close(fig)
+        print(f"  Training curves saved → {plot_path}")
+
     del model, train_loader, val_loader, test_loader
     torch.cuda.empty_cache()
     
@@ -421,11 +469,18 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
 
 # ---------- Main ----------
 def main():
+    parser = argparse.ArgumentParser(description='Train single-day EfficientNet baseline')
+    parser.add_argument('--output-dir', type=str, default='outputs/base_models/base_effnet',
+                        help='Output directory for model checkpoints and results')
+    parser.add_argument('--image-type', type=str, default='std', choices=['clipped', 'std'],
+                        help='Image variant: std (512x384) or clipped (575x575 AR meanfill)')
+    args = parser.parse_args()
+
     set_seed(SEED)
     device = torch.device(DEVICE)
     print(f"Using device: {device}")
-    
-    out_dir = OUTPUT_FOLDER / "base_models" / "base_effnet"
+
+    out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {out_dir}")
     
@@ -434,13 +489,8 @@ def main():
     print("LOADING DATA")
     print("="*70)
     
-    series_metadata_path = OUTPUT_FOLDER / "complete_series_metadata_no_blanks.json"
-    data_path = OUTPUT_FOLDER / "complete_series_data_no_blanks.json"
-    
-    train_ids, val_ids, test_ids, series_metadata, data = load_data_and_create_splits(
-        series_metadata_path, data_path, random_seed=SEED
-    )
-    
+    ds, train_ids, val_ids, test_ids = make_idor_series_splits()
+
     print(f"Splits: train={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)}")
     
     print("\n" + "="*70)
@@ -452,8 +502,9 @@ def main():
     for target_day in DAY_RANGES:
         result = train_for_day(
             target_day, train_ids, val_ids, test_ids,
-            series_metadata, data, device,
-            out_dir / f"day_{target_day}"
+            ds, device,
+            out_dir / f"day_{target_day}",
+            image_type=args.image_type
         )
         if result:
             results.append(result)

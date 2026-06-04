@@ -3,8 +3,11 @@ Temporal ablation with EfficientNet features + Temporal Attention (BCE)
 Run: python analysis/images/cnn_lstm/train_temporal_ablation_attn.py
 """
 
-import sys, json, math
+import sys, json, math, argparse
 from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 # ----- Repo root on sys.path -----
 ROOT = Path(__file__).resolve().parents[3]
@@ -21,15 +24,14 @@ from torchvision import models, transforms
 from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 from sklearn.metrics import precision_recall_fscore_support
 
-from config import OUTPUT_FOLDER
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
-    load_data_and_create_splits,
+    make_canonical_splits,
 )
 
 # ---------------- Config ----------------
 DAY_RANGES = [
-    8, 10, 13, 15, 17, 20.5, 24, 30
+    8, 10, 13, 15, 17, 20.5, 24, 28, 30
 ]
 BATCH_SIZE = 16
 NUM_WORKERS = 0
@@ -61,12 +63,13 @@ class TemporalAttentionPool(nn.Module):
             nn.Tanh(),
             nn.Linear(d // 2, 1),
         )
-    def forward(self, feats):  # feats: (B, T, D)
-        # weights over time
-        w = self.attn(feats).squeeze(-1)         # (B, T)
+    def forward(self, feats, mask=None):  # feats: (B, T, D), mask: (B, T) bool
+        w = self.attn(feats).squeeze(-1)           # (B, T)
+        if mask is not None:
+            w = w.masked_fill(~mask, float('-inf'))
         a = torch.softmax(w, dim=1).unsqueeze(-1)  # (B, T, 1)
-        pooled = (a * feats).sum(dim=1)          # (B, D)
-        return pooled, a.squeeze(-1)             # (B, D), (B, T)
+        pooled = (a * feats).sum(dim=1)            # (B, D)
+        return pooled, a.squeeze(-1)               # (B, D), (B, T)
 
 class OrganoidCNN_TAtt(nn.Module):
     def __init__(self, d_cnn=1280, attn_dropout=0.4):
@@ -102,17 +105,17 @@ class OrganoidCNN_TAtt(nn.Module):
             if "features.6" in name or "features.7" in name:
                 p.requires_grad = True
 
-    def forward(self, x, days_norm):  # x: (B,T,C,H,W), days_norm: (B,T)
+    def forward(self, x, days_norm, mask=None):  # x: (B,T,C,H,W), days_norm: (B,T), mask: (B,T) bool
         B, T, C, H, W = x.shape
         feats = []
         for t in range(T):
             f = self.cnn(x[:, t])                    # (B, d_cnn)
             dt = days_norm[:, t].unsqueeze(1)
-            dt = dt.to(f.device)                     # ensure same device   
-            f = f + self.time_proj(dt)            # inject absolute time
+            dt = dt.to(f.device)
+            f = f + self.time_proj(dt)
             feats.append(f)
         feats = torch.stack(feats, dim=1)            # (B, T, d_cnn)
-        pooled, attn = self.temporal(feats)
+        pooled, attn = self.temporal(feats, mask)
         logit = self.head(pooled).squeeze(1)         # (B,)
         return logit, attn
 
@@ -124,12 +127,13 @@ def evaluate_binary(model, loader, criterion, device):
     all_probs, all_labels, losses = [], [], []
     false_pos, false_neg = [], []
 
-    for seqs, days, labels, weights, ids in loader:
+    for seqs, days, labels, weights, ids, masks in loader:
         seqs   = seqs.to(device)
         days   = days.to(device).float()
         labels = labels.float().to(device)
+        masks  = masks.to(device)
 
-        logits, _ = model(seqs, days)
+        logits, _ = model(seqs, days, masks)
         # criterion has reduction='none' → average for reporting
         loss_raw = criterion(logits, labels)   # (B,)
         losses.append(loss_raw.mean().item())
@@ -191,10 +195,9 @@ def evaluate_binary(model, loader, criterion, device):
 
 # -------------- Training (one day range) --------------
 def train_for_day_range(max_day, train_ids, val_ids, test_ids,
-                        series_metadata, data, global_mean, device, output_dir):
+                        dataset, device, output_dir, image_type='clipped'):
     print(f"\n{'='*70}\nTRAINING WITH DAYS 3–{max_day}\n{'='*70}")
 
-    # ---- ADD/REPLACE THIS SECTION ----
     from torchvision.transforms import InterpolationMode
     BILINEAR = InterpolationMode.BILINEAR
 
@@ -211,18 +214,9 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         transforms.Resize((384, 384), interpolation=BILINEAR),
     ])
 
-    train_dataset = OrganoidTimeSeriesDataset(
-        train_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=train_tf
-    )
-    val_dataset = OrganoidTimeSeriesDataset(
-        val_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=eval_tf
-    )
-    test_dataset = OrganoidTimeSeriesDataset(
-        test_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=eval_tf
-    )
+    train_dataset = OrganoidTimeSeriesDataset(train_ids, dataset, max_day=max_day, transform=train_tf, image_type=image_type)
+    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   dataset, max_day=max_day, transform=eval_tf, image_type=image_type)
+    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  dataset, max_day=max_day, transform=eval_tf, image_type=image_type)
 
     pin = (device.type == "cuda")
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
@@ -233,20 +227,18 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
                               num_workers=NUM_WORKERS, pin_memory=pin)
     # ---- END OF INSERT ----
 
-    # class balance from train IDs (sequence-level)
-    train_labels = []
-    for org_id in train_ids:
-        s = str(series_metadata[org_id].get("label","")).strip().lower()
-        lab = 1 if s in ("good","acceptable","accepted") else 0
-        train_labels.append(lab)
+    # Class balance per rule #9: label 1 = Not Acceptable (minority).
+    train_labels = [
+        1 if dataset.organoid_label(oid) == "Not Acceptable" else 0
+        for oid in train_ids
+    ]
 
-    n_good = int(np.sum(train_labels))
-    n_bad  = int(len(train_labels) - n_good)
-    # avoid div-by-zero
-    if n_good == 0: n_good = 1
-    if n_bad  == 0: n_bad  = 1
-    pos_weight = torch.tensor([n_bad / n_good], device=device, dtype=torch.float32)
-    print(f"class balance (train): good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}")
+    n_pos = int(np.sum(train_labels))
+    n_neg = int(len(train_labels) - n_pos)
+    if n_pos == 0: n_pos = 1
+    if n_neg == 0: n_neg = 1
+    pos_weight = torch.tensor([n_neg / n_pos], device=device, dtype=torch.float32)
+    print(f"class balance (train): NotAcceptable={n_pos}, Acceptable={n_neg}, pos_weight={pos_weight.item():.3f}")
 
     model = OrganoidCNN_TAtt(attn_dropout=ATTN_DROPOUT).to(device)
 
@@ -264,18 +256,19 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
     # warmup: CNN frozen → only head gets LR
     optimizer = make_optimizer(lr_cnn=0.0, lr_head=LR_HEAD)
-    # replace your criterion with reduction='none' and no pos_weight
+    # Per-sample weighting in train loop, so reduction='none' with no pos_weight.
     criterion = nn.BCEWithLogitsLoss(reduction='none')
 
-    # before training loop (you already computed these counts)
-    w_pos = n_bad / n_good       # ~0.87
-    w_neg = n_good / n_bad       # ~1.15  <-- upweight negatives slightly
+    # Upweight the minority class (label=1=Not Acceptable).
+    w_pos = n_neg / n_pos
+    w_neg = n_pos / n_neg
     
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
 
     best_val_acc = -1.0
     best_state = None
     bad_epochs = 0
+    history = []  # per-epoch metrics for plotting
 
     for epoch in range(1, MAX_EPOCHS + 1):
         # unfreeze last blocks after warmup
@@ -287,14 +280,15 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
         model.train()
         running_loss, correct, total = 0.0, 0, 0
-        for seqs, days, labels, weights, ids in tqdm(train_loader, desc=f"Epoch {epoch:02d}", leave=False):
+        for seqs, days, labels, weights, ids, masks in tqdm(train_loader, desc=f"Epoch {epoch:02d}", leave=False):
             seqs   = seqs.to(device)
             days   = days.to(device).float()
             labels = labels.float().to(device)
             weights = weights.to(device).float()
+            masks  = masks.to(device)
 
             optimizer.zero_grad()
-            logits, _ = model(seqs, days)
+            logits, _ = model(seqs, days, masks)
 
             # combine class weights and agreement weights
             loss_raw = criterion(logits, labels)  # (B,)
@@ -325,6 +319,14 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
             f"| Val {val_acc:.3f} / {val_loss:.4f} "
             f"(P {val_prec:.3f} R {val_rec:.3f} F1 {val_f1:.3f} AUC {val_auc:.3f} AP {val_ap:.3f})"
         )
+
+        history.append({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_acc': train_acc,
+            'val_loss': val_loss,
+            'val_acc': val_acc,
+        })
 
         if val_acc > best_val_acc + 1e-4:
             best_val_acc = val_acc
@@ -359,6 +361,71 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     )
     print(f"Saved → {model_path}")
 
+    # --- Confusion matrix image ---
+    model.eval()
+    all_preds_cm, all_labels_cm = [], []
+    with torch.no_grad():
+        for seqs, days, labels, weights, ids, masks in test_loader:
+            seqs = seqs.to(device)
+            days = days.to(device).float()
+            masks = masks.to(device)
+            logits, _ = model(seqs, days, masks)
+            preds = (torch.sigmoid(logits) > 0.5).int().cpu()
+            all_preds_cm.extend(preds.numpy())
+            all_labels_cm.extend(labels.int().cpu().numpy())
+
+    from sklearn.metrics import confusion_matrix as sk_cm
+    cm = sk_cm(all_labels_cm, all_preds_cm)
+    print("\nConfusion Matrix (Test Set):")
+    print(f"                       Predicted")
+    print(f"                Acceptable   Not Acceptable")
+    print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
+    print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
+
+    fig, ax = plt.subplots(figsize=(5, 4))
+    im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.colorbar(im, ax=ax)
+    classes = ['Acceptable (0)', 'Not Acceptable (1)']
+    ax.set(xticks=[0, 1], yticks=[0, 1],
+           xticklabels=classes, yticklabels=classes,
+           xlabel='Predicted', ylabel='Actual',
+           title=f'Confusion Matrix – Days 3–{max_day} (Test)')
+    thresh = cm.max() / 2.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, str(cm[i, j]), ha='center', va='center',
+                    color='white' if cm[i, j] > thresh else 'black')
+    plt.tight_layout()
+    cm_path = model_dir / f'confusion_matrix_days_3-{max_day}.png'
+    plt.savefig(cm_path, dpi=150)
+    plt.close(fig)
+    print(f"  Confusion matrix saved → {cm_path}")
+
+    # --- Training curves ---
+    if history:
+        epochs = [h['epoch'] for h in history]
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+        ax1.plot(epochs, [h['train_acc'] for h in history], label='Train Acc')
+        ax1.plot(epochs, [h['val_acc'] for h in history], label='Val Acc')
+        ax1.axvline(x=WARMUP_EPOCHS + 1, color='gray', linestyle='--', alpha=0.6, label='CNN unfreeze')
+        ax1.set(xlabel='Epoch', ylabel='Accuracy', title=f'Accuracy – Days 3–{max_day}')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        ax2.plot(epochs, [h['train_loss'] for h in history], label='Train Loss')
+        ax2.plot(epochs, [h['val_loss'] for h in history], label='Val Loss')
+        ax2.axvline(x=WARMUP_EPOCHS + 1, color='gray', linestyle='--', alpha=0.6, label='CNN unfreeze')
+        ax2.set(xlabel='Epoch', ylabel='Loss', title=f'Loss – Days 3–{max_day}')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plot_path = model_dir / f'training_curves_days_3-{max_day}.png'
+        plt.savefig(plot_path, dpi=150)
+        plt.close(fig)
+        print(f"  Training curves saved → {plot_path}")
+
     del model, train_loader, val_loader, test_loader, train_dataset, val_dataset, test_dataset
     torch.cuda.empty_cache()
 
@@ -381,11 +448,18 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
 # -------------- Orchestrator --------------
 def main():
+    parser = argparse.ArgumentParser(description='Temporal ablation: attention pool')
+    parser.add_argument('--output-dir', type=str, default='outputs/cnn_lstm/temporal_ablation_attn',
+                        help='Output directory')
+    parser.add_argument('--image-type', type=str, default='clipped', choices=['clipped', 'std'],
+                        help='Image variant: clipped (575x575 AR meanfill) or std (512x384)')
+    args = parser.parse_args()
+
     set_seed(SEED)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    out_dir = OUTPUT_FOLDER / "cnn_lstm" / "temporal_ablation_attn"
+    out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving outputs to: {out_dir}")
 
@@ -393,21 +467,8 @@ def main():
     print("LOADING DATA")
     print("="*70)
 
-    series_metadata_path = OUTPUT_FOLDER / "complete_series_metadata_no_blanks.json"
-    data_path = OUTPUT_FOLDER / "complete_series_data_no_blanks.json"
-
-    train_ids, val_ids, test_ids, series_metadata, data = load_data_and_create_splits(
-        series_metadata_path, data_path, random_seed=SEED
-    )
-
-    global_mean_path = OUTPUT_FOLDER / "cnn_lstm" / "global_mean.npy"
-    if not global_mean_path.exists():
-        raise FileNotFoundError(
-            f"Global mean not found at {global_mean_path}. "
-            "Run your main training to create it or compute it separately."
-        )
-    global_mean = np.load(global_mean_path)
-    print(f"Loaded global mean: {global_mean}")
+    ds, train_ids, val_ids, test_ids = make_canonical_splits()
+    print(f"Using image type: {args.image_type}")
 
     print("\n" + "="*70)
     print("STARTING TEMPORAL ABLATION (ATTENTION POOL)")
@@ -417,8 +478,9 @@ def main():
     for max_day in DAY_RANGES:
         res = train_for_day_range(
             max_day, train_ids, val_ids, test_ids,
-            series_metadata, data, global_mean, device,
-            out_dir / f"days_3-{max_day}"
+            ds, device,
+            out_dir / f"days_3-{max_day}",
+            image_type=args.image_type
         )
         results.append(res)
 

@@ -1,3 +1,12 @@
 # Notes
 
-This directory contains notes related to ongoing work, ideas, and to-dos for the project.
+Working / reference docs for the project. Top-level rules + state live in `../README.md`, `../AGENTS.md`, `../STATUS.md`.
+
+- [CODE_ORGANIZATION.md](CODE_ORGANIZATION.md) — one-page guide to where code and data live (`pipeline/` vs `analysis/`)
+- [table_replication.md](table_replication.md) — master Paper Tables 1/2/3 reproduction summary
+- [table2_reproducibility.md](table2_reproducibility.md) — deep findings: configuration sweep + variance analysis for Table 2 (image classifiers)
+- [table3_reproducibility.md](table3_reproducibility.md) — same shape for Table 3 (LightGBM + LogReg metabolite classifiers)
+- [PAPER_IDEAS.md](PAPER_IDEAS.md) — journal options + secondary-result framing
+
+(Non-markdown working files: `comparison_notes_april9.txt`, `organoids_comparison.csv`, `Organoids_list_IDOR.csv`.)
+

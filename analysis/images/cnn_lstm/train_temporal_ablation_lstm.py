@@ -3,10 +3,12 @@ Temporal ablation with EfficientNet features + Temporal Attention (BCE) + LSTM?
 Run: python analysis/images/cnn_lstm/train_temporal_ablation_attn.py
 """
 
-import sys, json, math
+import sys, json, math, argparse
 import os, random
 from pathlib import Path
 from sklearn.metrics import confusion_matrix
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -22,16 +24,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import models, transforms
-from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 from sklearn.metrics import precision_recall_fscore_support
 
-from config import OUTPUT_FOLDER
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
-    load_data_and_create_splits,
+    make_idor_series_splits,
 )
-
-
+from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
 
 
 
@@ -57,69 +56,7 @@ LR_CNN_UNFREEZE = 1e-4   # lower: slow fine-tuning of pretrained CNN
 GRAD_CLIP = 1.0
 PATIENCE = 15            # faster convergence / less wasted epochs
 ATTN_DROPOUT = 0.4       # same as your best-performing LSTM run
-SEED = 1
-
-
-class OrganoidCNN_LSTM(nn.Module):
-    def __init__(self, d_cnn=1280, hidden_size=256, num_layers=1, bidirectional=False):
-        super().__init__()
-        eff = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
-        eff.classifier = nn.Identity()
-        self.cnn = eff
-        for p in self.cnn.parameters():
-            p.requires_grad = False
-
-        # these should be inside __init__, not unfreeze_last_blocks
-        self.time_proj = nn.Sequential(
-            nn.Linear(1, d_cnn // 2),
-            nn.ReLU(),
-            nn.Linear(d_cnn // 2, d_cnn),
-        )
-
-        self.lstm = nn.LSTM(
-            input_size=d_cnn,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            batch_first=True,
-            bidirectional=bidirectional
-        )
-
-        out_dim = hidden_size * (2 if bidirectional else 1)
-        self.head = nn.Sequential(
-            nn.BatchNorm1d(out_dim),
-            nn.Dropout(0.5),
-            nn.Linear(out_dim, 128),
-            nn.ReLU(),
-            nn.BatchNorm1d(128),
-            nn.Dropout(0.4),
-            nn.Linear(128, 1)
-        )
-
-
-    def unfreeze_last_blocks(self, n_blocks: int = 2):
-        """Unfreeze last EfficientNet feature blocks for fine-tuning."""
-        feats = getattr(self.cnn, "features", None)
-        if feats is None:
-            return
-        start = max(0, len(feats) - n_blocks)
-        for i in range(start, len(feats)):
-            for p in feats[i].parameters():
-                p.requires_grad = True
-
-    def forward(self, x, days_norm):  # x: (B,T,C,H,W)
-        B, T, C, H, W = x.shape
-        feats = []
-        for t in range(T):
-            f = self.cnn(x[:, t])
-            dt = days_norm[:, t].unsqueeze(1).to(f.device)
-            f = f + self.time_proj(dt)
-            feats.append(f)
-        feats = torch.stack(feats, dim=1)
-
-        lstm_out, _ = self.lstm(feats)
-        last_hidden = lstm_out[:, -1, :]
-        logit = self.head(last_hidden).squeeze(1)
-        return logit
+SEED = 42
 
 
 # -------------- Metrics --------------
@@ -197,7 +134,7 @@ def evaluate_binary(model, loader, criterion, device):
 
 # -------------- Training (one day range) --------------
 def train_for_day_range(max_day, train_ids, val_ids, test_ids,
-                        series_metadata, data, global_mean, device, output_dir):
+                        dataset, device, output_dir, image_type='clipped'):
     print(f"\n{'='*70}\nTRAINING WITH DAYS 3–{max_day}\n{'='*70}")
 
     # ---- ADD/REPLACE THIS SECTION ----
@@ -218,18 +155,9 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
         transforms.Resize((384, 384), interpolation=BILINEAR),
     ])
 
-    train_dataset = OrganoidTimeSeriesDataset(
-        train_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=train_tf
-    )
-    val_dataset = OrganoidTimeSeriesDataset(
-        val_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=eval_tf
-    )
-    test_dataset = OrganoidTimeSeriesDataset(
-        test_ids, series_metadata, data,
-        global_mean=global_mean, max_day=max_day, transform=eval_tf
-    )
+    train_dataset = OrganoidTimeSeriesDataset(train_ids, dataset, max_day=max_day, transform=train_tf, image_type=image_type)
+    val_dataset   = OrganoidTimeSeriesDataset(val_ids,   dataset, max_day=max_day, transform=eval_tf, image_type=image_type)
+    test_dataset  = OrganoidTimeSeriesDataset(test_ids,  dataset, max_day=max_day, transform=eval_tf, image_type=image_type)
 
     pin = (device.type == "cuda")
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
@@ -240,23 +168,20 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
                               num_workers=NUM_WORKERS, pin_memory=pin)
     # ---- END OF INSERT ----
 
-    # class balance from train IDs (sequence-level)
-    train_labels = []
-    for org_id in train_ids:
-        s = str(series_metadata[org_id].get("label","")).strip().lower()
-        lab = 1 if s in ("good","acceptable","accepted") else 0
-        train_labels.append(lab)
+    # Class balance per rule #9: label 1 = Not Acceptable (minority).
+    train_labels = [
+        1 if dataset.organoid_label(oid) == "Not Acceptable" else 0
+        for oid in train_ids
+    ]
 
-    n_good = int(np.sum(train_labels))
-    n_bad  = int(len(train_labels) - n_good)
-    # avoid div-by-zero
-    if n_good == 0: n_good = 1
-    if n_bad  == 0: n_bad  = 1
-    pos_weight = torch.tensor([n_bad / n_good], device=device, dtype=torch.float32)
-    print(f"class balance (train): good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}")
+    n_pos = int(np.sum(train_labels))
+    n_neg = int(len(train_labels) - n_pos)
+    if n_pos == 0: n_pos = 1
+    if n_neg == 0: n_neg = 1
+    pos_weight = torch.tensor([n_neg / n_pos], device=device, dtype=torch.float32)
+    print(f"class balance (train): NotAcceptable={n_pos}, Acceptable={n_neg}, pos_weight={pos_weight.item():.3f}")
 
     model = OrganoidCNN_LSTM().to(device)
-
 
     # two phase optimizer setup (we'll swap LR when unfreezing)
     def make_optimizer(lr_cnn, lr_head):
@@ -272,26 +197,17 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
     # warmup: CNN frozen → only head gets LR
     optimizer = make_optimizer(lr_cnn=0.0, lr_head=LR_HEAD)
-    # replace your criterion with reduction='none' and no pos_weight
 
+    # Per-sample weighting is applied in the train loop (cls_w * weights),
+    # so the criterion itself uses reduction='none' and no pos_weight here.
+    criterion = nn.BCEWithLogitsLoss(reduction="none")
 
-    criterion = nn.BCEWithLogitsLoss(
-    pos_weight = torch.tensor([max(1.0, n_bad / n_good)], device=device),
-
-    reduction="none"
-    )
-
-
-
-    # before training loop (you already computed these counts)
-    # w_pos = n_bad / n_good       # ~0.87
-    # w_neg = n_good / n_bad       # ~1.15  <-- upweight negatives slightly
-    
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
 
     best_val_acc = -1.0
     best_state = None
     bad_epochs = 0
+    history = []  # per-epoch metrics for plotting
 
     for epoch in range(1, MAX_EPOCHS + 1):
         # unfreeze last blocks after warmup
@@ -312,14 +228,9 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
             optimizer.zero_grad()
             logits = model(seqs, days)
 
-
-            # If you want per-sample weighting, re-enable this:
-            # cls_w = labels * w_pos + (1 - labels) * w_neg
-            # loss = (loss_raw * weights * cls_w).mean()
-
-            # For now: no weighting, use scalar directly
+            # Per-sample weighting: upweight the minority (label=1=Not Acceptable).
             loss_raw = criterion(logits, labels)          # shape (B,)
-            cls_w = labels * (n_bad / n_good) + (1 - labels) * (n_good / n_bad)
+            cls_w = labels * (n_neg / n_pos) + (1 - labels) * (n_pos / n_neg)
             loss = (loss_raw * weights * cls_w).mean()
 
 
@@ -349,6 +260,14 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
             f"| Val {val_acc:.3f} / {val_loss:.4f} "
             f"(P {val_prec:.3f} R {val_rec:.3f} F1 {val_f1:.3f} AUC {val_auc:.3f} AP {val_ap:.3f})"
         )
+
+        history.append({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_acc': train_acc,
+            'val_loss': val_loss,
+            'val_acc': val_acc,
+        })
 
         if val_acc > best_val_acc + 1e-4:
             best_val_acc = val_acc
@@ -388,22 +307,47 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
     cm = confusion_matrix(all_labels, all_preds)
     print("\nConfusion Matrix (Test Set):")
-    print(f"              Predicted")
-    print(f"              Bad    Good")
-    print(f"Actual Bad    {cm[0,0]:<6} {cm[0,1]:<6}")
-    print(f"Actual Good   {cm[1,0]:<6} {cm[1,1]:<6}")
+    print(f"                       Predicted")
+    print(f"                Acceptable   Not Acceptable")
+    print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
+    print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 
     # Save visualization
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                xticklabels=['Bad (0)', 'Good (1)'],
-                yticklabels=['Bad (0)', 'Good (1)'])
+                xticklabels=['Acceptable (0)', 'Not Acceptable (1)'],
+                yticklabels=['Acceptable (0)', 'Not Acceptable (1)'])
     plt.ylabel('Actual')
     plt.xlabel('Predicted')
     plt.title(f'Confusion Matrix - Days 3-{max_day}')
     plt.savefig(model_dir / f'confusion_matrix_days_3-{max_day}.png', dpi=150, bbox_inches='tight')
     plt.close()
+    print(f"  Confusion matrix saved → {model_dir / f'confusion_matrix_days_3-{max_day}.png'}")
 
+    # --- Training curves ---
+    if history:
+        epochs = [h['epoch'] for h in history]
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+        ax1.plot(epochs, [h['train_acc'] for h in history], label='Train Acc')
+        ax1.plot(epochs, [h['val_acc'] for h in history], label='Val Acc')
+        ax1.axvline(x=WARMUP_EPOCHS + 1, color='gray', linestyle='--', alpha=0.6, label='CNN unfreeze')
+        ax1.set(xlabel='Epoch', ylabel='Accuracy', title=f'Accuracy – Days 3–{max_day}')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        ax2.plot(epochs, [h['train_loss'] for h in history], label='Train Loss')
+        ax2.plot(epochs, [h['val_loss'] for h in history], label='Val Loss')
+        ax2.axvline(x=WARMUP_EPOCHS + 1, color='gray', linestyle='--', alpha=0.6, label='CNN unfreeze')
+        ax2.set(xlabel='Epoch', ylabel='Loss', title=f'Loss – Days 3–{max_day}')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plot_path = model_dir / f'training_curves_days_3-{max_day}.png'
+        plt.savefig(plot_path, dpi=150)
+        plt.close(fig)
+        print(f"  Training curves saved → {plot_path}")
 
     model_path = model_dir / f"model_days_3-{max_day}.pth"
     torch.save({"state_dict": best_state, "max_day": max_day, "best_val_acc": best_val_acc}, model_path)
@@ -434,11 +378,18 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
 # -------------- Orchestrator --------------
 def main():
+    parser = argparse.ArgumentParser(description='Temporal ablation: LSTM pool')
+    parser.add_argument('--output-dir', type=str, default='outputs/cnn_lstm/temporal_ablation_lstm',
+                        help='Output directory')
+    parser.add_argument('--image-type', type=str, default='clipped', choices=['clipped', 'std'],
+                        help='Image variant: clipped (575x575 AR meanfill) or std (512x384)')
+    args = parser.parse_args()
+
     set_seed(SEED)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    out_dir = OUTPUT_FOLDER / "cnn_lstm" / "temporal_ablation_lstm"
+    out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving outputs to: {out_dir}")
 
@@ -446,21 +397,8 @@ def main():
     print("LOADING DATA")
     print("="*70)
 
-    series_metadata_path = OUTPUT_FOLDER / "complete_series_metadata_no_blanks.json"
-    data_path = OUTPUT_FOLDER / "complete_series_data_no_blanks.json"
-
-    train_ids, val_ids, test_ids, series_metadata, data = load_data_and_create_splits(
-        series_metadata_path, data_path, random_seed=SEED
-    )
-
-    global_mean_path = OUTPUT_FOLDER / "cnn_lstm" / "global_mean.npy"
-    if not global_mean_path.exists():
-        raise FileNotFoundError(
-            f"Global mean not found at {global_mean_path}. "
-            "Run your main training to create it or compute it separately."
-        )
-    global_mean = np.load(global_mean_path)
-    print(f"Loaded global mean: {global_mean}")
+    ds, train_ids, val_ids, test_ids = make_idor_series_splits()
+    print(f"Using image type: {args.image_type}")
 
     print("\n" + "="*70)
     print("STARTING TEMPORAL ABLATION (LSTM POOL)")
@@ -470,8 +408,9 @@ def main():
     for max_day in DAY_RANGES:
         res = train_for_day_range(
             max_day, train_ids, val_ids, test_ids,
-            series_metadata, data, global_mean, device,
-            out_dir / f"days_3-{max_day}"
+            ds, device,
+            out_dir / f"days_3-{max_day}",
+            image_type=args.image_type
         )
         results.append(res)
 
