@@ -16,6 +16,16 @@ PYTHONPATH=. python analysis/2026_07_EDA/eda.py
 Output: console tables + `$ANALYSIS_OUTPUT_DIR/figures/idor_eda_vote_splits.csv`
 and `idor_eda_counts.csv`.
 
+A companion script measures regular-vs-inverted image agreement:
+
+```bash
+make run ARGS="analysis/2026_07_EDA/inverse_regular_vote_correlation.py"
+```
+
+Output: console summary + `inverse_regular_vote_pairs.csv` and
+`inverse_regular_vote_correlation.png`. See
+[Regular vs inverted votes](#regular-vs-inverted-image-votes) below.
+
 ## What it reports
 
 ### Table 1 — Dy30 vote-split (col2, N=248)
@@ -72,6 +82,30 @@ Definitions (see `pipeline/data_loader.py` and
 
 Counts are recomputed from `all_data.json` on every run, so they will track any
 upstream data changes.
+
+## Regular vs inverted-image votes
+
+`inverse_regular_vote_correlation.py` checks whether re-showing an organoid on
+an inverted ("INV") copy of its image changes how reviewers vote. It pairs the
+per-bucket "Acceptable" counts (each out of 5) for every organoid carrying
+**both** a `regular_votes` and `inverted_votes` Dy30 bucket.
+
+Only 26 organoids were re-shown (BA1: 7, BA2: 12, BA4: 7) — a small set, so read
+the correlation as indicative, not definitive. On the current `all_data.json`:
+
+| Metric | Value |
+|---|---|
+| Organoids with both buckets | 26 |
+| Pearson r (reg-acc vs inv-acc) | 0.92 |
+| Spearman r | 0.90 |
+| Mean \|reg − inv\| | 0.54 votes |
+| Same ≥`MIN_VOTES` consensus | 21/26 (80.8%) |
+
+Regular and inverted votes track each other closely; the five consensus
+disagreements are all near the 4-of-5 threshold (e.g. a `4-1` bucket vs a `3-2`
+bucket), never a clean flip. This supports using the regular bucket alone for
+the canonical label (the inverted pass would rarely overturn it). The scatter
+(`inverse_regular_vote_correlation.png`) plots reg-acc vs inv-acc against `y=x`.
 
 ## Note: merge label-conflict fix
 
