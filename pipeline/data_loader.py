@@ -227,10 +227,31 @@ def get_clipped_meanfill_mask_path(record: dict) -> Optional[str]:
 
 
 def get_survey_vote_counts(record: dict) -> Tuple[int, int]:
-    """Return (n_acceptable, n_total) survey votes from the Dy30 record's label dict.
+    """Return (n_acceptable, n_total) *regular-image* survey votes from the Dy30 label.
 
-    Uses combined votes (regular + inverted) for parity with the merge-step
-    ``compute_survey_majority`` aggregation. Returns (0, 0) if no votes.
+    Counts only the regular-image bucket (``regular_votes``) — the bucket that
+    actually decides the consensus label in the merge step (see
+    ``surveys_mapper.compute_survey_majority``: ``consensus_label =
+    winning_reg_label``, with the inverted-image bucket used only as a
+    disagreement veto). Regular surveys cap at 5 votes, so this returns totals
+    in 0..5. For the full reg+inverted tally (up to 10) use
+    ``get_complete_survey_vote_counts``. Returns (0, 0) if no votes.
+    """
+    label = record.get("label") or {}
+    votes = label.get("regular_votes") or {}
+    n_acceptable = int(votes.get("Acceptable", 0))
+    n_total = sum(int(v) for v in votes.values())
+    return n_acceptable, n_total
+
+
+def get_complete_survey_vote_counts(record: dict) -> Tuple[int, int]:
+    """Return (n_acceptable, n_total) *combined* survey votes from the Dy30 label.
+
+    Counts both the regular-image and inverted-image buckets (the merged
+    ``votes`` field), so a re-shown organoid (regular + inverted pass) totals up
+    to 10. This is a descriptive view of all evaluations collected; it does NOT
+    match the consensus-label rule, which is regular-bucket-only (see
+    ``get_survey_vote_counts``). Returns (0, 0) if no votes.
     """
     label = record.get("label") or {}
     votes = label.get("votes") or {}

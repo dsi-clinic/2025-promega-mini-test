@@ -21,19 +21,29 @@ and `idor_eda_counts.csv`.
 ### Table 1 — Dy30 vote-split (col2, N=248)
 
 Each classified-at-Dy30 organoid grouped by its survey tally
-`Acceptable-NotAcceptable`, with the implied majority consensus, counts, and
-percents. Most organoids got 5 reviews; a re-reviewed subset (19 organoids) got
-10. Example (numbers track the current `all_data.json`):
+`Acceptable-NotAcceptable`, with the canonical consensus, counts, and percents.
+
+This table counts the **regular-image vote bucket only** (`get_survey_vote_counts`),
+which caps at 5 and is the bucket that actually decides the consensus label.
+Each organoid is also re-shown on an inverted ("INV") copy of the image, so the
+*combined* tally goes up to 10 — that full view is
+`get_complete_survey_vote_counts` and is intentionally not used here. The
+consensus column follows the merge rule (`compute_survey_majority`): a label
+needs ≥ `MIN_VOTES` (=4) in the regular bucket, so 3-2 / 2-3 are **no
+consensus**, not bare-majority wins. Example (numbers track the current
+`all_data.json`):
 
 | split | votes | consensus | count | pct |
 |---|---|---|---|---|
-| 5-0 | 5 | Acceptable | 96 | 38.7 |
-| 4-1 | 5 | Acceptable | 56 | 22.6 |
-| 3-2 | 5 | Acceptable | 26 | 10.5 |
-| 2-3 | 5 | Not Acceptable | 22 | 8.9 |
-| 1-4 | 5 | Not Acceptable | 19 | 7.7 |
-| 0-5 | 5 | Not Acceptable | 10 | 4.0 |
-| 10-0 … 0-10 | 10 | (re-reviews) | 19 | 7.6 |
+| 5-0 | 5 | Acceptable | 107 | 43.1 |
+| 4-1 | 5 | Acceptable | 58 | 23.4 |
+| 3-2 | 5 | no consensus | 26 | 10.5 |
+| 2-3 | 5 | no consensus | 24 | 9.7 |
+| 1-4 | 5 | Not Acceptable | 21 | 8.5 |
+| 0-5 | 5 | Not Acceptable | 12 | 4.8 |
+
+This reconciles exactly with Table 2: Acceptable 107+58 = **165**, Not
+Acceptable 21+12 = **33**, no consensus 26+24 = **50**.
 
 ### Table 2 — IDOR cohort cascade
 

@@ -25,7 +25,7 @@ from pipeline.data_loader import (
     get_clipped_meanfill_image_path,
     get_clipped_meanfill_mask_path,
     get_day_float,
-    get_survey_vote_counts,
+    get_complete_survey_vote_counts,
 )
 from pipeline.splits import Splits
 
@@ -265,9 +265,9 @@ class OrganoidTimeSeriesDataset(Dataset):
         pad_mask = torch.zeros(max_T, dtype=torch.bool)
         pad_mask[:actual_T] = True
 
-        # Sample weight from Dy30 vote agreement
+        # Sample weight from Dy30 vote agreement (full reg+inverted tally, up to 10)
         dy30_rec = records.get(LABEL_DAY)
-        n_good, n_total = (0, 0) if dy30_rec is None else get_survey_vote_counts(dy30_rec)
+        n_good, n_total = (0, 0) if dy30_rec is None else get_complete_survey_vote_counts(dy30_rec)
         if n_total > 0:
             frac = n_good / n_total
             if frac >= 0.9 or frac <= 0.1:
