@@ -20,7 +20,12 @@ DATA_ROOT          ?= /net/projects2/promega/2026_04_15_data
 RAW_DIR            ?= $(DATA_ROOT)/raw
 INTERMEDIATE_DIR   ?= $(DATA_ROOT)/intermediate
 MODELS_DIR         ?= $(DATA_ROOT)/models
-ANALYSIS_OUTPUT_DIR ?= $(DATA_ROOT)/analysis_output
+# Analysis outputs (figures, results JSON/CSV) go to a single repo-local
+# directory that is gitignored (.gitignore: analysis_output/), NOT under
+# DATA_ROOT (/net). This matches the data_loader default so `make run` and a
+# direct `python ...` write to the same place. Override with
+# `make run ANALYSIS_OUTPUT_DIR=/some/path ...` if needed.
+ANALYSIS_OUTPUT_DIR ?= $(CURDIR)/analysis_output
 PYTHON             ?= conda run --no-capture-output -n core_env python3
 MMCV_ENV_PATH      ?= $(HOME)/miniconda3/envs/mmcv_env
 PYTHON_MMCV        ?= conda run --no-capture-output -p $(MMCV_ENV_PATH) python
