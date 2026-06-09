@@ -67,8 +67,7 @@ Labels, features, filtering — everything is derived at runtime from `data/all_
 When reproducing paper results, apply these filters (already the defaults in `data_loader.py`):
 - **Batches**: BA1 + BA2 only
 - **Labels**: 4/5 vote consensus at Dy30
-- **Metabolites**: All 5 required metabolites present (GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, BCAAGlo)
-- **Conditional metabolites**: MalateGlo included only for days > 10 (early-day values not assayed); BCAAGlo required all days
+- **Metabolites**: All 6 required metabolites present for every day (GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, BCAAGlo, MalateGlo). MalateGlo is no longer day-gated — its early-day reads are present (near the noise floor), not missing.
 - **Images**: Valid processed `img_path` + `mask_path` on every day
 
 ### 5. Seed = 42 everywhere

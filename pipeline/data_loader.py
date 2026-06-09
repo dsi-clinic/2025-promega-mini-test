@@ -49,8 +49,19 @@ FIGURE_DIR = ANALYSIS_OUTPUT_DIR / "figures"
 # Constants matching the paper
 # ---------------------------------------------------------------------------
 
-REQUIRED_METABOLITES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "BCAAGlo"]
-CONDITIONAL_METABOLITES = {"MalateGlo": lambda day_num: day_num > 10}
+REQUIRED_METABOLITES = [
+    "GlucoseGlo",
+    "GlutamateGlo",
+    "LactateGlo",
+    "PyruvateGlo",
+    "BCAAGlo",
+    "MalateGlo",
+]
+# MalateGlo was previously gated to days > 10 on the assumption that early-day
+# values were not assayed. In this dataset malate's raw concentration_uM is in
+# fact present on early days at the same ~80% coverage as every other day (its
+# reads just sit near the noise floor), so it is now required for all days.
+CONDITIONAL_METABOLITES = {}
 
 # Metabolite numeric fields available per assay block (see data/normalized/README.md).
 # "concentration_uM" / "initial_concentration" are raw assay-derived; "win" / "win_vol_norm"
@@ -202,6 +213,16 @@ def is_stitched_record(record: dict) -> bool:
 def get_edge_fraction(record: dict) -> Optional[float]:
     """Return ``record["images"]["edge_fraction"]`` (None until step 11 runs)."""
     return (record.get("images") or {}).get("edge_fraction")
+
+
+def get_mask_area_um2(record: dict) -> Optional[float]:
+    """Return ``record["images"]["mask_area_um2"]`` (None until step 11 runs).
+
+    Segmentation-derived organoid area (foreground pixels x per-axis um/px).
+    This is our own size measurement; it tracks Promega's volume (win/win_vol_norm)
+    at R^2~=0.99 on log-log, but is an area (um^2), not their volume (um^3).
+    """
+    return (record.get("images") or {}).get("mask_area_um2")
 
 
 def get_base_well(record: dict) -> str:
@@ -939,6 +960,7 @@ class OrganoidDataset:
         include_growth: bool = False,
         include_initial: bool = True,
         field: str = "concentration_uM",
+        normalize_by_size: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
         """Extract metabolite feature matrix for split + day.
 
@@ -954,6 +976,14 @@ class OrganoidDataset:
         (the ratio is metabolite-specific, e.g. ~2.0 for Glucose, ~0.1 for
         Glutamate/Pyruvate). Use it for within-metabolite analyses or as a
         cleaner alternative to raw for modeling, not as a unit-equivalent.
+
+        ``normalize_by_size`` divides every metabolite measurement (the ``field``
+        column, ``initial_concentration``, and — when ``include_growth`` — the
+        per-day delta) by the organoid's segmentation area ``mask_area_um2`` for
+        that day, yielding size-normalized features (suffix ``_per_um2``). Rows
+        whose record has no ``mask_area_um2`` are dropped. The delta is computed
+        on the size-normalized value (curr/area_curr − prev/area_prev), so a
+        scaled+growth feature is a size-normalized exchange rate.
 
         Returns: (X, y, feature_names, organoid_ids)
             X: (n_samples, n_features) float array
@@ -977,11 +1007,12 @@ class OrganoidDataset:
                 active_mets.append(met)
 
         # Build feature names
+        size_suffix = "_per_um2" if normalize_by_size else ""
         feat_names = []
         for met in active_mets:
-            feat_names.append(f"{met}_{field}")
+            feat_names.append(f"{met}_{field}{size_suffix}")
             if include_initial:
-                feat_names.append(f"{met}_initial_concentration")
+                feat_names.append(f"{met}_initial_concentration{size_suffix}")
 
         rows = []
         labels = []
@@ -993,6 +1024,13 @@ class OrganoidDataset:
                 continue
             mets = rec.get("metabolite", {})
 
+            size = None
+            if normalize_by_size:
+                size = get_mask_area_um2(rec)
+                if not size:
+                    # Can't size-normalize a record with no segmentation area.
+                    continue
+
             row = []
             skip = False
             for met in active_mets:
@@ -1001,9 +1039,13 @@ class OrganoidDataset:
                 if val is None:
                     skip = True
                     break
+                init = met_data.get("initial_concentration", np.nan)
+                if normalize_by_size:
+                    val = val / size
+                    init = init / size
                 row.append(val)
                 if include_initial:
-                    row.append(met_data.get("initial_concentration", np.nan))
+                    row.append(init)
             if skip:
                 continue
 
@@ -1025,7 +1067,8 @@ class OrganoidDataset:
         # Optionally add growth features (difference from previous day)
         if include_growth and day_num is not None:
             X, feat_names, ids_out = self._add_growth_features(
-                X, feat_names, ids, split, day, active_mets, include_initial
+                X, feat_names, ids, split, day, active_mets, include_initial,
+                field=field, normalize_by_size=normalize_by_size,
             )
             y_out = []
             id_set = set(ids_out)
@@ -1047,8 +1090,15 @@ class OrganoidDataset:
         day: str,
         active_mets: List[str],
         include_initial: bool,
+        field: str = "concentration_uM",
+        normalize_by_size: bool = False,
     ) -> Tuple[np.ndarray, List[str], List[str]]:
-        """Add growth (delta) features from the previous available day."""
+        """Add growth (delta) features from the previous available day.
+
+        The delta is computed on ``field`` (matching the level columns), and on
+        the size-normalized value (value / ``mask_area_um2``) when
+        ``normalize_by_size`` is set, so the delta is consistent with the levels.
+        """
         day_idx = DAY_ORDER.index(day) if day in DAY_ORDER else -1
         if day_idx <= 0:
             # No previous day available
@@ -1066,28 +1116,40 @@ class OrganoidDataset:
         # Only compute growth for metabolites available in both days
         growth_mets = [m for m in active_mets if m in prev_mets]
 
-        growth_names = [f"{m}_growth" for m in growth_mets]
+        size_suffix = "_per_um2" if normalize_by_size else ""
+        growth_names = [f"{m}_growth{size_suffix}" for m in growth_mets]
         new_rows = []
         new_ids = []
         keep_indices = []
 
         for i, org_id in enumerate(org_ids):
             info = self._organoids[org_id]
+            curr_rec = info["records"][day]
             prev_rec = info["records"].get(prev_day)
             if prev_rec is None:
                 continue
+
+            curr_size = prev_size = None
+            if normalize_by_size:
+                curr_size = get_mask_area_um2(curr_rec)
+                prev_size = get_mask_area_um2(prev_rec)
+                if not curr_size or not prev_size:
+                    continue
 
             prev_mets_data = prev_rec.get("metabolite", {})
             growth_row = []
             skip = False
             for m in growth_mets:
-                curr_data = info["records"][day].get("metabolite", {}).get(m, {})
+                curr_data = curr_rec.get("metabolite", {}).get(m, {})
                 prev_data = prev_mets_data.get(m, {})
-                curr_c = curr_data.get("concentration_uM")
-                prev_c = prev_data.get("concentration_uM")
+                curr_c = curr_data.get(field)
+                prev_c = prev_data.get(field)
                 if curr_c is None or prev_c is None:
                     skip = True
                     break
+                if normalize_by_size:
+                    curr_c = curr_c / curr_size
+                    prev_c = prev_c / prev_size
                 growth_row.append(curr_c - prev_c)
             if skip:
                 continue
@@ -1095,6 +1157,15 @@ class OrganoidDataset:
             new_rows.append(growth_row)
             new_ids.append(org_id)
             keep_indices.append(i)
+
+        n_dropped = len(org_ids) - len(new_rows)
+        if n_dropped:
+            warnings.warn(
+                f"growth features for {day} (prev {prev_day}, split {split!r}): "
+                f"dropped {n_dropped}/{len(org_ids)} organoids lacking a usable "
+                f"previous-day value for one of {growth_mets}",
+                stacklevel=2,
+            )
 
         if not new_rows:
             return X, feat_names, org_ids
