@@ -23,8 +23,29 @@ PYTHONPATH=. python analysis/2026_06_metabolite_pred/run.py
 ```
 
 Flags: `--cohort {strong,full,all}` (default `all`), `--days Dy30 Dy24 ...`
-(default all days), `--skip-lgbm`, `--skip-lr`, `--folds N` (default 5),
+(default all days), `--configs {nominal_nodelta,nominal_delta,scaled_nodelta,scaled_delta} ...`
+(default all four), `--skip-lgbm`, `--skip-lr`, `--folds N` (default 5),
 `--seed N` (default 42).
+
+## Feature configurations (2x2)
+
+Two independent dials are swept, so the default run is **4 configs x 2 cohorts =
+8 figures**:
+
+| Config key | Size dial | Delta dial | Features |
+|---|---|---|---|
+| `nominal_nodelta` | nominal | no delta | `concentration_uM` + `initial_concentration` |
+| `nominal_delta` | nominal | +delta | above + per-day `*_growth` (this is the prior analysis) |
+| `scaled_nodelta` | size-scaled | no delta | each measurement / `mask_area_um2` (suffix `_per_um2`) |
+| `scaled_delta` | size-scaled | +delta | size-scaled levels + size-scaled deltas |
+
+The size dial divides every metabolite measurement (and, with `+delta`, the
+delta itself) by the organoid's segmentation area `mask_area_um2` — our own
+mask-derived size (foreground px x per-axis um/px), which tracks Promega's
+`win_vol_norm` volume at R^2~=0.98. Nominal vs scaled share the same base
+(`concentration_uM`), so any difference is attributable to size normalization
+alone. Both dials are passed through to `get_metabolite_features`
+(`include_growth`, `normalize_by_size`).
 
 ## Two cohorts
 
@@ -65,11 +86,12 @@ logged each time.
 
 ## Outputs
 
-- `$ANALYSIS_OUTPUT_DIR/metabolite_pred/results_strong-consensus.json`
-- `$ANALYSIS_OUTPUT_DIR/metabolite_pred/results_full.json`
-  (schema `results[model_display][day] = metrics_dict`; a distinct subdir so the
-  paper's `metabolites/results.json` is never clobbered)
-- `$ANALYSIS_OUTPUT_DIR/figures/metabolite_pred_<cohort>_LightGBM_vs_LogReg.png`
+- `$ANALYSIS_OUTPUT_DIR/metabolite_pred/results_<cohort>_<config>.json`
+  (8 files: 2 cohorts x 4 configs; schema `results[model_display][day] =
+  metrics_dict`; a distinct subdir so the paper's `metabolites/results.json` is
+  never clobbered)
+- `$ANALYSIS_OUTPUT_DIR/figures/metabolite_pred_<cohort>_<config>_LightGBM_vs_LogReg.png`
+  (8 figures)
 
 ## Notes
 

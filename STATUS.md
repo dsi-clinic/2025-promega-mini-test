@@ -97,9 +97,9 @@ The 54 organoids lost (274→220) are ambiguous 3-2 vote splits that fail the >=
 
 ### Metabolite Inclusion (BCAA + Malate)
 
-As of 2026-04-16 both are included in `pipeline/data_loader.py`:
+As of 2026-06-08 both are required for all days in `pipeline/data_loader.py`:
 - `BCAAGlo` → required for all days
-- `MalateGlo` → required for days > 10 only (early-day values not assayed)
+- `MalateGlo` → required for all days (day > 10 cutoff removed; early-day values are present near the noise floor, not unassayed)
 
 ### Other
 

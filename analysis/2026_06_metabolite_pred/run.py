@@ -59,12 +59,59 @@ _STYLE = {
 }
 
 
-def _features_all(ds, day):
-    """Full (X, y, names, ids) for one day; every organoid is in split 'all'."""
-    return ds.get_metabolite_features("all", day, include_growth=True, include_initial=True)
+# The 2x2 feature design: size dial (nominal vs size-scaled) x delta dial.
+# Each (cohort, config) pair produces one LightGBM-vs-LogReg figure, so the
+# default run writes 4 configs x 2 cohorts = 8 images.
+CONFIGS = (
+    {"key": "nominal_nodelta", "label": "Nominal, no delta",
+     "normalize_by_size": False, "include_growth": False},
+    {"key": "nominal_delta", "label": "Nominal + delta",
+     "normalize_by_size": False, "include_growth": True},
+    {"key": "scaled_delta", "label": "Size-scaled + delta",
+     "normalize_by_size": True, "include_growth": True},
+    {"key": "scaled_nodelta", "label": "Size-scaled, no delta",
+     "normalize_by_size": True, "include_growth": False},
+)
+_CONFIG_BY_KEY = {c["key"]: c for c in CONFIGS}
 
 
-def _run_cohort(cohort, *, specs, days, n_folds, seed):
+def _features_for(ds, day, cfg):
+    """(X, y, names, ids) for one day under a feature config; split 'all'.
+
+    ``normalize_by_size`` divides each metabolite measurement (and, when
+    ``include_growth``, its delta) by the organoid's segmentation area
+    ``mask_area_um2``.
+    """
+    return ds.get_metabolite_features(
+        "all", day,
+        include_growth=cfg["include_growth"],
+        include_initial=True,
+        normalize_by_size=cfg["normalize_by_size"],
+    )
+
+
+def _run_config(ds, cfg, *, specs, days, n_folds, seed):
+    """Nested CV over all days for one feature config. Returns results dict."""
+    results = {spec.display: {} for spec in specs}
+    for day in days:
+        if day not in ds.days:
+            continue
+        X, y, names, ids = _features_for(ds, day, cfg)
+        for spec in specs:
+            m = run_cv_for_day(spec, X, y, ids, n_folds=n_folds, seed=seed)
+            if m is None:
+                continue
+            m["feature_names"] = names
+            results[spec.display][day] = m
+            logger.info(
+                "  [%s] %-19s %-7s n=%d  BalAcc=%.4f  Recall(NA)=%.4f",
+                cfg["key"], spec.display, day, len(X),
+                m["balanced_accuracy"], m["recall_not_acceptable"],
+            )
+    return results
+
+
+def _run_cohort(cohort, *, specs, days, n_folds, seed, configs):
     ds, counts = build_cohort(cohort, ALL_DATA_PATH)
     logger.info("\n%s\nCohort %s: %d organoids  %s\n%s",
                 "=" * 60, cohort, len(ds.organoid_ids), counts, "=" * 60)
@@ -77,25 +124,12 @@ def _run_cohort(cohort, *, specs, days, n_folds, seed):
         strict=True,
     )
 
-    results = {spec.display: {} for spec in specs}
-    for day in days:
-        if day not in ds.days:
-            logger.info("\nSkipping %s (no data)", day)
-            continue
-        X, y, names, ids = _features_all(ds, day)
-        for spec in specs:
-            logger.info("\n%s - %s  (n=%d)", spec.display, day, len(X))
-            m = run_cv_for_day(spec, X, y, ids, n_folds=n_folds, seed=seed)
-            if m is None:
-                continue
-            m["feature_names"] = names
-            results[spec.display][day] = m
-            logger.info(
-                "  Balanced Acc (pooled): %.4f | CV mean+/-std: %.4f +/- %.4f | Recall(NA): %.4f",
-                m["balanced_accuracy"], m["balanced_accuracy_cv_mean"],
-                m["balanced_accuracy_cv_std"], m["recall_not_acceptable"],
-            )
-    return results
+    for cfg in configs:
+        logger.info("\n----- config %s (%s) -----", cfg["key"], cfg["label"])
+        results = _run_config(ds, cfg, specs=specs, days=days,
+                              n_folds=n_folds, seed=seed)
+        _print_aggregate(f"{cohort} / {cfg['label']}", results, days)
+        _write_outputs(cohort, cfg, results)
 
 
 def _print_aggregate(cohort, results, days):
@@ -112,23 +146,23 @@ def _print_aggregate(cohort, results, days):
         print(f"  Avg Recall (N.A.):     {np.mean(rec):.1%}")
 
 
-def _write_outputs(cohort, results):
+def _write_outputs(cohort, cfg, results):
     out_dir = ANALYSIS_OUTPUT_DIR / "metabolite_pred"
     out_dir.mkdir(parents=True, exist_ok=True)
-    results_path = out_dir / f"results_{cohort}.json"
+    results_path = out_dir / f"results_{cohort}_{cfg['key']}.json"
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
-    logger.info("\nSaved results to %s", results_path)
+    logger.info("Saved results to %s", results_path)
 
     if results.get("LightGBM") and results.get("Logistic Regression"):
         FIGURE_DIR.mkdir(parents=True, exist_ok=True)
-        png = FIGURE_DIR / f"metabolite_pred_{cohort}_LightGBM_vs_LogReg.png"
+        png = FIGURE_DIR / f"metabolite_pred_{cohort}_{cfg['key']}_LightGBM_vs_LogReg.png"
         plot_balanced_accuracy_by_day(
             {"LightGBM": results["LightGBM"],
              "Logistic Regression": results["Logistic Regression"]},
             day_order=DAY_ORDER,
             output_path=png,
-            title=f"Metabolite prediction ({cohort}): Balanced Accuracy by Day",
+            title=f"Metabolite prediction ({cohort} / {cfg['label']}): Balanced Accuracy by Day",
             style_overrides=_STYLE,
             late_stage_shade_from_day=24,
         )
@@ -143,6 +177,9 @@ def main():
                         help="Specific days (e.g. Dy30 Dy24); default all")
     parser.add_argument("--skip-lgbm", action="store_true")
     parser.add_argument("--skip-lr", action="store_true")
+    parser.add_argument("--configs", nargs="+", default=None,
+                        choices=[c["key"] for c in CONFIGS],
+                        help="Feature configs to run (default: all four)")
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -157,12 +194,12 @@ def main():
 
     cohorts = COHORTS if args.cohort == "all" else (_COHORT_ALIASES[args.cohort],)
     days = args.days if args.days else DAY_ORDER
+    configs = ([_CONFIG_BY_KEY[k] for k in args.configs]
+               if args.configs else CONFIGS)
 
     for cohort in cohorts:
-        results = _run_cohort(cohort, specs=specs, days=days,
-                              n_folds=args.folds, seed=args.seed)
-        _print_aggregate(cohort, results, days)
-        _write_outputs(cohort, results)
+        _run_cohort(cohort, specs=specs, days=days,
+                    n_folds=args.folds, seed=args.seed, configs=configs)
 
 
 if __name__ == "__main__":

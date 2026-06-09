@@ -52,6 +52,21 @@ def edge_fraction(mask: np.ndarray) -> float:
         return 0.0
     return float((mask.astype(bool) & border).sum() / border_total)
 
+def mask_area_px(mask: np.ndarray) -> int:
+    """Foreground (organoid) pixel count of a binary mask."""
+    return int(mask.astype(bool).sum())
+
+def mask_area_um2(area_px: int, um_per_px_x, um_per_px_y) -> "float | None":
+    """Convert a foreground pixel count to physical area in um^2.
+
+    Pixel count alone is not comparable across images: ``um_per_px`` varies
+    ~13-80x across the dataset (different magnifications). Multiplying by the
+    per-axis um/px gives a magnification-invariant area.
+    """
+    if not um_per_px_x or not um_per_px_y:
+        return None
+    return float(area_px * um_per_px_x * um_per_px_y)
+
 def save_json(p: Path, data: dict):
     with open(p, "w") as f:
         json.dump(data, f, indent=2)
@@ -80,9 +95,18 @@ def main():
 
             if mask is not None:
                 entry["edge_fraction"] = edge_fraction(mask)
+                area_px = mask_area_px(mask)
+                entry["mask_area_px"] = area_px
+                entry["mask_area_um2"] = mask_area_um2(
+                    area_px,
+                    entry.get("final_um_per_px_x"),
+                    entry.get("final_um_per_px_y"),
+                )
                 processed += 1
             else:
                 entry["edge_fraction"] = None
+                entry["mask_area_px"] = None
+                entry["mask_area_um2"] = None
                 failed += 1
         else:
             no_mask += 1
