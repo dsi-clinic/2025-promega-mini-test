@@ -239,8 +239,16 @@ def draw_training_curves(ax, results: dict, title: str) -> None:
     ax.set_title(title)
 
 
-def draw_ablation_curve(ax, results: list, x_key: str, xlabel: str, title: str) -> None:
-    """For ablation-style list results: test_acc and test_f1 vs the varying key."""
+def draw_ablation_curve(ax, results: list, x_key: str, xlabel: str, title: str,
+                        n_pos: int = None, n_neg: int = None) -> None:
+    """
+    For ablation-style list results: test_acc / test_bal_acc / test_f1 vs the
+    varying day-window key, plus best_val_acc as a faint reference line.
+
+    If n_pos and n_neg are provided, missing test_balanced_acc values are
+    reconstructed from FP/FN lists so the line draws even for older runs that
+    didn't save the field natively.
+    """
     if not results:
         ax.text(0.5, 0.5, "no results", ha="center", va="center",
                 transform=ax.transAxes)
@@ -251,10 +259,13 @@ def draw_ablation_curve(ax, results: list, x_key: str, xlabel: str, title: str) 
     rs = sorted(results, key=lambda r: r.get(x_key, 0))
     xs       = [r.get(x_key) for r in rs]
     test_acc = [r.get("test_acc") for r in rs]
+    test_bal = [balanced_acc_for_result(r, n_pos, n_neg) for r in rs]
     test_f1  = [r.get("test_f1")  for r in rs]
     val_acc  = [r.get("best_val_acc") for r in rs]
 
     ax.plot(xs, test_acc, "o-", label="test acc", color="tab:green")
+    if any(v is not None for v in test_bal):
+        ax.plot(xs, test_bal, "D-", label="test bal acc", color="tab:purple")
     ax.plot(xs, test_f1,  "s-", label="test F1",  color="tab:red")
     if any(v is not None for v in val_acc):
         ax.plot(xs, val_acc, "x--", label="best val acc",
@@ -373,7 +384,8 @@ def render_per_cohort(run_dir: Path, label: str, output_dir: Path,
             x_key = spec["ablation_key"]
             xlabel = spec["ablation_xlabel"]
             draw_ablation_curve(ax_left, results, x_key, xlabel,
-                                f"{spec['title']} — test metrics vs {xlabel}")
+                                f"{spec['title']} — test metrics vs {xlabel}",
+                                n_pos=n_pos, n_neg=n_neg)
 
             best = pick_best_ablation_entry(results, metric="test_f1")
             if best is None:
