@@ -38,7 +38,7 @@ from sklearn.metrics import (
     balanced_accuracy_score,
 )
 
-from analysis.images.cnn_lstm.organoid_dataset import load_split_from_json
+from analysis.images.cnn_lstm.organoid_dataset import load_split_from_json, resolve_split_path
 
 # -------- Config --------
 DAY_RANGES = [3, 6, 8, 10, 13, 15, 17, 20.5, 24, 28, 30]  # Full per-day set (11 days).
@@ -457,6 +457,11 @@ def main():
                         help='Output directory for model checkpoints and results')
     parser.add_argument('--image-type', type=str, default='std', choices=['clipped', 'std'],
                         help='Image variant: std (512x384) or clipped (575x575 AR meanfill)')
+    parser.add_argument('--splits-dir', type=str, default='data_splits',
+                        help=('Directory holding train/val/test split JSONs. Accepts both '
+                              'cohort layout (<dir>/{train,val,test}.json) and legacy '
+                              'layout (<dir>/{train,val,test}_idor_series.json). Default: '
+                              'data_splits/ (legacy).'))
     args = parser.parse_args()
 
     set_seed(SEED)
@@ -472,9 +477,10 @@ def main():
     print("LOADING DATA")
     print("="*70)
     
-    train_ids, train_meta = load_split_from_json('data_splits/train_idor_series.json')
-    val_ids,   val_meta   = load_split_from_json('data_splits/val_idor_series.json')
-    test_ids,  test_meta  = load_split_from_json('data_splits/test_idor_series.json')
+    print(f"Splits dir: {args.splits_dir}")
+    train_ids, train_meta = load_split_from_json(resolve_split_path(args.splits_dir, 'train'))
+    val_ids,   val_meta   = load_split_from_json(resolve_split_path(args.splits_dir, 'val'))
+    test_ids,  test_meta  = load_split_from_json(resolve_split_path(args.splits_dir, 'test'))
 
     print(f"Splits: train={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)}")
     

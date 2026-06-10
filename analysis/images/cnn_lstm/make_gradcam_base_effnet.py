@@ -67,6 +67,20 @@ def find_last_conv_layer(model):
 
 
 def select_organoids(misses, args):
+    """
+    Rank test-set organoids for Grad-CAM inspection.
+
+    Aggregation-based modes (use cross-variant miss patterns):
+        missed   – most misclassified across variants
+        lowest   – fewest misclassifications
+        perfect  – never misclassified across variants
+
+    Confidence-based modes (use THIS model's P(Acceptable) — require
+    prob_accept and 'pred_correct' columns to have been added upstream):
+        confident_correct  – model is sure AND right
+        confident_wrong    – model is sure AND wrong (most diagnostic failures)
+        confident_any      – model is sure (correct or not)
+    """
     if args.filter_label != "none":
         misses = misses[misses["true_label"] == args.filter_label].copy()
 
@@ -87,6 +101,22 @@ def select_organoids(misses, args):
             "organoid_id"
         ).head(args.top_n)
 
+    if args.selection_mode in ("confident_correct", "confident_wrong", "confident_any"):
+        if "confidence" not in misses.columns:
+            raise ValueError(
+                f"Mode '{args.selection_mode}' needs per-organoid probabilities. "
+                "Confidence pre-pass was not run."
+            )
+        sub = misses.copy()
+        if args.selection_mode == "confident_correct":
+            sub = sub[sub["pred_correct"] == True]
+        elif args.selection_mode == "confident_wrong":
+            sub = sub[sub["pred_correct"] == False]
+        # confident_any: keep all
+        return sub.sort_values(
+            ["confidence", "organoid_id"], ascending=[False, True]
+        ).head(args.top_n)
+
     raise ValueError(f"Unknown selection mode: {args.selection_mode}")
 
 
@@ -98,8 +128,13 @@ def main():
     parser.add_argument(
         "--selection-mode",
         default="missed",
-        choices=["missed", "lowest", "perfect"],
-        help="missed = most misclassified; lowest = least misclassified; perfect = total_misses == 0"
+        choices=["missed", "lowest", "perfect",
+                 "confident_correct", "confident_wrong", "confident_any"],
+        help=(
+            "Aggregation modes (cross-variant miss patterns): missed | lowest | perfect. "
+            "Confidence modes (this model's P(Acceptable) — distance from 0.5): "
+            "confident_correct | confident_wrong | confident_any."
+        ),
     )
     parser.add_argument(
         "--filter-label",
@@ -240,15 +275,52 @@ def main():
 
     test_data = load_json(test_json)
     misses = pd.read_csv(misses_csv)
+
+    # ------------------------------------------------------------------
+    # Pre-pass: compute P(Acceptable) for every organoid in misses df.
+    # Adds three columns: prob_accept, confidence (|p - 0.5|*2), pred_correct.
+    # Needed for the confident_* selection modes; harmless for the others.
+    # ------------------------------------------------------------------
+    @torch.no_grad()
+    def _prob_only(x):
+        x = x.to(device)
+        out = model(x)
+        if out.ndim == 2 and out.shape[1] == 2:
+            return torch.softmax(out, dim=1)[0, 1].item()
+        return torch.sigmoid(out.view(-1)[0]).item()
+
+    print("[info] computing P(Acceptable) for every test organoid (pre-pass)...")
+    probs, correct = {}, {}
+    label_to_int = {"Acceptable": 1, "Not Acceptable": 0}
+    for oid in misses["organoid_id"]:
+        rec = test_data.get(oid)
+        if rec is None:
+            continue
+        img_path = get_day_image_path(rec, args.day, args.image_type)
+        if img_path is None or not img_path.exists():
+            continue
+        _, x = load_rgb_image(img_path, preprocess)
+        p = _prob_only(x)
+        probs[oid] = p
+        true_int = label_to_int.get(rec.get("label"))
+        if true_int is not None:
+            pred_int = 1 if p >= 0.5 else 0
+            correct[oid] = (pred_int == true_int)
+
+    misses["prob_accept"]  = misses["organoid_id"].map(probs)
+    misses["confidence"]   = (misses["prob_accept"] - 0.5).abs() * 2     # 0..1
+    misses["pred_correct"] = misses["organoid_id"].map(correct)
+    print(f"[info] probs computed for {misses['prob_accept'].notna().sum()} / "
+          f"{len(misses)} organoids")
+
     selected = select_organoids(misses, args)
 
     print("\n[info] selected organoids:")
-    print(
-        selected[
-            ["organoid_id", "true_label", "n_votes_good",
-             "n_votes_total", "miss_rate", "total_misses"]
-        ].to_string(index=False)
-    )
+    debug_cols = ["organoid_id", "true_label", "n_votes_good",
+                  "n_votes_total", "miss_rate", "total_misses"]
+    if args.selection_mode.startswith("confident"):
+        debug_cols += ["prob_accept", "confidence", "pred_correct"]
+    print(selected[debug_cols].to_string(index=False))
 
     if selected.empty:
         raise SystemExit("No organoids selected. Try --selection-mode lowest or --selection-mode missed.")

@@ -234,6 +234,28 @@ class OrganoidTimeSeriesDataset(Dataset):
 
 
 
+def resolve_split_path(splits_dir, phase):
+    """
+    Given a directory and a phase ('train' | 'val' | 'test'), return the path
+    to the matching split JSON. Supports both layouts so the trainers can read
+    from either:
+        new (cohort-style):  <splits_dir>/<phase>.json
+        old (data_splits/):  <splits_dir>/<phase>_idor_series.json
+    Cohort layout takes precedence when both exist.
+    """
+    d = Path(splits_dir)
+    cohort_style = d / f"{phase}.json"
+    legacy_style = d / f"{phase}_idor_series.json"
+    if cohort_style.exists():
+        return str(cohort_style)
+    if legacy_style.exists():
+        return str(legacy_style)
+    raise FileNotFoundError(
+        f"No split file for phase '{phase}' in {d}. Looked for "
+        f"{cohort_style.name} and {legacy_style.name}."
+    )
+
+
 def load_split_from_json(split_path):
     """
     Load a pre-made split JSON produced by scripts/split_series_reproducible.py.

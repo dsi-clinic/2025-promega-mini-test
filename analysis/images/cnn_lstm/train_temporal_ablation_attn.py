@@ -27,6 +27,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
     load_split_from_json,
+    resolve_split_path,
 )
 
 # ---------------- Config ----------------
@@ -455,6 +456,11 @@ def main():
                         help='Output directory')
     parser.add_argument('--image-type', type=str, default='clipped', choices=['clipped', 'std'],
                         help='Image variant: clipped (575x575 AR meanfill) or std (512x384)')
+    parser.add_argument('--splits-dir', type=str, default='data_splits',
+                        help=('Directory holding train/val/test split JSONs. Accepts both '
+                              'cohort layout (<dir>/{train,val,test}.json) and legacy '
+                              'layout (<dir>/{train,val,test}_idor_series.json). Default: '
+                              'data_splits/ (legacy).'))
     args = parser.parse_args()
 
     set_seed(SEED)
@@ -469,9 +475,10 @@ def main():
     print("LOADING DATA")
     print("="*70)
 
-    train_ids, train_meta = load_split_from_json('data_splits/train_idor_series.json')
-    val_ids,   val_meta   = load_split_from_json('data_splits/val_idor_series.json')
-    test_ids,  test_meta  = load_split_from_json('data_splits/test_idor_series.json')
+    print(f"Splits dir: {args.splits_dir}")
+    train_ids, train_meta = load_split_from_json(resolve_split_path(args.splits_dir, 'train'))
+    val_ids,   val_meta   = load_split_from_json(resolve_split_path(args.splits_dir, 'val'))
+    test_ids,  test_meta  = load_split_from_json(resolve_split_path(args.splits_dir, 'test'))
     print(f"Using image type: {args.image_type}")
 
     print("\n" + "="*70)
