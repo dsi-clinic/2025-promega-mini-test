@@ -59,10 +59,11 @@ _STYLE = {
 }
 
 
-# The 2x2 feature design: size dial (nominal vs size-scaled) x delta dial.
-# Each (cohort, config) pair produces one LightGBM-vs-LogReg figure, so the
-# default run writes 4 configs x 2 cohorts = 8 images.
-CONFIGS = (
+# Feature design: size dial (nominal vs size-scaled) x delta dial x winsorize
+# dial. The 4 base configs run on raw concentration_uM; a winsorized variant of
+# each (per-day 1st/99th clip) is appended, so the default run writes
+# 8 configs x 2 cohorts = 16 figures (the 8 non-winsorized + 8 winsorized).
+_BASE_CONFIGS = (
     {"key": "nominal_nodelta", "label": "Nominal, no delta",
      "normalize_by_size": False, "include_growth": False},
     {"key": "nominal_delta", "label": "Nominal + delta",
@@ -72,6 +73,17 @@ CONFIGS = (
     {"key": "scaled_nodelta", "label": "Size-scaled, no delta",
      "normalize_by_size": True, "include_growth": False},
 )
+
+
+def _winsorized(cfg):
+    return {**cfg, "key": cfg["key"] + "_win",
+            "label": cfg["label"] + " (winsorized)", "winsorize": True}
+
+
+CONFIGS = tuple(
+    [{**c, "winsorize": False} for c in _BASE_CONFIGS]
+    + [_winsorized(c) for c in _BASE_CONFIGS]
+)
 _CONFIG_BY_KEY = {c["key"]: c for c in CONFIGS}
 
 
@@ -80,13 +92,15 @@ def _features_for(ds, day, cfg):
 
     ``normalize_by_size`` divides each metabolite measurement (and, when
     ``include_growth``, its delta) by the organoid's segmentation area
-    ``mask_area_um2``.
+    ``mask_area_um2``; ``winsorize`` clips each measurement to that day's
+    1st/99th percentile first.
     """
     return ds.get_metabolite_features(
         "all", day,
         include_growth=cfg["include_growth"],
         include_initial=True,
         normalize_by_size=cfg["normalize_by_size"],
+        winsorize=cfg.get("winsorize", False),
     )
 
 

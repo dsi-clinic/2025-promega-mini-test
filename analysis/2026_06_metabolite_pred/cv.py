@@ -72,11 +72,18 @@ def _tune_threshold(spec, estimator, X_train, y_train, ids_train, inner_splits, 
     return float(best_t)
 
 
-def run_cv_for_day(spec, X, y, ids, *, n_folds: int = 5, seed: int = 42, verbose: bool = False):
+def run_cv_for_day(spec, X, y, ids, *, n_folds: int = 5, seed: int = 42, verbose: bool = False,
+                   fold_callback=None):
     """Nested CV for one model on one day. Returns a metrics dict or None.
 
     None when the day has no rows or too few minority examples to stratify even
     two outer folds.
+
+    ``fold_callback(spec, estimator, X_tr_scaled, X_te_scaled, test_idx)`` is
+    invoked once per outer fold with the refit estimator, the train-fold features
+    (a SHAP background) and the held-out features as the model saw them (scaled
+    for logreg). Used to accumulate out-of-fold SHAP without duplicating the CV
+    logic; it must not mutate the inputs.
     """
     X = np.asarray(X)
     y = np.asarray(y)
@@ -129,6 +136,9 @@ def run_cv_for_day(spec, X, y, ids, *, n_folds: int = 5, seed: int = 42, verbose
         pred = (prob >= threshold).astype(int)
         oof_prob[te] = prob
         oof_pred[te] = pred
+
+        if fold_callback is not None:
+            fold_callback(spec, best, X_tr_p, X_te_p, te)
 
         fold_m = compute_classification_metrics(y_te, pred, prob)
         fold_bal_acc.append(fold_m["balanced_accuracy"])

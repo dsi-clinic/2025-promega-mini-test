@@ -961,6 +961,7 @@ class OrganoidDataset:
         include_initial: bool = True,
         field: str = "concentration_uM",
         normalize_by_size: bool = False,
+        winsorize: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
         """Extract metabolite feature matrix for split + day.
 
@@ -985,6 +986,14 @@ class OrganoidDataset:
         on the size-normalized value (curr/area_curr − prev/area_prev), so a
         scaled+growth feature is a size-normalized exchange rate.
 
+        ``winsorize`` clips each metabolite measurement (the ``field`` column and
+        ``initial_concentration``) to that day's 1st/99th percentile across the
+        split's organoids, reproducing the RehenLab per-day winsorization
+        (``pipeline/metabolites/winsorize.py``). Order of operations matches the
+        paper: winsorize raw -> size-normalize -> delta. Adds a ``_win`` suffix
+        (composes with ``_per_um2``). Deltas, when included, are computed on the
+        winsorized (and size-normalized) values.
+
         Returns: (X, y, feature_names, organoid_ids)
             X: (n_samples, n_features) float array
             y: (n_samples,) int array  (1=Not Acceptable, 0=Acceptable)
@@ -1006,13 +1015,21 @@ class OrganoidDataset:
             if day_num is not None and cond_fn(day_num):
                 active_mets.append(met)
 
-        # Build feature names
+        # Build feature names (order: <field> winsorized, then size-normalized)
+        win_suffix = "_win" if winsorize else ""
         size_suffix = "_per_um2" if normalize_by_size else ""
         feat_names = []
         for met in active_mets:
-            feat_names.append(f"{met}_{field}{size_suffix}")
+            feat_names.append(f"{met}_{field}{win_suffix}{size_suffix}")
             if include_initial:
-                feat_names.append(f"{met}_initial_concentration{size_suffix}")
+                feat_names.append(f"{met}_initial_concentration{win_suffix}{size_suffix}")
+
+        # Per-day winsorized lookups: {met: {org_id: clipped value}}
+        wmap = self._winsorized_day_map(subset, day, active_mets, field) if winsorize else None
+        wmap_init = (
+            self._winsorized_day_map(subset, day, active_mets, "initial_concentration")
+            if (winsorize and include_initial) else None
+        )
 
         rows = []
         labels = []
@@ -1035,14 +1052,22 @@ class OrganoidDataset:
             skip = False
             for met in active_mets:
                 met_data = mets.get(met, {})
-                val = met_data.get(field)
+                if winsorize:
+                    val = wmap[met].get(org_id) if met in wmap else None
+                else:
+                    val = met_data.get(field)
                 if val is None:
                     skip = True
                     break
-                init = met_data.get("initial_concentration", np.nan)
+                if include_initial:
+                    if winsorize:
+                        init = wmap_init[met].get(org_id, np.nan) if met in wmap_init else np.nan
+                    else:
+                        init = met_data.get("initial_concentration", np.nan)
                 if normalize_by_size:
                     val = val / size
-                    init = init / size
+                    if include_initial:
+                        init = init / size
                 row.append(val)
                 if include_initial:
                     row.append(init)
@@ -1068,7 +1093,7 @@ class OrganoidDataset:
         if include_growth and day_num is not None:
             X, feat_names, ids_out = self._add_growth_features(
                 X, feat_names, ids, split, day, active_mets, include_initial,
-                field=field, normalize_by_size=normalize_by_size,
+                field=field, normalize_by_size=normalize_by_size, winsorize=winsorize,
             )
             y_out = []
             id_set = set(ids_out)
@@ -1081,6 +1106,30 @@ class OrganoidDataset:
 
         return X, y, feat_names, ids
 
+    def _winsorized_day_map(self, subset, day, mets, field):
+        """{met: {org_id: clipped value}} for one day's ``field`` values.
+
+        Clips to the day's 1st/99th percentile across ``subset`` (the RehenLab
+        per-day winsorization), via ``pipeline.metabolites.winsorize``.
+        """
+        from pipeline.metabolites.winsorize import winsorize_per_day
+
+        out = {}
+        for m in mets:
+            org_ids, vals = [], []
+            for oid, info in subset.items():
+                rec = info["records"].get(day)
+                if rec is None:
+                    continue
+                v = (rec.get("metabolite") or {}).get(m, {}).get(field)
+                if v is not None:
+                    org_ids.append(oid)
+                    vals.append(v)
+            if vals:
+                w = winsorize_per_day(vals, [0] * len(vals))
+                out[m] = dict(zip(org_ids, w))
+        return out
+
     def _add_growth_features(
         self,
         X: np.ndarray,
@@ -1092,12 +1141,15 @@ class OrganoidDataset:
         include_initial: bool,
         field: str = "concentration_uM",
         normalize_by_size: bool = False,
+        winsorize: bool = False,
     ) -> Tuple[np.ndarray, List[str], List[str]]:
         """Add growth (delta) features from the previous available day.
 
-        The delta is computed on ``field`` (matching the level columns), and on
-        the size-normalized value (value / ``mask_area_um2``) when
-        ``normalize_by_size`` is set, so the delta is consistent with the levels.
+        The delta is computed on ``field`` (matching the level columns), on the
+        per-day-winsorized value when ``winsorize`` is set, and on the
+        size-normalized value (value / ``mask_area_um2``) when
+        ``normalize_by_size`` is set -- so the delta is consistent with the
+        levels (winsorize -> size-normalize -> subtract).
         """
         day_idx = DAY_ORDER.index(day) if day in DAY_ORDER else -1
         if day_idx <= 0:
@@ -1116,8 +1168,18 @@ class OrganoidDataset:
         # Only compute growth for metabolites available in both days
         growth_mets = [m for m in active_mets if m in prev_mets]
 
+        win_suffix = "_win" if winsorize else ""
         size_suffix = "_per_um2" if normalize_by_size else ""
-        growth_names = [f"{m}_growth{size_suffix}" for m in growth_mets]
+        growth_names = [f"{m}_growth{win_suffix}{size_suffix}" for m in growth_mets]
+
+        # Per-day winsorized lookups for both days (clip raw to that day's 1/99)
+        wmap_curr = wmap_prev = None
+        if winsorize:
+            curr_subset = self.get_split(split, day=day)
+            prev_subset = self.get_split(split, day=prev_day)
+            wmap_curr = self._winsorized_day_map(curr_subset, day, growth_mets, field)
+            wmap_prev = self._winsorized_day_map(prev_subset, prev_day, growth_mets, field)
+
         new_rows = []
         new_ids = []
         keep_indices = []
@@ -1140,10 +1202,12 @@ class OrganoidDataset:
             growth_row = []
             skip = False
             for m in growth_mets:
-                curr_data = curr_rec.get("metabolite", {}).get(m, {})
-                prev_data = prev_mets_data.get(m, {})
-                curr_c = curr_data.get(field)
-                prev_c = prev_data.get(field)
+                if winsorize:
+                    curr_c = wmap_curr[m].get(org_id) if m in wmap_curr else None
+                    prev_c = wmap_prev[m].get(org_id) if m in wmap_prev else None
+                else:
+                    curr_c = curr_rec.get("metabolite", {}).get(m, {}).get(field)
+                    prev_c = prev_mets_data.get(m, {}).get(field)
                 if curr_c is None or prev_c is None:
                     skip = True
                     break
