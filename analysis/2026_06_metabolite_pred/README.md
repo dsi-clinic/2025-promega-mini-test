@@ -117,12 +117,28 @@ logged each time.
 
 ## Comparison to the RehenLab MMM good/bad prediction
 
-Reference: [`RehenLab/MMM` `main_data_analysis.ipynb`](https://github.com/RehenLab/MMM/blob/main/main_data_analysis.ipynb)
+**Source (the IDOR good/bad analysis we compare against):**
+<https://github.com/RehenLab/MMM/blob/main/main_data_analysis.ipynb>
 — the lab's own per-day Good/Bad classifier (cells 18–24 and 36; Figs 6D/6E).
 This note covers **only the good/bad prediction**, not the descriptive figures
-(violin/PCA/boxplots) that make up most of that notebook. Conclusion up front:
-**same family of analysis, but not identical** — so results should be in a
-similar range, not expected to match exactly.
+(violin/PCA/boxplots) that make up most of that notebook.
+
+**TL;DR — same family, not identical** (so similar-range results, not an exact
+match):
+- **Same:** per-day **Logistic Regression** (`StandardScaler` + balanced
+  weights), per-day **1/99 winsorization** (we reproduce their `_win`,
+  `make verify-winsorize`), **metabolites normalized by organoid area**
+  (`make verify-mask-area` ~0.4%), and **"Uncertain" excluded ≈ our
+  strong-consensus** cohort.
+- **Different:** we add **LightGBM** and **day-over-day deltas**, validate with
+  **nested group K-fold CV** (vs their repeated 70/30 holdout), and model a
+  **fixed metabolite-only** set — whereas they do an **exhaustive
+  morphometry+metabolite feature search** and size-normalize by a **2-day
+  averaged** `Average_area_win` (vs our current-day `mask_area_um2`).
+- **Closest apples-to-apples:** our **LogReg · scaled · no-delta ·
+  strong-consensus** config at a matched day (e.g. Dy30).
+
+Detail below.
 
 ### Shared design (why results should be close)
 - **Per-day modeling.** Each day modeled independently (their day list 3..30;
