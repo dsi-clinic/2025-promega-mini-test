@@ -23,29 +23,39 @@ PYTHONPATH=. python analysis/2026_06_metabolite_pred/run.py
 ```
 
 Flags: `--cohort {strong,full,all}` (default `all`), `--days Dy30 Dy24 ...`
-(default all days), `--configs {nominal_nodelta,nominal_delta,scaled_nodelta,scaled_delta} ...`
-(default all four), `--skip-lgbm`, `--skip-lr`, `--folds N` (default 5),
+(default all days), `--configs {nominal_nodelta,nominal_delta,scaled_nodelta,scaled_delta,nominal_nodelta_win,nominal_delta_win,scaled_nodelta_win,scaled_delta_win} ...`
+(default all eight), `--skip-lgbm`, `--skip-lr`, `--folds N` (default 5),
 `--seed N` (default 42).
 
-## Feature configurations (2x2)
+## Feature configurations (size x delta x winsorize)
 
-Two independent dials are swept, so the default run is **4 configs x 2 cohorts =
-8 figures**:
+Three independent dials are swept — **size** (nominal vs `/mask_area_um2`),
+**delta** (levels only vs + day-over-day delta), and **winsorize** (raw vs
+per-day 1/99 clip). The 4 base configs each get a winsorized (`_win`) twin, so
+the default run is **8 configs x 2 cohorts = 16 figures**:
 
-| Config key | Size dial | Delta dial | Features |
+| Config key | Size | Delta | Winsorize |
 |---|---|---|---|
-| `nominal_nodelta` | nominal | no delta | `concentration_uM` + `initial_concentration` |
-| `nominal_delta` | nominal | +delta | above + per-day `*_growth` (this is the prior analysis) |
-| `scaled_nodelta` | size-scaled | no delta | each measurement / `mask_area_um2` (suffix `_per_um2`) |
-| `scaled_delta` | size-scaled | +delta | size-scaled levels + size-scaled deltas |
+| `nominal_nodelta` | nominal | no | no |
+| `nominal_delta` | nominal | yes | no |
+| `scaled_nodelta` | `/mask_area_um2` | no | no |
+| `scaled_delta` | `/mask_area_um2` | yes | no |
+| `nominal_nodelta_win` | nominal | no | yes |
+| `nominal_delta_win` | nominal | yes | yes |
+| `scaled_nodelta_win` | `/mask_area_um2` | no | yes |
+| `scaled_delta_win` | `/mask_area_um2` | yes | yes |
 
-The size dial divides every metabolite measurement (and, with `+delta`, the
-delta itself) by the organoid's segmentation area `mask_area_um2` — our own
-mask-derived size (foreground px x per-axis um/px), which tracks Promega's
-`win_vol_norm` volume at R^2~=0.98. Nominal vs scaled share the same base
-(`concentration_uM`), so any difference is attributable to size normalization
-alone. Both dials are passed through to `get_metabolite_features`
-(`include_growth`, `normalize_by_size`).
+- **Size** divides each metabolite measurement (and, with `+delta`, the delta)
+  by the organoid's segmentation area `mask_area_um2` — our own mask-derived size
+  (foreground px x per-axis um/px), which tracks Promega's `win_vol_norm` volume
+  at R^2~=0.98. Nominal vs scaled share the same base, so any difference is
+  attributable to size normalization alone.
+- **Winsorize** reads the persisted per-day 1/99 columns (`concentration_uM_win`
+  / `initial_concentration_win`) from `all_data.json` — see
+  `pipeline/metabolites/winsorize.py` and `make winsorize-write`.
+
+All three dials pass through to `get_metabolite_features` (`normalize_by_size`,
+`include_growth`, `winsorize`).
 
 ## Two cohorts
 
@@ -87,11 +97,15 @@ logged each time.
 ## Outputs
 
 - `$ANALYSIS_OUTPUT_DIR/metabolite_pred/results_<cohort>_<config>.json`
-  (8 files: 2 cohorts x 4 configs; schema `results[model_display][day] =
+  (16 files: 2 cohorts x 8 configs; schema `results[model_display][day] =
   metrics_dict`; a distinct subdir so the paper's `metabolites/results.json` is
   never clobbered)
 - `$ANALYSIS_OUTPUT_DIR/figures/metabolite_pred_<cohort>_<config>_LightGBM_vs_LogReg.png`
-  (8 figures)
+  (16 figures)
+- `$ANALYSIS_OUTPUT_DIR/metabolite_pred/metabolite_pred_<cohort>_<config>_<model>_shap.txt`
+  — out-of-fold SHAP importance per day (`shap_importance.py`, headline configs)
+- `$ANALYSIS_OUTPUT_DIR/figures/metabolite_summary_<cohort>.png` +
+  `metabolite_summary_table.csv` (`metabolite_summary_panel.py`)
 
 ## Notes
 
@@ -100,3 +114,52 @@ logged each time.
   verbatim for comparability with the paper results.
 - Labels follow AGENTS.md rule #9 (1 = Not Acceptable, 0 = Acceptable) and all
   data is read through `pipeline.data_loader` (rule #3).
+
+## Comparison to the RehenLab MMM good/bad prediction
+
+Reference: [`RehenLab/MMM` `main_data_analysis.ipynb`](https://github.com/RehenLab/MMM/blob/main/main_data_analysis.ipynb)
+— the lab's own per-day Good/Bad classifier (cells 18–24 and 36; Figs 6D/6E).
+This note covers **only the good/bad prediction**, not the descriptive figures
+(violin/PCA/boxplots) that make up most of that notebook. Conclusion up front:
+**same family of analysis, but not identical** — so results should be in a
+similar range, not expected to match exactly.
+
+### Shared design (why results should be close)
+- **Per-day modeling.** Each day modeled independently (their day list 3..30;
+  ours `DAY_ORDER`).
+- **Logistic Regression** with `StandardScaler` + `class_weight='balanced'` — we
+  run exactly this as one of our two models (`MODEL_SPECS["logreg"]`).
+- **Per-day 1st/99th-percentile winsorization** of features — identical recipe;
+  our `pipeline/metabolites/winsorize.py` reproduces their `_win` columns and is
+  asserted to match (`make verify-winsorize`).
+- **Metabolites normalized by organoid AREA** — they divide by `Average_area_win`;
+  we divide by `mask_area_um2` (the `scaled` dial). Both express metabolites as
+  per-area exchange rates. (`make verify-mask-area` shows our area reproduces
+  their `Area_win` to ~0.4%.)
+- **Balanced accuracy** is the headline metric; they exclude the ambiguous
+  middle class (`Uncertain`), which corresponds to our no-consensus 3-2/2-3
+  organoids — so their Good/Bad set ≈ our **strong-consensus** cohort.
+
+### Differences (why they won't match exactly)
+| Aspect | RehenLab MMM | Ours (`2026_06_metabolite_pred`) |
+|---|---|---|
+| Models | Logistic Regression only | LightGBM **and** Logistic Regression |
+| Validation | repeated stratified **70/30 holdout × 5 seeds**, fixed threshold 0.5 | nested stratified **group K-fold CV** (out-of-fold), inner GridSearch + threshold tuning |
+| Feature search | **exhaustive** over morphometry + metabolite combos (1000s of sets), report best | fixed 6-metabolite set; **no morphometry** |
+| Morphometry | included (Area_log, Feret, Circ, Solidity, AR, Complexity) | none (metabolite-only; morphometry lives in the image analyses) |
+| Deltas | none in the classifier (growth rate is descriptive only) | day-over-day metabolite **delta** is a feature dial |
+| Metabolite value | winsorized, area-normalized (`*_win_area_norm`) | raw `concentration_uM` / `concentration_uM_win`, optionally `/mask_area_um2` |
+| Size metric | `Average_area_win` = winsorized mean of **current + previous** day area | `mask_area_um2` = our segmentation area, **current** day only |
+| Per-day aggregation | per-organoid **mean** of that day's rows | one record per organoid-day |
+| Positive class | Good = 1 | Not Acceptable = 1 (opposite encoding; same task) |
+| Cohorts | Good/Bad (Uncertain excluded) | strong-consensus (≥4/5) and full (simple majority) |
+
+### Closest apples-to-apples
+The most comparable of our configs to their metabolite-driven result is
+**Logistic Regression, `scaled` (size-normalized), no-delta, strong-consensus
+cohort**, at a matched day (e.g. Dy30). That isolates the shared choices
+(per-day LR, winsorized, area-normalized metabolites, Uncertain excluded); the
+remaining gaps are our group-aware CV vs their repeated holdout, and their
+inclusion of morphometry + exhaustive feature selection. A true match would also
+require dropping the day-over-day delta and using their `Average_area_win`
+(2-day) size rather than our current-day `mask_area_um2`.
