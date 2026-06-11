@@ -211,10 +211,13 @@ def main():
     def forward_hook(module, inp, out):
         activations["value"] = out
 
-        def save_grad(grad):
-            gradients["value"] = grad
-
-        out.register_hook(save_grad)
+        # Only register backward hook if grad is actually being tracked.
+        # The pre-pass runs under torch.no_grad(), where out.requires_grad
+        # is False and register_hook would raise.
+        if out.requires_grad:
+            def save_grad(grad):
+                gradients["value"] = grad
+            out.register_hook(save_grad)
 
     hook_handle = target_layer.register_forward_hook(forward_hook)
 
