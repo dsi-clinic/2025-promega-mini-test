@@ -1024,12 +1024,13 @@ class OrganoidDataset:
             if include_initial:
                 feat_names.append(f"{met}_initial_concentration{win_suffix}{size_suffix}")
 
-        # Per-day winsorized lookups: {met: {org_id: clipped value}}
-        wmap = self._winsorized_day_map(subset, day, active_mets, field) if winsorize else None
-        wmap_init = (
-            self._winsorized_day_map(subset, day, active_mets, "initial_concentration")
-            if (winsorize and include_initial) else None
-        )
+        # Winsorized inputs are READ from the persisted per-day-winsorized columns
+        # in all_data.json (``<field>_win``, written by
+        # ``pipeline.metabolites.winsorize --write`` / ``make winsorize-write``) --
+        # they are NOT recomputed here, so every model input comes from
+        # all_data.json (concentration_uM -> concentration_uM_win, etc.).
+        val_field = f"{field}_win" if winsorize else field
+        init_field = "initial_concentration_win" if winsorize else "initial_concentration"
 
         rows = []
         labels = []
@@ -1052,18 +1053,12 @@ class OrganoidDataset:
             skip = False
             for met in active_mets:
                 met_data = mets.get(met, {})
-                if winsorize:
-                    val = wmap[met].get(org_id) if met in wmap else None
-                else:
-                    val = met_data.get(field)
+                val = met_data.get(val_field)
                 if val is None:
                     skip = True
                     break
                 if include_initial:
-                    if winsorize:
-                        init = wmap_init[met].get(org_id, np.nan) if met in wmap_init else np.nan
-                    else:
-                        init = met_data.get("initial_concentration", np.nan)
+                    init = met_data.get(init_field, np.nan)
                 if normalize_by_size:
                     val = val / size
                     if include_initial:
@@ -1105,30 +1100,6 @@ class OrganoidDataset:
             ids = ids_out
 
         return X, y, feat_names, ids
-
-    def _winsorized_day_map(self, subset, day, mets, field):
-        """{met: {org_id: clipped value}} for one day's ``field`` values.
-
-        Clips to the day's 1st/99th percentile across ``subset`` (the RehenLab
-        per-day winsorization), via ``pipeline.metabolites.winsorize``.
-        """
-        from pipeline.metabolites.winsorize import winsorize_per_day
-
-        out = {}
-        for m in mets:
-            org_ids, vals = [], []
-            for oid, info in subset.items():
-                rec = info["records"].get(day)
-                if rec is None:
-                    continue
-                v = (rec.get("metabolite") or {}).get(m, {}).get(field)
-                if v is not None:
-                    org_ids.append(oid)
-                    vals.append(v)
-            if vals:
-                w = winsorize_per_day(vals, [0] * len(vals))
-                out[m] = dict(zip(org_ids, w))
-        return out
 
     def _add_growth_features(
         self,
@@ -1172,13 +1143,9 @@ class OrganoidDataset:
         size_suffix = "_per_um2" if normalize_by_size else ""
         growth_names = [f"{m}_growth{win_suffix}{size_suffix}" for m in growth_mets]
 
-        # Per-day winsorized lookups for both days (clip raw to that day's 1/99)
-        wmap_curr = wmap_prev = None
-        if winsorize:
-            curr_subset = self.get_split(split, day=day)
-            prev_subset = self.get_split(split, day=prev_day)
-            wmap_curr = self._winsorized_day_map(curr_subset, day, growth_mets, field)
-            wmap_prev = self._winsorized_day_map(prev_subset, prev_day, growth_mets, field)
+        # Winsorized deltas read the persisted ``<field>_win`` columns from
+        # all_data.json (same source as the level columns); nothing recomputed.
+        val_field = f"{field}_win" if winsorize else field
 
         new_rows = []
         new_ids = []
@@ -1202,12 +1169,8 @@ class OrganoidDataset:
             growth_row = []
             skip = False
             for m in growth_mets:
-                if winsorize:
-                    curr_c = wmap_curr[m].get(org_id) if m in wmap_curr else None
-                    prev_c = wmap_prev[m].get(org_id) if m in wmap_prev else None
-                else:
-                    curr_c = curr_rec.get("metabolite", {}).get(m, {}).get(field)
-                    prev_c = prev_mets_data.get(m, {}).get(field)
+                curr_c = curr_rec.get("metabolite", {}).get(m, {}).get(val_field)
+                prev_c = prev_mets_data.get(m, {}).get(val_field)
                 if curr_c is None or prev_c is None:
                     skip = True
                     break
