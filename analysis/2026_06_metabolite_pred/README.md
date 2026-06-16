@@ -12,6 +12,39 @@ The paper modeling config (`MODEL_SPECS`: estimator factory, hyperparameter
 grid, CV scoring, threshold grid/scoring, scaler flag) is **imported**, not
 copied, so it can't drift from the paper.
 
+## Metabolite data: exchange rate vs. concentration (what we use)
+
+There are **two kinds** of metabolite quantity for this dataset:
+
+1. **Exchange rate (flux)** — the lab's paper metric: a *size-normalized
+   exchange rate* in **nmol/day/µm³**, positive = release into medium, negative =
+   clearance/uptake. Derived (Methods): `(conditioned − unconditioned media
+   conc) × well volume ÷ days-between-media-changes ÷ V_eff`, with `V = Area^1.32`
+   and `V_eff = (V_media_change + V_sampling)/2`. **We do not ingest this.** The
+   precomputed result ships unused in `data/normalized/EXCH_*.csv` ("reserved").
+2. **Concentration (µM)** — the raw assay concentration in the media. This is
+   what our models use: `concentration_uM` (primary) + `initial_concentration`
+   (secondary).
+
+**`concentration_uM` and `initial_concentration` are the *same* measurement at
+two dilution scales** — `initial_concentration = concentration_uM ×
+dilution_factor` *exactly* (Glucose ×2000, Lactate/BCAA ×400, Glutamate/Pyruvate
+×100; matching the assay dilutions, CoV≈0). So `concentration_uM` is the in-assay
+(diluted) reading and `initial_concentration` is the back-corrected (undiluted)
+media concentration — **"initial" is NOT the unconditioned baseline**, and using
+both as features is redundant (perfectly collinear within a metabolite).
+
+**Our `scaled`+`delta` dials approximate, but do not equal, the exchange rate:**
+we divide `concentration_uM / mask_area_um2` (area, current day) and take a
+day-over-day concentration delta; the lab divides by `V_eff` (2-day-avg
+**volume**, `Area^1.32`) and computes `(Δconc) × volume ÷ days`. Reproducing
+their exchange rate would additionally require the **unconditioned-media
+baseline**, **well volume**, and **days between media changes** (none are in our
+concentration fields). Also note an internal inconsistency in the lab pipeline:
+the Methods normalize by **volume** (`Area^1.32`), but the MMM notebook
+normalizes metabolites by **area** (`Average_area_win`, /µm²), and their stored
+`Volume` empirically scales as `Area^1.26`.
+
 ## Run
 
 The package name starts with a digit, so it is run **by path**, not via `-m`:
