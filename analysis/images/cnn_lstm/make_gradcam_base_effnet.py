@@ -221,7 +221,11 @@ def main():
 
     hook_handle = target_layer.register_forward_hook(forward_hook)
 
+    # IMPORTANT: must match the trainer's eval pipeline so probabilities are
+    # comparable to what the model saw during training. base_effnet trains on
+    # (H=384, W=512) inputs; native clipped images are 575x575.
     preprocess = transforms.Compose([
+        transforms.Resize((384, 512)),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.485, 0.456, 0.406],
