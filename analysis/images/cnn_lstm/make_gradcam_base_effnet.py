@@ -44,6 +44,13 @@ def load_rgb_image(path, preprocess):
 
 
 def overlay_cam(img, cam, alpha=0.45):
+    # If the CAM is at the model's input resolution (post-resize) and the
+    # display image is native size, upsample the CAM so shapes match.
+    if cam.shape[:2] != img.shape[:2]:
+        from PIL import Image as _PILImage
+        cam_pil = _PILImage.fromarray((cam * 255).astype(np.uint8))
+        cam_pil = cam_pil.resize((img.shape[1], img.shape[0]), _PILImage.BILINEAR)
+        cam = np.asarray(cam_pil).astype(np.float32) / 255.0
     cmap = plt.get_cmap("jet")
     heat = cmap(cam)[..., :3]
     overlay = (1 - alpha) * img + alpha * heat

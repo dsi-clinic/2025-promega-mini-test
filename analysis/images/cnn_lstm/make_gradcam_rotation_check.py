@@ -90,7 +90,17 @@ def find_last_conv_layer(model):
 
 
 def overlay_cam(img, cam, alpha=0.4):
-    """Return (heat_rgb, overlay_rgb) for plotting."""
+    """Return (heat_rgb, overlay_rgb) for plotting.
+
+    If cam was computed at the model's input resolution (typically smaller
+    than the native image), upsample it back to the image size so the
+    overlay broadcast works.
+    """
+    if cam.shape[:2] != img.shape[:2]:
+        from PIL import Image as _PILImage
+        cam_pil = _PILImage.fromarray((cam * 255).astype(np.uint8))
+        cam_pil = cam_pil.resize((img.shape[1], img.shape[0]), _PILImage.BILINEAR)
+        cam = np.asarray(cam_pil).astype(np.float32) / 255.0
     import matplotlib.cm as cm
     heat = cm.jet(cam)[:, :, :3]
     overlay = (1 - alpha) * img + alpha * heat
