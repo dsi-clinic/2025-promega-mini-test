@@ -131,7 +131,8 @@ def select_organoids(misses, args):
         return misses[misses["total_misses"] == 0].sort_values(
             "organoid_id"
         ).head(args.top_n)
-    if args.selection_mode in ("confident_correct", "confident_wrong", "confident_any"):
+    if args.selection_mode in ("confident_correct", "confident_wrong",
+                               "confident_any", "uncertain"):
         if "confidence" not in misses.columns:
             raise ValueError(
                 f"Mode '{args.selection_mode}' needs a confidence column. "
@@ -142,8 +143,10 @@ def select_organoids(misses, args):
             sub = sub[sub["pred_correct"] == True]
         elif args.selection_mode == "confident_wrong":
             sub = sub[sub["pred_correct"] == False]
+        # uncertain: ascending (lowest first); others: descending
+        ascending = args.selection_mode == "uncertain"
         return sub.sort_values(
-            ["confidence", "organoid_id"], ascending=[False, True]
+            ["confidence", "organoid_id"], ascending=[ascending, True]
         ).head(args.top_n)
     raise ValueError(f"Unknown selection mode: {args.selection_mode}")
 
@@ -161,7 +164,11 @@ def main():
     parser.add_argument(
         "--selection-mode", default="confident_correct",
         choices=["missed", "lowest", "perfect",
-                 "confident_correct", "confident_wrong", "confident_any"],
+                 "confident_correct", "confident_wrong", "confident_any",
+                 "uncertain"],
+        help=(
+            "'uncertain' = lowest confidence first (model was wavering near 0.5)."
+        ),
     )
     parser.add_argument(
         "--filter-label", default="none",

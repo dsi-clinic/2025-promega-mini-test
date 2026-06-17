@@ -108,7 +108,8 @@ def select_organoids(misses, args):
             "organoid_id"
         ).head(args.top_n)
 
-    if args.selection_mode in ("confident_correct", "confident_wrong", "confident_any"):
+    if args.selection_mode in ("confident_correct", "confident_wrong",
+                               "confident_any", "uncertain"):
         if "confidence" not in misses.columns:
             raise ValueError(
                 f"Mode '{args.selection_mode}' needs per-organoid probabilities. "
@@ -119,9 +120,10 @@ def select_organoids(misses, args):
             sub = sub[sub["pred_correct"] == True]
         elif args.selection_mode == "confident_wrong":
             sub = sub[sub["pred_correct"] == False]
-        # confident_any: keep all
+        # confident_any and uncertain keep all
+        ascending = args.selection_mode == "uncertain"   # lowest first for uncertain
         return sub.sort_values(
-            ["confidence", "organoid_id"], ascending=[False, True]
+            ["confidence", "organoid_id"], ascending=[ascending, True]
         ).head(args.top_n)
 
     raise ValueError(f"Unknown selection mode: {args.selection_mode}")
@@ -136,11 +138,13 @@ def main():
         "--selection-mode",
         default="missed",
         choices=["missed", "lowest", "perfect",
-                 "confident_correct", "confident_wrong", "confident_any"],
+                 "confident_correct", "confident_wrong", "confident_any",
+                 "uncertain"],
         help=(
             "Aggregation modes (cross-variant miss patterns): missed | lowest | perfect. "
-            "Confidence modes (this model's P(Acceptable) — distance from 0.5): "
-            "confident_correct | confident_wrong | confident_any."
+            "Confidence modes (this model's P(Acceptable), distance from 0.5): "
+            "confident_correct | confident_wrong | confident_any | uncertain. "
+            "'uncertain' = lowest confidence first (model was wavering near 0.5)."
         ),
     )
     parser.add_argument(
