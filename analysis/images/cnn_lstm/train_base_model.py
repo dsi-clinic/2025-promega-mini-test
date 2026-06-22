@@ -235,7 +235,8 @@ def evaluate(model, loader, criterion, device):
 
 # ---------- Training ----------
 def train_for_day(target_day, train_ids, val_ids, test_ids,
-                  train_meta, val_meta, test_meta, device, output_dir, image_type='std'):
+                  train_meta, val_meta, test_meta, device, output_dir,
+                  image_type='std', pos_weight_scale=1.0):
     print(f"\n{'='*70}\nTRAINING BASELINE for DAY {target_day}\n{'='*70}")
 
     train_tf = T.Compose([
@@ -271,8 +272,11 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     n_bad = len(train_labels) - n_good
     if n_good == 0: n_good = 1
     if n_bad == 0: n_bad = 1
-    pos_weight = torch.tensor([n_bad / n_good], device=device)
-    print(f"  Class balance: good={n_good}, bad={n_bad}, pos_weight={pos_weight.item():.3f}")
+    raw_pw = n_bad / n_good
+    pos_weight = torch.tensor([raw_pw * pos_weight_scale], device=device)
+    print(f"  Class balance: good={n_good}, bad={n_bad}, "
+          f"pos_weight={pos_weight.item():.3f}  "
+          f"(raw={raw_pw:.3f} × scale={pos_weight_scale:.2f})")
     
     # Model
     model = BaselineEfficientNet().to(device)
@@ -462,6 +466,13 @@ def main():
                               'cohort layout (<dir>/{train,val,test}.json) and legacy '
                               'layout (<dir>/{train,val,test}_idor_series.json). Default: '
                               'data_splits/ (legacy).'))
+    parser.add_argument('--pos-weight-scale', type=float, default=1.0,
+                        help=('Multiplier applied to the auto-computed pos_weight (= n_bad/n_good). '
+                              '1.0 = default behavior. Use <1 (e.g. 0.3) to penalize missing the '
+                              'Bad class more aggressively; that downweights Acceptable errors '
+                              'further so the optimizer cannot ignore large-Bad misclassifications '
+                              'as "cheap" losses. Useful to test whether the model is willing to '
+                              'learn morphology beyond its current size shortcut.'))
     args = parser.parse_args()
 
     set_seed(SEED)
@@ -495,7 +506,8 @@ def main():
             target_day, train_ids, val_ids, test_ids,
             train_meta, val_meta, test_meta, device,
             out_dir / f"day_{target_day}",
-            image_type=args.image_type
+            image_type=args.image_type,
+            pos_weight_scale=args.pos_weight_scale,
         )
         if result:
             results.append(result)
