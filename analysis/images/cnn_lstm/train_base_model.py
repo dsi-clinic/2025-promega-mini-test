@@ -69,7 +69,15 @@ class SingleDayOrganoidDataset(Dataset):
     Dataset for single timepoint organoid images.
     Uses the LSTM processed images (same as LSTM but picks one timepoint).
     """
-    def __init__(self, organoid_ids, series_metadata, target_day, transform=None, image_type='std'):
+    def __init__(self, organoid_ids, series_metadata, target_day, transform=None,
+                 image_type='std', bbox_crop=False, bbox_pad=10):
+        """
+        bbox_crop: if True, crop each image to its mask bounding box (with bbox_pad
+                   pixels of padding) before applying transforms. This removes the
+                   bulk-size signal from the input — every organoid fills the same
+                   display area regardless of its biological size. Used to test
+                   whether the model is relying on size as a shortcut.
+        """
         self.samples = []
 
         for org_id in organoid_ids:
@@ -87,32 +95,57 @@ class SingleDayOrganoidDataset(Dataset):
             img_path = best_tp.get('img_paths', {}).get(image_type)
             if img_path is None or not Path(img_path).exists():
                 continue
+            mask_path = best_tp.get('mask_paths', {}).get(image_type)
+            # mask is only required if bbox_crop is on
+            if bbox_crop and (mask_path is None or not Path(mask_path).exists()):
+                continue
 
             self.samples.append({
-                "img_path": img_path,
-                "label": label,
-                "org_id": org_id,
+                "img_path":  img_path,
+                "mask_path": mask_path,
+                "label":     label,
+                "org_id":    org_id,
                 "actual_day": best_tp['mdl_day'],
             })
-        
+
         self.transform = transform
-        print(f"  Loaded {len(self.samples)} samples for day ~{target_day}")
+        self.bbox_crop = bbox_crop
+        self.bbox_pad = bbox_pad
+        print(f"  Loaded {len(self.samples)} samples for day ~{target_day}"
+              + ("  [bbox-crop enabled]" if bbox_crop else ""))
     
     def __len__(self):
         return len(self.samples)
     
     def __getitem__(self, idx):
         sample = self.samples[idx]
-        
+
         # Load image (same as LSTM)
         from skimage.io import imread
         img = imread(sample["img_path"])
-        
+
         if img.ndim == 2:
             img = np.stack([img] * 3, axis=-1)
-        
+
         img = img.astype(np.float32) / 255.0  # Normalize to [0,1]
-        
+
+        # Optional bbox-crop: crop the image to its mask's bounding box.
+        # This removes the bulk-size signal — every organoid then fills the same
+        # display area regardless of biological size.
+        if self.bbox_crop:
+            mask_arr = imread(sample["mask_path"])
+            if mask_arr.ndim == 3:
+                mask_arr = mask_arr[:, :, 0]
+            ys, xs = np.where(mask_arr > 127)
+            if ys.size > 0 and xs.size > 0:
+                y0 = max(0, int(ys.min()) - self.bbox_pad)
+                y1 = min(img.shape[0], int(ys.max()) + self.bbox_pad)
+                x0 = max(0, int(xs.min()) - self.bbox_pad)
+                x1 = min(img.shape[1], int(xs.max()) + self.bbox_pad)
+                if y1 > y0 and x1 > x0:
+                    img = img[y0:y1, x0:x1]
+            # else: empty mask, leave img as-is
+
         # Apply transforms (if any)
         if self.transform:
             img_pil = Image.fromarray((img * 255).astype(np.uint8))
@@ -236,7 +269,7 @@ def evaluate(model, loader, criterion, device):
 # ---------- Training ----------
 def train_for_day(target_day, train_ids, val_ids, test_ids,
                   train_meta, val_meta, test_meta, device, output_dir,
-                  image_type='std', pos_weight_scale=1.0):
+                  image_type='std', pos_weight_scale=1.0, bbox_crop=False):
     print(f"\n{'='*70}\nTRAINING BASELINE for DAY {target_day}\n{'='*70}")
 
     train_tf = T.Compose([
@@ -250,9 +283,9 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
         T.Resize(TARGET_SIZE),
     ])
 
-    train_dataset = SingleDayOrganoidDataset(train_ids, train_meta, target_day, transform=train_tf, image_type=image_type)
-    val_dataset   = SingleDayOrganoidDataset(val_ids,   val_meta,   target_day, transform=eval_tf, image_type=image_type)
-    test_dataset  = SingleDayOrganoidDataset(test_ids,  test_meta,  target_day, transform=eval_tf, image_type=image_type)
+    train_dataset = SingleDayOrganoidDataset(train_ids, train_meta, target_day, transform=train_tf, image_type=image_type, bbox_crop=bbox_crop)
+    val_dataset   = SingleDayOrganoidDataset(val_ids,   val_meta,   target_day, transform=eval_tf,  image_type=image_type, bbox_crop=bbox_crop)
+    test_dataset  = SingleDayOrganoidDataset(test_ids,  test_meta,  target_day, transform=eval_tf,  image_type=image_type, bbox_crop=bbox_crop)
     
     if len(train_dataset) == 0:
         print(f"  ⚠ No training samples for day {target_day}, skipping")
@@ -466,6 +499,12 @@ def main():
                               'cohort layout (<dir>/{train,val,test}.json) and legacy '
                               'layout (<dir>/{train,val,test}_idor_series.json). Default: '
                               'data_splits/ (legacy).'))
+    parser.add_argument('--bbox-crop', action='store_true',
+                        help=('If set, crop each image to the organoid mask bounding box '
+                              '(+10 px padding) before applying transforms. Removes the bulk '
+                              'size signal from the input — every organoid fills the same '
+                              'display area regardless of biological size. Used to test '
+                              'whether the model is relying on a size shortcut.'))
     parser.add_argument('--pos-weight-scale', type=float, default=1.0,
                         help=('Multiplier applied to the auto-computed pos_weight (= n_bad/n_good). '
                               '1.0 = default behavior. Use <1 (e.g. 0.3) to penalize missing the '
@@ -508,6 +547,7 @@ def main():
             out_dir / f"day_{target_day}",
             image_type=args.image_type,
             pos_weight_scale=args.pos_weight_scale,
+            bbox_crop=args.bbox_crop,
         )
         if result:
             results.append(result)
