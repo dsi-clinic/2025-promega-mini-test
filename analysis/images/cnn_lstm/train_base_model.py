@@ -129,9 +129,11 @@ class SingleDayOrganoidDataset(Dataset):
 
         img = img.astype(np.float32) / 255.0  # Normalize to [0,1]
 
-        # Optional bbox-crop: crop the image to its mask's bounding box.
-        # This removes the bulk-size signal — every organoid then fills the same
-        # display area regardless of biological size.
+        # Optional bbox-crop: crop the image to its mask's bounding box, then
+        # LETTERBOX it (pad with the image's mean color) to a target aspect
+        # ratio (384/512 = 0.75 = H/W) so the subsequent Resize to (384, 512)
+        # does NOT stretch the organoid. This removes the bulk-size signal
+        # while preserving morphology.
         if self.bbox_crop:
             mask_arr = imread(sample["mask_path"])
             if mask_arr.ndim == 3:
@@ -143,7 +145,38 @@ class SingleDayOrganoidDataset(Dataset):
                 x0 = max(0, int(xs.min()) - self.bbox_pad)
                 x1 = min(img.shape[1], int(xs.max()) + self.bbox_pad)
                 if y1 > y0 and x1 > x0:
-                    img = img[y0:y1, x0:x1]
+                    crop = img[y0:y1, x0:x1]
+                    # Letterbox to match the model's target H/W ratio (0.75)
+                    target_h_over_w = 384.0 / 512.0
+                    ch, cw = crop.shape[:2]
+                    cur_ratio = ch / cw
+                    # Use the original image's background color (a corner pixel,
+                    # which under mean-fill clipping is always the global gray)
+                    # so letterbox padding matches the existing background.
+                    # Falls back to the crop mean only if the original is too small.
+                    if img.shape[0] >= 4 and img.shape[1] >= 4:
+                        fill = img[:2, :2].reshape(-1, img.shape[-1]).mean(axis=0)
+                    else:
+                        fill = crop.reshape(-1, crop.shape[-1]).mean(axis=0)
+                    if cur_ratio > target_h_over_w:
+                        # too tall — pad sides
+                        new_w = int(round(ch / target_h_over_w))
+                        pad_w = new_w - cw
+                        left = pad_w // 2
+                        right = pad_w - left
+                        pad = np.full((ch, pad_w, crop.shape[-1]), 0.0, dtype=crop.dtype)
+                        pad[:] = fill
+                        crop = np.concatenate([pad[:, :left], crop, pad[:, :right]], axis=1)
+                    elif cur_ratio < target_h_over_w:
+                        # too wide — pad top/bottom
+                        new_h = int(round(cw * target_h_over_w))
+                        pad_h = new_h - ch
+                        top = pad_h // 2
+                        bot = pad_h - top
+                        pad = np.full((pad_h, cw, crop.shape[-1]), 0.0, dtype=crop.dtype)
+                        pad[:] = fill
+                        crop = np.concatenate([pad[:top], crop, pad[:bot]], axis=0)
+                    img = crop
             # else: empty mask, leave img as-is
 
         # Apply transforms (if any)
