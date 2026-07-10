@@ -214,6 +214,8 @@ help:
 	@echo "  make analysis-paper-perday         - Per-day image study (paper Fig 7-9)"
 	@echo "  make analysis-batch-summary        - BA1/BA2 dataset summary table (descriptive stats)"
 	@echo "  make analysis-verify-idor          - Verify partner IDOR organoid list against all_data.json"
+	@echo "  make analysis-data-overview        - Data overview figure (images, metabolites, morphology, survey, framework)"
+	@echo "  make analysis-combined-lgbm        - Three-thread LightGBM (met+morph by default; COMBINED_FUSION=met+img|all)"
 	@echo ""
 	@echo "CONFIGURATION:"
 	@echo "  DATA_ROOT=$(DATA_ROOT)"
@@ -593,6 +595,19 @@ analysis-batch-summary:
 analysis-verify-idor:
 	@echo "===> Verifying IDOR organoid list against all_data.json"
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m analysis.verify_ba1_ba2_idor_list.verify $(ARGS)
+
+# Data overview figure: organoid image strip, metabolite/morphology profiles, survey distribution, framework.
+analysis-data-overview:
+	@echo "===> Generating data overview figure"
+	PYTHONPATH=$(PYTHONPATH) ANALYSIS_OUTPUT_DIR=$(ANALYSIS_OUTPUT_DIR) $(PYTHON) -m analysis.paper_2026_04.data_overview_figure $(ARGS)
+
+# Three-thread combined model (metabolite + morphology [+ image embeddings]).
+# FUSION ?= met+morph  (choices: met+morph, met+img, all)
+# Pass --image-embeddings /path/to/image_embeddings.csv for met+img or all.
+COMBINED_FUSION ?= met+morph
+analysis-combined-lgbm:
+	@echo "===> Three-thread combined LightGBM (fusion=$(COMBINED_FUSION))"
+	PYTHONPATH=$(PYTHONPATH) ANALYSIS_OUTPUT_DIR=$(ANALYSIS_OUTPUT_DIR) $(PYTHON) -m analysis.paper_2026_04.combined_lgbm --fusion $(COMBINED_FUSION) $(ARGS)
 
 # ====================================
 # Pipeline Convenience Targets
