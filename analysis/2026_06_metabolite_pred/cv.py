@@ -73,7 +73,7 @@ def _tune_threshold(spec, estimator, X_train, y_train, ids_train, inner_splits, 
 
 
 def run_cv_for_day(spec, X, y, ids, *, n_folds: int = 5, seed: int = 42, verbose: bool = False,
-                   fold_callback=None):
+                   fold_callback=None, return_oof: bool = False):
     """Nested CV for one model on one day. Returns a metrics dict or None.
 
     None when the day has no rows or too few minority examples to stratify even
@@ -84,6 +84,13 @@ def run_cv_for_day(spec, X, y, ids, *, n_folds: int = 5, seed: int = 42, verbose
     (a SHAP background) and the held-out features as the model saw them (scaled
     for logreg). Used to accumulate out-of-fold SHAP without duplicating the CV
     logic; it must not mutate the inputs.
+
+    ``return_oof`` adds ``oof_pred``, ``oof_prob`` and ``oof_ids`` (plain lists)
+    to the metrics dict: the pooled out-of-fold prediction / probability for each
+    organoid, with the fold-tuned threshold applied, aligned position-for-position
+    to the input ``ids``. Lets a caller bucket the exact model predictions by an
+    external stratum without re-running or duplicating the CV. Default False so
+    existing callers (run.py, shap_importance.py) get an unchanged dict.
     """
     X = np.asarray(X)
     y = np.asarray(y)
@@ -158,4 +165,8 @@ def run_cv_for_day(spec, X, y, ids, *, n_folds: int = 5, seed: int = 42, verbose
         "n_pos": n_pos,
         "n_neg": n_neg,
     })
+    if return_oof:
+        metrics["oof_pred"] = oof_pred.tolist()
+        metrics["oof_prob"] = oof_prob.tolist()
+        metrics["oof_ids"] = ids.tolist()
     return metrics
