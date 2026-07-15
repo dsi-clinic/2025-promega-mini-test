@@ -72,6 +72,7 @@ def plot_balanced_accuracy_by_day(
     title: str,
     style_overrides: Optional[Dict[str, dict]] = None,
     late_stage_shade_from_day: Optional[int] = None,
+    late_stage_shade_offset: float = -0.5,
 ) -> None:
     """Plot balanced_accuracy by day for one or more model series.
 
@@ -80,7 +81,13 @@ def plot_balanced_accuracy_by_day(
     day_order: list of canonical day strings to use for the x-axis.
     style_overrides: per-label dict of matplotlib kwargs (color, marker, ...).
     late_stage_shade_from_day: if given (e.g. 24), shade the region from that
-            day onwards in light grey.
+            day onwards in light grey. Uses ``get_day_int_floor`` so decimal
+            days match on their floor (e.g. 20 selects Dy20_5).
+    late_stage_shade_offset: x-offset (in tick units) applied to the shaded
+            band's left edge relative to the first late-stage tick. Default
+            -0.5 centres the band boundary between the prior tick and the
+            first late-stage tick; pass 0.0 to start the band exactly on the
+            first late-stage tick.
     """
     days, ys_per_label = [], {label: [] for label in series}
     for day in day_order:
@@ -127,7 +134,8 @@ def plot_balanced_accuracy_by_day(
             None,
         )
         if late_idx is not None:
-            ax.axvspan(late_idx - 0.5, len(days) - 0.5, alpha=0.1, color="gray")
+            ax.axvspan(late_idx + late_stage_shade_offset, len(days) - 0.5,
+                       alpha=0.1, color="gray")
 
     plt.tight_layout()
     fig.savefig(output_path, dpi=150)

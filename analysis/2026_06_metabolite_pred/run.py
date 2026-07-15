@@ -178,7 +178,8 @@ def _write_outputs(cohort, cfg, results):
             output_path=png,
             title=f"Metabolite prediction ({cohort} / {cfg['label']}): Balanced Accuracy by Day",
             style_overrides=_STYLE,
-            late_stage_shade_from_day=24,
+            late_stage_shade_from_day=20,   # Dy20_5 (floor 20)
+            late_stage_shade_offset=0.0,    # band starts exactly at the Dy20_5 tick
         )
         logger.info("Saved figure to %s", png)
 

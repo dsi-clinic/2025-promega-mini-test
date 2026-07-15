@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Six-panel per-metabolite summary of raw concentration over each day.
+"""Six-panel per-metabolite summary of concentration over each day.
 
 One panel per metabolite (2x3 grid); each panel plots mean / median / min / max
-of raw ``concentration_uM`` across the IDOR sample, over ``DAY_ORDER``. Overall
-(no acceptance-class split), per the analysis request.
+across the IDOR sample, over ``DAY_ORDER``. Overall (no acceptance-class split).
+
+Produces two figures, both reading values already stored in all_data.json (no
+recomputation): the raw ``concentration_uM`` (``metabolite_summary_<cohort>.png``)
+and the persisted per-day-winsorized ``concentration_uM_win``
+(``metabolite_summary_<cohort>_win.png``).
 
 Run by path (package name starts with a digit):
     make run ARGS="analysis/2026_06_metabolite_pred/metabolite_summary_panel.py"
@@ -41,22 +45,24 @@ _STAT_STYLE = {
 }
 
 
-def _per_day_values(ds, metabolite):
-    """{day: np.array of concentration_uM across organoids} for one metabolite."""
+def _per_day_values(ds, metabolite, field):
+    """{day: np.array of ``field`` across organoids} for one metabolite."""
     out = {d: [] for d in DAY_ORDER}
     for _, info in ds.iter_organoids():
         for day, rec in info["records"].items():
             if day not in out:
                 continue
-            v = (rec.get("metabolite") or {}).get(metabolite, {}).get("concentration_uM")
+            v = (rec.get("metabolite") or {}).get(metabolite, {}).get(field)
             if v is not None:
                 out[day].append(v)
     return {d: np.array(vs, float) for d, vs in out.items()}
 
 
-def main(cohort="full"):
+def main(cohort="full", field="concentration_uM"):
+    suffix = "_win" if field.endswith("_win") else ""
     ds, counts = build_cohort(cohort, ALL_DATA_PATH)
-    logger.info("Summary panel on cohort %s: %d organoids", cohort, len(ds.organoid_ids))
+    logger.info("Summary panel (%s) on cohort %s: %d organoids",
+                field, cohort, len(ds.organoid_ids))
 
     mets = list(REQUIRED_METABOLITES)
     n = len(mets)
@@ -67,7 +73,7 @@ def main(cohort="full"):
 
     for idx, met in enumerate(mets):
         ax = axes[idx // ncols][idx % ncols]
-        per_day = _per_day_values(ds, met)
+        per_day = _per_day_values(ds, met, field)
         series = {s: [] for s in STATS}
         for d in DAY_ORDER:
             vals = per_day[d]
@@ -79,7 +85,7 @@ def main(cohort="full"):
         ax.set_title(met)
         ax.set_xticks(x)
         ax.set_xticklabels(DAY_ORDER, rotation=45, ha="right", fontsize=8)
-        ax.set_ylabel("concentration_uM")
+        ax.set_ylabel(field)
         ax.grid(True, alpha=0.3)
         if idx == 0:
             ax.legend(fontsize=8)
@@ -89,16 +95,18 @@ def main(cohort="full"):
         axes[j // ncols][j % ncols].axis("off")
 
     fig.suptitle(
-        f"Metabolite concentration_uM summary by day ({cohort}, n={len(ds.organoid_ids)})",
+        f"Metabolite {field} summary by day ({cohort}, n={len(ds.organoid_ids)})",
         fontsize=13,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
-    out = FIGURE_DIR / f"metabolite_summary_{cohort}.png"
+    out = FIGURE_DIR / f"metabolite_summary_{cohort}{suffix}.png"
     fig.savefig(out, dpi=150)
     plt.close(fig)
     logger.info("Saved %s", out)
 
 
 if __name__ == "__main__":
-    main()
+    # Both read values already stored in all_data.json (no recomputation):
+    main(field="concentration_uM")       # -> metabolite_summary_<cohort>.png
+    main(field="concentration_uM_win")   # -> metabolite_summary_<cohort>_win.png
