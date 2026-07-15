@@ -17,7 +17,6 @@ Invoked via ``make analysis-train-dinov2``.
 import argparse
 import dataclasses
 import json
-from collections import defaultdict
 from pathlib import Path
 
 import numpy as np

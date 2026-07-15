@@ -3,11 +3,16 @@ Temporal ablation with EfficientNet features + Temporal Attention (BCE) + LSTM?
 Run: python analysis/images/cnn_lstm/train_temporal_ablation_attn.py
 """
 
-import sys, json, math, argparse
-import os, random
+import argparse
+import json
+import os
+import random
+import sys
 from pathlib import Path
-from sklearn.metrics import confusion_matrix
+
 import matplotlib
+from sklearn.metrics import confusion_matrix
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -17,21 +22,19 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 import numpy as np
-from tqdm import tqdm
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
-from torchvision import models, transforms
 from sklearn.metrics import precision_recall_fscore_support
+from torch.utils.data import DataLoader
+from torchvision import transforms
+from tqdm import tqdm
 
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
     make_idor_series_splits,
 )
 from analysis.images.cnn_lstm.organoid_model import OrganoidCNN_LSTM
-
 
 
 def set_seed(seed: int = 42):
@@ -101,9 +104,8 @@ def evaluate_binary(model, loader, criterion, device):
     acc = (preds == labels.int()).float().mean().item()
 
     from sklearn.metrics import (
-        precision_recall_fscore_support,
-        roc_auc_score,
         average_precision_score,
+        roc_auc_score,
     )
 
     prec, rec, f1, _ = precision_recall_fscore_support(
@@ -292,7 +294,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
     model_dir = output_dir
     model_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Get predictions for confusion matrix
     model.eval()
     all_preds, all_labels = [], []
@@ -307,8 +309,8 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
 
     cm = confusion_matrix(all_labels, all_preds)
     print("\nConfusion Matrix (Test Set):")
-    print(f"                       Predicted")
-    print(f"                Acceptable   Not Acceptable")
+    print("                       Predicted")
+    print("                Acceptable   Not Acceptable")
     print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
     print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 

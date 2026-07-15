@@ -14,7 +14,6 @@ Usage:
 import argparse
 import json
 import logging
-from collections import defaultdict
 from pathlib import Path
 
 import numpy as np

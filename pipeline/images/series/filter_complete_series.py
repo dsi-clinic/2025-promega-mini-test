@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import argparse
 import json
 import logging
@@ -26,7 +27,7 @@ def create_args() -> argparse.ArgumentParser:
     return args
 
 def load_json(p: Path):
-    with open(p, "r") as f:
+    with open(p) as f:
         return json.load(f)
 
 def save_json(p: Path, obj):

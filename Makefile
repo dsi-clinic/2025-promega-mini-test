@@ -148,6 +148,27 @@ verify-mask-area:
 
 verify-metabolites: verify-winsorize verify-mask-area
 
+# -------- Lint + tests (AGENTS.md rules 1, 2, 4, 11-17) --------
+.PHONY: lint format test check
+RUFF ?= conda run --no-capture-output -n core_env ruff
+
+# ruff check (style + correctness gate). Format enforcement is phased in
+# separately (the repo predates ruff format) — see beads task kbe.
+lint:
+	$(RUFF) check .
+
+# Auto-apply safe fixes + reformat in place.
+format:
+	$(RUFF) check --fix .
+	$(RUFF) format .
+
+# Unit tests (pytest). Runs against the committed data/all_data.json.
+test:
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest
+
+# Everything a PR should pass locally.
+check: lint test
+
 .PHONY: seg-train-early seg-train-late
 
 seg-train-early: validate-mmcv-env

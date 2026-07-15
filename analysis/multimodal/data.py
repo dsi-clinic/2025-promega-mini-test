@@ -10,7 +10,6 @@ via pipeline.data_loader.OrganoidDataset.
 """
 
 from pathlib import Path
-from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -22,9 +21,11 @@ from torch.utils.data import Dataset
 
 from pipeline.data_loader import (
     LABEL_TO_INT,
-    OrganoidDataset as PipelineOrganoidDataset,
     filters_for_mode,
     get_day_int_floor,
+)
+from pipeline.data_loader import (
+    OrganoidDataset as PipelineOrganoidDataset,
 )
 from pipeline.splits import Splits
 
@@ -46,7 +47,7 @@ def day_to_int(day_str: str) -> int:
 
 
 def get_transforms(config: dict, augment: bool = False):
-    t: List = [T.Resize(config["target_size"])]
+    t: list = [T.Resize(config["target_size"])]
     if augment and config["use_augmentation"]:
         t.extend([T.RandomHorizontalFlip(0.5), T.RandomVerticalFlip(0.5)])
     t.extend([T.ToTensor(), T.Normalize([0.5] * 3, [0.5] * 3)])
@@ -63,7 +64,7 @@ class MultimodalRowDataset(Dataset):
     """
 
     def __init__(self, df, config, transform=None,
-                 scaler: Optional[StandardScaler] = None, fit_scaler: bool = False):
+                 scaler: StandardScaler | None = None, fit_scaler: bool = False):
         self.df = df.reset_index(drop=True)
         self.config = config
         self.transform = transform

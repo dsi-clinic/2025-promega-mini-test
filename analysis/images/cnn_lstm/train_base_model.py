@@ -6,10 +6,15 @@ Uses the same data splits as CNN-LSTM temporal models for fair comparison.
 Run: python train_baseline_effnet.py
 """
 
-import sys, json, random, argparse
+import argparse
+import json
 import os
+import random
+import sys
 from pathlib import Path
+
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -18,24 +23,20 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 import numpy as np
-from PIL import Image
-import numpy as np
-from PIL import Image
-from tqdm import tqdm
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms as T
-from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
-
+from PIL import Image
 from sklearn.metrics import (
+    average_precision_score,
+    confusion_matrix,
     precision_recall_fscore_support,
     roc_auc_score,
-    average_precision_score,
-    confusion_matrix
 )
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms as T
+from torchvision.models import EfficientNet_B0_Weights, efficientnet_b0
+from tqdm import tqdm
 
 from analysis.images.cnn_lstm.organoid_dataset import make_idor_series_splits
 from pipeline.data_loader import (
@@ -114,39 +115,39 @@ class SingleDayOrganoidDataset(Dataset):
                 "org_id": org_id,
                 "actual_day": get_day_float(best_day),
             })
-        
+
         self.transform = transform
         print(f"  Loaded {len(self.samples)} samples for day ~{target_day}")
-    
+
     def __len__(self):
         return len(self.samples)
-    
+
     def __getitem__(self, idx):
         sample = self.samples[idx]
-        
+
         # Load image (same as LSTM)
         from skimage.io import imread
         img = imread(sample["img_path"])
-        
+
         if img.ndim == 2:
             img = np.stack([img] * 3, axis=-1)
-        
+
         img = img.astype(np.float32) / 255.0  # Normalize to [0,1]
-        
+
         # Apply transforms (if any)
         if self.transform:
             img_pil = Image.fromarray((img * 255).astype(np.uint8))
             img_pil = self.transform(img_pil)
             img = np.array(img_pil).astype(np.float32) / 255.0
-        
+
         # Convert to tensor and apply ImageNet normalization (SAME AS LSTM!)
         img = np.transpose(img, (2, 0, 1))  # HWC -> CHW
         img = torch.from_numpy(img).float()
-        
+
         imagenet_mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(3, 1, 1)
         imagenet_std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).view(3, 1, 1)
         img = (img - imagenet_mean) / imagenet_std
-        
+
         label = torch.tensor(sample["label"], dtype=torch.float32)
         return img, label, sample["org_id"]
 
@@ -154,18 +155,18 @@ class SingleDayOrganoidDataset(Dataset):
 # ---------- Model ----------
 class BaselineEfficientNet(nn.Module):
     """Single image classifier using EfficientNet-B0."""
-    
+
     def __init__(self):
         super().__init__()
         # Load pretrained EfficientNet
         eff = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
         eff.classifier = nn.Identity()
         self.backbone = eff
-        
+
         # Freeze backbone initially
         for p in self.backbone.parameters():
             p.requires_grad = False
-        
+
         # Classification head
         self.classifier = nn.Sequential(
             nn.Linear(1280, 128),
@@ -173,7 +174,7 @@ class BaselineEfficientNet(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(128, 1),
         )
-    
+
     def unfreeze_backbone(self, n_blocks=2):
         """Unfreeze last n blocks of EfficientNet."""
         feats = getattr(self.backbone, "features", None)
@@ -184,7 +185,7 @@ class BaselineEfficientNet(nn.Module):
             for p in feats[i].parameters():
                 p.requires_grad = True
         print(f"  Unfroze last {n_blocks} blocks of backbone")
-    
+
     def forward(self, x):
         features = self.backbone(x)
         logits = self.classifier(features).squeeze(1)
@@ -197,47 +198,47 @@ def evaluate(model, loader, criterion, device):
     model.eval()
     all_probs, all_labels, all_ids = [], [], []
     losses = []
-    
+
     for imgs, labels, ids in loader:
         imgs = imgs.to(device)
         labels = labels.to(device)
-        
+
         logits = model(imgs)
         loss = criterion(logits, labels)
         losses.append(loss.item())
-        
+
         probs = torch.sigmoid(logits)
         all_probs.append(probs.cpu())
         all_labels.append(labels.cpu())
         all_ids.extend(ids)
-    
+
     if len(all_probs) == 0:
         return 0.0, 0.0, 0.0, 0.0, 0.0, float('nan'), float('nan'), [], []
-    
+
     probs = torch.cat(all_probs)
     labels = torch.cat(all_labels)
     preds = (probs > 0.5).int()
-    
+
     acc = (preds == labels.int()).float().mean().item()
-    
+
     prec, rec, f1, _ = precision_recall_fscore_support(
         labels.numpy(), preds.numpy(), average="binary", zero_division=0
     )
-    
+
     try:
         auc = roc_auc_score(labels.numpy(), probs.numpy())
     except ValueError:
         auc = float("nan")
-    
+
     try:
         ap = average_precision_score(labels.numpy(), probs.numpy())
     except ValueError:
         ap = float("nan")
-    
+
     # Get false positives/negatives
     fp_ids = [all_ids[i] for i in range(len(all_ids)) if preds[i] == 1 and labels[i] == 0]
     fn_ids = [all_ids[i] for i in range(len(all_ids)) if preds[i] == 0 and labels[i] == 1]
-    
+
     return (
         float(np.mean(losses)),
         acc,
@@ -270,11 +271,11 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     train_dataset = SingleDayOrganoidDataset(train_ids, dataset, target_day, transform=train_tf, image_type=image_type)
     val_dataset   = SingleDayOrganoidDataset(val_ids,   dataset, target_day, transform=eval_tf, image_type=image_type)
     test_dataset  = SingleDayOrganoidDataset(test_ids,  dataset, target_day, transform=eval_tf, image_type=image_type)
-    
+
     if len(train_dataset) == 0:
         print(f"  ⚠ No training samples for day {target_day}, skipping")
         return None
-    
+
     # Data loaders
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
                              num_workers=NUM_WORKERS, pin_memory=True)
@@ -282,7 +283,7 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
                            num_workers=NUM_WORKERS, pin_memory=True)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False,
                             num_workers=NUM_WORKERS, pin_memory=True)
-    
+
     # Class balance per rule #9: label 1 = Not Acceptable (minority).
     train_labels = [s["label"] for s in train_dataset.samples]
     n_pos = sum(train_labels)
@@ -291,13 +292,13 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
     if n_neg == 0: n_neg = 1
     pos_weight = torch.tensor([n_neg / n_pos], device=device)
     print(f"  Class balance: NotAcceptable={n_pos}, Acceptable={n_neg}, pos_weight={pos_weight.item():.3f}")
-    
+
     # Model
     model = BaselineEfficientNet().to(device)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = optim.Adam(model.classifier.parameters(), lr=LR)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
-    
+
     best_val_acc = -1.0
     best_state = None
     bad_epochs = 0
@@ -310,35 +311,35 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
             model.unfreeze_backbone()
             optimizer = optim.Adam(model.parameters(), lr=LR * 0.1)
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
-        
+
         model.train()
         running_loss, correct, total = 0.0, 0, 0
-        
+
         for imgs, labels, _ in tqdm(train_loader, desc=f"Epoch {epoch:02d}", leave=False):
             imgs = imgs.to(device)
             labels = labels.to(device)
-            
+
             optimizer.zero_grad()
             logits = model(imgs)
             loss = criterion(logits, labels)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
             optimizer.step()
-            
+
             running_loss += loss.item() * labels.size(0)
             preds = (torch.sigmoid(logits) > 0.5).long()
             correct += (preds == labels.long()).sum().item()
             total += labels.size(0)
-        
+
         train_loss = running_loss / max(1, total)
         train_acc = correct / max(1, total)
-        
+
         val_loss, val_acc, val_prec, val_rec, val_f1, val_auc, val_ap, _, _ = evaluate(
             model, val_loader, criterion, device
         )
-        
+
         scheduler.step(val_loss)
-        
+
         print(
             f"Epoch {epoch:02d} | Train {train_acc:.3f}/{train_loss:.4f} | "
             f"Val {val_acc:.3f}/{val_loss:.4f} (P {val_prec:.3f} R {val_rec:.3f} F1 {val_f1:.3f})"
@@ -362,17 +363,17 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
             if bad_epochs >= PATIENCE:
                 print(f"  Early stopping at epoch {epoch}")
                 break
-    
+
     # Test with best model
     if best_state is None:
         best_state = {k: v.cpu() for k, v in model.state_dict().items()}
-    
+
     model.load_state_dict(best_state, strict=True)
-    
+
     test_loss, test_acc, test_prec, test_rec, test_f1, test_auc, test_ap, test_fp, test_fn = evaluate(
         model, test_loader, criterion, device
     )
-    
+
     # Save model
     model_dir = output_dir
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -382,11 +383,11 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
         "target_day": target_day,
         "best_val_acc": best_val_acc,
     }, model_path)
-    
-    print(f"\nFinal TEST results:")
+
+    print("\nFinal TEST results:")
     print(f"  Acc {test_acc:.3f} | F1 {test_f1:.3f} | P {test_prec:.3f} | R {test_rec:.3f}")
     print(f"  Saved → {model_path}")
-    
+
     # Save confusion matrix
     model.eval()
     all_preds, all_labels = [], []
@@ -397,12 +398,12 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
             preds = (torch.sigmoid(logits) > 0.5).int().cpu()
             all_preds.extend(preds.numpy())
             all_labels.extend(labels.int().cpu().numpy())
-    
+
     if len(all_preds) > 0:
         cm = confusion_matrix(all_labels, all_preds)
         print("\nConfusion Matrix (Test Set):")
-        print(f"                       Predicted")
-        print(f"                Acceptable   Not Acceptable")
+        print("                       Predicted")
+        print("                Acceptable   Not Acceptable")
         print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
         print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 
@@ -451,7 +452,7 @@ def train_for_day(target_day, train_ids, val_ids, test_ids,
 
     del model, train_loader, val_loader, test_loader
     torch.cuda.empty_cache()
-    
+
     return {
         "target_day": target_day,
         "best_val_acc": float(best_val_acc),
@@ -483,20 +484,20 @@ def main():
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {out_dir}")
-    
+
     # Load data (same splits as LSTM!)
     print("\n" + "="*70)
     print("LOADING DATA")
     print("="*70)
-    
+
     ds, train_ids, val_ids, test_ids = make_idor_series_splits()
 
     print(f"Splits: train={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)}")
-    
+
     print("\n" + "="*70)
     print("STARTING BASELINE TRAINING")
     print("="*70)
-    
+
     # Train for each day range (same as LSTM)
     results = []
     for target_day in DAY_RANGES:
@@ -508,12 +509,12 @@ def main():
         )
         if result:
             results.append(result)
-    
+
     # Save all results (matching LSTM format)
     results_path = out_dir / "baseline_results.json"
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
-    
+
     print("\n" + "="*70)
     print("BASELINE TRAINING SUMMARY")
     print("="*70)
@@ -521,7 +522,7 @@ def main():
     print("-"*70)
     for r in results:
         print(f"{str(r['target_day']):<15} {r['best_val_acc']:<12.3f} {r['test_acc']:<12.3f} {r['test_f1']:<12.3f}")
-    
+
     best = max(results, key=lambda x: x["test_acc"]) if results else None
     if best:
         print(f"\nBest on test (day {best['target_day']}): Acc={best['test_acc']:.3f}, F1={best['test_f1']:.3f}")

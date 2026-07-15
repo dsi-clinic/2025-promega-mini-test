@@ -6,7 +6,9 @@ import os
 import random
 import sys
 from pathlib import Path
+
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -16,13 +18,14 @@ sys.path.insert(0, str(ROOT))
 
 import argparse
 import json
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
@@ -320,9 +323,9 @@ def main():
     print(f"Test F1 (Not Acceptable): {test_f1:.4f}")
 
     cm = confusion_matrix(test_labels, test_preds)
-    print(f"\nConfusion Matrix:")
-    print(f"                       Predicted")
-    print(f"                Acceptable   Not Acceptable")
+    print("\nConfusion Matrix:")
+    print("                       Predicted")
+    print("                Acceptable   Not Acceptable")
     print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
     print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 

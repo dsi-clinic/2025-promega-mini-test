@@ -5,9 +5,10 @@ Generate publication-quality panels from CNN-LSTM results:
 """
 
 import json
-import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 # ---- Matplotlib defaults (publication-ish) ----
 plt.rcParams['font.size'] = 12

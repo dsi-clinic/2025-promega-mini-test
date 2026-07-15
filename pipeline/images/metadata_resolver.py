@@ -1,14 +1,14 @@
 # metadata_resolver.py
 from __future__ import annotations
 
-from pathlib import Path
 import logging
 import re
-from typing import Tuple
+from pathlib import Path
 
 import pandas as pd
 
 from pipeline.common.organoid_patterns import OrganoidPatterns
+
 
 def _precompute_um_per_px(meta: pd.DataFrame) -> pd.DataFrame:
     cols = list(meta.columns)
@@ -41,7 +41,7 @@ def _precompute_um_per_px(meta: pd.DataFrame) -> pd.DataFrame:
     return meta
 
 
-def _split_photo_id(pid: str) -> Tuple[str, str, str]:
+def _split_photo_id(pid: str) -> tuple[str, str, str]:
     """
     Example inputs:
       'BA2 96_1 Dy24 H4'

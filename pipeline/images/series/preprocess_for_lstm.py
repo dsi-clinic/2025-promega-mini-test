@@ -40,7 +40,7 @@ def get_args() -> argparse.Namespace:
     return args
 
 def load_json(p: Path):
-    with open(p, "r") as f:
+    with open(p) as f:
         return json.load(f)
 
 def save_json(p: Path, obj):
@@ -334,7 +334,7 @@ def main():
     logging.info("%s", '='*70)
     logging.info(f"Target physical scale: {args.target_um_per_px} um/px")
     logging.info(f"Target dimensions: {args.target_size}×{args.target_size} px")
-    logging.info(f"Padding: WHITE (255) for images, BLACK (0) for masks")
+    logging.info("Padding: WHITE (255) for images, BLACK (0) for masks")
 
     # Load data
     data_path = args.complete_series

@@ -30,9 +30,10 @@ from __future__ import annotations
 
 import csv
 from collections import Counter
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set
+from typing import Any
 
 from sklearn.model_selection import train_test_split
 
@@ -51,14 +52,14 @@ class Splits:
     def from_csv(
         cls,
         path,
-        name: Optional[str] = None,
-        provenance: Optional[str] = None,
-    ) -> "Splits":
+        name: str | None = None,
+        provenance: str | None = None,
+    ) -> Splits:
         """Load from a CSV with at minimum columns ``organoid_id`` and ``split``.
         Extra columns (e.g. a redundant ``label``) are ignored.
         """
         path = Path(path)
-        mapping: Dict[str, str] = {}
+        mapping: dict[str, str] = {}
         with open(path, newline="") as f:
             reader = csv.DictReader(f)
             if reader.fieldnames is None or "organoid_id" not in reader.fieldnames or "split" not in reader.fieldnames:
@@ -79,7 +80,7 @@ class Splits:
         mapping: Mapping[str, str],
         name: str,
         provenance: str = "in-memory dict",
-    ) -> "Splits":
+    ) -> Splits:
         return cls(mapping=dict(mapping), name=name, provenance=provenance)
 
     @classmethod
@@ -89,12 +90,12 @@ class Splits:
         name: str,
         provenance: str = "from partition lists",
         **partitions: Iterable[str],
-    ) -> "Splits":
+    ) -> Splits:
         """Build from disjoint ID lists, e.g.::
 
             Splits.from_partition(train=train_ids, val=val_ids, test=test_ids, name="...")
         """
-        mapping: Dict[str, str] = {}
+        mapping: dict[str, str] = {}
         for split_name, ids in partitions.items():
             for oid in ids:
                 if oid in mapping:
@@ -105,7 +106,7 @@ class Splits:
         return cls(mapping=mapping, name=name, provenance=provenance)
 
     @classmethod
-    def canonical(cls) -> "Splits":
+    def canonical(cls) -> Splits:
         """The repo's canonical 2026-winter student splits."""
         return cls.from_csv(
             CANONICAL_PATH,
@@ -121,7 +122,7 @@ class Splits:
         ratios: Mapping[str, float],
         seed: int = 42,
         name: str,
-    ) -> "Splits":
+    ) -> Splits:
         """Build a stratified random split from ``{organoid_id: label}``.
 
         ``ratios`` is split_name → fraction. 2-way (e.g. ``{"train": 0.8,
@@ -176,13 +177,13 @@ class Splits:
 
     # ---- accessors ----
 
-    def head_counts(self) -> Dict[str, int]:
+    def head_counts(self) -> dict[str, int]:
         return dict(Counter(self.mapping.values()))
 
-    def split_names(self) -> Set[str]:
+    def split_names(self) -> set[str]:
         return set(self.mapping.values())
 
-    def organoid_ids(self) -> Set[str]:
+    def organoid_ids(self) -> set[str]:
         return set(self.mapping.keys())
 
     def __getitem__(self, organoid_id: str) -> str:
@@ -200,7 +201,7 @@ class Splits:
 
     # ---- comparison ----
 
-    def agreement_with(self, other: "Splits") -> Dict[str, Any]:
+    def agreement_with(self, other: Splits) -> dict[str, Any]:
         """Compare two Splits at the organoid level.
 
         Returns a dict with shared/only-in-self/only-in-other counts, the
@@ -211,7 +212,7 @@ class Splits:
         only_self = self.organoid_ids() - other.organoid_ids()
         only_other = other.organoid_ids() - self.organoid_ids()
 
-        confusion: Dict[Any, int] = Counter()
+        confusion: dict[Any, int] = Counter()
         identical = 0
         for oid in shared:
             pair = (self.mapping[oid], other.mapping[oid])

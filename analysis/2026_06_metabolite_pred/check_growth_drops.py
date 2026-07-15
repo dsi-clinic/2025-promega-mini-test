@@ -18,10 +18,10 @@ import warnings
 # Sibling modules are imported top-level (see run.py for why).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from cohorts import ALL_DATA_PATH, build_cohort
+
 from pipeline.data_loader import DAY_ORDER
 from pipeline.splits import Splits
-
-from cohorts import ALL_DATA_PATH, build_cohort
 
 COHORTS = ("strong-consensus", "full")
 

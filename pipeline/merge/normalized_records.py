@@ -3,11 +3,10 @@
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
-from dataclasses import asdict, dataclass, field
 import logging
-from typing import Any, ClassVar, Dict, Iterable, List, Mapping, Optional, Protocol
-
+from collections import Counter
+from dataclasses import asdict, dataclass, field
+from typing import Any, ClassVar
 
 from rich.logging import RichHandler
 
@@ -16,7 +15,7 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
                     level=logging.INFO,
                     handlers=[RichHandler()])
 
-SchemaDict = Dict[str, Any]
+SchemaDict = dict[str, Any]
 
 # Canonical survey/label day. Organoid-level label tracking and split-conflict
 # detection consider ONLY records on this day: the survey is conducted on the
@@ -47,33 +46,33 @@ class OrganoidRecord:
         return self.data["organoid_id"]
 
     @property
-    def day_id(self) -> Optional[str]:
+    def day_id(self) -> str | None:
         return self.data.get("day", {}).get("id")
 
     @property
-    def processed_img_path(self) -> Optional[str]:
+    def processed_img_path(self) -> str | None:
         return self.data.get("images", {}).get("processed", {}).get("img_path")
 
     @property
-    def overlay_img_path(self) -> Optional[str]:
+    def overlay_img_path(self) -> str | None:
         return self.data.get("images", {}).get("processed", {}).get("overlay_path")
 
     @property
-    def processed_mask_path(self) -> Optional[str]:
+    def processed_mask_path(self) -> str | None:
         return self.data.get("images", {}).get("processed", {}).get("mask_path")
 
     @property
-    def image_quality_label(self) -> Optional[str]:
+    def image_quality_label(self) -> str | None:
         label = self.data.get("images", {}).get("label", {})
         return label.get("acceptance_flag") if isinstance(label, dict) else None
 
     @property
-    def survey_majority_label(self) -> Optional[str]:
+    def survey_majority_label(self) -> str | None:
         label = self.data.get("survey", {}).get("label", {})
         return label.get("acceptance_flag") if isinstance(label, dict) else None
 
     @property
-    def survey_evaluation(self) -> Optional[List[dict]]:
+    def survey_evaluation(self) -> list[dict] | None:
         return self.data.get("survey", {}).get("evaluations", {})
 
 
@@ -230,8 +229,8 @@ class OrganoidRecordBuilder:
     def _build_images(
         self,
         entry: SchemaDict,
-        manual_mask_path: Optional[str],
-        manual_mask_path_orginal: Optional[str]
+        manual_mask_path: str | None,
+        manual_mask_path_orginal: str | None
     ) -> SchemaDict:
         raw_images = entry.get("all_files") or []
 
@@ -289,7 +288,7 @@ class OrganoidRecordBuilder:
         }
 
 
-    def _build_surveys(self, survey: SchemaDict) -> Optional[SchemaDict]:
+    def _build_surveys(self, survey: SchemaDict) -> SchemaDict | None:
         if not survey:
             return {}
         evaluations = [

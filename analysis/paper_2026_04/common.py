@@ -7,8 +7,8 @@ legacy paper scripts with subtly different key names) and a single
 plots can share.
 """
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Dict, Mapping, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -65,13 +65,13 @@ def compute_classification_metrics(y_true, y_pred, y_prob=None) -> dict:
 
 
 def plot_balanced_accuracy_by_day(
-    series: Mapping[str, Dict[str, dict]],
+    series: Mapping[str, dict[str, dict]],
     *,
     day_order: list,
     output_path: Path,
     title: str,
-    style_overrides: Optional[Dict[str, dict]] = None,
-    late_stage_shade_from_day: Optional[int] = None,
+    style_overrides: dict[str, dict] | None = None,
+    late_stage_shade_from_day: int | None = None,
     late_stage_shade_offset: float = -0.5,
 ) -> None:
     """Plot balanced_accuracy by day for one or more model series.

@@ -21,8 +21,8 @@ import logging
 import shutil
 from pathlib import Path
 
-from PIL import Image
 import numpy as np
+from PIL import Image
 
 from pipeline.images.quality.mask_edge_fraction import mask_area_px, mask_area_um2
 

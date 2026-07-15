@@ -11,11 +11,11 @@ The `ViewEmitter` protocol is used to create concrete view emitters, and the `Ba
 
 """
 
-from typing import Any, Dict, Protocol
+from typing import Any, Protocol
 
 from pipeline.merge.normalized_records import OrganoidRecord
 
-SchemaDict = Dict[str, Any]
+SchemaDict = dict[str, Any]
 
 class ViewEmitter(Protocol):
     """Protocol for view emitters."""

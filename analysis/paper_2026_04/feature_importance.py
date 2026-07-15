@@ -115,7 +115,7 @@ def main():
             else:
                 markers.append("o")  # circle for concentration
 
-        bars = ax.barh(
+        ax.barh(
             x + i * width, vals, width,
             label=day.replace("Dy0", "Day ").replace("Dy", "Day "),
             color=colors[i], alpha=0.85,
