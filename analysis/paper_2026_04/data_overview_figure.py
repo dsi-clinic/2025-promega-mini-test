@@ -425,18 +425,127 @@ def _draw_survey_distribution(ax, all_data_path):
     ax.legend(handles=legend_handles, fontsize=6.5, loc="upper right", framealpha=0.8)
 
 
-def _draw_framework(ax):
-    """Panel E: three independent modality classifiers → binary label."""
+def _stick_figure(ax, cx, cy, scale=0.30, vote_color=None):
+    """Stick figure at (cx, cy) with left-facing arms and a colored vote dot above head."""
+    c = "#444"
+    r = scale * 0.22
+    # Head
+    ax.add_patch(mpatches.Circle((cx, cy + scale * 0.75), r, color=c, zorder=4))
+    # Body
+    ax.plot([cx, cx], [cy + scale * 0.53, cy - scale * 0.10],
+            color=c, lw=1.5, zorder=4, solid_capstyle="round")
+    # Arms: left arm extends toward screen, right arm relaxed
+    ax.plot([cx - scale * 0.45, cx, cx + scale * 0.30],
+            [cy + scale * 0.14, cy + scale * 0.28, cy + scale * 0.04],
+            color=c, lw=1.5, zorder=4, solid_capstyle="round")
+    # Legs
+    ax.plot([cx, cx - scale * 0.28], [cy - scale * 0.10, cy - scale * 0.60],
+            color=c, lw=1.5, zorder=4, solid_capstyle="round")
+    ax.plot([cx, cx + scale * 0.28], [cy - scale * 0.10, cy - scale * 0.60],
+            color=c, lw=1.5, zorder=4, solid_capstyle="round")
+    # Vote dot above head
+    if vote_color is not None:
+        ax.add_patch(mpatches.Circle((cx, cy + scale * 1.22), r * 0.80,
+                                     color=vote_color, zorder=5))
+
+
+def _draw_survey_labeling(ax, acc_dy30_rec, nacc_dy30_rec):
+    """Panel F: experts view Day 30 images and vote — schematic with stick figures."""
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 4)
+    ax.axis("off")
+    ax.set_title("F  Survey Labeling Protocol", fontsize=9, fontweight="bold", loc="left")
+
+    mw, mh = 1.20, 0.95
+    mcx = 0.80
+    fig_xs = [2.20 + i * 0.85 for i in range(5)]
+    eye_dy = 0.30 * 0.75  # figure eye height above cy
+
+    rows = [
+        (acc_dy30_rec,  ACCEPTABLE_COLOR,    "Acceptable",    3.0),
+        (nacc_dy30_rec, NOT_ACCEPTABLE_COLOR, "Not Acceptable", 1.4),
+    ]
+
+    for rec, color, label_str, yc in rows:
+        # --- Monitor ---
+        ax.add_patch(FancyBboxPatch(
+            (mcx - mw / 2, yc - mh / 2), mw, mh,
+            boxstyle="round,pad=0.04", lw=2.0,
+            edgecolor="#444", facecolor="#111", zorder=2,
+        ))
+        path = _raw_image_path(rec)
+        if path:
+            mg = 0.05
+            ax.imshow(_load_image(path),
+                      extent=[mcx - mw/2 + mg, mcx + mw/2 - mg,
+                               yc - mh/2 + mg, yc + mh/2 - mg],
+                      aspect="auto", zorder=3)
+        # Monitor stand
+        ax.plot([mcx, mcx], [yc - mh/2, yc - mh/2 - 0.14],
+                color="#555", lw=2.5, zorder=2)
+        ax.plot([mcx - 0.18, mcx + 0.18], [yc - mh/2 - 0.14] * 2,
+                color="#555", lw=2.5, zorder=2)
+        ax.text(mcx, yc - mh/2 - 0.28, "Day 30",
+                ha="center", va="top", fontsize=6, color="#555")
+
+        # --- Gaze lines: monitor screen → each figure's eye level ---
+        for fx in fig_xs:
+            ax.plot([mcx + mw/2 + 0.03, fx - 0.06], [yc + eye_dy] * 2,
+                    color="#ccc", lw=0.7, linestyle="--", zorder=1, alpha=0.8)
+
+        # --- 5 stick figures with vote dots ---
+        votes = (rec.get("label") or {}).get("regular_votes", {})
+        n_acc_v  = votes.get("Acceptable", 0)
+        n_nacc_v = votes.get("Not Acceptable", 0)
+        vote_colors = [ACCEPTABLE_COLOR] * n_acc_v + [NOT_ACCEPTABLE_COLOR] * n_nacc_v
+
+        for fx, vc in zip(fig_xs, vote_colors):
+            _stick_figure(ax, fx, yc, scale=0.30, vote_color=vc)
+
+        # --- Arrow: figures → consensus ---
+        ax.annotate("", xy=(6.8, yc), xytext=(6.22, yc),
+                    arrowprops=dict(arrowstyle="-|>", lw=1.3, color="#777"))
+
+        # --- Consensus box ---
+        ax.add_patch(FancyBboxPatch(
+            (6.85, yc - 0.38), 2.90, 0.72,
+            boxstyle="round,pad=0.08", lw=1.5,
+            edgecolor=color, facecolor=color + "22", zorder=2,
+        ))
+        ax.text(8.30, yc, label_str, ha="center", va="center",
+                fontsize=8, fontweight="bold", color=color)
+
+    # --- Legend ---
+    ax.add_patch(mpatches.Circle((0.22, 0.52), 0.09, color=ACCEPTABLE_COLOR, zorder=4))
+    ax.text(0.38, 0.52, "Acceptable vote", va="center", fontsize=6.5,
+            color=ACCEPTABLE_COLOR)
+    ax.add_patch(mpatches.Circle((2.30, 0.52), 0.09, color=NOT_ACCEPTABLE_COLOR, zorder=4))
+    ax.text(2.46, 0.52, "Not Acceptable vote", va="center", fontsize=6.5,
+            color=NOT_ACCEPTABLE_COLOR)
+    ax.text(7.80, 0.52, "≥ 4 / 5 votes → consensus",
+            ha="center", va="center", fontsize=6.5, color="#555", style="italic")
+
+    # --- Header ---
+    ax.text(5.0, 3.90,
+            "5 independent expert evaluators — Day 30 image only (no metabolite data)",
+            ha="center", va="top", fontsize=7.5, color="#333", fontweight="bold")
+
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 4)
+
+
+def _draw_framework(ax, combined=False):
+    """Panel E: classification framework — independent (default) or combined-model variant."""
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 3)
     ax.axis("off")
-    ax.set_title("E  Classification Framework", fontsize=9, fontweight="bold", loc="left")
+    title = "E  Combined Classification Framework" if combined else "E  Classification Framework"
+    ax.set_title(title, fontsize=9, fontweight="bold", loc="left")
 
     def _box(x, y, w, h, label, sublabel, color, fontsize=8):
-        rect = FancyBboxPatch((x - w / 2, y - h / 2), w, h,
-                              boxstyle="round,pad=0.08", linewidth=1.5,
-                              edgecolor=color, facecolor=color + "22")
-        ax.add_patch(rect)
+        ax.add_patch(FancyBboxPatch((x - w / 2, y - h / 2), w, h,
+                                   boxstyle="round,pad=0.08", linewidth=1.5,
+                                   edgecolor=color, facecolor=color + "22"))
         ax.text(x, y + 0.08, label, ha="center", va="center",
                 fontsize=fontsize, fontweight="bold", color=color)
         ax.text(x, y - 0.22, sublabel, ha="center", va="center",
@@ -446,28 +555,66 @@ def _draw_framework(ax):
         ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
                     arrowprops=dict(arrowstyle="-|>", lw=1.5, color="#555555"))
 
-    # Three modality columns
     xs = [1.5, 5.0, 8.5]
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
 
-    # Input boxes
-    _box(xs[0], 2.3, 2.0, 0.9, "Images", "microscopy\nEfficientNet-B0", "#1f77b4")
-    _box(xs[1], 2.3, 2.2, 0.9, "Metabolites", "6 assays × 11 days\nLightGBM", "#ff7f0e")
-    _box(xs[2], 2.3, 2.0, 0.9, "Morphology", "area, edge fraction\nLightGBM", "#2ca02c")
+    # Input boxes (shared by both variants)
+    _box(xs[0], 2.55, 2.0, 0.75, "Images", "microscopy\nEfficientNet-B0", colors[0])
+    _box(xs[1], 2.55, 2.2, 0.75, "Metabolites", "6 assays × 11 days\nLightGBM", colors[1])
+    _box(xs[2], 2.55, 2.0, 0.75, "Morphology", "area, edge fraction\nLightGBM", colors[2])
 
-    # Arrows: input → output label
-    _arrow(xs[0], 1.85, xs[0], 1.1)
-    _arrow(xs[1], 1.85, xs[1], 1.1)
-    _arrow(xs[2], 1.85, xs[2], 1.1)
+    if not combined:
+        # Three independent pipelines: input → output label each
+        out_label = "Acceptable /\nNot Acceptable"
+        for x, c in zip(xs, colors):
+            _arrow(x, 2.17, x, 1.42)
+            ax.add_patch(FancyBboxPatch((x - 1.0, 0.92), 2.0, 0.45,
+                                       boxstyle="round,pad=0.08", linewidth=1.2,
+                                       edgecolor="#444444", facecolor="#EEEEEE"))
+            ax.text(x, 1.14, out_label, ha="center", va="center",
+                    fontsize=6.5, fontweight="bold", color="#333333")
+    else:
+        # --- Section labels ---
+        ax.text(0.18, 2.55, "Indep.\npipelines", ha="center", va="center",
+                fontsize=6, color="#999", style="italic")
+        ax.text(0.18, 0.82, "Combined\nmodel", ha="center", va="center",
+                fontsize=6, color="#999", style="italic")
 
-    # Output label boxes for each modality
-    out_label = "Acceptable /\nNot Acceptable"
-    for x, color in zip(xs, ["#1f77b4", "#ff7f0e", "#2ca02c"]):
-        rect = FancyBboxPatch((x - 1.0, 0.55), 2.0, 0.5,
-                              boxstyle="round,pad=0.08", linewidth=1.2,
-                              edgecolor="#444444", facecolor="#EEEEEE")
-        ax.add_patch(rect)
-        ax.text(x, 0.80, out_label, ha="center", va="center",
-                fontsize=6.5, fontweight="bold", color="#333333")
+        # --- Independent outputs: arrow + compact label box for each modality ---
+        for x, c in zip(xs, colors):
+            _arrow(x, 2.175, x, 1.90)
+            ax.add_patch(FancyBboxPatch((x - 0.92, 1.57), 1.84, 0.30,
+                                       boxstyle="round,pad=0.05", linewidth=1.2,
+                                       edgecolor="#555555", facecolor="#EEEEEE"))
+            ax.text(x, 1.72, "Acc / Not Acc", ha="center", va="center",
+                    fontsize=6, fontweight="bold", color="#333333")
+
+        # --- Dashed divider between the two sections ---
+        ax.plot([0.45, 9.55], [1.44, 1.44], color="#cccccc", lw=1.0, linestyle="--")
+
+        # --- Curved arrows from each INPUT box down to the combined model box,
+        #     curving around the independent output boxes ---
+        ax.annotate("", xy=(4.45, 1.18), xytext=(xs[0], 2.175),
+                    arrowprops=dict(arrowstyle="-|>", lw=1.2, color="#888888",
+                                   connectionstyle="arc3,rad=0.20"))
+        ax.annotate("", xy=(5.00, 1.18), xytext=(xs[1], 2.175),
+                    arrowprops=dict(arrowstyle="-|>", lw=1.2, color="#888888"))
+        ax.annotate("", xy=(5.55, 1.18), xytext=(xs[2], 2.175),
+                    arrowprops=dict(arrowstyle="-|>", lw=1.2, color="#888888",
+                                   connectionstyle="arc3,rad=-0.20"))
+
+        # --- Combined classifier box ---
+        _box(5.0, 0.96, 3.6, 0.42, "Combined Classifier",
+             "concat features → LightGBM", "#555555", fontsize=7)
+
+        # --- Arrow to final output ---
+        _arrow(5.0, 0.75, 5.0, 0.48)
+
+        # --- Combined output label ---
+        ax.text(5.0, 0.24, "Acceptable  /  Not Acceptable",
+                ha="center", va="center", fontsize=7.5, fontweight="bold",
+                bbox=dict(boxstyle="round,pad=0.22", facecolor="#EEEEEE",
+                          edgecolor="#444444", lw=1.5))
 
 
 # ---------------------------------------------------------------------------
@@ -480,6 +627,8 @@ def main():
                         help="Organoid ID for the Acceptable example (default: auto)")
     parser.add_argument("--nacc-id", default=None,
                         help="Organoid ID for the Not Acceptable example (default: auto)")
+    parser.add_argument("--combined", action="store_true",
+                        help="Show combined-model framework in Panel E instead of independent classifiers")
     args = parser.parse_args()
 
     ds = OrganoidDataset(
@@ -503,7 +652,7 @@ def main():
 
     # Three major rows
     outer = gridspec.GridSpec(3, 1, figure=fig, hspace=0.40,
-                              height_ratios=[2.4, 2.2, 1.5])
+                              height_ratios=[2.4, 2.2, 2.0])
 
     # Row 0: Panel A — image strips
     ax_img_label = fig.add_subplot(outer[0])
@@ -527,15 +676,23 @@ def main():
     _draw_morphology(ax_morph, acc_info, nacc_info, acc_id, nacc_id)
     _draw_survey_distribution(ax_survey, ALL_DATA_PATH)
 
-    # Row 2: Panel E — framework
-    ax_fw = fig.add_subplot(outer[2])
-    _draw_framework(ax_fw)
+    # Row 2: Panel F (survey labeling) + Panel E (framework)
+    row2 = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=outer[2],
+                                            wspace=0.28, width_ratios=[1.2, 1])
+    ax_survey_lbl = fig.add_subplot(row2[0])
+    ax_fw = fig.add_subplot(row2[1])
+
+    acc_dy30 = acc_info["records"].get("Dy30", {})
+    nacc_dy30 = nacc_info["records"].get("Dy30", {})
+    _draw_survey_labeling(ax_survey_lbl, acc_dy30, nacc_dy30)
+    _draw_framework(ax_fw, combined=args.combined)
 
     # -----------------------------------------------------------------------
     # Save
     # -----------------------------------------------------------------------
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = FIGURE_DIR / "data_overview.png"
+    fname = "data_overview_combined.png" if args.combined else "data_overview.png"
+    out_path = FIGURE_DIR / fname
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"\nSaved to {out_path}")
