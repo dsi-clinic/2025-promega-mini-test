@@ -122,6 +122,60 @@ Per metabolite per day:
 
 Growth features require a previous timepoint and are unavailable at Dy03.
 
+## Engineering Discipline (rules 11–17)
+
+These are code-quality rules for every new pipeline/analysis change, not just paper reproduction. Rules 11, 12, and 14 depend on test/lint tooling the repo does not have yet — that setup is tracked in beads (`2025-promega-mini-test-spm` for pytest, `2025-promega-mini-test-kbe` for ruff). Until those land, still write the asserts and types inline; the automated gate follows.
+
+### 11. Organoid count is conserved — assert it, and test it
+
+The number of organoids in a sample must never change silently. Capture the starting count once and assert the result still matches it:
+
+```python
+n0 = len(ds.organoid_ids)
+# ... transforms / joins / feature building ...
+assert len(result_ids) == n0, f"organoid count changed: {n0} -> {len(result_ids)}"
+```
+
+When a step is *meant* to reduce the sample (e.g. applying a cohort filter), assert the **exact** expected count, not `<=`:
+
+```python
+assert n == 248, f"full cohort expected 248, got {n}"
+```
+
+Every module that transforms the sample ships a test asserting the count is preserved (or equals the declared expected total). Silent organoid loss from a bad join/filter/merge is this codebase's highest-impact failure mode — it has bitten us (delta-computation drops, the edge_fraction merge gap) — and these asserts + tests are how we catch it.
+
+### 12. Separation of concerns + ruff-clean
+
+Keep data loading, transformation, modeling, and plotting in distinct functions/modules — don't bury a join inside a plotting routine. All code must pass `ruff check` and be `ruff format`-clean before commit (`make lint` once `kbe` lands).
+
+### 13. Type annotations by default
+
+All new functions carry type hints on parameters and return values, unless there is a strong, commented reason to omit them. This codebase has deeply-nested dict schemas (`all_data.json`); types are load-bearing documentation, not decoration.
+
+### 14. Assert every join
+
+Use asserts liberally to prove joins/merges did what you expect. After **every** merge, assert the row count equals the expected amount, and assert key uniqueness before any join that assumes it:
+
+```python
+assert left["organoid_id"].is_unique, "join key not unique"
+merged = left.merge(right, on="organoid_id", how="left", validate="one_to_one")
+assert len(merged) == len(left), f"row count changed on join: {len(left)} -> {len(merged)}"
+```
+
+Prefer pandas' built-in `validate=` (`"1:1"`, `"m:1"`, …) **and** an explicit row-count assert — they catch different failures (fan-out vs. silent drop).
+
+### 15. Fail loud on dropped rows
+
+Never swallow data loss. No bare `except:` — catch specific exceptions. Whenever rows or organoids are dropped (a filter, a `dropna`, a failed lookup), log the count and the reason at WARNING. A drop that isn't logged is a bug. Pairs with rule 11 (count conservation) and rule 14 (join asserts).
+
+### 16. Analysis inputs come only from all_data.json — never recompute live
+
+Extends rule 3. If a quantity is persisted in `all_data.json` (e.g. `concentration_uM_win`, `mask_area_um2`), analysis code **reads** it — it does not recompute it on the fly. Recomputing a stored value live risks silent drift between what's analyzed and what's on disk (this bit us with the winsorized fields). If a value needs recomputing, regenerate `all_data.json` through the pipeline, then read it back.
+
+### 17. Deterministic ordering
+
+Reproducibility (rule 5) requires stable order. Sort collections before iterating, writing, or splitting; never depend on dict/set iteration order for outputs. Two runs on the same input must produce byte-identical results, splits, and figures.
+
 ## Schema Invariants
 
 These are properties of `data/all_data.json` and the pipeline that produces it; encoded in `pipeline/merge/normalized_records.py` and `pipeline/data_loader.py`. Treat them as load-bearing — code that depends on them lives across the repo.
@@ -138,6 +192,10 @@ These are properties of `data/all_data.json` and the pipeline that produces it; 
 - **Don't** hard-code data paths; use `$DATA_ROOT` / Makefile variables.
 - **Don't** `pip install` outside `core_env`; add to `core_env.yaml` and rebuild.
 - **Don't** overwrite `data/splits/canonical_2026_winter.csv` casually — `generate_splits.py` guards against this. Use `--output <new-path>` to add a labeled alternate.
+- **Don't** let the organoid count change silently — assert it (rule 11); a silent drop is the worst bug here.
+- **Don't** merge without asserting the result row count and key uniqueness (rule 14).
+- **Don't** swallow dropped rows in a bare `except` — catch specifically and log the count + reason (rule 15).
+- **Don't** recompute a value that's already persisted in `all_data.json` — read it (rule 16).
 
 ## Where to put new code
 
