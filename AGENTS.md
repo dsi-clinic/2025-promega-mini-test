@@ -1,15 +1,19 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
+This is the single agent-facing doc for the repo (`CLAUDE.md` is a symlink to it). Humans start at `README.md`.
 
-## Quick Reference
+## Task tracking is MANDATORY — everything runs through beads
+
+**All work runs through `bd` (beads).** Every task — new work, a follow-up you discover mid-session, a bug, a paper figure/table — must exist as a bead before you start it and be updated as you go. Do not do non-trivial work that isn't tracked in beads; if you find yourself about to, file it first (`bd create`). This applies to humans and agents alike.
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
-bd sync               # Sync with git
+bd onboard                           # one-time orientation
+bd ready                             # find available work
+bd show <id>                         # view issue details
+bd create "title" -d "..." -p 2 -l label1,label2   # file new work (do this before starting it)
+bd update <id> --status in_progress  # claim work
+bd close <id>                        # complete work
+bd sync                              # sync with git (part of "landing the plane")
 ```
 
 ## Environment
@@ -134,6 +138,21 @@ These are properties of `data/all_data.json` and the pipeline that produces it; 
 - **Don't** hard-code data paths; use `$DATA_ROOT` / Makefile variables.
 - **Don't** `pip install` outside `core_env`; add to `core_env.yaml` and rebuild.
 - **Don't** overwrite `data/splits/canonical_2026_winter.csv` casually — `generate_splits.py` guards against this. Use `--output <new-path>` to add a labeled alternate.
+
+## Where to put new code
+
+One-page rule for where code and data live. `pipeline/` produces `all_data.json`; `analysis/` consumes it.
+
+- **`pipeline/`** — everything that turns raw inputs into `data/all_data.json` (steps 1-16). Deterministic; no ML training; no paper-specific logic. Rule: if it reads `$RAW_DIR` or writes `$INTERMEDIATE_DIR` / `$MODELS_DIR/mmseg`, it belongs here, and every module should be callable as `make stepN`.
+  - `identifiers/` step 1 · `metabolites/` step 2 · `surveys/` step 3
+  - `images/` steps 4-15: `image_mapper.py` (4), `segmentation_mmseg/` (5,7,8,9 — needs `mmcv_env`), `resize/` (6,14), `quality/` (10,11), `series/` (12,13), `postprocess/` (15)
+  - `merge/` step 16 (`all_data.json`) · `common/` shared helpers · `data_loader.py` canonical `OrganoidDataset`
+- **`analysis/`** — everything that consumes `all_data.json`: model heads, exploration, paper replication. Rule: if the input is `data/all_data.json` (or derived at runtime from it), it belongs here. Paper-specific scripts go under `analysis/<paper-tag>/` (e.g. `paper_2026_04/`, `2026_06_metabolite_pred/`) so they stay reproducible as the core evolves. Built against `pipeline.data_loader` public API only.
+- **`data/`** — checked-in outputs only: `all_data.json` + named split CSVs under `data/splits/`. Never materialize filtered/derived views to disk (rule #3).
+- **`scripts/`** — standalone utilities not part of the pipeline.
+- **`paper/`**, **`notes/`** — writing, figures, feedback, working notes.
+
+Generated figures/reports go to `$ANALYSIS_OUTPUT_DIR` (gitignored), never into the repo tree.
 
 ## Landing the Plane (Session Completion)
 
