@@ -139,6 +139,35 @@ logged each time.
   — out-of-fold SHAP importance per day (`shap_importance.py`, headline configs)
 - `$ANALYSIS_OUTPUT_DIR/figures/metabolite_summary_<cohort>.png` +
   `metabolite_summary_table.csv` (`metabolite_summary_panel.py`)
+- `$ANALYSIS_OUTPUT_DIR/metabolite_pred/ablation_results.json` +
+  `$ANALYSIS_OUTPUT_DIR/figures/metabolite_ablation_<model>_drop_heatmap.png`
+  (`ablation.py`, see below)
+
+## Ablation (`ablation.py`)
+
+Quantifies each metabolite's / feature-group's contribution to the per-day
+classifier. Takes the headline `nominal_delta` matrix as the **baseline**, drops
+one thing at a time, re-runs the same nested CV, and reports the balanced-accuracy
+change per day for both cohorts (LightGBM primary, LogReg alongside):
+
+- **Leave-one-metabolite-out** (6): drop all of a metabolite's columns
+  (concentration + initial + growth) by name mask — a pure column drop, so the
+  organoid/row set is conserved (asserted, rule 11). `balacc_drop = baseline −
+  ablated`; positive = the metabolite is contributing.
+- **Leave-one-feature-group-out** (3): drop `*_growth` (delta) columns; drop
+  `*_initial_concentration` columns (both column drops); and a `size_norm`
+  toggle that rebuilds with `normalize_by_size=True` and compares vs nominal on
+  the organoids common to both matrices (size-norm can drop records lacking a
+  segmentation area — the dropped count is logged, rule 15).
+
+```bash
+make run ARGS="analysis/2026_06_metabolite_pred/ablation.py"                 # both cohorts, all days
+make run ARGS="analysis/2026_06_metabolite_pred/ablation.py --cohort full --days Dy24 Dy30"
+```
+
+Invariants are covered by `tests/test_ablation.py` (column drops conserve
+organoids; the Dy30 full/LightGBM baseline reproduces `run.py`'s `nominal_delta`
+result and clears chance).
 
 ## Notes
 
