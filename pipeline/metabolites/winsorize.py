@@ -31,6 +31,28 @@ HIGH_Q = 0.99
 WELL_BEHAVED = ("GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "BCAAGlo")
 MALATE = "MalateGlo"
 
+# Per-record regeneration proof: the fraction of records whose stored ``win`` we
+# reproduce as ``k * per-day-winsorized(concentration_uM)`` within MATCH_TOL.
+# MATCH_TOL is relative — small enough to be meaningful, loose enough to absorb
+# assay noise, float error, and percentile-boundary interpolation differences.
+MATCH_TOL = 0.05
+# Minimum acceptable match rate per metabolite. Measured 2026-07 on the shipped
+# all_data.json at MATCH_TOL (Glucose .969, Lactate .977, BCAA .965,
+# Pyruvate .971, Glutamate .821); floors carry ~5-12 pt margin for data drift.
+# Glutamate's raw reads are noisier, so its floor is lower — still far above the
+# ~0.07 a non-winsorized signal (MalateGlo) scores.
+MATCH_FLOOR = {
+    "GlucoseGlo": 0.90,
+    "LactateGlo": 0.90,
+    "BCAAGlo": 0.90,
+    "PyruvateGlo": 0.90,
+    "GlutamateGlo": 0.70,
+}
+# MalateGlo is the documented exception: its stored ``win`` is a separately-
+# cleaned noise-floor signal, NOT a winsorization of concentration_uM. It must
+# stay far below the well-behaved floors (measured .068 at MATCH_TOL).
+MALATE_MATCH_CEIL = 0.25
+
 
 def winsorize_per_day(values, day_labels, low_q=LOW_Q, high_q=HIGH_Q):
     """Clip ``values`` to per-day [low_q, high_q] quantiles.
@@ -71,15 +93,26 @@ def _collect_raw_and_win(all_data, metabolite):
     return np.array(raw, float), np.array(win, float), np.array(days)
 
 
-def verify_winsorization(all_data, tol=0.03, low_q=LOW_Q, high_q=HIGH_Q):
-    """Assert our per-day winsorization reproduces the stored ``win`` columns.
+def verify_winsorization(all_data, tol=0.03, low_q=LOW_Q, high_q=HIGH_Q,
+                         match_tol=MATCH_TOL):
+    """Assert we can regenerate the stored ``win`` columns from source.
 
     Stored ``win`` equals (per-metabolite units constant ``k``) x winsorized-raw.
-    For each well-behaved metabolite we recompute winsorized-raw, fit ``k`` on the
-    non-clipped bulk, and require the median relative residual < ``tol``. MalateGlo
-    is asserted to be the documented exception (its stored win does NOT match).
+    For each well-behaved metabolite we recompute per-day-winsorized raw
+    ``concentration_uM``, fit ``k`` on the non-clipped bulk, and check two ways:
 
-    Raises AssertionError on failure. Returns a per-metabolite report dict.
+    * the **median** relative residual is < ``tol`` (the bulk lines up), and
+    * a per-record **match rate** — the fraction of records reproduced within
+      ``match_tol`` (relative) — clears that metabolite's ``MATCH_FLOOR``.
+
+    Together these *prove* the winsorized data we use is regenerable from the raw
+    reads (not silently drifted). ``MalateGlo`` is asserted to be the documented
+    exception: its stored ``win`` is a separately-cleaned noise-floor signal, so
+    it must FAIL both checks (median residual > ``tol`` and match rate below
+    ``MALATE_MATCH_CEIL``).
+
+    Raises AssertionError on failure. Returns a per-metabolite report dict
+    (``k``, ``median_rel_resid``, ``match_rate``, ``match_tol``, ``n``).
     """
     report = {}
     for m in WELL_BEHAVED + (MALATE,):
@@ -93,8 +126,13 @@ def verify_winsorization(all_data, tol=0.03, low_q=LOW_Q, high_q=HIGH_Q):
         k = float(np.median(win[nz] / our[nz]))
         resid = np.abs(win[nz] - k * our[nz]) / np.abs(k * our[nz])
         med = float(np.median(resid))
-        report[m] = {"k": k, "median_rel_resid": med, "n": int(raw.size)}
-        logger.info("  %-12s k=%-9.4f median_rel_resid=%.4f", m, k, med)
+        match_rate = float(np.mean(resid < match_tol))
+        report[m] = {
+            "k": k, "median_rel_resid": med,
+            "match_rate": match_rate, "match_tol": match_tol, "n": int(raw.size),
+        }
+        logger.info("  %-12s k=%-9.4f median_rel_resid=%.4f  match_rate=%.1f%% (@%.0f%%)",
+                    m, k, med, 100 * match_rate, 100 * match_tol)
 
     for m in WELL_BEHAVED:
         assert m in report, f"{m} missing from verification"
@@ -102,15 +140,29 @@ def verify_winsorization(all_data, tol=0.03, low_q=LOW_Q, high_q=HIGH_Q):
             f"{m}: our winsorization diverges from stored win "
             f"(median rel resid {report[m]['median_rel_resid']:.4f} >= {tol})"
         )
-    # Malate is expected to NOT match (different cleaned signal).
+        floor = MATCH_FLOOR[m]
+        assert report[m]["match_rate"] >= floor, (
+            f"{m}: only {report[m]['match_rate']:.1%} of records regenerate within "
+            f"{match_tol:.0%} of the stored win (floor {floor:.0%}) — cannot prove "
+            "this metabolite's win is regenerable from concentration_uM"
+        )
+    # Malate is expected to NOT match (different cleaned signal) — on both checks.
     if MALATE in report:
         assert report[MALATE]["median_rel_resid"] > tol, (
             f"{MALATE}: unexpectedly matches stored win; its provenance may have "
             "changed (it was a separately-cleaned noise-floor signal)."
         )
+        assert report[MALATE]["match_rate"] < MALATE_MATCH_CEIL, (
+            f"{MALATE}: {report[MALATE]['match_rate']:.1%} of records regenerate "
+            f"within {match_tol:.0%} (ceil {MALATE_MATCH_CEIL:.0%}) — it was expected "
+            "NOT to be a winsorization of concentration_uM; provenance may have changed."
+        )
         logger.info("  %s is the documented exception (stored win != winsorized raw).", MALATE)
-    logger.info("verify_winsorization: OK (%d well-behaved metabolites within tol=%.3f)",
-                len(WELL_BEHAVED), tol)
+    logger.info(
+        "verify_winsorization: OK — %d well-behaved metabolites regenerable from "
+        "source (median rel resid < %.3f AND per-record match >= floor @%.0f%%)",
+        len(WELL_BEHAVED), tol, 100 * match_tol,
+    )
     return report
 
 

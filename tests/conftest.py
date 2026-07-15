@@ -27,6 +27,15 @@ def all_data_path() -> str:
 
 
 @pytest.fixture(scope="session")
+def all_data(all_data_path) -> dict:
+    """The raw ``all_data.json`` dict (record-id -> record). Loaded once."""
+    import json
+
+    with open(all_data_path) as f:
+        return json.load(f)
+
+
+@pytest.fixture(scope="session")
 def full_cohort(all_data_path):
     """The ``full`` cohort (248) with a single 'all' split, as run.py builds it.
 
