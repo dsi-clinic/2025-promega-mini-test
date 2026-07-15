@@ -20,7 +20,7 @@ public ``idor_organoid_filter`` is built on.
 """
 
 from collections import Counter
-from typing import Callable, Optional, Tuple
+from collections.abc import Callable
 
 from pipeline.data_loader import (
     HIGH_QUALITY_BATCHES,
@@ -42,7 +42,7 @@ COHORT_EXPECTATIONS = {
 }
 
 
-def col2_membership_filter(csv_path: Optional[str] = None) -> Callable:
+def col2_membership_filter(csv_path: str | None = None) -> Callable:
     """Keep only organoids in the IDOR col2 set (248 Dy30-classified BA1+BA2).
 
     The set is loaded once at construction; downstream calls are O(1). Mirrors
@@ -60,7 +60,7 @@ def col2_membership_filter(csv_path: Optional[str] = None) -> Callable:
 
 def simple_majority_label_fn(
     org_id: str, records: dict, label_day: str = LABEL_DAY, **_
-) -> Optional[str]:
+) -> str | None:
     """Label from a simple majority of the Dy30 *regular* survey votes.
 
     Resolves the 3-2 / 2-3 splits that ``paper_label_fn`` leaves unlabeled.
@@ -88,8 +88,8 @@ COHORT_LABEL_FNS = {
 
 
 def build_cohort(
-    name: str, all_data_path: str = ALL_DATA_PATH, *, csv_path: Optional[str] = None
-) -> Tuple[OrganoidDataset, dict]:
+    name: str, all_data_path: str = ALL_DATA_PATH, *, csv_path: str | None = None
+) -> tuple[OrganoidDataset, dict]:
     """Build the OrganoidDataset for a cohort and assert its expected makeup.
 
     Returns (dataset, label_counts). Raises KeyError for an unknown name and

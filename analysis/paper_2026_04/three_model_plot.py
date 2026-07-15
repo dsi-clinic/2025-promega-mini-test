@@ -17,7 +17,6 @@ Usage:
 import json
 
 import matplotlib.pyplot as plt
-import numpy as np
 
 from pipeline.data_loader import ANALYSIS_OUTPUT_DIR, DAY_ORDER, FIGURE_DIR
 

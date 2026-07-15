@@ -13,7 +13,6 @@ the merge join is exact.
 import logging
 import math
 import pathlib
-from typing import Optional
 
 import pandas as pd
 
@@ -21,7 +20,7 @@ METABOLITES = ("GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "Malat
 NORMALIZED_FIELDS = ("win", "win_vol_norm")
 
 
-def _null(val) -> Optional[float]:
+def _null(val) -> float | None:
     if val is None:
         return None
     try:
@@ -32,7 +31,7 @@ def _null(val) -> Optional[float]:
     return val
 
 
-def _record_id(organoid: str, day_int: int) -> Optional[str]:
+def _record_id(organoid: str, day_int: int) -> str | None:
     """Build the canonical metabolite-mapper record_id from CSV columns.
 
     Mirrors ``pipeline.metabolites.metabolite_mapper.get_organoid_id``:

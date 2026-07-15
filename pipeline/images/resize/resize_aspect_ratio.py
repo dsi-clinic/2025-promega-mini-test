@@ -5,13 +5,12 @@ import dataclasses
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import cv2
 import numpy as np
 import tifffile  # type: ignore
 import tqdm
-
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
@@ -64,7 +63,7 @@ def safe_stem(main_id: str) -> str:
     return s
 
 
-def read_raw_shape(tif_path: Path) -> Tuple[int, int]:
+def read_raw_shape(tif_path: Path) -> tuple[int, int]:
     """Return (orig_h, orig_w) from the actual TIFF on disk."""
     with tifffile.TiffFile(str(tif_path)) as tf:
         page = tf.pages[0]
@@ -87,7 +86,6 @@ def read_raw_shape(tif_path: Path) -> Tuple[int, int]:
     return int(orig_h), int(orig_w)
 
 def read_um_per_px_from_tif(tif_path: Path) -> float | None:
-    import re
     import tifffile
 
     with tifffile.TiffFile(str(tif_path)) as tf:
@@ -230,7 +228,7 @@ def main() -> None:
         logging.info("%s: %s", key, value)
 
     mapping = json.loads(args.image_mapping_json.read_text())
-    entries: Dict[str, Dict[str, Any]] = mapping.get("entries", {})
+    entries: dict[str, dict[str, Any]] = mapping.get("entries", {})
     if not entries:
         raise RuntimeError("No entries found in mapping JSON.")
 
@@ -262,7 +260,7 @@ def main() -> None:
             orig_h, orig_w = read_raw_shape(raw_path)
 
             # --- determine µm/px (TIFF > mapping fallback) ---
-                
+
             tif_um = read_um_per_px_from_tif(raw_path)
             if tif_um is not None:
                 orig_um = tif_um

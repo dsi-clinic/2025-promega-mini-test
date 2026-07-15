@@ -10,9 +10,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from tqdm import tqdm
 from PIL import Image
-
+from tqdm import tqdm
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',

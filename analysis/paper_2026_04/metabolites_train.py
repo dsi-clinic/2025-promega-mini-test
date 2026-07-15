@@ -26,8 +26,8 @@ Usage:
 import argparse
 import json
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -143,7 +143,7 @@ def _features_for_day(ds: OrganoidDataset, day: str):
     return out
 
 
-def _train_one(spec: ModelSpec, day: str, day_features: dict, *, verbose: bool) -> Optional[dict]:
+def _train_one(spec: ModelSpec, day: str, day_features: dict, *, verbose: bool) -> dict | None:
     X_train, y_train, feat_names, ids_train = day_features["train"]
     X_val,   y_val,   _,         _          = day_features["val"]
     X_test,  y_test,  _,         _          = day_features["test"]

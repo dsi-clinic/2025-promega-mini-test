@@ -24,8 +24,8 @@ from pipeline.data_loader import (
     filters_for_mode,
     get_clipped_meanfill_image_path,
     get_clipped_meanfill_mask_path,
-    get_day_float,
     get_complete_survey_vote_counts,
+    get_day_float,
 )
 from pipeline.splits import Splits
 

@@ -5,7 +5,8 @@ Uses EfficientNet-B0 for feature extraction
 import torch
 import torch.nn as nn
 from torchvision import models
-from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+from torchvision.models import EfficientNet_B0_Weights, efficientnet_b0
+
 
 class TemporalAttentionPool(nn.Module):
     def __init__(self, d):

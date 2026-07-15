@@ -9,10 +9,10 @@ of records from all_data.json suitable for training.
 import csv
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
-from PIL import Image
 import torch
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 
@@ -22,7 +22,7 @@ from pipeline.merge.normalized_records import OrganoidRecord
 
 PATH_KEY_TO_IMAGE_MODE = {v: k for k, v in IMAGE_MODE_TO_PATH_KEY.items()}
 
-SCHEMA_DICT = Dict[str, Any]
+SCHEMA_DICT = dict[str, Any]
 
 
 class ImageClassifierEmitter(BaseViewEmitter):
@@ -31,8 +31,8 @@ class ImageClassifierEmitter(BaseViewEmitter):
     name = "image_classifier"
 
     def __init__(self):
-        self._records_by_day: Dict[str, List[SCHEMA_DICT]] = defaultdict(list)
-        self._skipped_records_by_day: Dict[str, List[str]] = defaultdict(list)
+        self._records_by_day: dict[str, list[SCHEMA_DICT]] = defaultdict(list)
+        self._skipped_records_by_day: dict[str, list[str]] = defaultdict(list)
 
     def process(self, record: OrganoidRecord) -> None:
         label = record.get("label", {}).get("acceptance_flag")
@@ -182,9 +182,9 @@ def extract_samples_by_day(source, day, *, split=None,
     ``int`` via ``LABEL_TO_INT`` — entries with unknown labels are skipped.
     Returns ``(img_paths, labels, mask_paths_or_None)`` as numpy arrays.
     """
-    img_paths: List[str] = []
-    labels_int: List[int] = []
-    mask_paths: List[str] | None = [] if use_mask else None
+    img_paths: list[str] = []
+    labels_int: list[int] = []
+    mask_paths: list[str] | None = [] if use_mask else None
 
     if isinstance(source, dict) and "records" in source:
         # views-dict path. Labels in this format are already ints (0/1)

@@ -3,9 +3,13 @@ Temporal ablation with EfficientNet features + Temporal Attention (BCE)
 Run: python analysis/images/cnn_lstm/train_temporal_ablation_attn.py
 """
 
-import sys, json, math, argparse
+import argparse
+import json
+import sys
 from pathlib import Path
+
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -14,15 +18,14 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 import numpy as np
-from tqdm import tqdm
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
-from torchvision import models, transforms
-from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 from sklearn.metrics import precision_recall_fscore_support
+from torch.utils.data import DataLoader
+from torchvision import transforms
+from torchvision.models import EfficientNet_B0_Weights, efficientnet_b0
+from tqdm import tqdm
 
 from analysis.images.cnn_lstm.organoid_dataset import (
     OrganoidTimeSeriesDataset,
@@ -77,7 +80,7 @@ class OrganoidCNN_TAtt(nn.Module):
         eff = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
         eff.classifier = nn.Identity()
         self.cnn = eff
-        
+
         # start frozen
         for p in self.cnn.parameters():
             p.requires_grad = False
@@ -162,9 +165,8 @@ def evaluate_binary(model, loader, criterion, device):
     acc = (preds == labels.int()).float().mean().item()
 
     from sklearn.metrics import (
-        precision_recall_fscore_support,
-        roc_auc_score,
         average_precision_score,
+        roc_auc_score,
     )
 
     prec, rec, f1, _ = precision_recall_fscore_support(
@@ -262,7 +264,7 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     # Upweight the minority class (label=1=Not Acceptable).
     w_pos = n_neg / n_pos
     w_neg = n_pos / n_neg
-    
+
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
 
     best_val_acc = -1.0
@@ -377,8 +379,8 @@ def train_for_day_range(max_day, train_ids, val_ids, test_ids,
     from sklearn.metrics import confusion_matrix as sk_cm
     cm = sk_cm(all_labels_cm, all_preds_cm)
     print("\nConfusion Matrix (Test Set):")
-    print(f"                       Predicted")
-    print(f"                Acceptable   Not Acceptable")
+    print("                       Predicted")
+    print("                Acceptable   Not Acceptable")
     print(f"Acceptable        {cm[0,0]:4d}            {cm[0,1]:4d}")
     print(f"Not Acceptable    {cm[1,0]:4d}            {cm[1,1]:4d}")
 

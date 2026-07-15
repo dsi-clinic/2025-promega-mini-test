@@ -25,25 +25,25 @@ import logging
 
 import numpy as np
 
-from pipeline.data_loader import (
-    ANALYSIS_OUTPUT_DIR,
-    DAY_ORDER,
-    FIGURE_DIR,
-)
-from pipeline.splits import Splits
+# Sibling modules are imported as top-level (not relative): the package name
+# starts with a digit so it can't be imported as ``analysis.2026_06_...``; the
+# script is run by path, which puts this directory on sys.path.
+from cohorts import ALL_DATA_PATH, build_cohort
+from cv import run_cv_for_day
+
+from analysis.paper_2026_04.common import plot_balanced_accuracy_by_day
 
 # Importing the source module reuses its MODEL_SPECS/factories AND triggers its
 # module-level warnings.filterwarnings("ignore", UserWarning) — benign, intended
 # to quiet sklearn/lightgbm noise. We deliberately do NOT import its _train_one /
 # main (those encode the single held-out-split pipeline we are replacing with CV).
 from analysis.paper_2026_04.metabolites_train import MODEL_SPECS
-from analysis.paper_2026_04.common import plot_balanced_accuracy_by_day
-
-# Sibling modules are imported as top-level (not relative): the package name
-# starts with a digit so it can't be imported as ``analysis.2026_06_...``; the
-# script is run by path, which puts this directory on sys.path.
-from cohorts import ALL_DATA_PATH, build_cohort
-from cv import run_cv_for_day
+from pipeline.data_loader import (
+    ANALYSIS_OUTPUT_DIR,
+    DAY_ORDER,
+    FIGURE_DIR,
+)
+from pipeline.splits import Splits
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)

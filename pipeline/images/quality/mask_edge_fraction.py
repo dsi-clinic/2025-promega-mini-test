@@ -25,7 +25,7 @@ def create_args() -> argparse.ArgumentParser:
     return parser
 
 def load_json(p: Path):
-    with open(p, "r") as f:
+    with open(p) as f:
         return json.load(f)
 
 def load_mask(mask_path: Path) -> np.ndarray | None:

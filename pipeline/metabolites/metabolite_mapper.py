@@ -44,7 +44,7 @@ def get_main_identifiers(indentifier_file: pathlib.Path) -> tuple[list[str], dic
         main_identifiers: The main identifiers
         split_identifiers: The split identifiers
     """
-    with open(indentifier_file, 'r') as f:
+    with open(indentifier_file) as f:
         main_identifiers = json.load(f)
     split_identifiers = {}
     for identifier in main_identifiers:

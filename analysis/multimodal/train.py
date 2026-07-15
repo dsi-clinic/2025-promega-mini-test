@@ -8,15 +8,21 @@ so we don't branch on input_mode.
 """
 
 from collections import defaultdict
-from typing import Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.metrics import (accuracy_score, average_precision_score,
-                             confusion_matrix, f1_score, precision_score,
-                             recall_score, roc_auc_score, roc_curve)
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
 from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader
 
@@ -25,7 +31,7 @@ from .models import EarlyStopping, MultimodalClassifier
 
 
 def _run_batches(model, loader, config: dict,
-                 *, optimizer=None, criterion=None, weights=None) -> Tuple[list, np.ndarray, np.ndarray]:
+                 *, optimizer=None, criterion=None, weights=None) -> tuple[list, np.ndarray, np.ndarray]:
     """Single batch loop. If optimizer is given, train; else just predict.
 
     Returns (losses_list, preds_array, labels_array).
