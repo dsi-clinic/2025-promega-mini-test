@@ -203,9 +203,17 @@ class OrganoidRecordBuilder:
             new_value = label.get("value")
 
             if existing_value is not None and new_value is not None and existing_value != new_value:
-                # Both splits have definitive labels that disagree — conflict
-                logging.warning(f"Labels do not match between days or splits: {source_id}/{organoid_id}. All labels for this organoid will be cleared.")
-                self._register_split_conflict(organoid_id, source_id)
+                # Two SURVEY_LABEL_DAY records for one organoid_id give conflicting
+                # definitive labels — i.e. split variants disagree. This is
+                # split-only by construction: non-SURVEY_LABEL_DAY records return
+                # early above, so a cross-day disagreement (e.g. Dy28 vs Dy30) can
+                # never reach here.
+                logging.warning(
+                    f"Conflicting {SURVEY_LABEL_DAY} labels for split variants of "
+                    f"{organoid_id} ({source_id}): '{existing_value}' vs '{new_value}'. "
+                    "Clearing this organoid's labels."
+                )
+                self._register_split_label_conflict(organoid_id, source_id)
                 label = {}
 
             elif existing_value is None and new_value is not None:
@@ -218,9 +226,19 @@ class OrganoidRecordBuilder:
 
         return label
 
-    def _register_split_conflict(self, organoid_id: str, source_id: str) -> None:
-        """Register a split label conflict for an organoid, clearing it from propagation tracking."""
-        logging.warning(f"Split label conflict registered for {source_id}/{organoid_id}. All labels will be removed after propagation.")
+    def _register_split_label_conflict(self, organoid_id: str, source_id: str) -> None:
+        """Flag an organoid whose same-day split variants carry conflicting labels.
+
+        Only reachable for ``SURVEY_LABEL_DAY`` records (see
+        ``_get_organoid_labels``), so this is a split conflict by construction —
+        NOT a cross-day (e.g. Dy28 vs Dy30) disagreement. The organoid is added to
+        ``conflicted_organoids`` and all of its labels are removed after
+        propagation.
+        """
+        logging.warning(
+            f"Split label conflict for {organoid_id} ({source_id}); all its labels "
+            "will be removed after propagation."
+        )
         self.record_metrics.num_label_skipped += 1
         self.conflicted_organoids.add(organoid_id)
         if organoid_id in self.organoid_dict:
