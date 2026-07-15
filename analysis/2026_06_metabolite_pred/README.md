@@ -212,3 +212,45 @@ remaining gaps are our group-aware CV vs their repeated holdout, and their
 inclusion of morphometry + exhaustive feature selection. A true match would also
 require dropping the day-over-day delta and using their `Average_area_win`
 (2-day) size rather than our current-day `mask_area_um2`.
+
+## Winsorization scope: per-day vs whole-dataset (beads qp7)
+
+We were told MalateGLO's stored `win` was winsorized over the **whole dataset**
+(all days pooled), whereas the other five metabolites were winsorized **per-day**.
+`verify_winsorize_scope.py` tests this empirically: for each metabolite it
+winsorizes the raw `concentration_uM` per-day (1st/99th) *and* whole-dataset
+(1st/99th), then measures the fraction of records where the lab `win` matches
+`k * winsorized_raw` (`k` = the per-metabolite units constant, fit on the bulk
+exactly as `pipeline.metabolites.verify_winsorization`). Both `win` and
+`concentration_uM` are read straight from `all_data.json` (rules 3 & 16).
+
+```bash
+make run ARGS="analysis/2026_06_metabolite_pred/verify_winsorize_scope.py"
+```
+
+Match rate = fraction with `|win - k*raw_win| / |win| < 0.03`. A scope only
+"reproduces" `win` if its match rate ≥ 0.50.
+
+| Metabolite | per-day | whole-dataset | Scope that fits |
+|---|---|---|---|
+| GlucoseGlo | 0.967 | 0.955 | **per-day** |
+| GlutamateGlo | 0.689 | 0.675 | **per-day** |
+| LactateGlo | 0.972 | 0.946 | **per-day** |
+| PyruvateGlo | 0.955 | 0.942 | **per-day** |
+| BCAAGlo | 0.964 | 0.949 | **per-day** |
+| MalateGlo | 0.041 | 0.040 | **neither** |
+
+**Finding — the whole-dataset hypothesis for Malate is refuted.** All five
+well-behaved metabolites fit **per-day** (per-day match rate consistently beats
+whole-dataset — the difference is the ~1–2% of tail points that per-day and
+pooled clipping bound differently). For **MalateGlo, neither scope reproduces
+`win`**: both match rates collapse to ~0.04. This is not a scope problem —
+Malate's raw `concentration_uM` runs −5662…+27 µM (26% negative, at the assay
+noise floor) while its stored `win` is bounded in ~0.002…0.015 and always
+positive, and `win` is **non-monotonic** in raw concentration. Since any
+winsorization is monotonic non-decreasing in its input, no clip of
+`concentration_uM` at any scope can produce Malate's `win`. Malate's `win` is a
+**separately-cleaned signal**, consistent with the existing note in
+`pipeline/metabolites/winsorize.py` (`MALATE` is the documented exception to the
+provenance check). The determination is pinned in
+`tests/test_winsorize_scope.py`.
