@@ -426,6 +426,86 @@ def _plot_dy10_malate(dy10_r, normal_dy10_r):
     return fig
 
 
+def _agg_cm(clf_r, day, clf_name, variant_key):
+    """Aggregate repeat CMs from clf_r[day][clf_name_variant_key]; return 2×2 array or None."""
+    entry = clf_r.get(day, {}).get(f"{clf_name}_{variant_key}", {})
+    cms = entry.get("repeat_confusion_matrices", [])
+    if not cms:
+        return None
+    return np.sum(cms, axis=0).astype(int)
+
+
+def _draw_cm(ax, cm, title, title_color="black"):
+    """Draw a single normalised confusion matrix on ax."""
+    row_sums = cm.sum(axis=1, keepdims=True)
+    cm_norm  = np.where(row_sums > 0, cm / row_sums, 0.0)
+    ax.imshow(cm_norm, cmap="Blues", vmin=0, vmax=1)
+    for r in range(2):
+        for c in range(2):
+            vn, vr = cm_norm[r, c], cm[r, c]
+            ax.text(c, r, f"{vr}\n({vn:.0%})", ha="center", va="center",
+                    fontsize=7, fontweight="bold",
+                    color="white" if vn > 0.6 else "black")
+    ax.set_xticks([0, 1]); ax.set_yticks([0, 1])
+    ax.set_xticklabels(["Pred Acc", "Pred NAcc"], fontsize=6)
+    ax.set_yticklabels(["True Acc", "True NAcc"], fontsize=6)
+    tn, fp, fn, tp = cm[0,0], cm[0,1], cm[1,0], cm[1,1]
+    ba = 0.5 * (tp / max(tp+fn,1) + tn / max(tn+fp,1))
+    ax.set_title(f"{title}\nBA={ba:.3f}", fontsize=8, fontweight="bold", color=title_color)
+
+
+def _plot_clf_cm_grid(clf_r, days_show, variant_key):
+    """4 classifiers (rows) × N days (cols) aggregated CM grid for one variant."""
+    clfs       = ["lgbm",      "logreg",   "svm",  "mlp"]
+    clf_labels = ["LightGBM",  "LogReg",   "SVM",  "MLP"]
+    clf_colors = ["#1f77b4",   "#ff7f0e",  "#2ca02c", "#d62728"]
+
+    n_rows, n_cols = len(clfs), len(days_show)
+    fig, axes = plt.subplots(n_rows, n_cols,
+                             figsize=(n_cols * 3.0, n_rows * 2.3),
+                             squeeze=False)
+
+    for r, (clf, clf_label, color) in enumerate(zip(clfs, clf_labels, clf_colors)):
+        for c, day in enumerate(days_show):
+            ax = axes[r][c]
+            cm = _agg_cm(clf_r, day, clf, variant_key)
+            if cm is None:
+                ax.axis("off"); ax.set_title("N/A", fontsize=8); continue
+            day_title = day if r == 0 else ""
+            _draw_cm(ax, cm, day if r == 0 else "", title_color="black")
+            if c == 0:
+                ax.set_ylabel(clf_label, fontsize=9, fontweight="bold", color=color)
+
+    fig.suptitle(
+        f"Aggregated Confusion Matrices — {variant_key.replace('_',' ')} "
+        f"(10 repeats × 4 folds = 1390 predictions)\n"
+        f"Rows: classifier  ·  Cols: day  ·  Acc=0, NAcc=1",
+        fontsize=10, fontweight="bold", y=1.01)
+    plt.tight_layout()
+    return fig
+
+
+def _plot_variant_cm_grid(clf_r, day, clf_name, clf_label):
+    """3 malate variants (cols) for one classifier at one day."""
+    variants = [
+        ("met_nan",       "nan floor",     "#2ca02c"),
+        ("met_raw",       "raw values",    "#ff7f0e"),
+        ("met_no_malate", "drop MalateGlo","#d62728"),
+    ]
+    fig, axes = plt.subplots(1, 3, figsize=(9, 2.8))
+    for ax, (mk, vlabel, color) in zip(axes, variants):
+        cm = _agg_cm(clf_r, day, clf_name, mk)
+        if cm is None:
+            ax.axis("off"); ax.set_title(vlabel, fontsize=9); continue
+        _draw_cm(ax, cm, vlabel, title_color=color)
+    fig.suptitle(
+        f"{clf_label} — {day}  ·  3 Malate Variants "
+        f"(10 repeats × 4 folds = 1390 predictions)",
+        fontsize=11, fontweight="bold", y=1.04)
+    plt.tight_layout()
+    return fig
+
+
 def build_met_ppt(combined, days, dy10_malate=None, normal_clf=None):
     prs = _new_prs()
 
@@ -503,7 +583,23 @@ def build_met_ppt(combined, days, dy10_malate=None, normal_clf=None):
     )
     _tb(slide, note, Inches(8.7), Inches(0.72), Inches(4.3), Inches(6.3), fontsize=11)
 
-    # 8. Observations
+    # 8. CM grid: 4 classifiers × 3 key days (met_nan)
+    if normal_clf:
+        days_show = [d for d in ["Dy08", "Dy24", "Dy30"] if d in normal_clf]
+        if days_show:
+            fig = _plot_clf_cm_grid(normal_clf, days_show, "met_nan")
+            _content_slide(prs,
+                "Confusion Matrices — 4 Classifiers × Key Days (met_nan, aggregated 10 repeats)",
+                fig, fig_top=Inches(0.72), fig_w=Inches(12.5))
+
+    # 9. Variant CM comparison: LogReg × 3 malate variants at Dy30
+    if normal_clf and "Dy30" in normal_clf:
+        fig = _plot_variant_cm_grid(normal_clf, "Dy30", "logreg", "Logistic Regression")
+        _content_slide(prs,
+            "Malate Variant Effect on Confusion Matrix — LogReg at Dy30",
+            fig, fig_top=Inches(1.8), fig_w=Inches(10.0))
+
+    # 10. Observations (was 8)
     obs_list = _compute_observations(combined, days)
     slide = prs.slides.add_slide(_blank(prs))
     _tb(slide, "Observations & Conclusions", M, M, Inches(12.5), Inches(0.55),
