@@ -26,7 +26,7 @@ import lightgbm as lgb
 import numpy as np
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import balanced_accuracy_score
+from sklearn.metrics import balanced_accuracy_score, confusion_matrix
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
@@ -165,6 +165,7 @@ def run_day(
 
     result_keys = [f"{clf}_{mk}" for clf in CLF_NAMES for _, mk in MAL_MODES]
     repeat_bas: Dict[str, List[float]] = {k: [] for k in result_keys}
+    repeat_cms: Dict[str, List]        = {k: [] for k in result_keys}
 
     for rep in range(n_repeats):
         rep_seed = SEED + rep * 1000
@@ -195,6 +196,8 @@ def run_day(
                 yt = all_labels[valid]
                 yp = (oof[k][valid] >= 0.5).astype(int)
                 repeat_bas[k].append(float(balanced_accuracy_score(yt, yp)))
+                cm = confusion_matrix(yt, yp, labels=[0, 1])
+                repeat_cms[k].append(cm.tolist())
 
     results = {}
     for k in result_keys:
@@ -206,6 +209,7 @@ def run_day(
                 "n_repeats":                  len(bas),
                 "n_folds":                    n_folds,
                 "repeat_balanced_accuracies": bas,
+                "repeat_confusion_matrices":  repeat_cms[k],
             }
     return results
 
