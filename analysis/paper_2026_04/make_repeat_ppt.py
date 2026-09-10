@@ -34,6 +34,7 @@ from pipeline.data_loader import DAY_ORDER, ANALYSIS_OUTPUT_DIR
 COMBINED_PATH    = ANALYSIS_OUTPUT_DIR / "images" / "combined_results_kfold_series_idor_139.json"
 CLF_CMP_PATH     = ANALYSIS_OUTPUT_DIR / "images" / "met_classifier_comparison.json"
 DY10_MALATE_PATH = ANALYSIS_OUTPUT_DIR / "images" / "met_classifier_comparison_dy10_malate.json"
+MET_LR_PATH      = ANALYSIS_OUTPUT_DIR / "images" / "met_lgbm_logreg_kfold_139.json"
 TWO_PANEL_PATH   = Path("figures/combined_kfold_two_panel_series_idor_139.png")
 TABLE_PATH       = Path("figures/combined_kfold_table_series_idor_139.png")
 OUT_MET          = Path("figures/met_variants_analysis.pptx")
@@ -66,7 +67,8 @@ FUSION_LABELS = {
     "morph+img_mean_prob":               "Morph + Img (no met)",
 }
 CV_KEY_STYLE = {
-    "met_nan":                    ("Metabolite",       "#2ca02c", "o", "-",  2.0),
+    "met_nan":                    ("Met (LGBM)",       "#2ca02c", "o", "-",  2.0),
+    "met_nan_logreg":             ("Met (LogReg)",     "#ff7f0e", "^", "--", 2.0),
     "morph":                      ("Morphology",       "#9467bd", "s", "-",  2.0),
     "img":                        ("Image",            "#1f77b4", "D", "-",  2.0),
     "met_nan+morph+img_mean_prob":("All Three (mean)", "#d62728", "P", "-",  2.5),
@@ -666,12 +668,13 @@ def _plot_cm_row(combined, repeat_idx, day="Dy30"):
 
 def _plot_spaghetti(combined, days):
     show = [
-        ("met_nan",                     "Metabolite",      "#2ca02c"),
+        ("met_nan",                     "Met (LGBM)",      "#2ca02c"),
+        ("met_nan_logreg",              "Met (LogReg)",    "#ff7f0e"),
         ("morph",                       "Morphology",      "#9467bd"),
         ("img",                         "Image",           "#1f77b4"),
         ("met_nan+morph+img_mean_prob",  "All Three (mean)","#d62728"),
     ]
-    fig, axes = plt.subplots(1, 4, figsize=(16, 4.5), sharey=True)
+    fig, axes = plt.subplots(1, 5, figsize=(20, 4.5), sharey=True)
     for ax, (k, label, color) in zip(axes, show):
         for rep in range(10):
             xs, ys = [], []
@@ -693,13 +696,23 @@ def _plot_spaghetti(combined, days):
     return fig
 
 
-def build_cv_ppt(combined, days):
+def build_cv_ppt(combined, days, met_lr=None):
+    import copy
+    # Merge met_lgbm_logreg results (met_nan_lgbm, met_nan_logreg) into combined for plotting
+    combined = copy.deepcopy(combined)
+    if met_lr:
+        for day, day_r in met_lr.items():
+            if day not in combined:
+                combined[day] = {}
+            for k, v in day_r.items():
+                combined[day][k] = v
+
     prs = _new_prs()
 
     # 1. Title
     _title_slide(prs,
         "10-Repeat 4-Fold Cross-Validation",
-        "series_idor  ·  n=139  ·  Metabolite + Morphology + Image",
+        "series_idor  ·  n=139  ·  Metabolite (LGBM + LogReg) + Morphology + Image",
         "Late fusion: mean probability  ·  majority vote")
 
     # 2. Study design
@@ -773,12 +786,13 @@ def build_cv_ppt(combined, days):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def main():
-    combined   = json.loads(COMBINED_PATH.read_text())
-    days       = [d for d in DAY_ORDER if d in combined]
+    combined    = json.loads(COMBINED_PATH.read_text())
+    days        = [d for d in DAY_ORDER if d in combined]
     dy10_malate = json.loads(DY10_MALATE_PATH.read_text()) if DY10_MALATE_PATH.exists() else None
     normal_clf  = json.loads(CLF_CMP_PATH.read_text())     if CLF_CMP_PATH.exists()     else None
+    met_lr      = json.loads(MET_LR_PATH.read_text())      if MET_LR_PATH.exists()      else None
     build_met_ppt(combined, days, dy10_malate=dy10_malate, normal_clf=normal_clf)
-    build_cv_ppt(combined, days)
+    build_cv_ppt(combined, days, met_lr=met_lr)
 
 
 if __name__ == "__main__":
