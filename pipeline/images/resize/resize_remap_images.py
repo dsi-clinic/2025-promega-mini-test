@@ -5,7 +5,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import cv2
 from tqdm import tqdm
@@ -39,7 +39,7 @@ def safe_record_filename(main_id: str) -> str:
     return f"{s}.png"
 
 
-def get_base_folder(mapping: Dict[str, Any]) -> Path:
+def get_base_folder(mapping: dict[str, Any]) -> Path:
     """
     Supports a few possible key names so you don't have to fight schema drift.
     (Keep this: it's purely about robustness of the mapping schema.)
@@ -72,13 +72,13 @@ def parse_args() -> argparse.Namespace:
 
     return p.parse_args()
 
-def get_mask_path(record_id: str, mask_entries: Dict[str, Any]) -> Optional[str]:
+def get_mask_path(record_id: str, mask_entries: dict[str, Any]) -> str | None:
     rec = mask_entries.get(record_id)
     if not isinstance(rec, dict):
         return None
     return rec.get("manual_mask_path")
 
-def get_original_mask_path(record_id: str, mask_entries: Dict[str, Any]) -> Optional[str]:
+def get_original_mask_path(record_id: str, mask_entries: dict[str, Any]) -> str | None:
     rec = mask_entries.get(record_id)
     if not isinstance(rec, dict):
         return None
@@ -95,14 +95,14 @@ def main() -> None:
     logging.info("interpolation: INTER_LINEAR")
     logging.info("overwrite=%s smoke=%s", args.overwrite, args.smoke)
 
-    image_mapping: Dict[str, Any] = json.loads(args.image_mapping_json.read_text())
+    image_mapping: dict[str, Any] = json.loads(args.image_mapping_json.read_text())
     base_folder = get_base_folder(image_mapping)
 
-    image_entries: Dict[str, Dict[str, Any]] = image_mapping.get("entries", {})
+    image_entries: dict[str, dict[str, Any]] = image_mapping.get("entries", {})
     if not isinstance(image_entries, dict) or not image_entries:
         raise RuntimeError("Mapping JSON has no 'entries' dict or it's empty.")
 
-    mask_entries: Dict[str, Any] = json.loads(args.mask_mapping_json.read_text())
+    mask_entries: dict[str, Any] = json.loads(args.mask_mapping_json.read_text())
     if not isinstance(mask_entries, dict) or not mask_entries:
         raise RuntimeError("Mapping JSON has no 'entries' dict or it's empty.")
 
@@ -112,7 +112,7 @@ def main() -> None:
     if args.smoke is not None and args.smoke > 0:
         record_ids = record_ids[: args.smoke]
 
-    processed_entries: Dict[str, Dict[str, Any]] = {}
+    processed_entries: dict[str, dict[str, Any]] = {}
     skipped_exists = 0
     failed = 0
     no_masks = 0
@@ -251,7 +251,7 @@ def main() -> None:
             logging.exception("Skipping record_id=%s due to error", record_id)
             continue
 
-    out_mapping: Dict[str, Any] = {
+    out_mapping: dict[str, Any] = {
         "_processed_base_folder": str(args.out_dir),
         "preprocess_params": {
             "target_width": args.target_width,

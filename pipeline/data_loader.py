@@ -31,8 +31,8 @@ import os
 import re
 import warnings
 from collections import Counter
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -49,8 +49,19 @@ FIGURE_DIR = ANALYSIS_OUTPUT_DIR / "figures"
 # Constants matching the paper
 # ---------------------------------------------------------------------------
 
-REQUIRED_METABOLITES = ["GlucoseGlo", "GlutamateGlo", "LactateGlo", "PyruvateGlo", "BCAAGlo"]
-CONDITIONAL_METABOLITES = {"MalateGlo": lambda day_num: day_num > 10}
+REQUIRED_METABOLITES = [
+    "GlucoseGlo",
+    "GlutamateGlo",
+    "LactateGlo",
+    "PyruvateGlo",
+    "BCAAGlo",
+    "MalateGlo",
+]
+# MalateGlo was previously gated to days > 10 on the assumption that early-day
+# values were not assayed. In this dataset malate's raw concentration_uM is in
+# fact present on early days at the same ~80% coverage as every other day (its
+# reads just sit near the noise floor), so it is now required for all days.
+CONDITIONAL_METABOLITES = {}
 
 # concentration_uM values below this threshold are physically impossible and
 # indicate an assay failure (e.g. BA2 96_2 Dy10 MalateGlo reads −5662 µM).
@@ -125,7 +136,7 @@ def extract_organoid_id(record_key: str) -> str:
     return f"{m.group(1)} {m.group(2)}" if m else record_key
 
 
-def get_batch(record: dict) -> Optional[str]:
+def get_batch(record: dict) -> str | None:
     """Extract top-level batch prefix (e.g. 'BA1') from a record.
 
     The normalized schema stores the full plate identifier in
@@ -149,7 +160,7 @@ def canonical_day_id(day_id: str) -> str:
     return DAY_ALIAS.get(day_id, day_id)
 
 
-def get_day_int_floor(day_id: str) -> Optional[int]:
+def get_day_int_floor(day_id: str) -> int | None:
     """Return the integer-floor of a day id (LOSSY for half-days).
 
     'Dy13' → 13, 'Dy20_5' → 20, 'Dy20.5' → 20.
@@ -161,7 +172,7 @@ def get_day_int_floor(day_id: str) -> Optional[int]:
     return int(m.group(1)) if m else None
 
 
-def get_day_float(day_id: str) -> Optional[float]:
+def get_day_float(day_id: str) -> float | None:
     """Return the day id as a float, preserving half-days.
 
     'Dy13' → 13.0, 'Dy20_5' → 20.5, 'Dy20.5' → 20.5.
@@ -178,12 +189,12 @@ def get_day_float(day_id: str) -> Optional[float]:
 # Per-record accessors
 # ---------------------------------------------------------------------------
 
-def get_main_id(record: dict) -> Optional[str]:
+def get_main_id(record: dict) -> str | None:
     """Return ``record["images"]["main_id"]`` (e.g. 'BA1_96_1_Dy30_A1_nosplit_nostitch')."""
     return (record.get("images") or {}).get("main_id")
 
 
-def get_classification_verification(record: dict) -> Optional[str]:
+def get_classification_verification(record: dict) -> str | None:
     """Return ``record["metadata"]["verification"]["classification_verification"]``.
 
     Token values: 'NoSplitNoStitched', 'SplitNoStitched', 'NoSplitStitched',
@@ -206,9 +217,19 @@ def is_stitched_record(record: dict) -> bool:
     return "Stitched" in v and "NoStitched" not in v
 
 
-def get_edge_fraction(record: dict) -> Optional[float]:
+def get_edge_fraction(record: dict) -> float | None:
     """Return ``record["images"]["edge_fraction"]`` (None until step 11 runs)."""
     return (record.get("images") or {}).get("edge_fraction")
+
+
+def get_mask_area_um2(record: dict) -> float | None:
+    """Return ``record["images"]["mask_area_um2"]`` (None until step 11 runs).
+
+    Segmentation-derived organoid area (foreground pixels x per-axis um/px).
+    This is our own size measurement; it tracks Promega's volume (win/win_vol_norm)
+    at R^2~=0.99 on log-log, but is an area (um^2), not their volume (um^3).
+    """
+    return (record.get("images") or {}).get("mask_area_um2")
 
 
 def get_base_well(record: dict) -> str:
@@ -223,21 +244,42 @@ def get_base_well(record: dict) -> str:
     return f"{batch}_{well}" if batch and well else ""
 
 
-def get_clipped_meanfill_image_path(record: dict) -> Optional[str]:
+def get_clipped_meanfill_image_path(record: dict) -> str | None:
     """Absolute path to the 575x575 AR-conserved source image (resized_575_square)."""
     return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_source_image_abs")
 
 
-def get_clipped_meanfill_mask_path(record: dict) -> Optional[str]:
+def get_clipped_meanfill_mask_path(record: dict) -> str | None:
     """Absolute path to the 575x575 source mask used to apply the mean-fill clip."""
     return ((record.get("images") or {}).get("clipped_meanfill") or {}).get("cm_source_mask_abs")
 
 
-def get_survey_vote_counts(record: dict) -> Tuple[int, int]:
-    """Return (n_acceptable, n_total) survey votes from the Dy30 record's label dict.
+def get_survey_vote_counts(record: dict) -> tuple[int, int]:
+    """Return (n_acceptable, n_total) *regular-image* survey votes from the Dy30 label.
 
-    Uses combined votes (regular + inverted) for parity with the merge-step
-    ``compute_survey_majority`` aggregation. Returns (0, 0) if no votes.
+    Counts only the regular-image bucket (``regular_votes``) — the bucket that
+    actually decides the consensus label in the merge step (see
+    ``surveys_mapper.compute_survey_majority``: ``consensus_label =
+    winning_reg_label``, with the inverted-image bucket used only as a
+    disagreement veto). Regular surveys cap at 5 votes, so this returns totals
+    in 0..5. For the full reg+inverted tally (up to 10) use
+    ``get_complete_survey_vote_counts``. Returns (0, 0) if no votes.
+    """
+    label = record.get("label") or {}
+    votes = label.get("regular_votes") or {}
+    n_acceptable = int(votes.get("Acceptable", 0))
+    n_total = sum(int(v) for v in votes.values())
+    return n_acceptable, n_total
+
+
+def get_complete_survey_vote_counts(record: dict) -> tuple[int, int]:
+    """Return (n_acceptable, n_total) *combined* survey votes from the Dy30 label.
+
+    Counts both the regular-image and inverted-image buckets (the merged
+    ``votes`` field), so a re-shown organoid (regular + inverted pass) totals up
+    to 10. This is a descriptive view of all evaluations collected; it does NOT
+    match the consensus-label rule, which is regular-bucket-only (see
+    ``get_survey_vote_counts``). Returns (0, 0) if no votes.
     """
     label = record.get("label") or {}
     votes = label.get("votes") or {}
@@ -246,7 +288,7 @@ def get_survey_vote_counts(record: dict) -> Tuple[int, int]:
     return n_acceptable, n_total
 
 
-def main_id_to_organoid_id(main_id: str) -> Optional[str]:
+def main_id_to_organoid_id(main_id: str) -> str | None:
     """Convert an underscore-separated main_id to canonical organoid_id form.
 
     'BA1_96_1_Dy30_A1_nosplit_nostitch' → 'BA1 96_1 A1'
@@ -264,13 +306,13 @@ def main_id_to_organoid_id(main_id: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 def _group_records_by_organoid(
-    all_data: dict, batches: Optional[Tuple[str, ...]] = None
-) -> Dict[str, dict]:
+    all_data: dict, batches: tuple[str, ...] | None = None
+) -> dict[str, dict]:
     """Group raw records by organoid id, optionally restricted to a batch set.
 
     Returns ``{org_id: {"batch": str, "records_by_day": {canonical_day: rec}}}``.
     """
-    organoids: Dict[str, dict] = {}
+    organoids: dict[str, dict] = {}
     for record_key, rec in all_data.items():
         batch = get_batch(rec)
         if batches is not None and batch not in batches:
@@ -284,7 +326,7 @@ def _group_records_by_organoid(
 
 def iter_organoid_records(
     all_data_path,
-    batches: Optional[Sequence[str]] = None,
+    batches: Sequence[str] | None = None,
 ):
     """Yield ``(org_id, records_by_day, batch)`` for every organoid in all_data.
 
@@ -377,7 +419,7 @@ IDOR_CSV_PATH_DEFAULT = Path(
 )
 
 
-def _load_idor_organoid_ids(csv_path: Optional[Path] = None):
+def _load_idor_organoid_ids(csv_path: Path | None = None):
     """Load the IDOR partner curation list (column 1: 266 evaluated organoids).
 
     Returns:
@@ -410,7 +452,7 @@ def _load_idor_organoid_ids(csv_path: Optional[Path] = None):
     return col1_org_ids, col2_pairs
 
 
-def idor_organoid_filter(csv_path: Optional[Path] = None) -> Callable:
+def idor_organoid_filter(csv_path: Path | None = None) -> Callable:
     """Keep organoids in the IDOR partner-supplied col1 list (the 266 evaluated).
 
     The list is loaded once at filter construction; downstream calls are O(1).
@@ -426,10 +468,10 @@ def idor_organoid_filter(csv_path: Optional[Path] = None) -> Callable:
 
 
 def idor_ba1_ba2_filters(
-    csv_path: Optional[Path] = None,
+    csv_path: Path | None = None,
     *,
-    verify_against_all_data: Optional[str] = None,
-) -> List[Callable]:
+    verify_against_all_data: str | None = None,
+) -> list[Callable]:
     """Filters for the IDOR partner curation: BA1+BA2 + the 266-organoid col1 list.
 
     If ``verify_against_all_data`` is a path, runs ``verify_idor_list()`` first
@@ -445,7 +487,7 @@ def idor_ba1_ba2_filters(
 
 
 def verify_idor_list(
-    csv_path: Optional[Path] = None,
+    csv_path: Path | None = None,
     all_data_path: str = "data/all_data.json",
     *,
     verbose: bool = False,
@@ -666,7 +708,7 @@ def paper_label_fn(
     records: dict,
     label_day: str = LABEL_DAY,
     **_,
-) -> Optional[str]:
+) -> str | None:
     """Read the merge-step label at label_day.
 
     The merge step (`pipeline.surveys.surveys_mapper.compute_survey_majority`)
@@ -685,7 +727,7 @@ def paper_label_fn(
 # Default configuration matching paper
 # ---------------------------------------------------------------------------
 
-def default_filters() -> List[Callable]:
+def default_filters() -> list[Callable]:
     """Filters used in the paper: BA1+BA2, complete metabolites, valid images."""
     return [
         require_batches(*HIGH_QUALITY_BATCHES),
@@ -699,7 +741,7 @@ VALID_MODES = ("base", "switch1", "switch2", "switch3", "series_idor")
 VALID_MODALITIES = ("both", "image", "metabolite")
 
 
-def filters_for_mode(mode: str, modality: str = "both") -> List[Callable]:
+def filters_for_mode(mode: str, modality: str = "both") -> list[Callable]:
     """Return filters for a named split mode + modality.
 
     Modes replace the former `scripts/split_data_reproducible.py` presets:
@@ -777,21 +819,21 @@ class OrganoidDataset:
     def __init__(
         self,
         all_data_path: str,
-        splits: Optional[Splits] = None,
-        filters: Optional[List[Callable]] = None,
-        label_fn: Optional[Callable] = None,
+        splits: Splits | None = None,
+        filters: list[Callable] | None = None,
+        label_fn: Callable | None = None,
         strict_splits: bool = False,
     ):
         self.all_data_path = Path(all_data_path)
         self.filters = filters if filters is not None else default_filters()
         self.label_fn = label_fn or paper_label_fn
-        self._splits: Optional[Splits] = None
+        self._splits: Splits | None = None
 
         with open(self.all_data_path) as f:
             self.all_data: dict = json.load(f)
 
         # org_id → {label, split (optional), records}
-        self._organoids: Dict[str, dict] = {}
+        self._organoids: dict[str, dict] = {}
         self._build()
 
         if splits is not None:
@@ -801,7 +843,7 @@ class OrganoidDataset:
 
     def _build(self):
         """Group records by organoid, apply filters, derive labels. No split assignment here."""
-        grouped: Dict[str, Dict[str, dict]] = {}
+        grouped: dict[str, dict[str, dict]] = {}
         for key, rec in self.all_data.items():
             org_id = extract_organoid_id(key)
             day_raw = rec.get("day", {}).get("id", "")
@@ -866,7 +908,7 @@ class OrganoidDataset:
             info["split"] = splits.mapping[org_id]
         self._splits = splits
 
-    def organoid_labels(self) -> Dict[str, str]:
+    def organoid_labels(self) -> dict[str, str]:
         """Return ``{organoid_id: label}`` for every filtered+labeled organoid.
 
         Useful as input to ``Splits.stratified_random``.
@@ -876,18 +918,18 @@ class OrganoidDataset:
     # -- accessors -----------------------------------------------------------
 
     @property
-    def organoid_ids(self) -> List[str]:
+    def organoid_ids(self) -> list[str]:
         return list(self._organoids.keys())
 
     @property
-    def splits(self) -> List[str]:
+    def splits(self) -> list[str]:
         """Sorted list of unique split names assigned via apply_splits."""
         if self._splits is None:
             return []
         return sorted(self._splits.split_names())
 
     @property
-    def days(self) -> List[str]:
+    def days(self) -> list[str]:
         """All canonical days present across all organoids, sorted."""
         ds = set()
         for o in self._organoids.values():
@@ -895,8 +937,8 @@ class OrganoidDataset:
         return [d for d in DAY_ORDER if d in ds]
 
     def get_split(
-        self, split: str, day: Optional[str] = None
-    ) -> Dict[str, dict]:
+        self, split: str, day: str | None = None
+    ) -> dict[str, dict]:
         """Get organoids for a split, optionally filtered to those having a specific day.
 
         Returns: {org_id: {label, records: {day: record, ...}}}
@@ -925,7 +967,9 @@ class OrganoidDataset:
         include_growth: bool = False,
         include_initial: bool = True,
         field: str = "concentration_uM",
-    ) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
+        normalize_by_size: bool = False,
+        winsorize: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
         """Extract metabolite feature matrix for split + day.
 
         ``field`` selects which per-assay numeric to use as the primary column:
@@ -940,6 +984,22 @@ class OrganoidDataset:
         (the ratio is metabolite-specific, e.g. ~2.0 for Glucose, ~0.1 for
         Glutamate/Pyruvate). Use it for within-metabolite analyses or as a
         cleaner alternative to raw for modeling, not as a unit-equivalent.
+
+        ``normalize_by_size`` divides every metabolite measurement (the ``field``
+        column, ``initial_concentration``, and — when ``include_growth`` — the
+        per-day delta) by the organoid's segmentation area ``mask_area_um2`` for
+        that day, yielding size-normalized features (suffix ``_per_um2``). Rows
+        whose record has no ``mask_area_um2`` are dropped. The delta is computed
+        on the size-normalized value (curr/area_curr − prev/area_prev), so a
+        scaled+growth feature is a size-normalized exchange rate.
+
+        ``winsorize`` clips each metabolite measurement (the ``field`` column and
+        ``initial_concentration``) to that day's 1st/99th percentile across the
+        split's organoids, reproducing the RehenLab per-day winsorization
+        (``pipeline/metabolites/winsorize.py``). Order of operations matches the
+        paper: winsorize raw -> size-normalize -> delta. Adds a ``_win`` suffix
+        (composes with ``_per_um2``). Deltas, when included, are computed on the
+        winsorized (and size-normalized) values.
 
         Returns: (X, y, feature_names, organoid_ids)
             X: (n_samples, n_features) float array
@@ -962,12 +1022,22 @@ class OrganoidDataset:
             if day_num is not None and cond_fn(day_num):
                 active_mets.append(met)
 
-        # Build feature names
+        # Build feature names (order: <field> winsorized, then size-normalized)
+        win_suffix = "_win" if winsorize else ""
+        size_suffix = "_per_um2" if normalize_by_size else ""
         feat_names = []
         for met in active_mets:
-            feat_names.append(f"{met}_{field}")
+            feat_names.append(f"{met}_{field}{win_suffix}{size_suffix}")
             if include_initial:
-                feat_names.append(f"{met}_initial_concentration")
+                feat_names.append(f"{met}_initial_concentration{win_suffix}{size_suffix}")
+
+        # Winsorized inputs are READ from the persisted per-day-winsorized columns
+        # in all_data.json (``<field>_win``, written by
+        # ``pipeline.metabolites.winsorize --write`` / ``make winsorize-write``) --
+        # they are NOT recomputed here, so every model input comes from
+        # all_data.json (concentration_uM -> concentration_uM_win, etc.).
+        val_field = f"{field}_win" if winsorize else field
+        init_field = "initial_concentration_win" if winsorize else "initial_concentration"
 
         rows = []
         labels = []
@@ -979,11 +1049,18 @@ class OrganoidDataset:
                 continue
             mets = rec.get("metabolite", {})
 
+            size = None
+            if normalize_by_size:
+                size = get_mask_area_um2(rec)
+                if not size:
+                    # Can't size-normalize a record with no segmentation area.
+                    continue
+
             row = []
             skip = False
             for met in active_mets:
                 met_data = mets.get(met, {})
-                val = met_data.get(field)
+                val = met_data.get(val_field)
                 if val is None:
                     skip = True
                     break
@@ -992,9 +1069,15 @@ class OrganoidDataset:
                 # other metabolite features still contribute.
                 if field == "concentration_uM" and val < CONCENTRATION_FLOOR:
                     val = np.nan
+                if include_initial:
+                    init = met_data.get(init_field, np.nan)
+                if normalize_by_size:
+                    val = val / size
+                    if include_initial:
+                        init = init / size
                 row.append(val)
                 if include_initial:
-                    row.append(met_data.get("initial_concentration", np.nan))
+                    row.append(init)
             if skip:
                 continue
 
@@ -1016,10 +1099,10 @@ class OrganoidDataset:
         # Optionally add growth features (difference from previous day)
         if include_growth and day_num is not None:
             X, feat_names, ids_out = self._add_growth_features(
-                X, feat_names, ids, split, day, active_mets, include_initial
+                X, feat_names, ids, split, day, active_mets, include_initial,
+                field=field, normalize_by_size=normalize_by_size, winsorize=winsorize,
             )
             y_out = []
-            id_set = set(ids_out)
             for org_id in ids_out:
                 y_out.append(
                     1 if self._organoids[org_id]["label"] == "Not Acceptable" else 0
@@ -1032,14 +1115,24 @@ class OrganoidDataset:
     def _add_growth_features(
         self,
         X: np.ndarray,
-        feat_names: List[str],
-        org_ids: List[str],
+        feat_names: list[str],
+        org_ids: list[str],
         split: str,
         day: str,
-        active_mets: List[str],
+        active_mets: list[str],
         include_initial: bool,
-    ) -> Tuple[np.ndarray, List[str], List[str]]:
-        """Add growth (delta) features from the previous available day."""
+        field: str = "concentration_uM",
+        normalize_by_size: bool = False,
+        winsorize: bool = False,
+    ) -> tuple[np.ndarray, list[str], list[str]]:
+        """Add growth (delta) features from the previous available day.
+
+        The delta is computed on ``field`` (matching the level columns), on the
+        per-day-winsorized value when ``winsorize`` is set, and on the
+        size-normalized value (value / ``mask_area_um2``) when
+        ``normalize_by_size`` is set -- so the delta is consistent with the
+        levels (winsorize -> size-normalize -> subtract).
+        """
         day_idx = DAY_ORDER.index(day) if day in DAY_ORDER else -1
         if day_idx <= 0:
             # No previous day available
@@ -1057,25 +1150,38 @@ class OrganoidDataset:
         # Only compute growth for metabolites available in both days
         growth_mets = [m for m in active_mets if m in prev_mets]
 
-        growth_names = [f"{m}_growth" for m in growth_mets]
+        win_suffix = "_win" if winsorize else ""
+        size_suffix = "_per_um2" if normalize_by_size else ""
+        growth_names = [f"{m}_growth{win_suffix}{size_suffix}" for m in growth_mets]
+
+        # Winsorized deltas read the persisted ``<field>_win`` columns from
+        # all_data.json (same source as the level columns); nothing recomputed.
+        val_field = f"{field}_win" if winsorize else field
+
         new_rows = []
         new_ids = []
         keep_indices = []
 
         for i, org_id in enumerate(org_ids):
             info = self._organoids[org_id]
+            curr_rec = info["records"][day]
             prev_rec = info["records"].get(prev_day)
             if prev_rec is None:
                 continue
+
+            curr_size = prev_size = None
+            if normalize_by_size:
+                curr_size = get_mask_area_um2(curr_rec)
+                prev_size = get_mask_area_um2(prev_rec)
+                if not curr_size or not prev_size:
+                    continue
 
             prev_mets_data = prev_rec.get("metabolite", {})
             growth_row = []
             skip = False
             for m in growth_mets:
-                curr_data = info["records"][day].get("metabolite", {}).get(m, {})
-                prev_data = prev_mets_data.get(m, {})
-                curr_c = curr_data.get("concentration_uM")
-                prev_c = prev_data.get("concentration_uM")
+                curr_c = curr_rec.get("metabolite", {}).get(m, {}).get(val_field)
+                prev_c = prev_mets_data.get(m, {}).get(val_field)
                 if curr_c is None or prev_c is None:
                     skip = True
                     break
@@ -1083,6 +1189,9 @@ class OrganoidDataset:
                     curr_c = np.nan
                 if prev_c < CONCENTRATION_FLOOR:
                     prev_c = np.nan
+                if normalize_by_size:
+                    curr_c = curr_c / curr_size
+                    prev_c = prev_c / prev_size
                 growth_row.append(curr_c - prev_c)  # NaN propagates if either is NaN
             if skip:
                 continue
@@ -1090,6 +1199,15 @@ class OrganoidDataset:
             new_rows.append(growth_row)
             new_ids.append(org_id)
             keep_indices.append(i)
+
+        n_dropped = len(org_ids) - len(new_rows)
+        if n_dropped:
+            warnings.warn(
+                f"growth features for {day} (prev {prev_day}, split {split!r}): "
+                f"dropped {n_dropped}/{len(org_ids)} organoids lacking a usable "
+                f"previous-day value for one of {growth_mets}",
+                stacklevel=2,
+            )
 
         if not new_rows:
             return X, feat_names, org_ids
@@ -1101,7 +1219,7 @@ class OrganoidDataset:
 
     def get_image_paths(
         self, split: str, day: str, mode: str = "cm_source_image"
-    ) -> List[Tuple[str, str, str]]:
+    ) -> list[tuple[str, str, str]]:
         """Get image paths for split+day.
 
         Args:
@@ -1129,7 +1247,7 @@ class OrganoidDataset:
                 result.append((org_id, info["label"], path))
         return result
 
-    def get_record(self, org_id: str, day: str) -> Optional[dict]:
+    def get_record(self, org_id: str, day: str) -> dict | None:
         """Get the raw record for an organoid+day."""
         info = self._organoids.get(org_id)
         if info is None:
@@ -1140,12 +1258,12 @@ class OrganoidDataset:
         """Yield (org_id, info) for every organoid in the (filtered) dataset."""
         return iter(self._organoids.items())
 
-    def organoid_label(self, org_id: str) -> Optional[str]:
+    def organoid_label(self, org_id: str) -> str | None:
         """Return the label string ('Acceptable' / 'Not Acceptable') or None."""
         info = self._organoids.get(org_id)
         return None if info is None else info["label"]
 
-    def organoid_records(self, org_id: str) -> Dict[str, dict]:
+    def organoid_records(self, org_id: str) -> dict[str, dict]:
         """Return {day: record} for one organoid, or {} if unknown."""
         info = self._organoids.get(org_id)
         return {} if info is None else info["records"]
@@ -1206,7 +1324,7 @@ def split_organoids(
     seed: int = 42,
     test_size: float = 0.2,
     val_size: float = 0.1,
-) -> Tuple[List[str], List[str], List[str]]:
+) -> tuple[list[str], list[str], list[str]]:
     """Base-well-grouped, label-stratified train/val/test partition.
 
     Wells (not organoids) are the unit of split — daughter organoids from the
@@ -1221,8 +1339,8 @@ def split_organoids(
     """
     from sklearn.model_selection import train_test_split
 
-    well_to_orgs: Dict[str, List[str]] = {}
-    well_to_labels: Dict[str, List[str]] = {}
+    well_to_orgs: dict[str, list[str]] = {}
+    well_to_labels: dict[str, list[str]] = {}
     for org_id, info in dataset.iter_organoids():
         any_rec = next(iter(info["records"].values()))
         well = get_base_well(any_rec)
@@ -1241,9 +1359,9 @@ def split_organoids(
         test_size=val_size, stratify=train_maj, random_state=seed,
     )
 
-    train_ids: List[str] = []
-    val_ids: List[str] = []
-    test_ids: List[str] = []
+    train_ids: list[str] = []
+    val_ids: list[str] = []
+    test_ids: list[str] = []
     for w in train_final:
         train_ids.extend(well_to_orgs[w])
     for w in val_wells:

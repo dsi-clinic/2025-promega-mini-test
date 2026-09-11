@@ -1,21 +1,21 @@
 # image_resolver.py
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Optional, NamedTuple
-import re
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
+import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import NamedTuple
 
 import cv2
 import numpy as np
 
+from pipeline.common.organoid_patterns import OrganoidNormalizer, OrganoidPatterns
 
-from pipeline.common.organoid_patterns import OrganoidPatterns, OrganoidNormalizer
 
 class ImageMatchResult(NamedTuple):
-    chosen: Optional[Path]
+    chosen: Path | None
     stitched_flag: str      # "Stitched", "Split-Stitched", "Regular", "SplitAmbiguous", "No"
     all_files: list[Path]
     stitched_groups: dict | None   # for Multiple_Stitched / SplitAmbiguous cases
@@ -43,7 +43,7 @@ def list_image_files(img_folder: Path) -> list[Path]:
     return files
 
 
-def _load_gray_resized(path: Path, size: tuple[int, int] = _FAST_EVAL_SIZE) -> Optional[np.ndarray]:
+def _load_gray_resized(path: Path, size: tuple[int, int] = _FAST_EVAL_SIZE) -> np.ndarray | None:
     key = (str(path), size)
     if key in _IMG_CACHE:
         return _IMG_CACHE[key]
@@ -73,7 +73,7 @@ def _compute_laplacian_variance(path: Path, size: tuple[int, int] = _FAST_EVAL_S
     return var
 
 
-def find_best_focus(files: list[Path], max_workers: Optional[int] = None) -> int:
+def find_best_focus(files: list[Path], max_workers: int | None = None) -> int:
     """
     Return index of file with highest Laplacian variance; 0 if no good read.
 

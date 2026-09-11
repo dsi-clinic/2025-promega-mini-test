@@ -67,7 +67,7 @@ Closest match on Best Balanced Accuracy: **J + new (gap −3.1pp)**. No configur
 
 | # | Setting | Old code | New code |
 |:-:|---|---|---|
-| 1 | Metabolite set | 5 mets including MalateGlo; no BCAAGlo | 5 required incl. BCAAGlo; MalateGlo conditional (day > 10) |
+| 1 | Metabolite set | 5 mets including MalateGlo; no BCAAGlo | 6 required incl. BCAAGlo and MalateGlo (MalateGlo no longer day-gated) |
 | 2 | Completeness filter | none — all 220 organoids | `require_complete_metabolites` removes BCAAGlo-missing (220 → 39–40 at Dy30) |
 | 3 | Label source | `"label"` field stored in JSON | recomputed via `paper_label_fn` |
 | 4 | Test set size at Dy30 | 44 organoids | 39–40 organoids |

@@ -5,9 +5,8 @@ import argparse
 import json
 import logging
 import random
-import sys
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
@@ -117,7 +116,7 @@ def get_args() -> argparse.Namespace:
 
     return args
 
-def load_and_filter(mapping_path: Path) -> Tuple[Dict[str, Dict[str, Any]], int]:
+def load_and_filter(mapping_path: Path) -> tuple[dict[str, dict[str, Any]], int]:
     """
     Load mapping JSON file and filter out known bad entries.
 
@@ -135,7 +134,7 @@ def load_and_filter(mapping_path: Path) -> Tuple[Dict[str, Dict[str, Any]], int]
         FileNotFoundError: If the mapping file doesn't exist.
         json.JSONDecodeError: If the JSON file is invalid.
     """
-    with open(mapping_path, "r") as f:
+    with open(mapping_path) as f:
         full_map = json.load(f)
     full_map = full_map.get("entries", {})
     before = len(full_map)
@@ -145,7 +144,7 @@ def load_and_filter(mapping_path: Path) -> Tuple[Dict[str, Dict[str, Any]], int]
     return full_map, before - after
 
 def split_and_save(
-    full_map: Dict[str, Dict[str, Any]],
+    full_map: dict[str, dict[str, Any]],
     out_prefix: str,
     split_dir: Path,
     train_frac: float,

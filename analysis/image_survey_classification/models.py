@@ -4,8 +4,14 @@
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.applications import ResNet50V2
-from tensorflow.keras.layers import (Conv2D, Dense, Dropout, Flatten,
-                                     GlobalAveragePooling2D, MaxPooling2D)
+from tensorflow.keras.layers import (
+    Conv2D,
+    Dense,
+    Dropout,
+    Flatten,
+    GlobalAveragePooling2D,
+    MaxPooling2D,
+)
 
 
 def initialize_model(train_dataset):

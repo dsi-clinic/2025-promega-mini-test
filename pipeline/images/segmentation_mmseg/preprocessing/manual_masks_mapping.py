@@ -6,7 +6,7 @@ import re
 import sys
 from glob import glob
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import cv2
 import numpy as np
@@ -55,7 +55,7 @@ def get_args() -> argparse.Namespace:
 
     return args
 
-def load_raw_mapping(json_path: Path) -> Dict[str, Dict]:
+def load_raw_mapping(json_path: Path) -> dict[str, dict]:
     data = json.loads(Path(json_path).read_text())
     if isinstance(data, dict) and "_base_folder" in data and "entries" in data:
         base = Path(data["_base_folder"])
@@ -72,13 +72,13 @@ def flex_chunk(s: str) -> str:
     toks = re.findall(r'[A-Za-z0-9]+', (s or "").lower())
     return r'[\W_]*'.join(map(re.escape, toks)) if toks else ''
 
-def discover_batch_dirs(root: Path) -> List[Path]:
+def discover_batch_dirs(root: Path) -> list[Path]:
     batch_dirs = [Path(p) for p in glob(str(root / "masks-batch-*")) if Path(p).is_dir()]
     logging.info("[DISCOVER] batch dirs: %s", ", ".join([b.name for b in batch_dirs]))
     return batch_dirs
 
-def list_mask_files(batch_dirs: List[Path]) -> List[Path]:
-    files: List[Path] = []
+def list_mask_files(batch_dirs: list[Path]) -> list[Path]:
+    files: list[Path] = []
     per_batch_counts = []
     for bdir in batch_dirs:
         subdirs = [d for d in (bdir / "manual", bdir / "threshold") if d.is_dir()]
@@ -94,7 +94,7 @@ def list_mask_files(batch_dirs: List[Path]) -> List[Path]:
     logging.info("[INFO] total masks: %d", len(files))
     return files
 
-def get_score(s: str, well: str, info: Dict[str, Any]) -> int:
+def get_score(s: str, well: str, info: dict[str, Any]) -> int:
     wn = int(well[1:])
     best_z = info.get('Best Z')
     s = s.lower()
@@ -106,14 +106,14 @@ def get_score(s: str, well: str, info: Dict[str, Any]) -> int:
         pts += 1
     return pts
 
-def read_mask_grayscale(path: Path) -> Optional[np.ndarray]:
+def read_mask_grayscale(path: Path) -> np.ndarray | None:
     arr = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
     return arr
 
 def write_processed_mask(
     raw_mask_path: Path,
     out_path: Path,
-    target_wh: Tuple[int, int],
+    target_wh: tuple[int, int],
     overwrite: bool
 ) -> Path:
     """
@@ -137,7 +137,7 @@ def write_processed_mask(
         raise RuntimeError(f"Failed to write processed mask: {out_path}")
     return out_path
 
-def write_blank_mask(out_path: Path, target_wh: Tuple[int, int], overwrite: bool) -> Path:
+def write_blank_mask(out_path: Path, target_wh: tuple[int, int], overwrite: bool) -> Path:
     if out_path.exists() and not overwrite:
         return out_path
     tw, th = target_wh
@@ -182,7 +182,7 @@ def main() -> None:
     processed_masks_dir = args.processed_masks_dir
     processed_masks_dir.mkdir(parents=True, exist_ok=True)
 
-    new_mapping: Dict[str, Dict[str, Any]] = {}
+    new_mapping: dict[str, dict[str, Any]] = {}
     skipped_no_match = 0
     processed_written = 0
     blanks_added = 0
@@ -235,7 +235,7 @@ def main() -> None:
         wn = int(well[1:])
         well_pat = rf'(?<![a-z0-9]){wl}0?{wn}(?:\([^)]*\))?(?!\d)'
 
-        matches: List[Path] = []
+        matches: list[Path] = []
         for p in mask_paths:
             s = str(p).lower()
             if re.search(ba_pat, s) and re.search(day_pat, s) and re.search(well_pat, s):

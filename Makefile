@@ -20,7 +20,12 @@ DATA_ROOT          ?= /net/projects2/promega/2026_04_15_data
 RAW_DIR            ?= $(DATA_ROOT)/raw
 INTERMEDIATE_DIR   ?= $(DATA_ROOT)/intermediate
 MODELS_DIR         ?= $(DATA_ROOT)/models
-ANALYSIS_OUTPUT_DIR ?= $(DATA_ROOT)/analysis_output
+# Analysis outputs (figures, results JSON/CSV) go to a single repo-local
+# directory that is gitignored (.gitignore: analysis_output/), NOT under
+# DATA_ROOT (/net). This matches the data_loader default so `make run` and a
+# direct `python ...` write to the same place. Override with
+# `make run ANALYSIS_OUTPUT_DIR=/some/path ...` if needed.
+ANALYSIS_OUTPUT_DIR ?= $(CURDIR)/analysis_output
 PYTHON             ?= conda run --no-capture-output -n core_env python3
 MMCV_ENV_PATH      ?= $(HOME)/miniconda3/envs/mmcv_env
 PYTHON_MMCV        ?= conda run --no-capture-output -p $(MMCV_ENV_PATH) python
@@ -128,6 +133,41 @@ SEED               ?= 1
 ARGS ?=
 run:
 	PYTHONPATH=$(PYTHONPATH) ANALYSIS_OUTPUT_DIR=$(ANALYSIS_OUTPUT_DIR) $(PYTHON) $(ARGS)
+
+# -------- Provenance checks (assert our computed values match Promega's) --------
+.PHONY: verify-winsorize verify-mask-area verify-metabolites
+# Assert our per-day 1/99 winsorization reproduces the stored `win` columns
+# (5 metabolites within tolerance; MalateGlo is the documented exception).
+verify-winsorize:
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pipeline.metabolites.winsorize --all-data $(ALL_DATA_JSON)
+
+# Assert our segmentation-derived mask_area_um2 reproduces the lab's Area_win.
+verify-mask-area:
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pipeline.images.quality.organoid_area \
+		--all-data $(ALL_DATA_JSON)
+
+verify-metabolites: verify-winsorize verify-mask-area
+
+# -------- Lint + tests (AGENTS.md rules 1, 2, 4, 11-17) --------
+.PHONY: lint format test check
+RUFF ?= conda run --no-capture-output -n core_env ruff
+
+# ruff check (style + correctness gate). Format enforcement is phased in
+# separately (the repo predates ruff format) — see beads task kbe.
+lint:
+	$(RUFF) check .
+
+# Auto-apply safe fixes + reformat in place.
+format:
+	$(RUFF) check --fix .
+	$(RUFF) format .
+
+# Unit tests (pytest). Runs against the committed data/all_data.json.
+test:
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest
+
+# Everything a PR should pass locally.
+check: lint test
 
 .PHONY: seg-train-early seg-train-late
 
@@ -471,6 +511,20 @@ step16: $(METABOLITE_MAP) $(SURVEY_MAP) $(IMAGE_MAP_MERGE)
 	@echo "===> Output: $(ALL_DATA_JSON)"
 
 # ====================================
+# STEP 16b: Winsorize metabolites into all_data.json
+# ====================================
+# Adds per-day 1st/99th-percentile-clipped <field>_win columns
+# (concentration_uM_win, initial_concentration_win) computed from the raw
+# values -- the same per-day winsorization asserted by `make verify-winsorize`.
+# Runs after step16 and rewrites all_data.json in place; part of pipeline-merge.
+.PHONY: winsorize-write
+winsorize-write: step16
+	@echo "===> STEP 16b: Winsorizing metabolites into all_data.json"
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pipeline.metabolites.winsorize \
+		--write --all-data $(ALL_DATA_JSON)
+	@echo "===> Output: $(ALL_DATA_JSON) (with *_win columns)"
+
+# ====================================
 # STEP 17: Image Quality Classification
 # ====================================
 step17 imagequality-classification: step16
@@ -584,7 +638,7 @@ pipeline-quality: step10 step11
 
 pipeline-series: step12 step13 step14 step15
 
-pipeline-merge: step16
+pipeline-merge: step16 winsorize-write
 
 pipeline-all: pipeline-identifiers pipeline-mappers pipeline-preprocessing pipeline-segmentation pipeline-quality pipeline-series pipeline-merge
 	@echo ""

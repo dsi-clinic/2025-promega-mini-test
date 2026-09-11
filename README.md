@@ -26,6 +26,30 @@ make help                                                # list all targets
 
 `make` handles conda env activation and `PYTHONPATH` automatically. See `AGENTS.md` for project conventions.
 
+## Loading data in code
+
+Every analysis script reads `data/all_data.json` through `pipeline.data_loader.OrganoidDataset`. The split assignment is a first-class `Splits` object from `pipeline.splits` (see `data/splits/README.md` for the full reference).
+
+```python
+from pipeline.data_loader import OrganoidDataset, filters_for_mode
+from pipeline.splits import Splits
+
+# Default — canonical paper split, base filter (BA1+BA2, complete metabolites, valid images)
+ds = OrganoidDataset(
+    "data/all_data.json",
+    splits=Splits.canonical(),
+    filters=filters_for_mode("base"),
+)
+
+# Per-day metabolite features (raw concentrations)
+X, y, names, ids = ds.get_metabolite_features("train", day="Dy30")
+
+# Same call, but use the Promega-normalized "win" field instead of raw concentration_uM
+X, y, names, ids = ds.get_metabolite_features("train", day="Dy30", field="win")
+```
+
+For ad-hoc work — comparing two splits, generating a quick stratified 80/20, applying a runtime split to an unsplit cohort — `Splits` has factory methods (`from_csv`, `from_partition`, `stratified_random`) and an `agreement_with()` comparison method. See `data/splits/README.md` for examples and `data/normalized/README.md` for what the `win` / `win_vol_norm` fields actually mean (they're winsorized + per-metabolite scaled, not unit-equivalent to raw concentrations).
+
 ## Repo Layout
 
 ```
@@ -43,13 +67,13 @@ analysis/                           # Steps 17+: ML heads, exploration, paper re
   paper_2026_04/                    # Self-contained paper-replication scripts
 
 data/                               # Committed: all_data.json + organoid splits CSV only
-notes/                              # Working docs (see CODE_ORGANIZATION.md)
+notes/                              # Working docs (table repro, paper ideas)
 paper/                              # Paper drafts, figures, feedback
 core_env.yaml                       # Canonical conda env spec
 Makefile                            # Single source of truth for all step invocations
 ```
 
-See `notes/CODE_ORGANIZATION.md` for the one-page rule on where to put new code.
+See `AGENTS.md` ("Where to put new code") for the one-page rule on where to put new code.
 
 ## Data
 
@@ -157,19 +181,28 @@ If you need a new package, add it to `core_env.yaml` and rebuild — never `pip 
 
 Cluster jobs go through SLURM (see `analysis/imagequality_classification/run_*.s` for sweep templates that aren't covered by a single `make` target).
 
+## Status & task tracking
+
+**Live task tracking lives in beads (`bd`), not in a status doc.** Run `bd ready` to see available work and `bd list` for everything open. All work — analyses, paper figures/tables, bugs, follow-ups — is filed as a bead before it's started (see `AGENTS.md`). The paper-reproducibility epic groups the figure/table/number work.
+
+Durable known discrepancies (kept here because they recur):
+
+- **Organoid count (265 vs 248 vs 220):** the paper reports 265, feedback says 248, and the BA1+BA2 ≥4/5-consensus-at-Dy30 filter yields 220 from the current `all_data.json`. The 274→220 gap is 3-2 vote splits failing the consensus threshold; 265/248 come from an older dataset version or different counting. Cohorts in current analysis: strong-consensus (198, ≥4/5) and full (248, majority).
+- **Metabolite inclusion:** `BCAAGlo` and `MalateGlo` are required for **all** days (the old MalateGlo day>10 cutoff is removed — early reads sit near the noise floor, not missing).
+- **Promega `win` fields:** `win` / `win_vol_norm` are winsorized + per-metabolite scaled, **not** unit-equivalent to raw `concentration_uM`; the exact winsorization scope the lab used is under verification (`bd` task, MalateGLO scope). See `data/normalized/README.md`.
+
 ## Documentation Map
 
-| File | What |
-|---|---|
-| `AGENTS.md` | Project conventions / rules (env, splits, schema invariants); the canonical rule reference |
-| `CLAUDE.md` | One-line stub pointing at the docs that matter — kept so Claude Code finds it |
-| `STATUS.md` | Current analysis state, paper feedback, open decisions |
-| `notes/CODE_ORGANIZATION.md` | One-page rule for where to put new code |
-| `notes/table_replication.md` | Master Tables 1/2/3 reproduction summary |
-| `notes/table2_reproducibility.md`, `notes/table3_reproducibility.md` | Deep findings + variance analyses for the per-table reproduction |
-| `data/splits/README.md`, `data/normalized/README.md` | Co-located docs for the splits and Promega-normalized metabolite directories |
+Two top-level docs, by audience:
+
+| File | Audience | What |
+|---|---|---|
+| `README.md` (this file) | Humans | Overview, quick start, layout, data, schema, pipeline, status |
+| `AGENTS.md` | Agents | Rules, schema invariants, where-to-put-code, beads workflow, session completion. `CLAUDE.md` is a symlink to it. |
+| `notes/table_replication.md`, `notes/table2_reproducibility.md`, `notes/table3_reproducibility.md` | — | Master + per-table reproduction findings |
+| `data/splits/README.md`, `data/normalized/README.md` | — | Co-located docs for the splits and Promega-normalized metabolite directories |
 
 ---
 
-**Document Version**: 3.1
-**Last Updated**: 2026-05-12
+**Document Version**: 4.0
+**Last Updated**: 2026-07-14

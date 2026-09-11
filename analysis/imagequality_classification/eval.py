@@ -5,8 +5,7 @@ import json
 
 import numpy as np
 import torch
-from sklearn.metrics import (accuracy_score, average_precision_score, f1_score,
-                             roc_auc_score)
+from sklearn.metrics import accuracy_score, average_precision_score, f1_score, roc_auc_score
 
 from .models import DEVICE
 

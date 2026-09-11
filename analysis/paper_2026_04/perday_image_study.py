@@ -24,8 +24,6 @@ import json
 import os
 import random
 import warnings
-from pathlib import Path
-from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -162,7 +160,7 @@ def _build_transforms(train: bool, translate: tuple = (0.1, 0.1)):
     return T.Compose(base)
 
 
-def _split_data(ds: OrganoidDataset, split: str, day: str, input_mode: str) -> Tuple[list, list]:
+def _split_data(ds: OrganoidDataset, split: str, day: str, input_mode: str) -> tuple[list, list]:
     items = ds.get_image_paths(split, day, mode=input_mode)
     paths = [p for _, _, p in items]
     labels = [LABEL_TO_INT[lbl] for _, lbl, _ in items]
@@ -175,7 +173,7 @@ _BOUNDARY_DAYS = {"Dy28", "Dy30"}
 
 
 def train_one_day(ds: OrganoidDataset, day: str, *, input_mode: str = "overlay",
-                  verbose: bool = True) -> Optional[dict]:
+                  verbose: bool = True) -> dict | None:
     set_seed(SEED)
     train_paths, train_labels = _split_data(ds, "train", day, input_mode)
     val_paths,   val_labels   = _split_data(ds, "val",   day, input_mode)

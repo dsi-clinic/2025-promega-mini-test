@@ -3,26 +3,22 @@ import datetime
 import logging
 import os
 import os.path as osp
-import numpy as np
 from pathlib import Path
 
-from PIL import Image
+import numpy as np
 from mmengine.config import Config, DictAction
 from mmengine.logging import print_log
+from mmengine.registry import HOOKS, MODELS
 from mmengine.runner import Runner
-
-from mmseg.registry import RUNNERS
-from mmengine.registry import MODELS
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
+from mmseg.engine.hooks import SegVisualizationHook
 from mmseg.models.backbones.mit import MixVisionTransformer
 from mmseg.models.decode_heads.segformer_head import SegformerHead
-from mmseg.models.losses import DiceLoss, FocalLoss, CrossEntropyLoss
-from mmseg.engine.hooks import SegVisualizationHook
-from mmengine.registry import HOOKS
-from mmseg.registry import DATASETS
+from mmseg.models.losses import CrossEntropyLoss, DiceLoss, FocalLoss
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
+from mmseg.registry import DATASETS, RUNNERS
+from PIL import Image
 
 from pipeline.images.segmentation_mmseg.datasets.day_datasets import Dy30Dataset
-from mmseg.registry import DATASETS
 
 # # Make sure it's registered with the correct registry
 if 'Dy30Dataset' not in DATASETS:
@@ -44,23 +40,26 @@ MODELS.register_module(module=MixVisionTransformer)
 MODELS.register_module(module=SegformerHead)
 # resnet
 from mmseg.models.backbones.resnet import ResNet
+
 MODELS.register_module(module=ResNet)
 from mmseg.models.decode_heads.uper_head import UPerHead
+
 MODELS.register_module(module=UPerHead)
-from mmseg.datasets.transforms import (
-    LoadAnnotations,
-    Resize,
-    RandomFlip,
-    RandomRotate,
-    RandomCrop,
-    PhotoMetricDistortion
-)
 # These transforms may be in different modules
 from mmcv.transforms import Normalize, Pad
-from mmseg.datasets import PackSegInputs
 
 # Register them properly
 from mmengine.registry import TRANSFORMS
+from mmseg.datasets import PackSegInputs
+from mmseg.datasets.transforms import (
+    LoadAnnotations,
+    PhotoMetricDistortion,
+    RandomCrop,
+    RandomFlip,
+    RandomRotate,
+    Resize,
+)
+
 for transform in [
     LoadAnnotations, Resize, RandomFlip,
     RandomRotate, RandomCrop, PhotoMetricDistortion,
@@ -72,22 +71,21 @@ for transform in [
 # MODELS.register_module(module=PackSegInputs)
 
 # Add this import at the top of train.py
-from mmseg.evaluation import IoUMetric
 from mmengine.registry import METRICS
+from mmseg.evaluation import IoUMetric
 
 # Register IoUMetric with the metrics registry
 if 'IoUMetric' not in METRICS:
     METRICS.register_module(module=IoUMetric)
 
-from mmseg.datasets import PackSegInputs
 from mmengine.registry import TRANSFORMS
+from mmseg.datasets import PackSegInputs
 
 # Register PackSegInputs if not already registered
 if 'PackSegInputs' not in TRANSFORMS:
     TRANSFORMS.register_module(module=PackSegInputs)
 
 from mmengine.registry import DATASETS as MMENGINE_DATASETS
-from mmseg.registry import DATASETS as MMSEG_DATASETS
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(

@@ -1,5 +1,6 @@
 # image_mapper.py
 from __future__ import annotations
+
 import argparse
 import dataclasses
 import datetime
@@ -10,25 +11,25 @@ import os
 import pathlib
 import re
 from collections import defaultdict
-from typing import Dict, Any, Tuple, List
+from typing import Any
 
 import pandas as pd
 from tqdm import tqdm
 
 from pipeline.common.organoid_patterns import (
-    OrganoidPatterns,
     OrganoidNormalizer,
+    OrganoidPatterns,
     clean_id_for_json,
+)
+from pipeline.images.image_resolver import (
+    classify_image_file,
+    extract_z_level,
+    find_best_focus,
+    group_by_split,
+    resolve_image,
 )
 from pipeline.images.metadata_resolver import load_and_clean_metadata
 from pipeline.images.verification import Verifier
-from pipeline.images.image_resolver import (
-    resolve_image,
-    group_by_split,
-    extract_z_level,
-    find_best_focus,
-    classify_image_file,
-)
 
 # Constants
 DAY_20_21 = "Dy20.5"
@@ -91,7 +92,7 @@ class ImageMapper:
         grouped = cleaned.groupby(["dayID", "batchPlate", "wellID"])
         presplit_wells, presplit_days = self._compute_presplit_wells(grouped)
 
-        mapping: Dict[str, Dict[str, Any]] = {}
+        mapping: dict[str, dict[str, Any]] = {}
         total_groups = len(grouped)
         stats = ProcessingStats()
 
@@ -120,7 +121,7 @@ class ImageMapper:
 
         self.write_output(out_json, mapping, total_groups, stats)
 
-    def _compute_presplit_wells(self, grouped) -> set[Tuple[str, str, str]]:
+    def _compute_presplit_wells(self, grouped) -> set[tuple[str, str, str]]:
         """
         Determine (dayID, batchPlate, wellID) combos that occur BEFORE the first split
         for that (batchPlate, wellID).
@@ -139,8 +140,8 @@ class ImageMapper:
         df_keys = pd.DataFrame(keys, columns=["dayID", "batchPlate", "wellID"])
         df_keys["dnum"] = df_keys["dayID"].apply(OrganoidNormalizer.extract_day_number)
 
-        presplit_wells: set[Tuple[str, str, str]] = set()
-        pre_split_days: Dict[str, List[str]] = defaultdict(list)
+        presplit_wells: set[tuple[str, str, str]] = set()
+        pre_split_days: dict[str, list[str]] = defaultdict(list)
         for split_key in self.verifier.verify_splits.keys():
             batch, plate, day, well = split_key.split(" ")
             batch_plate = f"{batch} {plate}"
@@ -184,7 +185,7 @@ class ImageMapper:
         full_id = clean_id_for_json(raw_full_id)
         return self._normalize_day_in_id(full_id)
 
-    def _extract_common_fields(self, group_df: pd.DataFrame) -> Dict[str, Any]:
+    def _extract_common_fields(self, group_df: pd.DataFrame) -> dict[str, Any]:
         """Extract common fields from group dataframe."""
         return {
             "um_per_px": float(group_df["um_per_px"].iloc[0]),
@@ -203,7 +204,7 @@ class ImageMapper:
         classification: str,
         all_files: list[pathlib.Path],
         best_z: int = -1,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build base entry dictionary with common fields."""
         common_fields = self._extract_common_fields(group_df)
         return {
@@ -249,10 +250,10 @@ class ImageMapper:
         batch_plate: str,
         day_id: str,
         well_id: str,
-        presplit_wells: set[Tuple[str, str, str]],
-        presplit_days: Dict[str, List[str]],
+        presplit_wells: set[tuple[str, str, str]],
+        presplit_days: dict[str, list[str]],
         group_df: pd.DataFrame
-    ) -> Tuple[ProcessingStats, Dict[str, Dict[str, Any]]]:
+    ) -> tuple[ProcessingStats, dict[str, dict[str, Any]]]:
         """
         Process batch plate, day, well group and add to mapping dictionary.
 
@@ -268,7 +269,7 @@ class ImageMapper:
             Tuple of (ProcessingStats, mapping dictionary)
         """
         stats = ProcessingStats()
-        mapping: Dict[str, Dict[str, Any]] = {}
+        mapping: dict[str, dict[str, Any]] = {}
 
         ba_str = self._normalize_batch_plate(batch_plate)
         full_id = self._build_full_id(ba_str, day_id, well_id)
@@ -324,9 +325,9 @@ class ImageMapper:
         batch_plate: str,
         well_id: str,
         group_df: pd.DataFrame,
-        presplit_wells: set[Tuple[str, str, str]],
-        presplit_days: Dict[str, List[str]],
-    ) -> Tuple[ProcessingStats, Dict[str, Dict[str, Any]]]:
+        presplit_wells: set[tuple[str, str, str]],
+        presplit_days: dict[str, list[str]],
+    ) -> tuple[ProcessingStats, dict[str, dict[str, Any]]]:
         """
         Define entries for split images.
 
@@ -345,7 +346,7 @@ class ImageMapper:
             Tuple of (ProcessingStats, mapping dictionary)
         """
         stats = ProcessingStats(found_count=1)
-        mapping: Dict[str, Dict[str, Any]] = {}
+        mapping: dict[str, dict[str, Any]] = {}
 
         for child_idx, group_files in sorted(child_groups.items()):
             final_file = pick_rep_file(group_files)
@@ -388,8 +389,8 @@ class ImageMapper:
         batch_plate: str,
         well_id: str,
         group_df: pd.DataFrame,
-        presplit_wells: set[Tuple[str, str, str]]
-    ) -> Tuple[ProcessingStats, Dict[str, Dict[str, Any]]]:
+        presplit_wells: set[tuple[str, str, str]]
+    ) -> tuple[ProcessingStats, dict[str, dict[str, Any]]]:
         """
         Define entries for multiple stitched images.
 
@@ -408,7 +409,7 @@ class ImageMapper:
             Tuple of (ProcessingStats, mapping dictionary)
         """
         stats = ProcessingStats(found_count=1)
-        mapping: Dict[str, Dict[str, Any]] = {}
+        mapping: dict[str, dict[str, Any]] = {}
 
         for identifier, group_files in stitched_groups.items():
             group_files.sort(key=lambda f: extract_z_level(f.name))
@@ -451,10 +452,10 @@ class ImageMapper:
         batch_plate: str,
         well_id: str,
         group_df: pd.DataFrame,
-        presplit_wells: set[Tuple[str, str, str]],
+        presplit_wells: set[tuple[str, str, str]],
         stitched_flag: str,
         chosen: pathlib.Path
-    ) -> Tuple[ProcessingStats, Dict[str, Dict[str, Any]]]:
+    ) -> tuple[ProcessingStats, dict[str, dict[str, Any]]]:
         """
         Define entry for a regular (non-split) image.
 
@@ -475,7 +476,7 @@ class ImageMapper:
             Tuple of (ProcessingStats, mapping dictionary)
         """
         stats = ProcessingStats()
-        mapping: Dict[str, Dict[str, Any]] = {}
+        mapping: dict[str, dict[str, Any]] = {}
 
         if not self._check_identifier(full_id, identifiers, stats):
             return stats, mapping
@@ -605,7 +606,7 @@ def load_identifiers(identifiers_file: pathlib.Path) -> set:
     Returns:
         set of identifier keys from the JSON file
     """
-    with open(identifiers_file, "r") as f:
+    with open(identifiers_file) as f:
         data = json.load(f)
         return set(data.keys()) if isinstance(data, dict) else set()
 

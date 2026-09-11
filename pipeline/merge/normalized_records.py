@@ -3,11 +3,10 @@
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
-from dataclasses import asdict, dataclass, field
 import logging
-from typing import Any, ClassVar, Dict, Iterable, List, Mapping, Optional, Protocol
-
+from collections import Counter
+from dataclasses import asdict, dataclass, field
+from typing import Any, ClassVar
 
 from rich.logging import RichHandler
 
@@ -16,7 +15,16 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
                     level=logging.INFO,
                     handlers=[RichHandler()])
 
-SchemaDict = Dict[str, Any]
+SchemaDict = dict[str, Any]
+
+# Canonical survey/label day. Organoid-level label tracking and split-conflict
+# detection consider ONLY records on this day: the survey is conducted on the
+# final timepoint (Dy30) and downstream analysis reads the label from Dy30
+# (see data_loader.LABEL_DAY). Secondary reviews on other days (e.g. a Dy28
+# survey) keep their own per-day label but must NOT participate in conflict
+# detection — otherwise a Dy28-vs-Dy30 disagreement is mistaken for a split
+# conflict and the organoid's label is wiped everywhere.
+SURVEY_LABEL_DAY = "Dy30"
 
 
 @dataclass(frozen=True)
@@ -38,33 +46,33 @@ class OrganoidRecord:
         return self.data["organoid_id"]
 
     @property
-    def day_id(self) -> Optional[str]:
+    def day_id(self) -> str | None:
         return self.data.get("day", {}).get("id")
 
     @property
-    def processed_img_path(self) -> Optional[str]:
+    def processed_img_path(self) -> str | None:
         return self.data.get("images", {}).get("processed", {}).get("img_path")
 
     @property
-    def overlay_img_path(self) -> Optional[str]:
+    def overlay_img_path(self) -> str | None:
         return self.data.get("images", {}).get("processed", {}).get("overlay_path")
 
     @property
-    def processed_mask_path(self) -> Optional[str]:
+    def processed_mask_path(self) -> str | None:
         return self.data.get("images", {}).get("processed", {}).get("mask_path")
 
     @property
-    def image_quality_label(self) -> Optional[str]:
+    def image_quality_label(self) -> str | None:
         label = self.data.get("images", {}).get("label", {})
         return label.get("acceptance_flag") if isinstance(label, dict) else None
 
     @property
-    def survey_majority_label(self) -> Optional[str]:
+    def survey_majority_label(self) -> str | None:
         label = self.data.get("survey", {}).get("label", {})
         return label.get("acceptance_flag") if isinstance(label, dict) else None
 
     @property
-    def survey_evaluation(self) -> Optional[List[dict]]:
+    def survey_evaluation(self) -> list[dict] | None:
         return self.data.get("survey", {}).get("evaluations", {})
 
 
@@ -181,15 +189,31 @@ class OrganoidRecordBuilder:
         Returns:
             The label
         """
+        # Only the canonical survey day defines an organoid's label and can
+        # raise a split conflict. Records on other days keep their own per-day
+        # label but are not tracked organoid-wide (see SURVEY_LABEL_DAY) — this
+        # prevents a cross-day disagreement (e.g. Dy28 vs Dy30) from being
+        # misread as a split conflict.
+        if day_id != SURVEY_LABEL_DAY:
+            return label
+
         if organoid_id in self.organoid_dict:
             existing = self.organoid_dict[organoid_id]
             existing_value = existing["label"].get("value")
             new_value = label.get("value")
 
             if existing_value is not None and new_value is not None and existing_value != new_value:
-                # Both splits have definitive labels that disagree — conflict
-                logging.warning(f"Labels do not match between days or splits: {source_id}/{organoid_id}. All labels for this organoid will be cleared.")
-                self._register_split_conflict(organoid_id, source_id)
+                # Two SURVEY_LABEL_DAY records for one organoid_id give conflicting
+                # definitive labels — i.e. split variants disagree. This is
+                # split-only by construction: non-SURVEY_LABEL_DAY records return
+                # early above, so a cross-day disagreement (e.g. Dy28 vs Dy30) can
+                # never reach here.
+                logging.warning(
+                    f"Conflicting {SURVEY_LABEL_DAY} labels for split variants of "
+                    f"{organoid_id} ({source_id}): '{existing_value}' vs '{new_value}'. "
+                    "Clearing this organoid's labels."
+                )
+                self._register_split_label_conflict(organoid_id, source_id)
                 label = {}
 
             elif existing_value is None and new_value is not None:
@@ -202,9 +226,19 @@ class OrganoidRecordBuilder:
 
         return label
 
-    def _register_split_conflict(self, organoid_id: str, source_id: str) -> None:
-        """Register a split label conflict for an organoid, clearing it from propagation tracking."""
-        logging.warning(f"Split label conflict registered for {source_id}/{organoid_id}. All labels will be removed after propagation.")
+    def _register_split_label_conflict(self, organoid_id: str, source_id: str) -> None:
+        """Flag an organoid whose same-day split variants carry conflicting labels.
+
+        Only reachable for ``SURVEY_LABEL_DAY`` records (see
+        ``_get_organoid_labels``), so this is a split conflict by construction —
+        NOT a cross-day (e.g. Dy28 vs Dy30) disagreement. The organoid is added to
+        ``conflicted_organoids`` and all of its labels are removed after
+        propagation.
+        """
+        logging.warning(
+            f"Split label conflict for {organoid_id} ({source_id}); all its labels "
+            "will be removed after propagation."
+        )
         self.record_metrics.num_label_skipped += 1
         self.conflicted_organoids.add(organoid_id)
         if organoid_id in self.organoid_dict:
@@ -213,8 +247,8 @@ class OrganoidRecordBuilder:
     def _build_images(
         self,
         entry: SchemaDict,
-        manual_mask_path: Optional[str],
-        manual_mask_path_orginal: Optional[str]
+        manual_mask_path: str | None,
+        manual_mask_path_orginal: str | None
     ) -> SchemaDict:
         raw_images = entry.get("all_files") or []
 
@@ -245,6 +279,8 @@ class OrganoidRecordBuilder:
             "manual_mask_path_orginal": manual_mask_path_orginal,
             "overlay_path": entry.get("overlay_path"),
             "edge_fraction": entry.get("edge_fraction"),
+            "mask_area_px": entry.get("mask_area_px"),
+            "mask_area_um2": entry.get("mask_area_um2"),
             "dimensions_px": {
                 "orig": {
                     "width": entry.get("orig_width_px"),
@@ -270,7 +306,7 @@ class OrganoidRecordBuilder:
         }
 
 
-    def _build_surveys(self, survey: SchemaDict) -> Optional[SchemaDict]:
+    def _build_surveys(self, survey: SchemaDict) -> SchemaDict | None:
         if not survey:
             return {}
         evaluations = [

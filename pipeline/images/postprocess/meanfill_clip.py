@@ -36,7 +36,7 @@ import json
 import logging
 import random
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import cv2
 import numpy as np
@@ -199,16 +199,16 @@ def safe_stem(s: str) -> str:
 
 
 def pick_paths(
-    entry: Dict[str, Any],
+    entry: dict[str, Any],
     processed_base: Path,
-    ar_images_base: Optional[Path],
-    ar_masks_base: Optional[Path],
-    images_base: Optional[Path],
-    masks_base: Optional[Path],
+    ar_images_base: Path | None,
+    ar_masks_base: Path | None,
+    images_base: Path | None,
+    masks_base: Path | None,
     image_field_override: str,
     mask_field_override: str,
     source: str = "auto",
-) -> Tuple[Optional[Path], Optional[Path], str, str]:
+) -> tuple[Path | None, Path | None, str, str]:
     """
     Returns: (img_path, mask_path, used_img_field, used_mask_field)
     """
@@ -238,8 +238,8 @@ def pick_paths(
         image_candidates += ["processed_image_abs", "processed_image", "std_image"]
         if not has_ar:
             image_candidates += ["ar_image_abs", "ar_image"]
-            
-    img_path: Optional[Path] = None
+
+    img_path: Path | None = None
     used_img_field = ""
     for k in image_candidates:
         v = entry.get(k)
@@ -284,7 +284,7 @@ def pick_paths(
         "std_mask",  # Put std_mask last to avoid mismatched dimensions
     ]
 
-    mask_path: Optional[Path] = None
+    mask_path: Path | None = None
     used_mask_field = ""
     for k in mask_candidates:
         v = entry.get(k)
@@ -325,8 +325,8 @@ def apply_mean_fill(
     img_rgb_u8: np.ndarray,
     mask_u8: np.ndarray,
     mean_rgb01: np.ndarray,
-    blur_kernel: Tuple[int, int],
-    dilate_kernel: Tuple[int, int],
+    blur_kernel: tuple[int, int],
+    dilate_kernel: tuple[int, int],
     dilate_iterations: int,
     mask_foreground: str,
 ) -> np.ndarray:
@@ -361,18 +361,18 @@ def apply_mean_fill(
 
 
 def compute_global_mean_rgb01(
-    entries: Dict[str, Dict[str, Any]],
+    entries: dict[str, dict[str, Any]],
     processed_base: Path,
-    ar_images_base: Optional[Path],
-    ar_masks_base: Optional[Path],
-    images_base: Optional[Path],
-    masks_base: Optional[Path],
+    ar_images_base: Path | None,
+    ar_masks_base: Path | None,
+    images_base: Path | None,
+    masks_base: Path | None,
     image_field_override: str,
     mask_field_override: str,
     mask_foreground: str,
     mean_region: str,
     sample_n: int,
-    source: str = "auto") -> Tuple[np.ndarray, int]:
+    source: str = "auto") -> tuple[np.ndarray, int]:
     """
     Compute ONE RGB mean vector in [0,1].
 
@@ -469,7 +469,7 @@ def main() -> None:
     args.out_images_dir.mkdir(parents=True, exist_ok=True)
 
     mapping = json.loads(args.image_mapping_json.read_text())
-    entries: Dict[str, Dict[str, Any]] = mapping.get("entries", {})
+    entries: dict[str, dict[str, Any]] = mapping.get("entries", {})
     if not isinstance(entries, dict) or not entries:
         raise RuntimeError("image-mapping-json missing or empty 'entries' dict")
 
@@ -648,7 +648,7 @@ def main() -> None:
         }
     }
 
-   
+
     new_json = args.out_mapping_json
     if new_json is None:
         new_json = args.image_mapping_json.parent / (args.image_mapping_json.stem + "_meanfill.json")

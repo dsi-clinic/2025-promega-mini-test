@@ -1,15 +1,19 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
+This is the single agent-facing doc for the repo (`CLAUDE.md` is a symlink to it). Humans start at `README.md`.
 
-## Quick Reference
+## Task tracking is MANDATORY — everything runs through beads
+
+**All work runs through `bd` (beads).** Every task — new work, a follow-up you discover mid-session, a bug, a paper figure/table — must exist as a bead before you start it and be updated as you go. Do not do non-trivial work that isn't tracked in beads; if you find yourself about to, file it first (`bd create`). This applies to humans and agents alike.
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
-bd sync               # Sync with git
+bd onboard                           # one-time orientation
+bd ready                             # find available work
+bd show <id>                         # view issue details
+bd create "title" -d "..." -p 2 -l label1,label2   # file new work (do this before starting it)
+bd update <id> --status in_progress  # claim work
+bd close <id>                        # complete work
+bd sync                              # sync with git (part of "landing the plane")
 ```
 
 ## Environment
@@ -67,8 +71,7 @@ Labels, features, filtering — everything is derived at runtime from `data/all_
 When reproducing paper results, apply these filters (already the defaults in `data_loader.py`):
 - **Batches**: BA1 + BA2 only
 - **Labels**: 4/5 vote consensus at Dy30
-- **Metabolites**: All 5 required metabolites present (GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, BCAAGlo)
-- **Conditional metabolites**: MalateGlo included only for days > 10 (early-day values not assayed); BCAAGlo required all days
+- **Metabolites**: All 6 required metabolites present for every day (GlucoseGlo, GlutamateGlo, LactateGlo, PyruvateGlo, BCAAGlo, MalateGlo). MalateGlo is no longer day-gated — its early-day reads are present (near the noise floor), not missing.
 - **Images**: Valid processed `img_path` + `mask_path` on every day
 
 ### 5. Seed = 42 everywhere
@@ -119,6 +122,60 @@ Per metabolite per day:
 
 Growth features require a previous timepoint and are unavailable at Dy03.
 
+## Engineering Discipline (rules 11–17)
+
+These are code-quality rules for every new pipeline/analysis change, not just paper reproduction. Rules 11, 12, and 14 depend on test/lint tooling the repo does not have yet — that setup is tracked in beads (`2025-promega-mini-test-spm` for pytest, `2025-promega-mini-test-kbe` for ruff). Until those land, still write the asserts and types inline; the automated gate follows.
+
+### 11. Organoid count is conserved — assert it, and test it
+
+The number of organoids in a sample must never change silently. Capture the starting count once and assert the result still matches it:
+
+```python
+n0 = len(ds.organoid_ids)
+# ... transforms / joins / feature building ...
+assert len(result_ids) == n0, f"organoid count changed: {n0} -> {len(result_ids)}"
+```
+
+When a step is *meant* to reduce the sample (e.g. applying a cohort filter), assert the **exact** expected count, not `<=`:
+
+```python
+assert n == 248, f"full cohort expected 248, got {n}"
+```
+
+Every module that transforms the sample ships a test asserting the count is preserved (or equals the declared expected total). Silent organoid loss from a bad join/filter/merge is this codebase's highest-impact failure mode — it has bitten us (delta-computation drops, the edge_fraction merge gap) — and these asserts + tests are how we catch it.
+
+### 12. Separation of concerns + ruff-clean
+
+Keep data loading, transformation, modeling, and plotting in distinct functions/modules — don't bury a join inside a plotting routine. All code must pass `ruff check` and be `ruff format`-clean before commit (`make lint` once `kbe` lands).
+
+### 13. Type annotations by default
+
+All new functions carry type hints on parameters and return values, unless there is a strong, commented reason to omit them. This codebase has deeply-nested dict schemas (`all_data.json`); types are load-bearing documentation, not decoration.
+
+### 14. Assert every join
+
+Use asserts liberally to prove joins/merges did what you expect. After **every** merge, assert the row count equals the expected amount, and assert key uniqueness before any join that assumes it:
+
+```python
+assert left["organoid_id"].is_unique, "join key not unique"
+merged = left.merge(right, on="organoid_id", how="left", validate="one_to_one")
+assert len(merged) == len(left), f"row count changed on join: {len(left)} -> {len(merged)}"
+```
+
+Prefer pandas' built-in `validate=` (`"1:1"`, `"m:1"`, …) **and** an explicit row-count assert — they catch different failures (fan-out vs. silent drop).
+
+### 15. Fail loud on dropped rows
+
+Never swallow data loss. No bare `except:` — catch specific exceptions. Whenever rows or organoids are dropped (a filter, a `dropna`, a failed lookup), log the count and the reason at WARNING. A drop that isn't logged is a bug. Pairs with rule 11 (count conservation) and rule 14 (join asserts).
+
+### 16. Analysis inputs come only from all_data.json — never recompute live
+
+Extends rule 3. If a quantity is persisted in `all_data.json` (e.g. `concentration_uM_win`, `mask_area_um2`), analysis code **reads** it — it does not recompute it on the fly. Recomputing a stored value live risks silent drift between what's analyzed and what's on disk (this bit us with the winsorized fields). If a value needs recomputing, regenerate `all_data.json` through the pipeline, then read it back.
+
+### 17. Deterministic ordering
+
+Reproducibility (rule 5) requires stable order. Sort collections before iterating, writing, or splitting; never depend on dict/set iteration order for outputs. Two runs on the same input must produce byte-identical results, splits, and figures.
+
 ## Schema Invariants
 
 These are properties of `data/all_data.json` and the pipeline that produces it; encoded in `pipeline/merge/normalized_records.py` and `pipeline/data_loader.py`. Treat them as load-bearing — code that depends on them lives across the repo.
@@ -135,6 +192,25 @@ These are properties of `data/all_data.json` and the pipeline that produces it; 
 - **Don't** hard-code data paths; use `$DATA_ROOT` / Makefile variables.
 - **Don't** `pip install` outside `core_env`; add to `core_env.yaml` and rebuild.
 - **Don't** overwrite `data/splits/canonical_2026_winter.csv` casually — `generate_splits.py` guards against this. Use `--output <new-path>` to add a labeled alternate.
+- **Don't** let the organoid count change silently — assert it (rule 11); a silent drop is the worst bug here.
+- **Don't** merge without asserting the result row count and key uniqueness (rule 14).
+- **Don't** swallow dropped rows in a bare `except` — catch specifically and log the count + reason (rule 15).
+- **Don't** recompute a value that's already persisted in `all_data.json` — read it (rule 16).
+
+## Where to put new code
+
+One-page rule for where code and data live. `pipeline/` produces `all_data.json`; `analysis/` consumes it.
+
+- **`pipeline/`** — everything that turns raw inputs into `data/all_data.json` (steps 1-16). Deterministic; no ML training; no paper-specific logic. Rule: if it reads `$RAW_DIR` or writes `$INTERMEDIATE_DIR` / `$MODELS_DIR/mmseg`, it belongs here, and every module should be callable as `make stepN`.
+  - `identifiers/` step 1 · `metabolites/` step 2 · `surveys/` step 3
+  - `images/` steps 4-15: `image_mapper.py` (4), `segmentation_mmseg/` (5,7,8,9 — needs `mmcv_env`), `resize/` (6,14), `quality/` (10,11), `series/` (12,13), `postprocess/` (15)
+  - `merge/` step 16 (`all_data.json`) · `common/` shared helpers · `data_loader.py` canonical `OrganoidDataset`
+- **`analysis/`** — everything that consumes `all_data.json`: model heads, exploration, paper replication. Rule: if the input is `data/all_data.json` (or derived at runtime from it), it belongs here. Paper-specific scripts go under `analysis/<paper-tag>/` (e.g. `paper_2026_04/`, `2026_06_metabolite_pred/`) so they stay reproducible as the core evolves. Built against `pipeline.data_loader` public API only.
+- **`data/`** — checked-in outputs only: `all_data.json` + named split CSVs under `data/splits/`. Never materialize filtered/derived views to disk (rule #3).
+- **`scripts/`** — standalone utilities not part of the pipeline.
+- **`paper/`**, **`notes/`** — writing, figures, feedback, working notes.
+
+Generated figures/reports go to `$ANALYSIS_OUTPUT_DIR` (gitignored), never into the repo tree.
 
 ## Landing the Plane (Session Completion)
 

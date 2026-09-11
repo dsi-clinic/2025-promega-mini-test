@@ -1,11 +1,11 @@
-from dotenv import load_dotenv
-import os
 import json
 import logging
+import os
 from pathlib import Path
 
 from mmengine.dataset import BaseDataset
 from mmseg.registry import DATASETS
+
 
 @DATASETS.register_module()
 class Dy30Dataset(BaseDataset):
@@ -59,7 +59,7 @@ class Dy30Dataset(BaseDataset):
             list[dict]: A list of annotation.
         """
         # Load the JSON mapping file
-        with open(self.json_mapping_path, 'r') as f:
+        with open(self.json_mapping_path) as f:
             image_mapping = json.load(f)
 
         logging.info("Loaded %d entries from image mapping JSON", len(image_mapping))

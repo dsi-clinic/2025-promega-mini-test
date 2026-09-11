@@ -23,7 +23,6 @@ Usage:
 import argparse
 from collections import Counter
 from pathlib import Path
-from typing import Dict
 
 from pipeline.data_loader import OrganoidDataset
 from pipeline.splits import CANONICAL_PATH, Splits
@@ -34,13 +33,13 @@ RATIOS = {"train": 0.72, "val": 0.08, "test": 0.20}
 DEFAULT_SEED = 42
 
 
-def collect_labeled_organoids(all_data_path: Path) -> Dict[str, str]:
+def collect_labeled_organoids(all_data_path: Path) -> dict[str, str]:
     """Build {organoid_id: label} via OrganoidDataset's paper-default filters."""
     ds = OrganoidDataset(str(all_data_path))
     return ds.organoid_labels()
 
 
-def print_summary(org_labels: Dict[str, str], splits: Splits) -> None:
+def print_summary(org_labels: dict[str, str], splits: Splits) -> None:
     total = len(splits)
     label_counts = Counter(org_labels.values())
     print(f"Total organoids passing filters: {total}")

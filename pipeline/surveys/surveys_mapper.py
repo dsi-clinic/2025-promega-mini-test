@@ -15,7 +15,6 @@ import pandas as pd
 from pipeline.common.organoid_patterns import OrganoidNormalizer, clean_id_for_json
 from pipeline.data_loader import MIN_VOTES
 
-
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S',
@@ -391,7 +390,7 @@ def process_organoid_files(directory, identifiers_file: pathlib.Path, min_survey
     excel_files = get_excel_files(directory)
     logging.info("Total excel files found: %d", len(excel_files))
 
-    with open(identifiers_file, "r") as f:
+    with open(identifiers_file) as f:
         identifiers = json.load(f)
     logging.info("Total identifiers found: %d", len(identifiers))
 

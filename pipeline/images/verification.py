@@ -1,14 +1,13 @@
 # verification.py
 from __future__ import annotations
 
-from pathlib import Path
 import logging
 import re
-from typing import Dict, Tuple, List
-from pipeline.common.organoid_patterns import OrganoidPatterns
+from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
+
 
 class Verifier:
     """
@@ -18,9 +17,9 @@ class Verifier:
     """
 
     def __init__(self, verify_csv: Path):
-        self.verify_map: Dict[str, str] = {}
-        self.verify_norm2orig: Dict[str, str] = {}
-        self.verify_splits: Dict[str, List[str]] = {}
+        self.verify_map: dict[str, str] = {}
+        self.verify_norm2orig: dict[str, str] = {}
+        self.verify_splits: dict[str, list[str]] = {}
         self._load_csv(verify_csv)
 
     def _load_csv(self, verify_csv: Path) -> None:
@@ -114,7 +113,7 @@ class Verifier:
         ba_str: str,
         day_id: str,
         well_id: str,
-    ) -> Tuple[str, list[str]]:
+    ) -> tuple[str, list[str]]:
         """
         Build normalized prefix and candidate keys from verify_map.
         """

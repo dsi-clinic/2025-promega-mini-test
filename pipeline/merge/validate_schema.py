@@ -7,7 +7,7 @@ import random
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -30,15 +30,15 @@ class SchemaValidationError(Exception):
 class ValidationContext:
     """Context object to hold validation state and helper methods."""
 
-    def __init__(self, record_id: str, errors: List[str], warnings: List[str],
-                 stats: Dict[str, Any], strict: bool = False):
+    def __init__(self, record_id: str, errors: list[str], warnings: list[str],
+                 stats: dict[str, Any], strict: bool = False):
         self.record_id = record_id
         self.errors = errors
         self.warnings = warnings
         self.stats = stats
         self.strict = strict
 
-    def check_type(self, obj: Any, expected_type: Union[type, Tuple[type, ...]],
+    def check_type(self, obj: Any, expected_type: type | tuple[type, ...],
                    field_path: str, required: bool = True) -> bool:
         """Check if object is of expected type."""
         if obj is None:
@@ -51,7 +51,7 @@ class ValidationContext:
             return False
         return True
 
-    def check_required_fields(self, obj: Dict[str, Any], required_fields: List[str],
+    def check_required_fields(self, obj: dict[str, Any], required_fields: list[str],
                             field_path: str) -> bool:
         """Check if all required fields are present in object."""
         if not isinstance(obj, dict):
@@ -62,8 +62,8 @@ class ValidationContext:
             return False
         return True
 
-    def check_nested_structure(self, parent: Dict[str, Any], field_name: str,
-                              required_fields: List[str], field_path: str) -> Optional[Dict[str, Any]]:
+    def check_nested_structure(self, parent: dict[str, Any], field_name: str,
+                              required_fields: list[str], field_path: str) -> dict[str, Any] | None:
         """Check nested structure exists and has required fields."""
         nested = parent.get(field_name, {})
         if not self.check_type(nested, dict, f"{field_path}.{field_name}"):
@@ -72,7 +72,7 @@ class ValidationContext:
             return None
         return nested
 
-    def validate_path(self, path: Optional[str], field_path: str) -> None:
+    def validate_path(self, path: str | None, field_path: str) -> None:
         """Validate file path exists (only in strict mode)."""
         if path and self.strict and not Path(path).exists():
             self.warnings.append(f"Record {self.record_id}: {field_path} does not exist: {path}")
@@ -84,8 +84,8 @@ class ValidationContext:
         self.stats[key][value] = self.stats[key].get(value, 0) + 1
 
 
-def validate_path_fields(ctx: ValidationContext, processed: Dict[str, Any],
-                        path_fields: List[str], base_path: str) -> None:
+def validate_path_fields(ctx: ValidationContext, processed: dict[str, Any],
+                        path_fields: list[str], base_path: str) -> None:
     """Validate multiple path fields in processed images."""
     for field in path_fields:
         path_value = processed.get(field)
@@ -95,7 +95,7 @@ def validate_path_fields(ctx: ValidationContext, processed: Dict[str, Any],
             ctx.validate_path(path_value, f"{base_path}.{field}")
 
 
-def validate_day_structure(ctx: ValidationContext, day: Dict[str, Any]) -> None:
+def validate_day_structure(ctx: ValidationContext, day: dict[str, Any]) -> None:
     """Validate day structure."""
     required_day_fields = ['id', 'number', 'original']
     if not ctx.check_required_fields(day, required_day_fields, 'day'):
@@ -113,13 +113,13 @@ def validate_day_structure(ctx: ValidationContext, day: Dict[str, Any]) -> None:
     ctx.track_distribution('day_distribution', day_id)
 
 
-def validate_plate_structure(ctx: ValidationContext, plate: Dict[str, Any]) -> None:
+def validate_plate_structure(ctx: ValidationContext, plate: dict[str, Any]) -> None:
     """Validate plate structure."""
     required_plate_fields = ['batch', 'well']
     ctx.check_required_fields(plate, required_plate_fields, 'plate')
 
 
-def validate_metadata_structure(ctx: ValidationContext, metadata: Dict[str, Any]) -> None:
+def validate_metadata_structure(ctx: ValidationContext, metadata: dict[str, Any]) -> None:
     """Validate metadata structure."""
     required_metadata_fields = ['classification', 'verification']
     if not ctx.check_required_fields(metadata, required_metadata_fields, 'metadata'):
@@ -134,7 +134,7 @@ def validate_metadata_structure(ctx: ValidationContext, metadata: Dict[str, Any]
             ctx.track_distribution('classification_verification_distribution', class_verif)
 
 
-def validate_images_structure(ctx: ValidationContext, images: Dict[str, Any]) -> None:
+def validate_images_structure(ctx: ValidationContext, images: dict[str, Any]) -> None:
     """Validate images structure."""
     if not ctx.check_type(images, dict, 'images'):
         return
@@ -150,7 +150,7 @@ def validate_images_structure(ctx: ValidationContext, images: Dict[str, Any]) ->
         if raw_images:
             ctx.check_type(raw_images, list, 'images.raw_images')
 
-def validate_metabolites_structure(ctx: ValidationContext, metabolites: Dict[str, Any]) -> None:
+def validate_metabolites_structure(ctx: ValidationContext, metabolites: dict[str, Any]) -> None:
     """Validate metabolites structure."""
     if not metabolites:
         return
@@ -160,7 +160,6 @@ def validate_metabolites_structure(ctx: ValidationContext, metabolites: Dict[str
         return
 
     required_metabolites_fields = ['concentration_uM', 'is_outlier']
-    expected_metabolites = ['BCAAGlo', 'GlucoseGlo', 'GlutamateGlo', 'LactateGlo', 'MalateGlo', 'PyruvateGlo']
 
     for metab_key, metab_data in metabolites.items():
         if not ctx.check_type(metab_data, dict, f'metabolite.{metab_key}'):
@@ -180,7 +179,7 @@ def validate_metabolites_structure(ctx: ValidationContext, metabolites: Dict[str
             ctx.check_type(metab_data['is_outlier'], bool, f'metabolite.{metab_key}.is_outlier')
 
 
-def validate_survey_structure(ctx: ValidationContext, survey: Dict[str, Any]) -> None:
+def validate_survey_structure(ctx: ValidationContext, survey: dict[str, Any]) -> None:
     """Validate survey structure."""
     if not survey:
         return
@@ -200,7 +199,7 @@ def validate_survey_structure(ctx: ValidationContext, survey: Dict[str, Any]) ->
             ctx.check_type(field_value, list, f'survey.{list_field}')
 
 
-def validate_label_structure(ctx: ValidationContext, label: Dict[str, Any]) -> None:
+def validate_label_structure(ctx: ValidationContext, label: dict[str, Any]) -> None:
     # Validate label structure
     if not label:
         return
@@ -246,7 +245,7 @@ def validate_record_id_format(ctx: ValidationContext, record_id: str) -> None:
         ctx.warnings.append(f"Record {record_id}: ID format may be unexpected (expected pattern: BA#_96_#_Dy##_A# or BA# 96_# Dy## A# optionally with _split_# or  split #)")
 
 
-def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = None, strict: bool = False) -> Dict[str, Any]:
+def validate_records_dict(data: dict[str, Any], sample_size: int | None = None, strict: bool = False) -> dict[str, Any]:
     """
     Perform light schema validation on a records dictionary (in-memory).
 
@@ -263,8 +262,8 @@ def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = Non
             'stats': Dict[str, Any]
         }
     """
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
     stats = {
         'total_records': 0,
         'records_with_required_fields': 0,
@@ -356,8 +355,8 @@ def validate_records_dict(data: Dict[str, Any], sample_size: Optional[int] = Non
     }
 
 
-def validate_all_data_json(json_path: Optional[Path] = None, data: Optional[Dict[str, Any]] = None,
-                           sample_size: Optional[int] = None, strict: bool = False) -> Dict[str, Any]:
+def validate_all_data_json(json_path: Path | None = None, data: dict[str, Any] | None = None,
+                           sample_size: int | None = None, strict: bool = False) -> dict[str, Any]:
     """
     Perform light schema validation on all_data.json (file or in-memory dict).
 
@@ -384,7 +383,7 @@ def validate_all_data_json(json_path: Optional[Path] = None, data: Optional[Dict
             raise SchemaValidationError(f"File does not exist: {json_path}")
 
         try:
-            with open(json_path, 'r') as f:
+            with open(json_path) as f:
                 data = json.load(f)
         except json.JSONDecodeError as e:
             raise SchemaValidationError(f"Invalid JSON: {e}")
@@ -395,7 +394,7 @@ def validate_all_data_json(json_path: Optional[Path] = None, data: Optional[Dict
     return validate_records_dict(data, sample_size=sample_size, strict=strict)
 
 
-def log_validation_report(results: Dict[str, Any]) -> None:
+def log_validation_report(results: dict[str, Any]) -> None:
     """Log a formatted validation report."""
     logger.info("")
     logger.info("="*60)
@@ -414,7 +413,7 @@ def log_validation_report(results: Dict[str, Any]) -> None:
     logger.info(f"Records with survey: {results['stats']['records_with_survey']}")
 
     if results['stats']['day_distribution']:
-        logger.info(f"Day distribution (top 10):")
+        logger.info("Day distribution (top 10):")
         sorted_days = sorted(results['stats']['day_distribution'].items(), key=lambda x: x[1], reverse=True)[:10]
         for day, count in sorted_days:
             logger.info(f"  {day}: {count}")

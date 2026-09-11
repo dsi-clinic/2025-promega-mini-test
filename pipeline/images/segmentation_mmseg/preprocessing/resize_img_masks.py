@@ -5,11 +5,11 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
-from tqdm import tqdm
+from typing import Any
 
 import cv2
 import numpy as np
+from tqdm import tqdm
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
@@ -93,7 +93,7 @@ def get_args() -> argparse.Namespace:
     return args
 
 
-def load_mask_mappings(mask_json_paths: list[Path]) -> Dict[str, Dict[str, Any]]:
+def load_mask_mappings(mask_json_paths: list[Path]) -> dict[str, dict[str, Any]]:
     """
     Load and merge mask mapping JSON files.
 
@@ -116,7 +116,7 @@ def load_mask_mappings(mask_json_paths: list[Path]) -> Dict[str, Dict[str, Any]]
     return master_map
 
 
-def load_image_mapping(image_json_path: Path) -> Dict[str, Dict[str, Any]]:
+def load_image_mapping(image_json_path: Path) -> dict[str, dict[str, Any]]:
     """
     Load image mapping JSON file, handling both wrapped and flat formats.
 
@@ -155,10 +155,10 @@ def load_image_mapping(image_json_path: Path) -> Dict[str, Dict[str, Any]]:
 def setup_output_directories(
     image_json_path: Path,
     mask_json_paths: list[Path],
-    target_size: Tuple[int, int],
-    output_images_dir: Optional[Path],
-    output_masks_dir: Optional[Path]
-) -> Tuple[Path, Path]:
+    target_size: tuple[int, int],
+    output_images_dir: Path | None,
+    output_masks_dir: Path | None
+) -> tuple[Path, Path]:
     """
     Set up output directories for processed images and masks.
 
@@ -191,7 +191,7 @@ def setup_output_directories(
     return images_out, masks_out
 
 
-def build_output_filename(info: Dict[str, Any]) -> str:
+def build_output_filename(info: dict[str, Any]) -> str:
     """
     Build output filename from info dictionary, preserving actual dayID.
 
@@ -204,7 +204,7 @@ def build_output_filename(info: Dict[str, Any]) -> str:
     return f"{info.get('BA')} {info.get('dayID')} {info.get('wellID')}"
 
 
-def load_image(img_path: Path) -> Optional[np.ndarray]:
+def load_image(img_path: Path) -> np.ndarray | None:
     """
     Load an image file.
 
@@ -219,7 +219,7 @@ def load_image(img_path: Path) -> Optional[np.ndarray]:
     return cv2.imread(str(img_path))
 
 
-def load_mask(mask_path: Path) -> Optional[np.ndarray]:
+def load_mask(mask_path: Path) -> np.ndarray | None:
     """
     Load a mask file as grayscale.
 
@@ -234,7 +234,7 @@ def load_mask(mask_path: Path) -> Optional[np.ndarray]:
     return cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
 
 
-def resize_image(img: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
+def resize_image(img: np.ndarray, target_size: tuple[int, int]) -> np.ndarray:
     """
     Resize an image to target size.
 
@@ -248,7 +248,7 @@ def resize_image(img: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
     return cv2.resize(img, target_size, interpolation=IMAGE_INTERP)
 
 
-def resize_mask(msk: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
+def resize_mask(msk: np.ndarray, target_size: tuple[int, int]) -> np.ndarray:
     """
     Resize a mask to target size and binarize it.
 
@@ -263,7 +263,7 @@ def resize_mask(msk: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
     return (msk_rs > 0).astype(np.uint8)
 
 
-def create_blank_mask(target_size: Tuple[int, int]) -> np.ndarray:
+def create_blank_mask(target_size: tuple[int, int]) -> np.ndarray:
     """
     Create a blank (all zeros) mask of target size.
 
@@ -282,7 +282,7 @@ def save_resized_pair(
     filename_base: str,
     images_out: Path,
     masks_out: Path
-) -> Tuple[Path, Path]:
+) -> tuple[Path, Path]:
     """
     Save resized image and mask pair to disk.
 
@@ -307,9 +307,9 @@ def save_resized_pair(
 def create_mapping_entry(
     img_path: Path,
     mask_path: Path,
-    info: Dict[str, Any],
+    info: dict[str, Any],
     is_blank: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a mapping dictionary entry.
 
@@ -338,11 +338,11 @@ def create_mapping_entry(
 
 def process_mask_entry(
     img_id: str,
-    info: Dict[str, Any],
+    info: dict[str, Any],
     images_out: Path,
     masks_out: Path,
-    target_size: Tuple[int, int]
-) -> Optional[Dict[str, Any]]:
+    target_size: tuple[int, int]
+) -> dict[str, Any] | None:
     """
     Process a single entry with mask: load, resize, and save.
 
@@ -381,11 +381,11 @@ def process_mask_entry(
 
 def process_blank_entry(
     img_id: str,
-    info: Dict[str, Any],
+    info: dict[str, Any],
     images_out: Path,
     masks_out: Path,
-    target_size: Tuple[int, int]
-) -> Optional[Dict[str, Any]]:
+    target_size: tuple[int, int]
+) -> dict[str, Any] | None:
     """
     Process a single blank entry: load image, create blank mask, and save.
 
@@ -418,9 +418,9 @@ def process_blank_entry(
 
 
 def save_mapping_json(
-    new_map: Dict[str, Dict[str, Any]],
+    new_map: dict[str, dict[str, Any]],
     images_out: Path,
-    target_size: Tuple[int, int]
+    target_size: tuple[int, int]
 ) -> Path:
     """
     Save the final mapping JSON file.
@@ -445,7 +445,7 @@ def log_summary(
     blank_added: int,
     blank_skipped: int,
     non_blank_skipped: int,
-    new_map: Dict[str, Dict[str, Any]],
+    new_map: dict[str, dict[str, Any]],
     new_json: Path,
     elapsed_time: datetime.timedelta
 ) -> None:

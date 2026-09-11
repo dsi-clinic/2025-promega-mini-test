@@ -3,6 +3,26 @@
 Metabolite Organoid Quality Classification
 Trains per-day classifiers using LightGBM with metabolite features.
 
+ARCHIVED — DOES NOT RUN ON MAIN.
+================================
+This file lives in `metabolites_legacy/` and is kept as a frozen reference of
+the pre-2026-04 training flow. It hard-codes paths to
+``data_splits/both_{train,val,test}_base.json`` (around line 570) which
+were removed in PR #107 (rule #3: no materialized split JSONs). PR #110 would
+have re-introduced them under a different partition; that PR was closed and
+its content was instead pulled into ``data/splits/harriet_2026_05.csv`` via
+PR #113. To resurrect this trainer, port it to the current Splits API:
+
+    from pipeline.data_loader import OrganoidDataset, filters_for_mode
+    from pipeline.splits import Splits
+    ds = OrganoidDataset("data/all_data.json",
+                         splits=Splits.canonical(),
+                         filters=filters_for_mode("base"))
+
+The active replacement is `analysis.paper_2026_04.metabolites_train`.
+
+Original docstring follows.
+
 Improvements implemented (keeping core logic and outputs the same):
 - Class weighting using sklearn.compute_class_weight
 - Expanded LightGBM hyperparameter grid (num_leaves, min_child_samples, etc.)

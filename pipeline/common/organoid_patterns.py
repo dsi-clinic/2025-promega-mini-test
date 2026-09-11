@@ -9,7 +9,6 @@ re-needed.
 """
 
 import re
-from typing import Optional
 
 
 class OrganoidPatterns:
@@ -67,7 +66,7 @@ class OrganoidNormalizer:
         return OrganoidPatterns.NORMALIZE_SPACES.sub(" ", text).strip()
 
     @staticmethod
-    def extract_day_number(text: str) -> Optional[int]:
+    def extract_day_number(text: str) -> int | None:
         """Extract day number as integer ('Dy03' → 3, 'Day 12' → 12). Lossy for half-days."""
         match = OrganoidPatterns.DAY_EXTRACT.search(text)
         return int(match.group(1)) if match else None

@@ -6,7 +6,6 @@ custom_imports = dict(
     # allow_failed_imports=False
 )
 
-from pipeline.images.segmentation_mmseg.datasets.day_datasets import Dy30Dataset
 
 # Dataset paths - will be set directly in train.py from command-line args
 # mapping_days0310 = early days, mapping_days1330 = late days

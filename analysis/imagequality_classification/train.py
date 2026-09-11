@@ -3,7 +3,6 @@
 
 import random
 from collections import defaultdict
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -14,7 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
 
 from .data import filter_missing_files, make_loader
-from .eval import evaluate_on_loader, get_test_metrics, get_validation_metrics
+from .eval import get_test_metrics, get_validation_metrics
 from .models import BACKBONES, DEVICE, EarlyStopping, ImageOnlyClassifier
 from .plots import plot_training_curve
 

@@ -7,18 +7,20 @@ tf.data helpers (create_dataset / load_and_preprocess_tf / augment_data) load
 images and masks lazily and feed the dual-branch ResNet50V2 classifier.
 """
 
-import json
 from collections import defaultdict
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Dict, List, Mapping
+from typing import Any
 
 import tensorflow as tf
 
 from pipeline.common.json_views import BaseViewEmitter
-from pipeline.data_loader import MIN_VOTES
-from pipeline.merge.normalized_records import OrganoidRecord  # noqa: F401  (kept for typing reference)
+from pipeline.data_loader import MIN_VOTES, iter_organoid_records
+from pipeline.merge.normalized_records import (
+    OrganoidRecord,  # noqa: F401  (kept for typing reference)
+)
 
-SCHEMA_DICT = Dict[str, Any]
+SCHEMA_DICT = dict[str, Any]
 
 
 class SurveyClassifierEmitter(BaseViewEmitter):
@@ -29,8 +31,8 @@ class SurveyClassifierEmitter(BaseViewEmitter):
     def __init__(self, survey_day: int = 30, min_votes: int = MIN_VOTES):
         self.survey_day = f"Dy{survey_day:02d}"
         self.min_votes = min_votes
-        self._records_by_day: Dict[str, List[SCHEMA_DICT]] = defaultdict(list)
-        self._skipped_records_by_day: Dict[str, List[str]] = defaultdict(list)
+        self._records_by_day: dict[str, list[SCHEMA_DICT]] = defaultdict(list)
+        self._skipped_records_by_day: dict[str, list[str]] = defaultdict(list)
 
     def process(self, record: SCHEMA_DICT) -> None:
         if record.get("day", {}).get("id") != self.survey_day:
@@ -60,12 +62,16 @@ class SurveyClassifierEmitter(BaseViewEmitter):
 
 
 def load_survey_classifier_views(all_data_json: Path) -> Mapping[str, SCHEMA_DICT]:
-    """Replay the emitter over all_data.json and return its finalized view."""
-    with open(all_data_json) as f:
-        records = json.load(f)
+    """Replay the emitter over all_data.json and return its finalized view.
+
+    Iterates the unfiltered organoid pool via ``iter_organoid_records`` (the
+    intentional rule-#3-respecting alternative to a raw ``json.load``) and
+    feeds each per-day record into ``SurveyClassifierEmitter``.
+    """
     emitter = SurveyClassifierEmitter()
-    for record in records.values():
-        emitter.process(record)
+    for _org_id, records_by_day, _batch in iter_organoid_records(all_data_json):
+        for record in records_by_day.values():
+            emitter.process(record)
     return emitter.finalize()
 
 

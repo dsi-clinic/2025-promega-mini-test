@@ -8,7 +8,6 @@ Usage:
     make run ARGS="-m analysis.paper_2026_04.metabolite_boxplot"
 """
 
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd

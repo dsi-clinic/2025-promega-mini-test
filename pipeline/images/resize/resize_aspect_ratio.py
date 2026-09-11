@@ -4,19 +4,13 @@ import argparse
 import dataclasses
 import json
 import logging
-import sys
 from pathlib import Path
-from pathlib import Path as _Path
-from typing import Any, Dict, Tuple
-
-sys.path.insert(0, str(_Path(__file__).parent.parent))
-from preprocessing.stitched_image_preprocessing import remove_red_scalebar, remove_corner_blackbox
+from typing import Any
 
 import cv2
 import numpy as np
 import tifffile  # type: ignore
 import tqdm
-
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(module)s:%(lineno)d %(levelname)s %(message)s',
@@ -69,7 +63,7 @@ def safe_stem(main_id: str) -> str:
     return s
 
 
-def read_raw_shape(tif_path: Path) -> Tuple[int, int]:
+def read_raw_shape(tif_path: Path) -> tuple[int, int]:
     """Return (orig_h, orig_w) from the actual TIFF on disk."""
     with tifffile.TiffFile(str(tif_path)) as tf:
         page = tf.pages[0]
@@ -92,7 +86,6 @@ def read_raw_shape(tif_path: Path) -> Tuple[int, int]:
     return int(orig_h), int(orig_w)
 
 def read_um_per_px_from_tif(tif_path: Path) -> float | None:
-    import re
     import tifffile
 
     with tifffile.TiffFile(str(tif_path)) as tf:
@@ -235,7 +228,7 @@ def main() -> None:
         logging.info("%s: %s", key, value)
 
     mapping = json.loads(args.image_mapping_json.read_text())
-    entries: Dict[str, Dict[str, Any]] = mapping.get("entries", {})
+    entries: dict[str, dict[str, Any]] = mapping.get("entries", {})
     if not entries:
         raise RuntimeError("No entries found in mapping JSON.")
 
@@ -267,7 +260,7 @@ def main() -> None:
             orig_h, orig_w = read_raw_shape(raw_path)
 
             # --- determine µm/px (TIFF > mapping fallback) ---
-                
+
             tif_um = read_um_per_px_from_tif(raw_path)
             if tif_um is not None:
                 orig_um = tif_um
@@ -317,12 +310,6 @@ def main() -> None:
                 interpolation=cv2.INTER_LINEAR,
             )
 
-            # 2b) Remove stitching artifacts (scalebar, black corners) for stitched images
-            if '_stitched' in main_id.lower():
-                img_rgb = img_scaled[:, :, ::-1]  # BGR → RGB
-                img_rgb = remove_red_scalebar(img_rgb)
-                img_rgb = remove_corner_blackbox(img_rgb)
-                img_scaled = img_rgb[:, :, ::-1]  # RGB → BGR
 
             # 3) Pad to square
             img_final = pad_to_square_image(img_scaled, args.target_size)

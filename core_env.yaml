@@ -30,6 +30,8 @@ dependencies:
     - fsspec==2026.3.*
     - safetensors==0.7.*
     - tensorflow==2.21.*
+    - ruff==0.14.*        # lint gate: `make lint` (AGENTS.md rule 12)
+    - pytest==8.*         # test runner: `make test` (AGENTS.md rules 1, 11, 14)
     - ipykernel==7.2.*
     - ipython==9.10.*
     - jupyter_client==8.8.*

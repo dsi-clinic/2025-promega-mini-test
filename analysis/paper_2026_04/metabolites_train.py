@@ -22,8 +22,8 @@ Usage:
 import argparse
 import json
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression

@@ -30,17 +30,18 @@ import datetime
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Tuple, get_args, get_origin
+from typing import Any, get_args
 
 import cv2  # type: ignore
 import numpy as np
+
 #import tifffile  # type: ignore
 import torch  # type: ignore
 from tqdm import tqdm
 
 try:
-    from mmseg.apis import init_model, inference_model  # type: ignore
     from mmengine.model.utils import revert_sync_batchnorm  # type: ignore
+    from mmseg.apis import inference_model, init_model  # type: ignore
 except Exception as e:
     raise SystemExit(
         "Failed to import MMSeg. Activate your mmseg env.\n"
@@ -74,7 +75,7 @@ class Config:
         "help": "Which internal model preset to use.",
         "choices": ["early", "late"] # model paths, early days 3-10, late 13-30
     })
-    days: Optional[Set[str]] = dataclasses.field(default=None, metadata={
+    days: set[str] | None = dataclasses.field(default=None, metadata={
         "help": "Comma-separated dayIDs to run (e.g. Dy03,Dy06,Dy08,Dy10). If omitted, runs all days."
     })
     overwrite: bool = dataclasses.field(default=False, metadata={
@@ -83,7 +84,7 @@ class Config:
     dry_run: bool = dataclasses.field(default=False, metadata={
         "help": "No inference; just validate + report counts."
     })
-    smoke: Optional[int] = dataclasses.field(default=None, metadata={
+    smoke: int | None = dataclasses.field(default=None, metadata={
         "help": "Limit to N records for quick test."
     })
     write_collage: bool = dataclasses.field(default=False, metadata={
@@ -169,14 +170,14 @@ def safe_stem(s: str) -> str:
     )
 
 
-def parse_days(days_arg: Optional[str]) -> Optional[Set[str]]:
+def parse_days(days_arg: str | None) -> set[str] | None:
     if not days_arg:
         return None
     days = {d.strip() for d in days_arg.split(",") if d.strip()}
     return days or None
 
 
-def load_mapping(mapping_json: Path) -> Tuple[Path, Dict[str, Dict[str, Any]], Dict[str, Any]]:
+def load_mapping(mapping_json: Path) -> tuple[Path, dict[str, dict[str, Any]], dict[str, Any]]:
     data = json.loads(mapping_json.read_text())
 
     processed_base = data.get("_processed_base_folder")

@@ -1,0 +1,49 @@
+[tool.ruff]
+# Active code only. Legacy/reference dirs and notebooks are frozen pre-2026-04
+# implementations kept for provenance; they are not held to the style gate.
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    "analysis/cnn_lstm_legacy",
+    "analysis/legacy_paper_2026_04",
+    "analysis/metabolites_legacy",
+    "analysis/image_notebooks",
+    "analysis/survey_notebooks",
+    # Segmentation runs under mmcv_env, not core_env — its imports are undefined
+    # from core_env's perspective, so ruff (run under core_env) can't lint it.
+    "pipeline/images/segmentation_mmseg",
+    "*.ipynb",
+]
+
+[tool.ruff.lint]
+# Conservative, high-signal baseline (AGENTS.md rule 12). Expand over time.
+#   E/W pycodestyle · F pyflakes · I import-sort · UP pyupgrade · B bugbear
+select = ["E", "W", "F", "I", "UP", "B"]
+ignore = [
+    "E501",  # line-too-long: enforced by `ruff format`, not the check gate
+    "E402",  # module-import-not-at-top: the digit-prefixed analysis pkgs need sys.path first
+    "B008",  # function-call-in-default-arg: common + safe in this code's factory helpers
+    # --- Phased in: existing offenders across older active code. Tracked for a
+    # --- dedicated cleanup pass so the gate is green now and new code stays clean.
+    "B905",  # zip-without-explicit-strict
+    "B904",  # raise-without-from-inside-except
+    "B028",  # no-explicit-stacklevel
+    "B023",  # function-uses-loop-variable
+    "B007",  # unused-loop-control-variable
+    "E701",  # multiple-statements-on-one-line (colon)
+    "E702",  # multiple-statements-on-one-line (semicolon)
+    "E721",  # type-comparison (use isinstance)
+    "E741",  # ambiguous-variable-name
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+# `model` is a closure variable resolved at call time (defined in the enclosing
+# scope after make_optimizer); ruff can't see it statically. Not a real bug.
+"analysis/images/cnn_lstm/train_temporal_ablation_attn.py" = ["F821"]
+"analysis/images/cnn_lstm/train_temporal_ablation_lstm.py" = ["F821"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"

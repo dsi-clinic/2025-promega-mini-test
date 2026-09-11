@@ -23,12 +23,11 @@ from collections import Counter
 
 from pipeline.data_loader import (
     HIGH_QUALITY_BATCHES,
+    _load_idor_organoid_ids,
     get_edge_fraction,
     is_stitched_record,
     iter_organoid_records,
-    main_id_to_organoid_id,
     verify_idor_list,
-    _load_idor_organoid_ids,
 )
 
 EDGE_FRACTION_THRESHOLD = 0.05
